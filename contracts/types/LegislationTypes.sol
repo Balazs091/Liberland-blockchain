@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.34;
+pragma solidity 0.8.34;
 
 /// @title LegislationTypes
 /// @notice Shared enums and structs for legislation text records and enactment metadata.

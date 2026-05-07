@@ -4,8 +4,10 @@ This folder is the clean handoff package for the frontend.
 
 ## Contents
 
+- `sepolia-demo.example.json`
+  - schema for deployed contract addresses and seeded identifiers
 - `sepolia-demo.json`
-  - deployed contract addresses and seeded identifiers for the demo Sepolia environment
+  - generated after a real demo deployment; ignored by Git so stale addresses are not committed
 - `FRONTEND-HOWTO.md`
   - page-by-page guidance for the first demo frontend screens
 - `abis/`
@@ -21,9 +23,9 @@ This folder is the clean handoff package for the frontend.
 
 ## Important notes
 
-- Use `frontend-export/sepolia-demo.json`, not any file under `broadcast/.../dry-run/`
-- `sepolia-demo.json` is the seeded Milestone 6 demo deployment once you copy it here after running `DeployDemo.s.sol`
-- `sepolia-demo.json` in this folder currently mirrors the latest local deployment artifact
+- Do not use any file under `broadcast/`; it is generated Foundry transaction output
+- After running `DeployDemo.s.sol`, copy `deployments/sepolia-demo.json` to `frontend-export/sepolia-demo.json`
+- `sepolia-demo.example.json` is only a schema example; it is not a live deployment config
 - The demo deployment adds seeded offices, a finance budget, referenda, a Congress election cycle, Senate seats, public veto state, a live `DemoCitizenGateway`, and a demo `LLM` merit token
 - The fast demo timing uses a 24 hour unstake cooldown and a 72 hour Congress election cycle by policy
 - Finalizing the latest ended Congress election creates the next deterministic cycle automatically in the same transaction; a public transaction is still required because the EVM has no native scheduler
@@ -93,3 +95,21 @@ The intended public demo flow is:
 8. Eligible citizens can apply during nomination windows, vote during voting windows, and finalize ended cycles
 9. After finalization, refresh `latestCycleId()` because the next recurring cycle may already have been created
 10. The existing governance screens read the updated citizen status, voting power, and candidate eligibility from the main registries and policies
+
+## Refreshing the handoff package
+
+After deploying a new demo:
+
+```bash
+cp deployments/sepolia-demo.json frontend-export/sepolia-demo.json
+cp out/CongressElectionApp.sol/CongressElectionApp.json frontend-export/abis/
+cp out/CongressElectionPolicy.sol/CongressElectionPolicy.json frontend-export/abis/
+cp out/ReferendumApp.sol/ReferendumApp.json frontend-export/abis/
+cp out/ReferendumRegistry.sol/ReferendumRegistry.json frontend-export/abis/
+```
+
+Create a zip only when you need to send the handoff folder outside Git:
+
+```bash
+zip -r frontend-export.zip frontend-export
+```

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.34;
+pragma solidity 0.8.34;
 
 import {IActionTimelock} from "../interfaces/IActionTimelock.sol";
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";

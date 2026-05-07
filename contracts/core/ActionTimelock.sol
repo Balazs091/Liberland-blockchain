@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.34;
+pragma solidity 0.8.34;
 
 import {IActionTimelock} from "../interfaces/IActionTimelock.sol";
 import {IBudgetEnvelopeRegistry} from "../interfaces/IBudgetEnvelopeRegistry.sol";
@@ -70,7 +70,10 @@ contract ActionTimelock is IActionTimelock {
         }
 
         // Defense in depth: queued updates may only target already-registered modules.
-        _kernel.getModule(request.targetModule);
+        address targetModuleAddress = _kernel.getModule(request.targetModule);
+        if (targetModuleAddress == address(0)) {
+            revert IConstitutionKernel.ModuleNotRegistered(request.targetModule);
+        }
         _validateQueuedAction(request, actionId);
 
         _actions[actionId] = GovernanceTypes.ActionRecord({

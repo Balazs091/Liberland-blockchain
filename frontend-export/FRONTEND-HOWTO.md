@@ -8,20 +8,21 @@ Do not hardcode constitutional behavior in the UI if the contract already expose
 
 In particular:
 
-- citizenship is decided by [CitizenEligibilityPolicy](/home/balazs91/Documents/Liberland%20EVM/liberland-evm/contracts/policies/CitizenEligibilityPolicy.sol)
-- voting power is decided by [VotingPowerPolicy](/home/balazs91/Documents/Liberland%20EVM/liberland-evm/contracts/policies/VotingPowerPolicy.sol)
-- candidate eligibility is decided by [CandidateEligibilityPolicy](/home/balazs91/Documents/Liberland%20EVM/liberland-evm/contracts/policies/CandidateEligibilityPolicy.sol)
-- Congress election timing is exposed by [CongressElectionPolicy](/home/balazs91/Documents/Liberland%20EVM/liberland-evm/contracts/policies/CongressElectionPolicy.sol)
-- unstake cooldown is exposed by [UnstakingPolicy](/home/balazs91/Documents/Liberland%20EVM/liberland-evm/contracts/policies/UnstakingPolicy.sol)
+- citizenship is decided by `contracts/policies/CitizenEligibilityPolicy.sol`
+- voting power is decided by `contracts/policies/VotingPowerPolicy.sol`
+- candidate eligibility is decided by `contracts/policies/CandidateEligibilityPolicy.sol`
+- Congress election timing is exposed by `contracts/policies/CongressElectionPolicy.sol`
+- unstake cooldown is exposed by `contracts/policies/UnstakingPolicy.sol`
 
 ## Demo config
 
-Use [sepolia-demo.json](/home/balazs91/Documents/Liberland%20EVM/liberland-evm/frontend-export/sepolia-demo.json) for the demo environment.
+Use `frontend-export/sepolia-demo.json` for the live demo environment.
 
 Important:
 
-- this file currently mirrors the latest `deployments/sepolia-demo.json`
-- if that artifact came from a dry-run, replace it after the real broadcast before using it against live Sepolia
+- `sepolia-demo.json` is generated from a real `DeployDemo.s.sol` broadcast and ignored by Git
+- `sepolia-demo.example.json` is only a schema example and contains no usable deployment addresses
+- after redeploying, copy `deployments/sepolia-demo.json` into `frontend-export/sepolia-demo.json`
 
 ## Page 1: Finances
 

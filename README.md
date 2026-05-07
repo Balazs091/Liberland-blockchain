@@ -35,6 +35,7 @@ contracts/
   registries/
   types/
 docs/
+frontend-export/
 scripts/
 test/
 ```
@@ -48,6 +49,12 @@ test/
 
 Ensure the Foundry binaries are available on your `PATH` before running commands.
 
+After cloning, initialize submodules:
+
+```bash
+git submodule update --init --recursive
+```
+
 ## Commands
 
 ```bash
@@ -56,3 +63,13 @@ forge build
 forge test -vvv
 slither .
 ```
+
+`slither` is optional for local development, but should be run before relying on a production deployment.
+
+## Deployment Outputs
+
+Deployment scripts write generated address files under `deployments/`. Those files are ignored by Git because they are environment-specific and can become stale after contract changes.
+
+For a public demo deployment, run `scripts/DeployDemo.s.sol`, then copy the generated `deployments/sepolia-demo.json` to `frontend-export/sepolia-demo.json` for the frontend handoff package.
+
+The current demo deploy batches bootstrap module registration and stays below 100 broadcast transactions. With treasury prefunding disabled it emits 71 transactions; enabling `TREASURY_PREFUND_WEI` adds one prefund transaction.

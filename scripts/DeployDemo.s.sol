@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.34;
+pragma solidity 0.8.34;
 
 import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
@@ -208,8 +208,10 @@ contract DeployDemo is Script {
         _identityAuthority = new MockModule(keccak256("demo.identity-authority"));
         _stakeAuthority = new MockModule(keccak256("demo.stake-authority"));
 
-        _kernel.bootstrapSetModule(KernelModuleIds.GOVERNANCE_ROUTER, address(_router));
-        _kernel.bootstrapSetModule(KernelModuleIds.ACTION_TIMELOCK, address(_timelock));
+        (bytes32[] memory moduleIds, address[] memory moduleAddresses) = _allocateModuleBatch(2);
+        _setModuleBatchEntry(moduleIds, moduleAddresses, 0, KernelModuleIds.GOVERNANCE_ROUTER, address(_router));
+        _setModuleBatchEntry(moduleIds, moduleAddresses, 1, KernelModuleIds.ACTION_TIMELOCK, address(_timelock));
+        _kernel.bootstrapSetModules(moduleIds, moduleAddresses);
     }
 
     function _deployRegistries() internal {
@@ -322,42 +324,145 @@ contract DeployDemo is Script {
     }
 
     function _registerBootstrapModules() internal {
-        _kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, address(_demoAuthority));
-        _kernel.bootstrapSetModule(KernelModuleIds.STAKE_REGISTRY_AUTHORITY, address(_demoAuthority));
-        _kernel.bootstrapSetModule(KernelModuleIds.LEGISLATION_REGISTRY_AUTHORITY, address(_demoAuthority));
-        _kernel.bootstrapSetModule(KernelModuleIds.REFERENDUM_REGISTRY_AUTHORITY, address(_demoAuthority));
-        _kernel.bootstrapSetModule(KernelModuleIds.OFFICE_REGISTRY_AUTHORITY, address(_demoAuthority));
-        _kernel.bootstrapSetModule(KernelModuleIds.BUDGET_ENVELOPE_REGISTRY_AUTHORITY, address(_demoAuthority));
-        _kernel.bootstrapSetModule(KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY_AUTHORITY, address(_demoAuthority));
+        (bytes32[] memory moduleIds, address[] memory moduleAddresses) = _allocateModuleBatch(33);
+        uint256 index;
 
-        _kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY, address(_identityRegistry));
-        _kernel.bootstrapSetModule(KernelModuleIds.STAKE_REGISTRY, address(_stakeRegistry));
-        _kernel.bootstrapSetModule(KernelModuleIds.LEGISLATION_REGISTRY, address(_legislationRegistry));
-        _kernel.bootstrapSetModule(KernelModuleIds.REFERENDUM_REGISTRY, address(_referendumRegistry));
-        _kernel.bootstrapSetModule(KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY, address(_congressCandidateRegistry));
-        _kernel.bootstrapSetModule(KernelModuleIds.SENATE_SEAT_REGISTRY, address(_senateSeatRegistry));
-        _kernel.bootstrapSetModule(KernelModuleIds.TREASURY_VAULT, address(_treasuryVault));
-        _kernel.bootstrapSetModule(KernelModuleIds.BUDGET_ENVELOPE_REGISTRY, address(_budgetEnvelopeRegistry));
-        _kernel.bootstrapSetModule(KernelModuleIds.OFFICE_REGISTRY, address(_officeRegistry));
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, address(_demoAuthority)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.STAKE_REGISTRY_AUTHORITY, address(_demoAuthority)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.LEGISLATION_REGISTRY_AUTHORITY, address(_demoAuthority)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.REFERENDUM_REGISTRY_AUTHORITY, address(_demoAuthority)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.OFFICE_REGISTRY_AUTHORITY, address(_demoAuthority)
+        );
+        _setModuleBatchEntry(
+            moduleIds,
+            moduleAddresses,
+            index++,
+            KernelModuleIds.BUDGET_ENVELOPE_REGISTRY_AUTHORITY,
+            address(_demoAuthority)
+        );
+        _setModuleBatchEntry(
+            moduleIds,
+            moduleAddresses,
+            index++,
+            KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY_AUTHORITY,
+            address(_demoAuthority)
+        );
 
-        _kernel.bootstrapSetModule(KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY, address(_citizenEligibilityPolicy));
-        _kernel.bootstrapSetModule(KernelModuleIds.UNSTAKING_POLICY, address(_unstakingPolicy));
-        _kernel.bootstrapSetModule(KernelModuleIds.VOTING_POWER_POLICY, address(_votingPowerPolicy));
-        _kernel.bootstrapSetModule(KernelModuleIds.CANDIDATE_ELIGIBILITY_POLICY, address(_candidateEligibilityPolicy));
-        _kernel.bootstrapSetModule(KernelModuleIds.CONGRESS_ELECTION_POLICY, address(_congressElectionPolicy));
-        _kernel.bootstrapSetModule(KernelModuleIds.REFERENDUM_POLICY, address(_referendumPolicy));
-        _kernel.bootstrapSetModule(KernelModuleIds.SENATE_POWERS_POLICY, address(_senatePowersPolicy));
-        _kernel.bootstrapSetModule(KernelModuleIds.OFFICE_PERMISSION_POLICY, address(_officePermissionPolicy));
-        _kernel.bootstrapSetModule(KernelModuleIds.TREASURY_SPENDING_POLICY, address(_treasurySpendingPolicy));
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.IDENTITY_REGISTRY, address(_identityRegistry)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.STAKE_REGISTRY, address(_stakeRegistry)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.LEGISLATION_REGISTRY, address(_legislationRegistry)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.REFERENDUM_REGISTRY, address(_referendumRegistry)
+        );
+        _setModuleBatchEntry(
+            moduleIds,
+            moduleAddresses,
+            index++,
+            KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY,
+            address(_congressCandidateRegistry)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.SENATE_SEAT_REGISTRY, address(_senateSeatRegistry)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.TREASURY_VAULT, address(_treasuryVault)
+        );
+        _setModuleBatchEntry(
+            moduleIds,
+            moduleAddresses,
+            index++,
+            KernelModuleIds.BUDGET_ENVELOPE_REGISTRY,
+            address(_budgetEnvelopeRegistry)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.OFFICE_REGISTRY, address(_officeRegistry)
+        );
 
-        _kernel.bootstrapSetModule(KernelModuleIds.CONGRESS_ELECTION_APP, address(_congressElectionApp));
-        _kernel.bootstrapSetModule(KernelModuleIds.REFERENDUM_APP, address(_referendumApp));
-        _kernel.bootstrapSetModule(KernelModuleIds.SENATE_APP, address(_senateApp));
-        _kernel.bootstrapSetModule(KernelModuleIds.PUBLIC_VETO_APP, address(_publicVetoApp));
-        _kernel.bootstrapSetModule(KernelModuleIds.PAYOUT_QUEUE, address(_payoutQueue));
-        _kernel.bootstrapSetModule(KernelModuleIds.OFFICE_EXECUTOR, address(_officeExecutor));
-        _kernel.bootstrapSetModule(KernelModuleIds.SENATE_SEAT_REGISTRY_AUTHORITY, address(_senateApp));
-        _kernel.bootstrapSetModule(KernelModuleIds.LEGISLATION_REPEAL_AUTHORITY, address(_publicVetoApp));
+        _setModuleBatchEntry(
+            moduleIds,
+            moduleAddresses,
+            index++,
+            KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY,
+            address(_citizenEligibilityPolicy)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.UNSTAKING_POLICY, address(_unstakingPolicy)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.VOTING_POWER_POLICY, address(_votingPowerPolicy)
+        );
+        _setModuleBatchEntry(
+            moduleIds,
+            moduleAddresses,
+            index++,
+            KernelModuleIds.CANDIDATE_ELIGIBILITY_POLICY,
+            address(_candidateEligibilityPolicy)
+        );
+        _setModuleBatchEntry(
+            moduleIds,
+            moduleAddresses,
+            index++,
+            KernelModuleIds.CONGRESS_ELECTION_POLICY,
+            address(_congressElectionPolicy)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.REFERENDUM_POLICY, address(_referendumPolicy)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.SENATE_POWERS_POLICY, address(_senatePowersPolicy)
+        );
+        _setModuleBatchEntry(
+            moduleIds,
+            moduleAddresses,
+            index++,
+            KernelModuleIds.OFFICE_PERMISSION_POLICY,
+            address(_officePermissionPolicy)
+        );
+        _setModuleBatchEntry(
+            moduleIds,
+            moduleAddresses,
+            index++,
+            KernelModuleIds.TREASURY_SPENDING_POLICY,
+            address(_treasurySpendingPolicy)
+        );
+
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.CONGRESS_ELECTION_APP, address(_congressElectionApp)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.REFERENDUM_APP, address(_referendumApp)
+        );
+        _setModuleBatchEntry(moduleIds, moduleAddresses, index++, KernelModuleIds.SENATE_APP, address(_senateApp));
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.PUBLIC_VETO_APP, address(_publicVetoApp)
+        );
+        _setModuleBatchEntry(moduleIds, moduleAddresses, index++, KernelModuleIds.PAYOUT_QUEUE, address(_payoutQueue));
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.OFFICE_EXECUTOR, address(_officeExecutor)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.SENATE_SEAT_REGISTRY_AUTHORITY, address(_senateApp)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.LEGISLATION_REPEAL_AUTHORITY, address(_publicVetoApp)
+        );
+
+        _kernel.bootstrapSetModules(moduleIds, moduleAddresses);
     }
 
     function _seedDemoState(address deployer) internal {
@@ -575,18 +680,60 @@ contract DeployDemo is Script {
     }
 
     function _switchToFinalDemoWiring() internal {
-        _kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, address(_demoCitizenGateway));
-        _kernel.bootstrapSetModule(KernelModuleIds.STAKE_REGISTRY_AUTHORITY, address(_demoCitizenGateway));
-        _kernel.bootstrapSetModule(KernelModuleIds.LEGISLATION_REGISTRY_AUTHORITY, address(_timelock));
-        _kernel.bootstrapSetModule(KernelModuleIds.REFERENDUM_REGISTRY_AUTHORITY, address(_referendumApp));
-        _kernel.bootstrapSetModule(KernelModuleIds.BUDGET_ENVELOPE_REGISTRY_AUTHORITY, address(_timelock));
-        _kernel.bootstrapSetModule(KernelModuleIds.BUDGET_ENVELOPE_ACCOUNTING_AUTHORITY, address(_payoutQueue));
-        _kernel.bootstrapSetModule(KernelModuleIds.OFFICE_REGISTRY_AUTHORITY, address(_officeExecutor));
-        _kernel.bootstrapSetModule(KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY_AUTHORITY, address(_congressElectionApp));
+        (bytes32[] memory moduleIds, address[] memory moduleAddresses) = _allocateModuleBatch(8);
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, 0, KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, address(_demoCitizenGateway)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, 1, KernelModuleIds.STAKE_REGISTRY_AUTHORITY, address(_demoCitizenGateway)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, 2, KernelModuleIds.LEGISLATION_REGISTRY_AUTHORITY, address(_timelock)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, 3, KernelModuleIds.REFERENDUM_REGISTRY_AUTHORITY, address(_referendumApp)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, 4, KernelModuleIds.BUDGET_ENVELOPE_REGISTRY_AUTHORITY, address(_timelock)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, 5, KernelModuleIds.BUDGET_ENVELOPE_ACCOUNTING_AUTHORITY, address(_payoutQueue)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, 6, KernelModuleIds.OFFICE_REGISTRY_AUTHORITY, address(_officeExecutor)
+        );
+        _setModuleBatchEntry(
+            moduleIds,
+            moduleAddresses,
+            7,
+            KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY_AUTHORITY,
+            address(_congressElectionApp)
+        );
+        _kernel.bootstrapSetModules(moduleIds, moduleAddresses);
 
         _router.configureOriginAuthority(GovernanceTypes.ActionOrigin.Referendum, address(_referendumApp));
         _router.configureOriginAuthority(GovernanceTypes.ActionOrigin.Senate, address(_senateApp));
         _router.configureOriginAuthority(GovernanceTypes.ActionOrigin.Office, address(_officeExecutor));
+    }
+
+    function _allocateModuleBatch(uint256 length)
+        internal
+        pure
+        returns (bytes32[] memory moduleIds, address[] memory moduleAddresses)
+    {
+        moduleIds = new bytes32[](length);
+        moduleAddresses = new address[](length);
+    }
+
+    function _setModuleBatchEntry(
+        bytes32[] memory moduleIds,
+        address[] memory moduleAddresses,
+        uint256 index,
+        bytes32 moduleId,
+        address moduleAddress
+    ) internal pure {
+        moduleIds[index] = moduleId;
+        moduleAddresses[index] = moduleAddress;
     }
 
     function _prefundTreasuryIfConfigured() internal {

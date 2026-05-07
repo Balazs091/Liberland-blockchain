@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.34;
+pragma solidity 0.8.34;
 
 /// @title IUnstakingPolicy
 /// @notice Policy interface for unstake cooldown mechanics and political-rights effects.

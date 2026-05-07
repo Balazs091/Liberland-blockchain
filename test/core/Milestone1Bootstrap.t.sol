@@ -1,11 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.34;
+pragma solidity 0.8.34;
 
 import {Test} from "forge-std/Test.sol";
 
+import {ConstitutionKernel} from "../../contracts/core/ConstitutionKernel.sol";
 import {IActionTimelock} from "../../contracts/interfaces/IActionTimelock.sol";
 import {IConstitutionKernel} from "../../contracts/interfaces/IConstitutionKernel.sol";
 import {IGovernanceRouter} from "../../contracts/interfaces/IGovernanceRouter.sol";
+import {KernelModuleIds} from "../../contracts/libraries/KernelModuleIds.sol";
+import {MockModule} from "../../contracts/mocks/MockModule.sol";
 import {ElectionTypes} from "../../contracts/types/ElectionTypes.sol";
 import {GovernanceTypes} from "../../contracts/types/GovernanceTypes.sol";
 import {IdentityTypes} from "../../contracts/types/IdentityTypes.sol";
@@ -96,6 +99,7 @@ contract Milestone1BootstrapTest is Test {
         assertTrue(IConstitutionKernel.getModule.selector != bytes4(0));
         assertTrue(IConstitutionKernel.getModuleRecord.selector != bytes4(0));
         assertTrue(IConstitutionKernel.isAuthorizedModule.selector != bytes4(0));
+        assertTrue(IConstitutionKernel.bootstrapSetModules.selector != bytes4(0));
         assertTrue(IConstitutionKernel.governanceUpdateModule.selector != bytes4(0));
 
         assertTrue(IGovernanceRouter.kernel.selector != bytes4(0));
@@ -108,5 +112,72 @@ contract Milestone1BootstrapTest is Test {
         assertTrue(IActionTimelock.cancelAction.selector != bytes4(0));
         assertTrue(IActionTimelock.executeAction.selector != bytes4(0));
         assertTrue(IActionTimelock.expireAction.selector != bytes4(0));
+    }
+
+    function test_BootstrapSetModulesRegistersBatch() public {
+        ConstitutionKernel kernel = new ConstitutionKernel(address(this));
+        MockModule router = new MockModule(keccak256("router"));
+        MockModule timelock = new MockModule(keccak256("timelock"));
+
+        bytes32[] memory moduleIds = new bytes32[](2);
+        address[] memory moduleAddresses = new address[](2);
+        moduleIds[0] = KernelModuleIds.GOVERNANCE_ROUTER;
+        moduleIds[1] = KernelModuleIds.ACTION_TIMELOCK;
+        moduleAddresses[0] = address(router);
+        moduleAddresses[1] = address(timelock);
+
+        kernel.bootstrapSetModules(moduleIds, moduleAddresses);
+
+        assertEq(kernel.getModule(KernelModuleIds.GOVERNANCE_ROUTER), address(router));
+        assertEq(kernel.getModule(KernelModuleIds.ACTION_TIMELOCK), address(timelock));
+        assertTrue(kernel.isAuthorizedModule(address(router)));
+        assertTrue(kernel.isAuthorizedModule(address(timelock)));
+    }
+
+    function test_BootstrapSetModulesReplacesExistingModuleAndAuthorization() public {
+        ConstitutionKernel kernel = new ConstitutionKernel(address(this));
+        MockModule initialModule = new MockModule(keccak256("initial"));
+        MockModule replacementModule = new MockModule(keccak256("replacement"));
+
+        bytes32[] memory moduleIds = new bytes32[](1);
+        address[] memory moduleAddresses = new address[](1);
+        moduleIds[0] = KernelModuleIds.GOVERNANCE_ROUTER;
+        moduleAddresses[0] = address(initialModule);
+        kernel.bootstrapSetModules(moduleIds, moduleAddresses);
+
+        moduleAddresses[0] = address(replacementModule);
+        kernel.bootstrapSetModules(moduleIds, moduleAddresses);
+
+        assertEq(kernel.getModule(KernelModuleIds.GOVERNANCE_ROUTER), address(replacementModule));
+        assertFalse(kernel.isAuthorizedModule(address(initialModule)));
+        assertTrue(kernel.isAuthorizedModule(address(replacementModule)));
+    }
+
+    function test_BootstrapSetModulesRevertsForInvalidBatchLengths() public {
+        ConstitutionKernel kernel = new ConstitutionKernel(address(this));
+
+        bytes32[] memory emptyModuleIds = new bytes32[](0);
+        address[] memory emptyModuleAddresses = new address[](0);
+        vm.expectRevert(abi.encodeWithSelector(ConstitutionKernel.InvalidModuleBatchLength.selector, 0, 0));
+        kernel.bootstrapSetModules(emptyModuleIds, emptyModuleAddresses);
+
+        bytes32[] memory moduleIds = new bytes32[](1);
+        moduleIds[0] = KernelModuleIds.GOVERNANCE_ROUTER;
+        vm.expectRevert(abi.encodeWithSelector(ConstitutionKernel.InvalidModuleBatchLength.selector, 1, 0));
+        kernel.bootstrapSetModules(moduleIds, emptyModuleAddresses);
+    }
+
+    function test_BootstrapSetModulesRevertsAfterBootstrapAuthorityDisabled() public {
+        ConstitutionKernel kernel = new ConstitutionKernel(address(this));
+        MockModule router = new MockModule(keccak256("router"));
+
+        bytes32[] memory moduleIds = new bytes32[](1);
+        address[] memory moduleAddresses = new address[](1);
+        moduleIds[0] = KernelModuleIds.GOVERNANCE_ROUTER;
+        moduleAddresses[0] = address(router);
+
+        kernel.disableBootstrapAuthority();
+        vm.expectRevert(ConstitutionKernel.BootstrapAlreadyDisabled.selector);
+        kernel.bootstrapSetModules(moduleIds, moduleAddresses);
     }
 }

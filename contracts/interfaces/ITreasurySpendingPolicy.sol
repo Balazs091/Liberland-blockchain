@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.34;
+pragma solidity 0.8.34;
 
 import {OfficeTypes} from "../types/OfficeTypes.sol";
 import {TreasuryTypes} from "../types/TreasuryTypes.sol";

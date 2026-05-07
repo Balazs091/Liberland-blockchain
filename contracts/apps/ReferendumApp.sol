@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.34;
+pragma solidity 0.8.34;
 
 import {IGovernanceRouter} from "../interfaces/IGovernanceRouter.sol";
 import {ICongressElectionPolicy} from "../interfaces/ICongressElectionPolicy.sol";
@@ -216,8 +216,8 @@ contract ReferendumApp is IReferendumApp {
             referendumRecord.againstVoterCount
         );
 
-        bytes32 enactedMeasureId;
-        bytes32 enactmentActionId;
+        bytes32 enactedMeasureId = bytes32(0);
+        bytes32 enactmentActionId = bytes32(0);
         if (outcome.passed) {
             enactedMeasureId = referendumRecord.proposedMeasureId;
             if (referendumRecord.referendumClass == ReferendumTypes.ReferendumClass.CongressElectionPolicy) {

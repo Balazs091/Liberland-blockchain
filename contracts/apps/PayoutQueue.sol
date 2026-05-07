@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.34;
+pragma solidity 0.8.34;
 
 import {IActionTimelock} from "../interfaces/IActionTimelock.sol";
 import {IBudgetEnvelopeRegistry} from "../interfaces/IBudgetEnvelopeRegistry.sol";
@@ -205,20 +205,20 @@ contract PayoutQueue is IPayoutQueue {
                 revert PayoutRequestNotQueued(requestId);
             }
 
-            _budgetEnvelopeRegistry.recordDisbursement(requestId);
             request.state = TreasuryTypes.DisbursementState.Executed;
+            _budgetEnvelopeRegistry.recordDisbursement(requestId);
             emit PayoutExecuted(requestId, request.actionId, uint64(block.timestamp), msg.sender);
             return request.state;
         }
         if (actionState == GovernanceTypes.ActionState.Canceled) {
-            _budgetEnvelopeRegistry.releaseBudget(requestId);
             request.state = TreasuryTypes.DisbursementState.Vetoed;
+            _budgetEnvelopeRegistry.releaseBudget(requestId);
             emit PayoutVetoed(requestId, request.actionId, uint64(block.timestamp), msg.sender);
             return request.state;
         }
         if (actionState == GovernanceTypes.ActionState.Expired) {
-            _budgetEnvelopeRegistry.releaseBudget(requestId);
             request.state = TreasuryTypes.DisbursementState.Expired;
+            _budgetEnvelopeRegistry.releaseBudget(requestId);
             emit PayoutExpired(requestId, request.actionId, uint64(block.timestamp), msg.sender);
             return request.state;
         }

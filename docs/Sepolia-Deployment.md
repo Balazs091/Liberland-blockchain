@@ -30,6 +30,7 @@ Important:
 - `PRIVATE_KEY` must include the `0x` prefix
 - the deploy script writes deployed addresses to `deployments/sepolia.json`
 - if you do not set `FINANCE_ADMIN`, `IDENTITY_ADMIN`, or `LAND_ADMIN`, the deployer wallet becomes the admin of all three Milestone 6 offices
+- deployment JSON files are generated outputs and are ignored by Git to avoid committing stale addresses
 
 ## Dry run
 
@@ -71,7 +72,7 @@ forge script scripts/Deploy.s.sol:Deploy \
   -vvvv
 ```
 
-If broadcast already happened, verification artifacts will also be available under `broadcast/`.
+If broadcast already happened, verification artifacts will also be available under `broadcast/`. Treat `broadcast/` as generated Foundry transaction output, not application config.
 
 ## Current deployment scope
 
@@ -86,6 +87,11 @@ The script now deploys and wires the Milestone 06 stack:
   - `Ministry of Finance`
   - `Identity Office`
   - `Land Registry Office`
+
+The production-style deploy script also batches bootstrap module-pointer writes. A local Anvil broadcast currently emits 40 transactions:
+
+- 29 contract creations
+- 11 setup calls
 
 The production Congress election policy uses a 90 day recurring cycle duration. Finalizing the latest ended Congress election creates the next deterministic cycle in the same transaction, and future cadence changes can be routed through a bounded `CongressElectionPolicy` referendum.
 

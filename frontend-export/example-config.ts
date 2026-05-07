@@ -1,6 +1,6 @@
 import { sepolia } from 'viem/chains'
 
-import addresses from './sepolia-demo.json'
+import addresses from './sepolia-demo.example.json'
 
 export const liberlandSepolia = {
   chain: sepolia,

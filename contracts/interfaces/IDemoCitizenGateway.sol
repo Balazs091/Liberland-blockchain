@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.34;
+pragma solidity 0.8.34;
 
 /// @title IDemoCitizenGateway
 /// @notice Demo-only onboarding and merit staking interface for live frontend testing.

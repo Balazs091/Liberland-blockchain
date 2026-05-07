@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.34;
+pragma solidity 0.8.34;
 
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
@@ -10,6 +10,7 @@ import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 contract ConstitutionKernel is IConstitutionKernel {
     error BootstrapAlreadyDisabled();
     error InvalidBootstrapAuthority(address bootstrapAuthority_);
+    error InvalidModuleBatchLength(uint256 moduleIdCount, uint256 moduleAddressCount);
     error InvalidModuleId(bytes32 moduleId);
     error ModuleAddressUnchanged(bytes32 moduleId, address moduleAddress);
     error NotBootstrapAuthority(address caller);
@@ -69,6 +70,18 @@ contract ConstitutionKernel is IConstitutionKernel {
     function bootstrapSetModule(bytes32 moduleId, address moduleAddress) external {
         _requireBootstrapAuthority(msg.sender);
         _setModule(moduleId, moduleAddress, true);
+    }
+
+    /// @inheritdoc IConstitutionKernel
+    function bootstrapSetModules(bytes32[] calldata moduleIds, address[] calldata moduleAddresses) external {
+        _requireBootstrapAuthority(msg.sender);
+        if (moduleIds.length == 0 || moduleIds.length != moduleAddresses.length) {
+            revert InvalidModuleBatchLength(moduleIds.length, moduleAddresses.length);
+        }
+
+        for (uint256 index = 0; index < moduleIds.length; ++index) {
+            _setModule(moduleIds[index], moduleAddresses[index], true);
+        }
     }
 
     /// @notice Permanently removes the temporary bootstrap authority.

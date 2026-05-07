@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.34;
+pragma solidity 0.8.34;
 
 import {ICitizenEligibilityPolicy} from "../interfaces/ICitizenEligibilityPolicy.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
@@ -130,9 +130,9 @@ contract PublicVetoApp is IPublicVetoApp {
         emit PublicVetoCast(measureId, vetoId, personId, msg.sender, publicVetoRecord.supportCount, currentTimestamp);
 
         if (!publicVetoRecord.repealed && publicVetoRecord.supportCount >= _repealThreshold) {
-            _legislationRegistry.recordRepeal(measureId, LegislationTypes.RepealOrigin.PublicVeto, vetoId);
             publicVetoRecord.repealed = true;
             publicVetoRecord.repealedAt = currentTimestamp;
+            _legislationRegistry.recordRepeal(measureId, LegislationTypes.RepealOrigin.PublicVeto, vetoId);
 
             emit PublicVetoThresholdReached(
                 measureId, vetoId, publicVetoRecord.supportCount, msg.sender, currentTimestamp

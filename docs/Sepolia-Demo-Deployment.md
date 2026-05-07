@@ -30,6 +30,32 @@ The seeding path uses an explicit demo-only authority contract during bootstrap,
 
 That means the final demo deployment does not keep a hidden mutable demo admin path through the kernel module registry.
 
+## Deployment transaction count
+
+`DeployDemo.s.sol` batches bootstrap module-pointer writes through `ConstitutionKernel.bootstrapSetModules(...)`. A local Anvil broadcast with `TREASURY_PREFUND_WEI=0` currently emits 71 transactions:
+
+- 32 contract creations
+- 39 setup calls
+
+If `TREASURY_PREFUND_WEI` is nonzero, the script sends one additional treasury prefund transaction. That makes a prefunded demo deployment 72 transactions.
+
+This keeps the demo deployment below common public RPC free-tier limits around 100 submitted transactions.
+
+To re-check the count after changing the deploy script:
+
+```bash
+anvil --silent
+
+PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
+TREASURY_PREFUND_WEI=0 \
+forge script scripts/DeployDemo.s.sol:DeployDemo \
+  --rpc-url http://127.0.0.1:8545 \
+  --broadcast \
+  -q
+
+jq '.transactions | length' broadcast/DeployDemo.s.sol/31337/run-latest.json
+```
+
 ## Fast demo timing
 
 The demo deployment is intentionally faster than a production-style configuration:
@@ -122,7 +148,7 @@ To change it:
 5. Run `forge fmt`, `forge build`, and `forge test -vvv`
 6. Redeploy the demo and copy the new `deployments/sepolia-demo.json` into `frontend-export/sepolia-demo.json`
 
-The production election contracts do not need to change to seed demo state. A new deployment is required because the seeded cycle is written during bootstrap before bootstrap authority is permanently disabled.
+The production election contracts do not need to change to seed demo state. A new deployment is required because the seeded cycle is written during bootstrap before bootstrap authority is permanently disabled. Deployment JSON files are generated outputs and are intentionally ignored by Git; commit only examples or documentation, not stale live addresses.
 
 ## How to change recurring election cadence
 
@@ -189,7 +215,7 @@ The script writes:
 
 - `deployments/sepolia-demo.json`
 
-Use that file for the frontend demo environment.
+Use that file for the frontend demo environment by copying it to `frontend-export/sepolia-demo.json`. Do not use `broadcast/` files as frontend config.
 
 Useful fields inside it:
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.34;
+pragma solidity 0.8.34;
 
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
 
@@ -34,6 +34,11 @@ interface IConstitutionKernel {
     /// @param account The account to check.
     /// @return authorized Whether the account is an authorized module.
     function isAuthorizedModule(address account) external view returns (bool authorized);
+
+    /// @notice Registers or replaces multiple module pointers during bootstrap.
+    /// @param moduleIds The module identifiers to register or replace.
+    /// @param moduleAddresses The module implementation addresses to store.
+    function bootstrapSetModules(bytes32[] calldata moduleIds, address[] calldata moduleAddresses) external;
 
     /// @notice Replaces the canonical pointer for an existing module through the governed execution path.
     /// @param moduleId The module identifier to update.

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.34;
+pragma solidity 0.8.34;
 
 /// @title MockModule
 /// @notice Minimal deployed contract used in Milestone 1 module pointer tests.

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.34;
+pragma solidity 0.8.34;
 
 import {ICandidateEligibilityPolicy} from "../interfaces/ICandidateEligibilityPolicy.sol";
 import {ICongressCandidateRegistry} from "../interfaces/ICongressCandidateRegistry.sol";
@@ -226,7 +226,7 @@ contract CongressElectionApp is ICongressElectionApp {
             revert NotActiveCongressMember(msg.sender);
         }
 
-        return _congressCandidateRegistry.vacateAndFillSeat(msg.sender);
+        (seatIndex, replacementCandidate) = _congressCandidateRegistry.vacateAndFillSeat(msg.sender);
     }
 
     function _createElectionCycle(

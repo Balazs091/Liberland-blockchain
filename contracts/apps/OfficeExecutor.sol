@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.34;
+pragma solidity 0.8.34;
 
 import {IGovernanceRouter} from "../interfaces/IGovernanceRouter.sol";
 import {IOfficeExecutor} from "../interfaces/IOfficeExecutor.sol";

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.34;
+pragma solidity 0.8.34;
 
 /// @title ICongressElectionPolicy
 /// @notice Policy interface for Congress election eligibility, weighting, and bounded cycle configuration.
