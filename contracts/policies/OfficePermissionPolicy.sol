@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {IOfficePermissionPolicy} from "../interfaces/IOfficePermissionPolicy.sol";
 import {OfficeTypes} from "../types/OfficeTypes.sol";
@@ -33,12 +33,24 @@ contract OfficePermissionPolicy is IOfficePermissionPolicy {
         if (
             officeRole == OfficeTypes.OfficeRole.Admin
                 && (actionClass == OfficeTypes.OfficeActionClass.ManageClerks
-                    || actionClass == OfficeTypes.OfficeActionClass.TransferAdmin)
+                    || actionClass == OfficeTypes.OfficeActionClass.TransferAdmin
+                    || actionClass == OfficeTypes.OfficeActionClass.ManageOfficeMetadata
+                    || actionClass == OfficeTypes.OfficeActionClass.SetOfficeActive)
         ) {
             return true;
         }
 
         if (officeKind != OfficeTypes.OfficeKind.MinistryOfFinance) {
+            if (officeKind == OfficeTypes.OfficeKind.LandRegistryOffice) {
+                return (officeRole == OfficeTypes.OfficeRole.Admin || officeRole == OfficeTypes.OfficeRole.Clerk)
+                    && actionClass == OfficeTypes.OfficeActionClass.ManageLandRegistry;
+            }
+
+            if (officeKind == OfficeTypes.OfficeKind.CompanyRegistryOffice) {
+                return (officeRole == OfficeTypes.OfficeRole.Admin || officeRole == OfficeTypes.OfficeRole.Clerk)
+                    && actionClass == OfficeTypes.OfficeActionClass.ManageCompanyRegistry;
+            }
+
             return false;
         }
 

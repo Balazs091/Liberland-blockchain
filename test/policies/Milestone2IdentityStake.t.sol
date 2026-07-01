@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -20,10 +20,11 @@ import {IdentityTypes} from "../../contracts/types/IdentityTypes.sol";
 import {StakeTypes} from "../../contracts/types/StakeTypes.sol";
 
 /// @title Milestone2IdentityStakeTest
-/// @notice Covers Milestone 2 identity, stake, and political-rights policy defaults.
+/// @notice Covers Milestone 2 identity, stake, discrete unstaking, and welfare-based rights.
 contract Milestone2IdentityStakeTest is Test {
     uint256 internal constant MINIMUM_CITIZEN_STAKE = 5_000;
-    uint64 internal constant UNSTAKE_COOLDOWN = 7 days;
+    uint64 internal constant WELFARE_PERIOD = 30 days;
+    uint16 internal constant ANNUAL_UNSTAKE_RATE_BPS = 1_000;
 
     bytes32 internal constant PERSON_ID = bytes32(uint256(1));
     bytes32 internal constant PERSON_TWO_ID = bytes32(uint256(2));
@@ -61,17 +62,14 @@ contract Milestone2IdentityStakeTest is Test {
         address indexed updatedBy
     );
 
-    event UnstakeRequested(
+    event UnstakeExecuted(
         bytes32 indexed personId,
-        uint256 amount,
-        uint256 newActiveStake,
-        uint256 pendingUnstake,
-        uint64 cooldownStart,
-        uint64 cooldownEnd,
-        address indexed updatedBy
+        uint256 releasedAmount,
+        uint256 remainingActiveStake,
+        uint64 welfareUntil,
+        uint64 timestamp,
+        address indexed caller
     );
-
-    event UnstakeClaimed(bytes32 indexed personId, uint256 claimedAmount, uint64 claimedAt, address indexed updatedBy);
 
     ConstitutionKernel internal kernel;
     MockModule internal identityAuthority;
@@ -98,17 +96,25 @@ contract Milestone2IdentityStakeTest is Test {
             new CitizenEligibilityPolicy(address(identityRegistry), address(stakeRegistry), MINIMUM_CITIZEN_STAKE);
         votingPowerPolicy =
             new VotingPowerPolicy(address(identityRegistry), address(stakeRegistry), address(citizenEligibilityPolicy));
-        unstakingPolicy = new UnstakingPolicy(address(stakeRegistry), UNSTAKE_COOLDOWN);
+        unstakingPolicy = new UnstakingPolicy(address(stakeRegistry), WELFARE_PERIOD, ANNUAL_UNSTAKE_RATE_BPS);
+
+        kernel.bootstrapSetModule(KernelModuleIds.UNSTAKING_POLICY, address(unstakingPolicy));
     }
 
     function test_Milestone2InterfacesExposeSelectors() public pure {
         assertTrue(IIdentityRegistry.getIdentityRecord.selector != bytes4(0));
         assertTrue(IIdentityRegistry.setIdentityRecord.selector != bytes4(0));
-        assertTrue(IStakeRegistry.requestUnstake.selector != bytes4(0));
-        assertTrue(IStakeRegistry.claimUnstake.selector != bytes4(0));
+        assertTrue(IStakeRegistry.unstake.selector != bytes4(0));
+        assertTrue(IStakeRegistry.isInWelfare.selector != bytes4(0));
         assertTrue(ICitizenEligibilityPolicy.isCitizenInGoodStanding.selector != bytes4(0));
         assertTrue(IVotingPowerPolicy.votingPower.selector != bytes4(0));
-        assertTrue(IUnstakingPolicy.canStartUnstake.selector != bytes4(0));
+        assertTrue(IUnstakingPolicy.canUnstake.selector != bytes4(0));
+    }
+
+    function test_UnstakingPolicy_ExposesConfiguredDefaults() public view {
+        assertEq(unstakingPolicy.welfarePeriod(), WELFARE_PERIOD);
+        assertEq(unstakingPolicy.annualUnstakeRateBps(), ANNUAL_UNSTAKE_RATE_BPS);
+        assertEq(unstakingPolicy.stakeRegistry(), address(stakeRegistry));
     }
 
     function test_IdentityRegistry_EmitsAuditEventsAndStoresWalletLink() public {
@@ -192,6 +198,30 @@ contract Milestone2IdentityStakeTest is Test {
         assertTrue(identityRegistry.hasActiveWalletLink(WALLET));
     }
 
+    /// @notice H2: one active wallet per person, but revoke-then-activate migration is allowed.
+    function test_IdentityRegistry_RejectsSecondActiveWalletButAllowsMigration() public {
+        _setIdentityRecord(PERSON_ID, _defaultIdentityInput());
+        _setWalletLink(PERSON_ID, WALLET, IdentityTypes.WalletLinkStatus.Active);
+        assertEq(identityRegistry.activeWalletCountOf(PERSON_ID), 1);
+
+        // A second, different wallet cannot become active while the first is active.
+        vm.expectRevert(abi.encodeWithSelector(IIdentityRegistry.PersonAlreadyHasActiveWallet.selector, PERSON_ID));
+        _setWalletLink(PERSON_ID, WALLET_TWO, IdentityTypes.WalletLinkStatus.Active);
+
+        // Re-activating the same wallet is idempotent and does not revert.
+        _setWalletLink(PERSON_ID, WALLET, IdentityTypes.WalletLinkStatus.Active);
+        assertEq(identityRegistry.activeWalletCountOf(PERSON_ID), 1);
+
+        // Migration: revoke the old wallet first, then activate the new one.
+        _setWalletLink(PERSON_ID, WALLET, IdentityTypes.WalletLinkStatus.Revoked);
+        assertEq(identityRegistry.activeWalletCountOf(PERSON_ID), 0);
+        _setWalletLink(PERSON_ID, WALLET_TWO, IdentityTypes.WalletLinkStatus.Active);
+
+        assertEq(identityRegistry.activeWalletCountOf(PERSON_ID), 1);
+        assertTrue(identityRegistry.hasActiveWalletLink(WALLET_TWO));
+        assertFalse(identityRegistry.hasActiveWalletLink(WALLET));
+    }
+
     function test_StakeRegistry_RequiresAuthorizedModule() public {
         vm.expectRevert(abi.encodeWithSelector(IStakeRegistry.UnauthorizedStakeRegistryCaller.selector, address(this)));
         stakeRegistry.increaseStake(PERSON_ID, 1);
@@ -215,79 +245,96 @@ contract Milestone2IdentityStakeTest is Test {
         assertEq(votingPowerPolicy.votingPower(WALLET), 0);
     }
 
-    function test_UnstakingCooldown_BlocksPoliticalRightsOnlyDuringCooldown() public {
-        _registerCitizen(PERSON_ID, WALLET, 7_000);
+    /// @notice Security property: one unstake releases the 30-day portion and suspends voting during welfare.
+    function test_Unstake_ReleasesDiscretePortionAndSuspendsVotingDuringWelfare() public {
+        _registerCitizen(PERSON_ID, WALLET, 7_300);
 
-        uint64 cooldownEnd = unstakingPolicy.previewCooldownEnd(uint64(block.timestamp));
-        assertTrue(unstakingPolicy.canStartUnstake(PERSON_ID, 1_000));
+        // 10%/yr * 30/365 of 7,300 == 60 exactly (7300 * 1000 * 30 days / (10_000 * 365 days)).
+        assertEq(unstakingPolicy.unstakePortion(7_300), 60);
+        assertTrue(unstakingPolicy.canUnstake(PERSON_ID));
+
+        uint64 expectedWelfareUntil = uint64(block.timestamp) + WELFARE_PERIOD;
 
         vm.expectEmit(true, false, false, true, address(stakeRegistry));
-        emit UnstakeRequested(
-            PERSON_ID, 1_000, 6_000, 1_000, uint64(block.timestamp), cooldownEnd, address(stakeAuthority)
+        emit UnstakeExecuted(
+            PERSON_ID, 60, 7_240, expectedWelfareUntil, uint64(block.timestamp), address(stakeAuthority)
         );
 
-        _requestUnstake(PERSON_ID, 1_000, cooldownEnd);
+        (uint256 releasedAmount, uint64 welfareUntil) = _unstake(PERSON_ID);
 
-        assertTrue(unstakingPolicy.isPoliticalRightsBlocked(PERSON_ID));
+        assertEq(releasedAmount, 60);
+        assertEq(welfareUntil, expectedWelfareUntil);
+        assertEq(stakeRegistry.activeStakeOf(PERSON_ID), 7_240);
+        assertEq(stakeRegistry.getStakeRecord(PERSON_ID).totalUnstaked, 60);
+
+        // While in welfare: voting suspended and a second unstake reverts.
+        assertTrue(stakeRegistry.isInWelfare(PERSON_ID));
+        assertEq(stakeRegistry.welfareUntilOf(PERSON_ID), welfareUntil);
         assertFalse(citizenEligibilityPolicy.isCitizenInGoodStanding(WALLET));
         assertEq(votingPowerPolicy.votingPower(WALLET), 0);
+        assertFalse(unstakingPolicy.canUnstake(PERSON_ID));
 
-        skip(UNSTAKE_COOLDOWN);
+        vm.expectRevert(abi.encodeWithSelector(IStakeRegistry.InWelfarePeriod.selector, PERSON_ID, welfareUntil));
+        vm.prank(address(stakeAuthority));
+        stakeRegistry.unstake(PERSON_ID);
 
-        assertFalse(unstakingPolicy.isPoliticalRightsBlocked(PERSON_ID));
+        // After welfare elapses: rights restored and unstake works again.
+        vm.warp(welfareUntil);
+        assertFalse(stakeRegistry.isInWelfare(PERSON_ID));
         assertTrue(citizenEligibilityPolicy.isCitizenInGoodStanding(WALLET));
-        assertEq(votingPowerPolicy.votingPower(WALLET), 6_000);
+        assertEq(votingPowerPolicy.votingPower(WALLET), 7_240);
+        assertTrue(unstakingPolicy.canUnstake(PERSON_ID));
+
+        (uint256 secondRelease,) = _unstake(PERSON_ID);
+        assertEq(secondRelease, unstakingPolicy.unstakePortion(7_240));
     }
 
-    function test_UnstakingPolicy_EnforcesProtectedFloorAndClaimability() public {
+    /// @notice M12 (no lien): a non-borrower can exit down to their own protected floor.
+    function test_Unstake_RespectsProtectedFloorForNonBorrower() public {
         _registerCitizen(PERSON_ID, WALLET, 9_000);
-        _setProtectedStakeFloor(PERSON_ID, 8_500);
+        _setProtectedStakeFloor(PERSON_ID, 8_950);
 
-        assertFalse(unstakingPolicy.canStartUnstake(PERSON_ID, 600));
-        assertTrue(unstakingPolicy.canStartUnstake(PERSON_ID, 500));
+        // Without a lien registry configured, the required floor equals the protected floor.
+        assertEq(stakeRegistry.requiredActiveStakeFloorOf(PERSON_ID), 8_950);
 
-        uint64 blockedCooldownEnd = unstakingPolicy.previewCooldownEnd(uint64(block.timestamp));
-        vm.expectRevert(
-            abi.encodeWithSelector(IStakeRegistry.ProtectedStakeFloorBreached.selector, PERSON_ID, 8_400, 8_500)
-        );
-        _requestUnstake(PERSON_ID, 600, blockedCooldownEnd);
-
-        uint64 cooldownEnd = unstakingPolicy.previewCooldownEnd(uint64(block.timestamp));
-        _requestUnstake(PERSON_ID, 500, cooldownEnd);
-
-        assertEq(unstakingPolicy.claimableAmount(PERSON_ID), 0);
-
-        skip(UNSTAKE_COOLDOWN);
-
-        vm.expectEmit(true, false, false, true, address(stakeRegistry));
-        emit UnstakeClaimed(PERSON_ID, 500, uint64(block.timestamp), address(stakeAuthority));
-
-        _claimUnstake(PERSON_ID);
-
-        StakeTypes.StakeRecord memory stakeRecord = stakeRegistry.getStakeRecord(PERSON_ID);
-        assertEq(unstakingPolicy.claimableAmount(PERSON_ID), 0);
-        assertEq(stakeRecord.pendingUnstake, 0);
-        assertEq(stakeRecord.cooldownEnd, 0);
-        assertEq(stakeRecord.activeStake, 8_500);
+        // Surplus above the floor is only 50, so the 30-day portion (73) is capped to 50.
+        (uint256 releasedAmount,) = _unstake(PERSON_ID);
+        assertEq(releasedAmount, 50);
+        assertEq(stakeRegistry.activeStakeOf(PERSON_ID), 8_950);
     }
 
-    function test_StakeRegistry_SlashConsumesPendingBeforeActiveAndClearsCooldown() public {
+    function test_Unstake_RevertsWhenNoReleasableSurplus() public {
         _registerCitizen(PERSON_ID, WALLET, 9_000);
+        _setProtectedStakeFloor(PERSON_ID, 9_000);
 
-        uint64 cooldownEnd = unstakingPolicy.previewCooldownEnd(uint64(block.timestamp));
-        _requestUnstake(PERSON_ID, 2_000, cooldownEnd);
+        assertFalse(unstakingPolicy.canUnstake(PERSON_ID));
+
+        vm.expectRevert(abi.encodeWithSelector(IStakeRegistry.NothingToUnstake.selector, PERSON_ID));
+        vm.prank(address(stakeAuthority));
+        stakeRegistry.unstake(PERSON_ID);
+    }
+
+    function test_StakeRegistry_SlashReducesActiveStake() public {
+        _registerCitizen(PERSON_ID, WALLET, 9_000);
         _slashStake(PERSON_ID, 2_000);
 
         StakeTypes.StakeRecord memory stakeRecord = stakeRegistry.getStakeRecord(PERSON_ID);
 
         assertEq(stakeRecord.activeStake, 7_000);
-        assertEq(stakeRecord.pendingUnstake, 0);
         assertEq(stakeRecord.totalSlashed, 2_000);
-        assertEq(stakeRecord.cooldownStart, 0);
-        assertEq(stakeRecord.cooldownEnd, 0);
-        assertFalse(unstakingPolicy.isPoliticalRightsBlocked(PERSON_ID));
+        assertFalse(stakeRegistry.isInWelfare(PERSON_ID));
         assertTrue(citizenEligibilityPolicy.isCitizenInGoodStanding(WALLET));
         assertEq(votingPowerPolicy.votingPower(WALLET), 7_000);
+    }
+
+    function test_StakeRegistry_SlashRevertsAboveActiveStake() public {
+        _registerCitizen(PERSON_ID, WALLET, 5_000);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IStakeRegistry.InsufficientSlashableStake.selector, PERSON_ID, 5_000, 6_000)
+        );
+        vm.prank(address(stakeAuthority));
+        stakeRegistry.slashStake(PERSON_ID, 6_000);
     }
 
     function test_StakeRegistry_RecordsRecoveryAccounting() public {
@@ -330,14 +377,9 @@ contract Milestone2IdentityStakeTest is Test {
         stakeRegistry.setProtectedStakeFloor(personId, amount);
     }
 
-    function _requestUnstake(bytes32 personId, uint256 amount, uint64 cooldownEnd) internal {
+    function _unstake(bytes32 personId) internal returns (uint256 releasedAmount, uint64 welfareUntil) {
         vm.prank(address(stakeAuthority));
-        stakeRegistry.requestUnstake(personId, amount, cooldownEnd);
-    }
-
-    function _claimUnstake(bytes32 personId) internal returns (uint256 claimedAmount) {
-        vm.prank(address(stakeAuthority));
-        return stakeRegistry.claimUnstake(personId);
+        return stakeRegistry.unstake(personId);
     }
 
     function _slashStake(bytes32 personId, uint256 amount) internal {

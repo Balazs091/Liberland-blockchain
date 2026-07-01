@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {IActionTimelock} from "../interfaces/IActionTimelock.sol";
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
@@ -15,6 +15,7 @@ contract GovernanceRouter is IGovernanceRouter {
     error InvalidOrigin(GovernanceTypes.ActionOrigin origin);
     error InvalidOriginAuthority(address authority);
     error NotBootstrapAuthority(address caller);
+    error UnauthorizedDisbursementOrigin(GovernanceTypes.ActionOrigin origin);
 
     event BootstrapAuthorityDisabled(address indexed disabledBy);
 
@@ -64,17 +65,28 @@ contract GovernanceRouter is IGovernanceRouter {
     function routeAction(GovernanceTypes.ActionRequest calldata request) external returns (bytes32 actionId) {
         _requireAuthorizedOrigin(request.origin, msg.sender);
 
+        // Defense-in-depth (L2): treasury disbursements may only be routed by the Office origin
+        // (OfficeExecutor), the sole legitimate builder of the disbursement payload today.
+        if (
+            request.actionType == GovernanceTypes.ActionType.TreasuryDisbursement
+                && request.origin != GovernanceTypes.ActionOrigin.Office
+        ) {
+            revert UnauthorizedDisbursementOrigin(request.origin);
+        }
+
         if (!isActionTypeSupported(request.actionType)) {
             revert UnsupportedActionType(request.actionType);
         }
 
-        if (!_isTargetModuleRegistered(request.targetModule)) {
+        if (!_isTargetModuleValid(request.actionType, request.targetModule)) {
             revert InvalidTargetModule(request.targetModule);
         }
 
-        actionId = IActionTimelock(timelock()).queueAction(request);
-
+        IActionTimelock actionTimelock = IActionTimelock(timelock());
+        actionId = actionTimelock.computeActionId(request);
         emit GovernanceActionRouted(actionId, request.actionType, request.origin, request.targetModule);
+        bytes32 queuedActionId = actionTimelock.queueAction(request);
+        assert(queuedActionId == actionId);
     }
 
     /// @inheritdoc IGovernanceRouter
@@ -83,19 +95,19 @@ contract GovernanceRouter is IGovernanceRouter {
         GovernanceTypes.ActionRecord memory actionRecord = actionTimelock.getAction(actionId);
         GovernanceTypes.ActionOrigin cancellationOrigin = _resolveCancellationOrigin(actionRecord.origin, msg.sender);
 
-        actionTimelock.cancelAction(actionId);
-
         emit GovernanceActionCancellationRouted(actionId, cancellationOrigin, msg.sender);
+        actionTimelock.cancelAction(actionId);
     }
 
     /// @inheritdoc IGovernanceRouter
     function originAuthority(GovernanceTypes.ActionOrigin origin) external view returns (address authority) {
-        return _originAuthorities[origin];
+        return _originAuthority(origin);
     }
 
     /// @inheritdoc IGovernanceRouter
     function isActionTypeSupported(GovernanceTypes.ActionType actionType) public pure returns (bool supported) {
         return actionType == GovernanceTypes.ActionType.ModulePointerUpdate
+            || actionType == GovernanceTypes.ActionType.ModuleRegistration
             || actionType == GovernanceTypes.ActionType.TreasuryBudgetApproval
             || actionType == GovernanceTypes.ActionType.LegislationEnactment
             || actionType == GovernanceTypes.ActionType.TreasuryDisbursement;
@@ -130,7 +142,7 @@ contract GovernanceRouter is IGovernanceRouter {
     }
 
     function _requireAuthorizedOrigin(GovernanceTypes.ActionOrigin origin, address caller) private view {
-        if (origin == GovernanceTypes.ActionOrigin.Undefined || _originAuthorities[origin] != caller) {
+        if (origin == GovernanceTypes.ActionOrigin.Undefined || _originAuthority(origin) != caller) {
             revert UnauthorizedGovernanceOrigin(caller);
         }
     }
@@ -140,15 +152,62 @@ contract GovernanceRouter is IGovernanceRouter {
         view
         returns (GovernanceTypes.ActionOrigin cancellationOrigin)
     {
-        if (actionOrigin != GovernanceTypes.ActionOrigin.Undefined && _originAuthorities[actionOrigin] == caller) {
+        if (actionOrigin != GovernanceTypes.ActionOrigin.Undefined && _originAuthority(actionOrigin) == caller) {
             return actionOrigin;
         }
 
-        if (_originAuthorities[GovernanceTypes.ActionOrigin.Senate] == caller) {
+        if (_originAuthority(GovernanceTypes.ActionOrigin.Senate) == caller) {
             return GovernanceTypes.ActionOrigin.Senate;
         }
 
         revert UnauthorizedGovernanceOrigin(caller);
+    }
+
+    function _originAuthority(GovernanceTypes.ActionOrigin origin) private view returns (address authority) {
+        bytes32 moduleId = _originModuleId(origin);
+        if (moduleId != bytes32(0)) {
+            try _kernel.getModule(moduleId) returns (address moduleAddress) {
+                return moduleAddress;
+            } catch {
+                return _originAuthorities[origin];
+            }
+        }
+
+        return _originAuthorities[origin];
+    }
+
+    function _originModuleId(GovernanceTypes.ActionOrigin origin) private pure returns (bytes32 moduleId) {
+        if (origin == GovernanceTypes.ActionOrigin.Referendum) {
+            return KernelModuleIds.REFERENDUM_APP;
+        }
+        if (origin == GovernanceTypes.ActionOrigin.Congress) {
+            return KernelModuleIds.CONGRESS_ELECTION_APP;
+        }
+        if (origin == GovernanceTypes.ActionOrigin.Senate) {
+            return KernelModuleIds.SENATE_APP;
+        }
+        if (origin == GovernanceTypes.ActionOrigin.Office) {
+            return KernelModuleIds.OFFICE_EXECUTOR;
+        }
+
+        return bytes32(0);
+    }
+
+    function _isTargetModuleValid(GovernanceTypes.ActionType actionType, bytes32 moduleId)
+        private
+        view
+        returns (bool valid)
+    {
+        if (moduleId == bytes32(0)) {
+            return false;
+        }
+
+        bool registered = _isTargetModuleRegistered(moduleId);
+        if (actionType == GovernanceTypes.ActionType.ModuleRegistration) {
+            return !registered;
+        }
+
+        return registered;
     }
 
     function _isTargetModuleRegistered(bytes32 moduleId) private view returns (bool registered) {

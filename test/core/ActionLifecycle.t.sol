@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -10,6 +10,7 @@ import {IActionTimelock} from "../../contracts/interfaces/IActionTimelock.sol";
 import {IConstitutionKernel} from "../../contracts/interfaces/IConstitutionKernel.sol";
 import {IGovernanceRouter} from "../../contracts/interfaces/IGovernanceRouter.sol";
 import {KernelModuleIds} from "../../contracts/libraries/KernelModuleIds.sol";
+import {MockConstitutionalReview} from "../../contracts/mocks/MockConstitutionalReview.sol";
 import {MockModule} from "../../contracts/mocks/MockModule.sol";
 import {GovernanceTypes} from "../../contracts/types/GovernanceTypes.sol";
 
@@ -26,6 +27,7 @@ contract ActionLifecycleTest is Test {
         GovernanceTypes.ActionOrigin origin,
         bytes32 originReference,
         bytes32 policyReference,
+        address targetModuleAddress,
         bytes32 payloadHash,
         uint64 createdAt,
         uint64 earliestExecutionTime,
@@ -44,7 +46,7 @@ contract ActionLifecycleTest is Test {
 
     function setUp() public {
         kernel = new ConstitutionKernel(address(this));
-        timelock = new ActionTimelock(address(kernel));
+        timelock = new ActionTimelock(address(kernel), _defaultDelayConfig());
         router = new GovernanceRouter(address(kernel), address(this));
         initialModule = new MockModule(keccak256("initial"));
         replacementModule = new MockModule(keccak256("replacement"));
@@ -58,6 +60,16 @@ contract ActionLifecycleTest is Test {
 
         router.disableBootstrapAuthority();
         kernel.disableBootstrapAuthority();
+    }
+
+    function _defaultDelayConfig() internal pure returns (GovernanceTypes.TimelockDelayConfig memory config) {
+        config = GovernanceTypes.TimelockDelayConfig({
+            moduleGovernanceDelay: 2 days,
+            treasuryBudgetApprovalDelay: 1 days,
+            legislationEnactmentDelay: 1 days,
+            treasuryDisbursementDelay: 2 days,
+            defaultExecutionWindow: 7 days
+        });
     }
 
     function test_queueAction_StoresDeterministicAction() public {
@@ -75,6 +87,7 @@ contract ActionLifecycleTest is Test {
         assertEq(uint256(actionRecord.actionType), uint256(GovernanceTypes.ActionType.ModulePointerUpdate));
         assertEq(uint256(actionRecord.origin), uint256(GovernanceTypes.ActionOrigin.Referendum));
         assertEq(actionRecord.targetModule, TARGET_MODULE_ID);
+        assertEq(actionRecord.targetModuleAddress, address(initialModule));
         assertEq(actionRecord.createdAt, uint64(block.timestamp));
         assertEq(
             actionRecord.earliestExecutionTime, uint64(block.timestamp) + timelock.minimumDelay(request.actionType)
@@ -97,6 +110,7 @@ contract ActionLifecycleTest is Test {
             request.origin,
             request.originReference,
             request.policyReference,
+            address(initialModule),
             keccak256(request.payload),
             createdAt,
             earliestExecutionTime,
@@ -168,6 +182,67 @@ contract ActionLifecycleTest is Test {
         assertEq(uint256(timelock.getActionState(actionId)), uint256(GovernanceTypes.ActionState.Executed));
     }
 
+    function test_executeAction_AfterDelayRegistersNewKernelModule() public {
+        MockModule newModule = new MockModule(keccak256("new-module"));
+        GovernanceTypes.ActionRequest memory request = _buildModuleRegistrationRequest(address(newModule));
+
+        vm.prank(referendumAuthority);
+        bytes32 actionId = router.routeAction(request);
+
+        GovernanceTypes.ActionRecord memory actionRecord = timelock.getAction(actionId);
+        assertEq(uint256(actionRecord.actionType), uint256(GovernanceTypes.ActionType.ModuleRegistration));
+        assertEq(actionRecord.targetModule, UNREGISTERED_MODULE_ID);
+        assertEq(
+            actionRecord.earliestExecutionTime, uint64(block.timestamp) + timelock.minimumDelay(request.actionType)
+        );
+
+        vm.warp(actionRecord.earliestExecutionTime);
+        timelock.executeAction(actionId);
+
+        assertEq(kernel.getModule(UNREGISTERED_MODULE_ID), address(newModule));
+        assertEq(uint256(timelock.getActionState(actionId)), uint256(GovernanceTypes.ActionState.Executed));
+    }
+
+    function test_executeAction_ConstitutionalReviewRegisteredAfterBootstrapCanPauseThenReleaseExecution() public {
+        // A future Judiciary is added AFTER bootstrap is disabled (setUp already disabled it) via an ordinary
+        // module-registration action — the same governance path a constitutional court would use in production —
+        // then it pauses/releases timelock execution through the CONSTITUTIONAL_REVIEW hook.
+        MockConstitutionalReview review = new MockConstitutionalReview();
+        GovernanceTypes.ActionRequest memory registration = GovernanceTypes.ActionRequest({
+            actionType: GovernanceTypes.ActionType.ModuleRegistration,
+            origin: GovernanceTypes.ActionOrigin.Referendum,
+            originReference: bytes32(uint256(505)),
+            policyReference: bytes32(uint256(606)),
+            targetModule: KernelModuleIds.CONSTITUTIONAL_REVIEW,
+            payload: abi.encode(GovernanceTypes.ModuleUpdatePayload({newModuleAddress: address(review)})),
+            requestedExecutionTime: 0,
+            expiresAt: 0
+        });
+
+        vm.prank(referendumAuthority);
+        bytes32 registrationId = router.routeAction(registration);
+        vm.warp(timelock.getAction(registrationId).earliestExecutionTime);
+        timelock.executeAction(registrationId);
+        assertEq(kernel.getModule(KernelModuleIds.CONSTITUTIONAL_REVIEW), address(review));
+
+        // A queued action is now pausable by the registered review module.
+        bytes32 actionId = _queueModuleUpdate(referendumAuthority, address(replacementModule));
+        GovernanceTypes.ActionRecord memory actionRecord = timelock.getAction(actionId);
+        vm.warp(actionRecord.earliestExecutionTime);
+
+        review.setActionPaused(actionId, true);
+        assertFalse(timelock.isActionExecutable(actionId));
+        vm.expectRevert(abi.encodeWithSelector(IActionTimelock.ActionUnderConstitutionalReview.selector, actionId));
+        timelock.executeAction(actionId);
+
+        // Releasing review lets execution proceed — the court's pause is not permanent.
+        review.setActionPaused(actionId, false);
+        assertTrue(timelock.isActionExecutable(actionId));
+        timelock.executeAction(actionId);
+        assertEq(uint256(timelock.getActionState(actionId)), uint256(GovernanceTypes.ActionState.Executed));
+        assertEq(kernel.getModule(TARGET_MODULE_ID), address(replacementModule));
+    }
+
     function test_executeAction_RevertsBeforeDelay() public {
         bytes32 actionId = _queueModuleUpdate(referendumAuthority, address(replacementModule));
         GovernanceTypes.ActionRecord memory actionRecord = timelock.getAction(actionId);
@@ -232,6 +307,15 @@ contract ActionLifecycleTest is Test {
         router.routeAction(request);
     }
 
+    function test_routeAction_RevertsWhenRegisteringExistingTargetModule() public {
+        GovernanceTypes.ActionRequest memory request = _buildModuleRegistrationRequest(address(replacementModule));
+        request.targetModule = TARGET_MODULE_ID;
+
+        vm.prank(referendumAuthority);
+        vm.expectRevert(abi.encodeWithSelector(IGovernanceRouter.InvalidTargetModule.selector, TARGET_MODULE_ID));
+        router.routeAction(request);
+    }
+
     function test_cancelAction_RevertsForUnauthorizedOriginCaller() public {
         bytes32 actionId = _queueModuleUpdate(referendumAuthority, address(replacementModule));
 
@@ -284,6 +368,20 @@ contract ActionLifecycleTest is Test {
         kernel.governanceUpdateModule(UNREGISTERED_MODULE_ID, address(unregisteredModule));
     }
 
+    function test_governanceRegisterModule_RevertsForUnauthorizedCaller() public {
+        MockModule unregisteredModule = new MockModule(keccak256("unregistered"));
+
+        vm.prank(outsider);
+        vm.expectRevert(abi.encodeWithSelector(IConstitutionKernel.UnauthorizedKernelCaller.selector, outsider));
+        kernel.governanceRegisterModule(UNREGISTERED_MODULE_ID, address(unregisteredModule));
+    }
+
+    function test_governanceRegisterModule_RevertsWhenTargetModuleAlreadyRegistered() public {
+        vm.prank(address(timelock));
+        vm.expectRevert(abi.encodeWithSelector(IConstitutionKernel.ModuleAlreadyRegistered.selector, TARGET_MODULE_ID));
+        kernel.governanceRegisterModule(TARGET_MODULE_ID, address(replacementModule));
+    }
+
     function _queueModuleUpdate(address caller, address newModuleAddress) internal returns (bytes32 actionId) {
         GovernanceTypes.ActionRequest memory request = _buildModuleUpdateRequest(newModuleAddress);
 
@@ -302,6 +400,23 @@ contract ActionLifecycleTest is Test {
             originReference: bytes32(uint256(101)),
             policyReference: bytes32(uint256(202)),
             targetModule: TARGET_MODULE_ID,
+            payload: abi.encode(GovernanceTypes.ModuleUpdatePayload({newModuleAddress: newModuleAddress})),
+            requestedExecutionTime: 0,
+            expiresAt: 0
+        });
+    }
+
+    function _buildModuleRegistrationRequest(address newModuleAddress)
+        internal
+        pure
+        returns (GovernanceTypes.ActionRequest memory request)
+    {
+        request = GovernanceTypes.ActionRequest({
+            actionType: GovernanceTypes.ActionType.ModuleRegistration,
+            origin: GovernanceTypes.ActionOrigin.Referendum,
+            originReference: bytes32(uint256(303)),
+            policyReference: bytes32(uint256(404)),
+            targetModule: UNREGISTERED_MODULE_ID,
             payload: abi.encode(GovernanceTypes.ModuleUpdatePayload({newModuleAddress: newModuleAddress})),
             requestedExecutionTime: 0,
             expiresAt: 0

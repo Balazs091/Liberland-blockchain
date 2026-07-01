@@ -1,31 +1,18 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
-import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
+import {KernelModule} from "../base/KernelModule.sol";
 import {ILegislationRegistry} from "../interfaces/ILegislationRegistry.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {LegislationTypes} from "../types/LegislationTypes.sol";
 
 /// @title LegislationRegistry
 /// @notice Stable fact registry for enacted legislation text and enactment metadata.
-contract LegislationRegistry is ILegislationRegistry {
-    IConstitutionKernel private immutable _kernel;
-
+contract LegislationRegistry is ILegislationRegistry, KernelModule {
     mapping(bytes32 measureId => LegislationTypes.LegislationRecord legislationRecord) private _legislationRecords;
 
     /// @param kernelAddress The canonical kernel registry address.
-    constructor(address kernelAddress) {
-        if (kernelAddress == address(0) || kernelAddress.code.length == 0) {
-            revert IConstitutionKernel.InvalidModuleAddress(bytes32(0), kernelAddress);
-        }
-
-        _kernel = IConstitutionKernel(kernelAddress);
-    }
-
-    /// @inheritdoc ILegislationRegistry
-    function kernel() external view returns (address kernelAddress) {
-        return address(_kernel);
-    }
+    constructor(address kernelAddress) KernelModule(kernelAddress) {}
 
     /// @inheritdoc ILegislationRegistry
     function getLegislationRecord(bytes32 measureId)
@@ -120,6 +107,18 @@ contract LegislationRegistry is ILegislationRegistry {
             revert LegislationAlreadyRepealed(measureId);
         }
 
+        // L10: enforce the tier bound of each bounded repeal pathway at the registry, independent of the
+        // calling app. Public veto is a Law-tier-only tool; the Senate may only repeal sub-legal measures.
+        if (repealOrigin == LegislationTypes.RepealOrigin.PublicVeto) {
+            if (!LegislationTypes.isLawTier(legislationRecord.tier)) {
+                revert RepealTierNotPermitted(repealOrigin, legislationRecord.tier);
+            }
+        } else if (repealOrigin == LegislationTypes.RepealOrigin.Senate) {
+            if (!LegislationTypes.isSubLegalTier(legislationRecord.tier)) {
+                revert RepealTierNotPermitted(repealOrigin, legislationRecord.tier);
+            }
+        }
+
         uint64 repealedAt = uint64(block.timestamp);
         legislationRecord.repealOrigin = repealOrigin;
         legislationRecord.repealReference = repealReference;
@@ -137,8 +136,13 @@ contract LegislationRegistry is ILegislationRegistry {
     }
 
     function _requireRepealAuthority(address caller) private view {
-        if (caller != _kernel.getModule(KernelModuleIds.LEGISLATION_REPEAL_AUTHORITY)) {
-            revert UnauthorizedLegislationRepealCaller(caller);
+        if (
+            _isModuleCaller(KernelModuleIds.LEGISLATION_REPEAL_AUTHORITY, caller)
+                || _isModuleCaller(KernelModuleIds.SENATE_APP, caller)
+        ) {
+            return;
         }
+
+        revert UnauthorizedLegislationRepealCaller(caller);
     }
 }

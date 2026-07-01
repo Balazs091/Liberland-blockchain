@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {ICitizenEligibilityPolicy} from "../interfaces/ICitizenEligibilityPolicy.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
@@ -21,6 +21,7 @@ contract PublicVetoApp is IPublicVetoApp {
     mapping(bytes32 measureId => VetoTypes.PublicVetoRecord publicVetoRecord) private _publicVetoRecords;
     mapping(bytes32 measureId => mapping(bytes32 personId => VetoTypes.PublicVetoReceipt receipt)) private
         _publicVetoReceipts;
+    mapping(bytes32 measureId => bytes32[] personIds) private _publicVetoSupporters;
 
     /// @param legislationRegistryAddress The legislation registry address.
     /// @param citizenEligibilityPolicyAddress The citizen eligibility policy address.
@@ -84,17 +85,22 @@ contract PublicVetoApp is IPublicVetoApp {
 
     /// @inheritdoc IPublicVetoApp
     function hasActivePublicVeto(bytes32 measureId, bytes32 personId) external view returns (bool active) {
-        return _publicVetoReceipts[measureId][personId].active;
+        return _publicVetoReceipts[measureId][personId].active && _isCurrentlyEligiblePerson(personId);
     }
 
     /// @inheritdoc IPublicVetoApp
     function remainingRepealSupport(bytes32 measureId) external view returns (uint256 remaining) {
-        uint256 supportCount = _publicVetoRecords[measureId].supportCount;
+        uint256 supportCount = _validPublicVetoSupportCount(measureId);
         if (supportCount >= _repealThreshold) {
             return 0;
         }
 
         return _repealThreshold - supportCount;
+    }
+
+    /// @inheritdoc IPublicVetoApp
+    function currentPublicVetoSupportCount(bytes32 measureId) external view returns (uint256 count) {
+        return _validPublicVetoSupportCount(measureId);
     }
 
     /// @inheritdoc IPublicVetoApp
@@ -122,21 +128,29 @@ contract PublicVetoApp is IPublicVetoApp {
             publicVetoRecord.createdAt = currentTimestamp;
         }
 
+        if (receipt.personId == bytes32(0)) {
+            _publicVetoSupporters[measureId].push(personId);
+        }
+
         receipt.personId = personId;
         receipt.active = true;
         receipt.updatedAt = currentTimestamp;
-        publicVetoRecord.supportCount += 1;
+        uint256 supportCount = publicVetoRecord.supportCount + 1;
+        if (supportCount >= _repealThreshold) {
+            supportCount = _validPublicVetoSupportCount(measureId);
+        }
+        publicVetoRecord.supportCount = supportCount;
 
         emit PublicVetoCast(measureId, vetoId, personId, msg.sender, publicVetoRecord.supportCount, currentTimestamp);
 
         if (!publicVetoRecord.repealed && publicVetoRecord.supportCount >= _repealThreshold) {
             publicVetoRecord.repealed = true;
             publicVetoRecord.repealedAt = currentTimestamp;
-            _legislationRegistry.recordRepeal(measureId, LegislationTypes.RepealOrigin.PublicVeto, vetoId);
 
             emit PublicVetoThresholdReached(
                 measureId, vetoId, publicVetoRecord.supportCount, msg.sender, currentTimestamp
             );
+            _legislationRegistry.recordRepeal(measureId, LegislationTypes.RepealOrigin.PublicVeto, vetoId);
         }
     }
 
@@ -155,7 +169,7 @@ contract PublicVetoApp is IPublicVetoApp {
 
         receipt.active = false;
         receipt.updatedAt = uint64(block.timestamp);
-        publicVetoRecord.supportCount -= 1;
+        publicVetoRecord.supportCount = _validPublicVetoSupportCount(measureId);
 
         emit PublicVetoRemoved(
             measureId, publicVetoRecord.vetoId, personId, msg.sender, publicVetoRecord.supportCount, receipt.updatedAt
@@ -179,8 +193,8 @@ contract PublicVetoApp is IPublicVetoApp {
             revert MeasureNotVetoEligible(measureId);
         }
 
-        // TODO-CONSTITUTIONAL-REVIEW: confirm whether public veto may ever reach constitutional-law measures.
-        if (legislationRecord.tier != LegislationTypes.LegislationTier.OrdinaryLaw) {
+        // Public veto remains a law-level repeal path, not a constitutional/treaty or sub-legal tool.
+        if (!LegislationTypes.isLawTier(legislationRecord.tier)) {
             revert MeasureNotVetoEligible(measureId);
         }
     }
@@ -196,6 +210,28 @@ contract PublicVetoApp is IPublicVetoApp {
                 count += 1;
             }
         }
+    }
+
+    function _validPublicVetoSupportCount(bytes32 measureId) private view returns (uint256 count) {
+        bytes32[] storage supporters = _publicVetoSupporters[measureId];
+        uint256 supporterCount = supporters.length;
+        // Hoist the two eligibility-policy reads out of the loop (they are the same for every supporter).
+        IStakeRegistry stakeRegistry = IStakeRegistry(_citizenEligibilityPolicy.stakeRegistry());
+        uint256 minimumCitizenStake = _citizenEligibilityPolicy.minimumCitizenStake();
+        for (uint256 index = 0; index < supporterCount; ++index) {
+            bytes32 personId = supporters[index];
+            if (
+                _publicVetoReceipts[measureId][personId].active
+                    && _isEligibleCitizenPerson(stakeRegistry, minimumCitizenStake, personId)
+            ) {
+                count += 1;
+            }
+        }
+    }
+
+    function _isCurrentlyEligiblePerson(bytes32 personId) private view returns (bool eligible) {
+        IStakeRegistry stakeRegistry = IStakeRegistry(_citizenEligibilityPolicy.stakeRegistry());
+        return _isEligibleCitizenPerson(stakeRegistry, _citizenEligibilityPolicy.minimumCitizenStake(), personId);
     }
 
     function _isEligibleCitizenPerson(IStakeRegistry stakeRegistry, uint256 minimumCitizenStake, bytes32 personId)
@@ -223,6 +259,6 @@ contract PublicVetoApp is IPublicVetoApp {
             return false;
         }
 
-        return !stakeRegistry.hasActiveUnstakeCooldown(personId);
+        return !stakeRegistry.isInWelfare(personId);
     }
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {ITreasurySpendingPolicy} from "../interfaces/ITreasurySpendingPolicy.sol";
 import {OfficeTypes} from "../types/OfficeTypes.sol";
@@ -82,18 +82,7 @@ contract TreasurySpendingPolicy is ITreasurySpendingPolicy {
         TreasuryTypes.DisbursementType disbursementType,
         uint256 amount
     ) external view returns (uint64 delaySeconds) {
-        if (!isPayoutAllowed(officeId, officeRole, disbursementType, address(0), amount)) {
-            return 0;
-        }
-
-        if (
-            disbursementType == TreasuryTypes.DisbursementType.Grant
-                || disbursementType == TreasuryTypes.DisbursementType.CapitalExpenditure
-        ) {
-            return SENSITIVE_QUEUE_DELAY;
-        }
-
-        return STANDARD_QUEUE_DELAY;
+        return _minimumQueueDelay(officeId, officeRole, disbursementType, amount);
     }
 
     /// @inheritdoc ITreasurySpendingPolicy
@@ -110,8 +99,29 @@ contract TreasurySpendingPolicy is ITreasurySpendingPolicy {
                 officeRole,
                 disbursementType,
                 amount,
-                this.minimumQueueDelay(officeId, officeRole, disbursementType, amount)
+                // Internal call (JUMP, not an external self-CALL) so the branch logic runs once.
+                _minimumQueueDelay(officeId, officeRole, disbursementType, amount)
             )
         );
+    }
+
+    function _minimumQueueDelay(
+        bytes32 officeId,
+        OfficeTypes.OfficeRole officeRole,
+        TreasuryTypes.DisbursementType disbursementType,
+        uint256 amount
+    ) private view returns (uint64 delaySeconds) {
+        if (!isPayoutAllowed(officeId, officeRole, disbursementType, address(0), amount)) {
+            return 0;
+        }
+
+        if (
+            disbursementType == TreasuryTypes.DisbursementType.Grant
+                || disbursementType == TreasuryTypes.DisbursementType.CapitalExpenditure
+        ) {
+            return SENSITIVE_QUEUE_DELAY;
+        }
+
+        return STANDARD_QUEUE_DELAY;
     }
 }

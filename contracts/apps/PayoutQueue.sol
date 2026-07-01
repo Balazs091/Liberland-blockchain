@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
+import {KernelModule} from "../base/KernelModule.sol";
 import {IActionTimelock} from "../interfaces/IActionTimelock.sol";
 import {IBudgetEnvelopeRegistry} from "../interfaces/IBudgetEnvelopeRegistry.sol";
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
@@ -12,30 +13,20 @@ import {TreasuryTypes} from "../types/TreasuryTypes.sol";
 
 /// @title PayoutQueue
 /// @notice Audited payout request queue that reserves budgets before routing office-origin treasury actions.
-contract PayoutQueue is IPayoutQueue {
-    IConstitutionKernel private immutable _kernel;
+contract PayoutQueue is IPayoutQueue, KernelModule {
     IBudgetEnvelopeRegistry private immutable _budgetEnvelopeRegistry;
 
     mapping(bytes32 requestId => TreasuryTypes.DisbursementRequest request) private _requests;
     bytes32[] private _requestIds;
 
-    constructor(address kernelAddress, address budgetEnvelopeRegistryAddress) {
-        if (kernelAddress == address(0) || kernelAddress.code.length == 0) {
-            revert IConstitutionKernel.InvalidModuleAddress(bytes32(0), kernelAddress);
-        }
+    constructor(address kernelAddress, address budgetEnvelopeRegistryAddress) KernelModule(kernelAddress) {
         if (budgetEnvelopeRegistryAddress == address(0) || budgetEnvelopeRegistryAddress.code.length == 0) {
             revert IConstitutionKernel.InvalidModuleAddress(
                 KernelModuleIds.BUDGET_ENVELOPE_REGISTRY, budgetEnvelopeRegistryAddress
             );
         }
 
-        _kernel = IConstitutionKernel(kernelAddress);
         _budgetEnvelopeRegistry = IBudgetEnvelopeRegistry(budgetEnvelopeRegistryAddress);
-    }
-
-    /// @inheritdoc IPayoutQueue
-    function kernel() external view returns (address kernelAddress) {
-        return address(_kernel);
     }
 
     /// @inheritdoc IPayoutQueue
@@ -206,20 +197,20 @@ contract PayoutQueue is IPayoutQueue {
             }
 
             request.state = TreasuryTypes.DisbursementState.Executed;
-            _budgetEnvelopeRegistry.recordDisbursement(requestId);
             emit PayoutExecuted(requestId, request.actionId, uint64(block.timestamp), msg.sender);
+            _budgetEnvelopeRegistry.recordDisbursement(requestId);
             return request.state;
         }
         if (actionState == GovernanceTypes.ActionState.Canceled) {
             request.state = TreasuryTypes.DisbursementState.Vetoed;
-            _budgetEnvelopeRegistry.releaseBudget(requestId);
             emit PayoutVetoed(requestId, request.actionId, uint64(block.timestamp), msg.sender);
+            _budgetEnvelopeRegistry.releaseBudget(requestId);
             return request.state;
         }
         if (actionState == GovernanceTypes.ActionState.Expired) {
             request.state = TreasuryTypes.DisbursementState.Expired;
-            _budgetEnvelopeRegistry.releaseBudget(requestId);
             emit PayoutExpired(requestId, request.actionId, uint64(block.timestamp), msg.sender);
+            _budgetEnvelopeRegistry.releaseBudget(requestId);
             return request.state;
         }
 

@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
+import {IKernelModule} from "./IKernelModule.sol";
 import {OfficeTypes} from "../types/OfficeTypes.sol";
 
 /// @title IOfficeRegistry
 /// @notice Stable fact registry for office definitions and office role assignments.
-interface IOfficeRegistry {
+interface IOfficeRegistry is IKernelModule {
     error InvalidOfficeAdmin(address admin);
     error InvalidOfficeId(bytes32 officeId);
     error InvalidOfficeKind(OfficeTypes.OfficeKind kind);
@@ -35,7 +36,12 @@ interface IOfficeRegistry {
         bytes32 indexed officeId, address indexed clerk, bool active, uint64 updatedAt, address indexed updatedBy
     );
 
-    function kernel() external view returns (address kernelAddress);
+    event OfficeRenamed(
+        bytes32 indexed officeId, string previousName, string newName, uint64 updatedAt, address indexed updatedBy
+    );
+
+    event OfficeActiveStatusUpdated(bytes32 indexed officeId, bool active, uint64 updatedAt, address indexed updatedBy);
+
     function getOfficeRecord(bytes32 officeId) external view returns (OfficeTypes.OfficeRecord memory officeRecord);
     function getClerkRecord(bytes32 officeId, address clerk)
         external
@@ -50,4 +56,6 @@ interface IOfficeRegistry {
     function registerOffice(bytes32 officeId, OfficeTypes.OfficeKind kind, string calldata name, address admin) external;
     function transferOfficeAdmin(bytes32 officeId, address newAdmin) external;
     function setClerkStatus(bytes32 officeId, address clerk, bool active) external;
+    function renameOffice(bytes32 officeId, string calldata newName) external;
+    function setOfficeActive(bytes32 officeId, bool active) external;
 }

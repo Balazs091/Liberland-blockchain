@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
@@ -13,7 +13,7 @@ contract LLMToken is ERC20 {
     constructor() ERC20("Liberland Merit", "LLM") {}
 
     function decimals() public pure override returns (uint8) {
-        return 0;
+        return 18;
     }
 
     function mint(address to, uint256 amount) external {

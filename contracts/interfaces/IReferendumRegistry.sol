@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
+import {IKernelModule} from "./IKernelModule.sol";
 import {ReferendumTypes} from "../types/ReferendumTypes.sol";
 
 /// @title IReferendumRegistry
 /// @notice Stable fact registry for referendum proposals, vote receipts, and result snapshots.
-interface IReferendumRegistry {
-    error DuplicateVote(bytes32 referendumId, address voter);
+interface IReferendumRegistry is IKernelModule {
     error InvalidEnactedMeasureId(bytes32 referendumId, bytes32 measureId);
     error InvalidLegislationTier(uint8 legislationTier);
     error InvalidProposalMetadataHash(bytes32 metadataHash);
@@ -16,6 +16,7 @@ interface IReferendumRegistry {
     error InvalidProposerReference(bytes32 proposerReference);
     error InvalidReferendumClass(ReferendumTypes.ReferendumClass referendumClass);
     error InvalidReferendumId(bytes32 referendumId);
+    error InvalidBudgetPayload(bytes32 budgetId);
     error InvalidResultSnapshot(bytes32 referendumId, uint256 turnout, uint256 expectedTurnout);
     error InvalidTextHash(bytes32 textHash);
     error InvalidVoteOption(ReferendumTypes.VoteOption option);
@@ -42,6 +43,9 @@ interface IReferendumRegistry {
         bytes32 legislationTextHash,
         uint64 startTime,
         uint64 endTime,
+        uint64 adoptionDelay,
+        uint256 electorateHeadcountSnapshot,
+        uint256 electorateVotingPowerSnapshot,
         address createdBy
     );
 
@@ -72,9 +76,7 @@ interface IReferendumRegistry {
         address indexed finalizedBy
     );
 
-    /// @notice Returns the kernel used for narrow write authorization.
-    /// @return kernelAddress The configured kernel address.
-    function kernel() external view returns (address kernelAddress);
+    event ReferendumCanceled(bytes32 indexed referendumId, uint64 canceledAt, address indexed canceledBy);
 
     /// @notice Returns the stored referendum record for a referendum identifier.
     /// @param referendumId The referendum identifier to query.
@@ -98,6 +100,19 @@ interface IReferendumRegistry {
         view
         returns (ReferendumTypes.ReferendumResult memory result);
 
+    /// @notice Returns the post-vote adoption review delay for a referendum.
+    /// @param referendumId The referendum identifier to query.
+    /// @return delaySeconds The stored adoption delay in seconds.
+    function adoptionDelayOf(bytes32 referendumId) external view returns (uint64 delaySeconds);
+
+    /// @notice Returns the budget-law details stored for a budget-approval referendum.
+    /// @param referendumId The referendum identifier to query.
+    /// @return details The stored budget-law details, or an empty struct if unset.
+    function getBudgetApprovalDetails(bytes32 referendumId)
+        external
+        view
+        returns (ReferendumTypes.BudgetApprovalDetails memory details);
+
     /// @notice Returns true when a referendum record exists.
     /// @param referendumId The referendum identifier to query.
     /// @return exists Whether the referendum exists.
@@ -115,6 +130,16 @@ interface IReferendumRegistry {
     function createReferendum(bytes32 referendumId, ReferendumTypes.ReferendumRecordInput calldata referendumInput)
         external;
 
+    /// @notice Stores a budget-approval referendum and its budget-law details.
+    /// @param referendumId The referendum identifier to create.
+    /// @param referendumInput The referendum metadata and scheduling fields to store.
+    /// @param budgetDetails The budget-law details to store for final approval.
+    function createBudgetApprovalReferendum(
+        bytes32 referendumId,
+        ReferendumTypes.ReferendumRecordInput calldata referendumInput,
+        ReferendumTypes.BudgetApprovalDetails calldata budgetDetails
+    ) external;
+
     /// @notice Stores a vote receipt and updates tallies for an active referendum.
     /// @param referendumId The referendum identifier to vote on.
     /// @param voter The voting wallet.
@@ -127,4 +152,8 @@ interface IReferendumRegistry {
     /// @param resultInput The policy-evaluated result snapshot to store.
     function finalizeReferendum(bytes32 referendumId, ReferendumTypes.ReferendumResultInput calldata resultInput)
         external;
+
+    /// @notice Marks an active referendum as canceled.
+    /// @param referendumId The referendum identifier to cancel.
+    function cancelReferendum(bytes32 referendumId) external;
 }

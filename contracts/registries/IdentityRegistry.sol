@@ -1,38 +1,40 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
-import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
+import {KernelModule} from "../base/KernelModule.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {IdentityTypes} from "../types/IdentityTypes.sol";
 
 /// @title IdentityRegistry
 /// @notice Stable fact registry for person identity status and wallet links.
-contract IdentityRegistry is IIdentityRegistry {
-    IConstitutionKernel private immutable _kernel;
-
+contract IdentityRegistry is IIdentityRegistry, KernelModule {
     mapping(bytes32 personId => IdentityTypes.IdentityRecord identityRecord) private _identityRecords;
     mapping(address wallet => IdentityTypes.WalletLink walletLink) private _walletLinks;
     mapping(bytes32 personId => uint256 count) private _activeWalletCounts;
     bytes32[] private _identityIds;
 
     /// @param kernelAddress The canonical kernel registry address.
-    constructor(address kernelAddress) {
-        if (kernelAddress == address(0) || kernelAddress.code.length == 0) {
-            revert IConstitutionKernel.InvalidModuleAddress(bytes32(0), kernelAddress);
-        }
-
-        _kernel = IConstitutionKernel(kernelAddress);
-    }
-
-    /// @inheritdoc IIdentityRegistry
-    function kernel() external view returns (address kernelAddress) {
-        return address(_kernel);
-    }
+    constructor(address kernelAddress) KernelModule(kernelAddress) {}
 
     /// @inheritdoc IIdentityRegistry
     function getIdentityRecord(bytes32 personId) external view returns (IdentityTypes.IdentityRecord memory record) {
         return _identityRecords[personId];
+    }
+
+    /// @inheritdoc IIdentityRegistry
+    function getCitizenshipSummary(bytes32 personId)
+        external
+        view
+        returns (
+            IdentityTypes.VerificationStatus verificationStatus,
+            IdentityTypes.CitizenshipStatus citizenshipStatus,
+            IdentityTypes.AgeClass ageClass,
+            bool finalSuspension
+        )
+    {
+        IdentityTypes.IdentityRecord storage record = _identityRecords[personId];
+        return (record.verificationStatus, record.citizenshipStatus, record.ageClass, record.finalSuspension);
     }
 
     /// @inheritdoc IIdentityRegistry
@@ -197,6 +199,11 @@ contract IdentityRegistry is IIdentityRegistry {
             status == IdentityTypes.WalletLinkStatus.Active
                 && (previousStatus != IdentityTypes.WalletLinkStatus.Active || currentPersonId != personId)
         ) {
+            // One active wallet per person (H2): a person may only hold a single active wallet at a
+            // time. Migration stays possible by revoking the prior wallet first (count returns to 0).
+            if (_activeWalletCounts[personId] != 0) {
+                revert PersonAlreadyHasActiveWallet(personId);
+            }
             _activeWalletCounts[personId] += 1;
         }
 
@@ -204,8 +211,15 @@ contract IdentityRegistry is IIdentityRegistry {
     }
 
     function _requireRegistryAuthority(address caller) private view {
-        if (caller != _kernel.getModule(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY)) {
-            revert UnauthorizedIdentityRegistryCaller(caller);
+        // L7: resolve the primary authority through the same try/catch used for the setup-authority fallback so
+        // that an unregistered IDENTITY_REGISTRY_AUTHORITY does not brick every write (including the fallback).
+        if (_isModuleCaller(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, caller)) {
+            return;
         }
+        if (_isModuleCaller(KernelModuleIds.INITIAL_SETUP_AUTHORITY, caller)) {
+            return;
+        }
+
+        revert UnauthorizedIdentityRegistryCaller(caller);
     }
 }

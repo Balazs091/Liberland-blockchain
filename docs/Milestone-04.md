@@ -15,6 +15,7 @@ Build Congress elections.
 - vacancies are filled from runner-ups
 - voting weight is determined by policy and active political stake
 - finalized cycles create the next deterministic recurring election cycle
+- current Congress members are automatically registered as candidates in the next cycle unless they withdraw
 - recurring election cadence is read from a replaceable Congress election policy
 
 ## Done when

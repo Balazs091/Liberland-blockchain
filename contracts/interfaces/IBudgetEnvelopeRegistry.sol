@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
+import {IKernelModule} from "./IKernelModule.sol";
 import {TreasuryTypes} from "../types/TreasuryTypes.sol";
 
 /// @title IBudgetEnvelopeRegistry
 /// @notice Stable fact registry for approved budget envelopes and committed treasury outflows.
-interface IBudgetEnvelopeRegistry {
+interface IBudgetEnvelopeRegistry is IKernelModule {
     error BudgetAlreadyRecorded(bytes32 budgetId);
     error BudgetAmountExceeded(bytes32 budgetId, uint256 availableAmount, uint256 requestedAmount);
     error BudgetNotActive(bytes32 budgetId);
@@ -60,7 +61,6 @@ interface IBudgetEnvelopeRegistry {
         address indexed recordedBy
     );
 
-    function kernel() external view returns (address kernelAddress);
     function getBudgetEnvelope(bytes32 budgetId) external view returns (TreasuryTypes.BudgetEnvelope memory envelope);
     function budgetExists(bytes32 budgetId) external view returns (bool exists);
     function totalBudgetCount() external view returns (uint256 count);

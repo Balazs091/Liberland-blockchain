@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {ICongressElectionApp} from "../interfaces/ICongressElectionApp.sol";
 import {ICitizenEligibilityPolicy} from "../interfaces/ICitizenEligibilityPolicy.sol";
@@ -7,7 +7,6 @@ import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
 import {IReferendumPolicy} from "../interfaces/IReferendumPolicy.sol";
 import {IStakeRegistry} from "../interfaces/IStakeRegistry.sol";
 import {IVotingPowerPolicy} from "../interfaces/IVotingPowerPolicy.sol";
-import {IdentityTypes} from "../types/IdentityTypes.sol";
 import {ReferendumTypes} from "../types/ReferendumTypes.sol";
 
 /// @title ReferendumPolicy
@@ -15,7 +14,6 @@ import {ReferendumTypes} from "../types/ReferendumTypes.sol";
 contract ReferendumPolicy is IReferendumPolicy {
     error InvalidAuthority(address authority);
     error InvalidConstitutionalStakeThresholdBps(uint16 thresholdBps);
-    error InvalidMinimumVotingDuration(uint64 minimumVotingDuration);
     error InvalidPolicy(address policyAddress);
     error InvalidQuorum(uint256 quorum);
     error UnsupportedProposalOrigin(ReferendumTypes.ProposalOrigin proposalOrigin);
@@ -24,8 +22,13 @@ contract ReferendumPolicy is IReferendumPolicy {
     ICitizenEligibilityPolicy private immutable _citizenEligibilityPolicy;
     IVotingPowerPolicy private immutable _votingPowerPolicy;
 
+    uint16 internal constant CONSTITUTIONAL_HEADCOUNT_THRESHOLD_BPS = 5_000;
+    uint64 internal constant MINIMUM_VOTING_DURATION = 7 days;
+    uint64 internal constant EMERGENCY_VOTING_DURATION = 3 days;
+    uint64 internal constant STANDARD_ADOPTION_DELAY = 7 days;
+    uint64 internal constant MAXIMUM_ADOPTION_DELAY = 7 days;
+
     address private immutable _congressProposalAuthority;
-    uint64 private immutable _minimumVotingDuration;
     uint256 private immutable _citizenProposalFee;
     uint256 private immutable _congressProposalFee;
     uint256 private immutable _citizenQuorum;
@@ -37,7 +40,6 @@ contract ReferendumPolicy is IReferendumPolicy {
     /// @param citizenEligibilityPolicyAddress The citizen eligibility policy address.
     /// @param votingPowerPolicyAddress The voting power policy address.
     /// @param congressProposalAuthority_ The Congress app used to validate real Congress proposal authority.
-    /// @param minimumVotingDuration_ The minimum permitted referendum voting duration.
     /// @param citizenProposalFee_ The fee configured for citizen-origin proposals.
     /// @param congressProposalFee_ The fee configured for Congress-origin proposals.
     /// @param citizenQuorum_ The minimum turnout required for citizen-origin referenda.
@@ -49,7 +51,6 @@ contract ReferendumPolicy is IReferendumPolicy {
         address citizenEligibilityPolicyAddress,
         address votingPowerPolicyAddress,
         address congressProposalAuthority_,
-        uint64 minimumVotingDuration_,
         uint256 citizenProposalFee_,
         uint256 congressProposalFee_,
         uint256 citizenQuorum_,
@@ -67,9 +68,6 @@ contract ReferendumPolicy is IReferendumPolicy {
         if (congressProposalAuthority_ == address(0) || congressProposalAuthority_.code.length == 0) {
             revert InvalidAuthority(congressProposalAuthority_);
         }
-        if (minimumVotingDuration_ == 0) {
-            revert InvalidMinimumVotingDuration(minimumVotingDuration_);
-        }
         if (citizenQuorum_ == 0 || congressQuorum_ == 0) {
             revert InvalidQuorum(citizenQuorum_ == 0 ? citizenQuorum_ : congressQuorum_);
         }
@@ -80,7 +78,6 @@ contract ReferendumPolicy is IReferendumPolicy {
         _citizenEligibilityPolicy = ICitizenEligibilityPolicy(citizenEligibilityPolicyAddress);
         _votingPowerPolicy = IVotingPowerPolicy(votingPowerPolicyAddress);
         _congressProposalAuthority = congressProposalAuthority_;
-        _minimumVotingDuration = minimumVotingDuration_;
         _citizenProposalFee = citizenProposalFee_;
         _congressProposalFee = congressProposalFee_;
         _citizenQuorum = citizenQuorum_;
@@ -111,8 +108,23 @@ contract ReferendumPolicy is IReferendumPolicy {
     }
 
     /// @inheritdoc IReferendumPolicy
-    function minimumVotingDuration() external view returns (uint64 duration) {
-        return _minimumVotingDuration;
+    function minimumVotingDuration() external pure returns (uint64 duration) {
+        return MINIMUM_VOTING_DURATION;
+    }
+
+    /// @inheritdoc IReferendumPolicy
+    function emergencyVotingDuration() external pure returns (uint64 duration) {
+        return EMERGENCY_VOTING_DURATION;
+    }
+
+    /// @inheritdoc IReferendumPolicy
+    function standardAdoptionDelay() external pure returns (uint64 duration) {
+        return STANDARD_ADOPTION_DELAY;
+    }
+
+    /// @inheritdoc IReferendumPolicy
+    function maximumAdoptionDelay() external pure returns (uint64 duration) {
+        return MAXIMUM_ADOPTION_DELAY;
     }
 
     /// @inheritdoc IReferendumPolicy
@@ -133,34 +145,36 @@ contract ReferendumPolicy is IReferendumPolicy {
         ReferendumTypes.ProposalOrigin proposalOrigin,
         address proposer
     ) external view returns (bool allowed) {
-        if (referendumClass == ReferendumTypes.ReferendumClass.Legislation) {
+        // Legislation, Congress-election-policy, and module-governance referenda accept either a bonded citizen
+        // proposer or a Congress member.
+        if (
+            referendumClass == ReferendumTypes.ReferendumClass.Legislation
+                || referendumClass == ReferendumTypes.ReferendumClass.CongressElectionPolicy
+                || referendumClass == ReferendumTypes.ReferendumClass.ModuleGovernance
+        ) {
             if (proposalOrigin == ReferendumTypes.ProposalOrigin.Citizen) {
                 return _isBondedCitizenProposer(proposer);
             }
             if (proposalOrigin == ReferendumTypes.ProposalOrigin.Congress) {
-                return ICongressElectionApp(_congressProposalAuthority).isCongressMember(proposer);
+                return _isCongressProposer(proposer);
             }
 
             return false;
         }
 
-        if (referendumClass == ReferendumTypes.ReferendumClass.CongressElectionPolicy) {
-            if (proposalOrigin == ReferendumTypes.ProposalOrigin.Citizen) {
-                return _isBondedCitizenProposer(proposer);
-            }
-            if (proposalOrigin == ReferendumTypes.ProposalOrigin.Congress) {
-                return ICongressElectionApp(_congressProposalAuthority).isCongressMember(proposer);
-            }
-
-            return false;
-        }
-
-        if (referendumClass == ReferendumTypes.ReferendumClass.ConstitutionalAmendment) {
-            return proposalOrigin == ReferendumTypes.ProposalOrigin.Congress
-                && ICongressElectionApp(_congressProposalAuthority).isCongressMember(proposer);
+        // Budget approvals and constitutional amendments are Congress-origin only.
+        if (
+            referendumClass == ReferendumTypes.ReferendumClass.BudgetApproval
+                || referendumClass == ReferendumTypes.ReferendumClass.ConstitutionalAmendment
+        ) {
+            return proposalOrigin == ReferendumTypes.ProposalOrigin.Congress && _isCongressProposer(proposer);
         }
 
         return false;
+    }
+
+    function _isCongressProposer(address proposer) private view returns (bool isMember) {
+        return ICongressElectionApp(_congressProposalAuthority).isCongressMember(proposer);
     }
 
     /// @inheritdoc IReferendumPolicy
@@ -170,13 +184,21 @@ contract ReferendumPolicy is IReferendumPolicy {
         uint256 forVotes,
         uint256 againstVotes,
         uint256 forVoterCount,
-        uint256 againstVoterCount
+        uint256 againstVoterCount,
+        uint256 electorateHeadcountSnapshot,
+        uint256 electorateVotingPowerSnapshot,
+        bool requiresSupermajority
     ) external view returns (ReferendumTypes.PolicyOutcome memory outcome) {
         uint256 turnout = forVotes + againstVotes;
 
+        // Rule-defining module repoints (requiresSupermajority) clear the same double-threshold as
+        // constitutional amendments; every other class keeps the ordinary absolute-stake quorum.
         if (
-            referendumClass == ReferendumTypes.ReferendumClass.Legislation
-                || referendumClass == ReferendumTypes.ReferendumClass.CongressElectionPolicy
+            !requiresSupermajority
+                && (referendumClass == ReferendumTypes.ReferendumClass.Legislation
+                    || referendumClass == ReferendumTypes.ReferendumClass.ModuleGovernance
+                    || referendumClass == ReferendumTypes.ReferendumClass.CongressElectionPolicy
+                    || referendumClass == ReferendumTypes.ReferendumClass.BudgetApproval)
         ) {
             uint256 quorumRequired = _quorumRequired(proposalOrigin);
             bool legislationQuorumMet = turnout >= quorumRequired;
@@ -191,23 +213,37 @@ contract ReferendumPolicy is IReferendumPolicy {
             });
         }
 
-        if (referendumClass != ReferendumTypes.ReferendumClass.ConstitutionalAmendment) {
+        if (referendumClass != ReferendumTypes.ReferendumClass.ConstitutionalAmendment && !requiresSupermajority) {
             revert UnsupportedReferendumClass(referendumClass);
         }
 
-        (, uint256 electorateVotingPower) = _eligibleCitizenSnapshot();
-        uint256 weightedQuorum = (electorateVotingPower * uint256(_constitutionalForStakeThresholdBps)) / 10_000;
-        bool quorumMet = forVoterCount >= _constitutionalForVoterQuorum && forVotes >= weightedQuorum
+        uint256 headcountQuorumRequired = _ceilBps(electorateHeadcountSnapshot, CONSTITUTIONAL_HEADCOUNT_THRESHOLD_BPS);
+        if (headcountQuorumRequired < _constitutionalForVoterQuorum) {
+            headcountQuorumRequired = _constitutionalForVoterQuorum;
+        }
+        // Art IV §8 second prong: >= 65% of duly CAST voting instruments (weighted turnout), not of the
+        // whole electorate snapshot. Broad participation is enforced separately by the 50%-of-electorate
+        // headcount quorum above, so this measures the supermajority among votes actually cast.
+        uint256 supermajorityRequired = _ceilBps(turnout, _constitutionalForStakeThresholdBps);
+        bool quorumMet = forVoterCount >= headcountQuorumRequired && forVotes >= supermajorityRequired
             && forVoterCount > againstVoterCount;
 
         return ReferendumTypes.PolicyOutcome({
             turnout: turnout,
-            quorumRequired: weightedQuorum,
-            headcountQuorumRequired: _constitutionalForVoterQuorum,
-            electorateVotingPower: electorateVotingPower,
+            quorumRequired: supermajorityRequired,
+            headcountQuorumRequired: headcountQuorumRequired,
+            electorateVotingPower: electorateVotingPowerSnapshot,
             quorumMet: quorumMet,
             passed: quorumMet && forVotes > againstVotes
         });
+    }
+
+    function _ceilBps(uint256 value, uint16 bps) private pure returns (uint256 result) {
+        if (value == 0) {
+            return 0;
+        }
+
+        return (value * uint256(bps) + 9_999) / 10_000;
     }
 
     function _quorumRequired(ReferendumTypes.ProposalOrigin proposalOrigin) private view returns (uint256 quorum) {
@@ -234,49 +270,5 @@ contract ReferendumPolicy is IReferendumPolicy {
 
         return IStakeRegistry(_citizenEligibilityPolicy.stakeRegistry()).activeStakeOf(personId)
             >= _citizenProposalBondRequirement;
-    }
-
-    function _eligibleCitizenSnapshot() private view returns (uint256 citizenCount, uint256 electorateVotingPower) {
-        IIdentityRegistry identityRegistry = IIdentityRegistry(_citizenEligibilityPolicy.identityRegistry());
-        IStakeRegistry stakeRegistry = IStakeRegistry(_citizenEligibilityPolicy.stakeRegistry());
-        uint256 identityCount = identityRegistry.totalIdentityCount();
-
-        for (uint256 index = 0; index < identityCount; ++index) {
-            bytes32 personId = identityRegistry.identityIdAt(index);
-            if (!_isEligibleCitizenPerson(identityRegistry, stakeRegistry, personId)) {
-                continue;
-            }
-
-            citizenCount += 1;
-            electorateVotingPower += stakeRegistry.activeStakeOf(personId);
-        }
-    }
-
-    function _isEligibleCitizenPerson(
-        IIdentityRegistry identityRegistry,
-        IStakeRegistry stakeRegistry,
-        bytes32 personId
-    ) private view returns (bool eligible) {
-        IdentityTypes.IdentityRecord memory record = identityRegistry.getIdentityRecord(personId);
-        if (record.personId == bytes32(0)) {
-            return false;
-        }
-        if (identityRegistry.activeWalletCountOf(personId) == 0) {
-            return false;
-        }
-        if (record.verificationStatus != IdentityTypes.VerificationStatus.Verified) {
-            return false;
-        }
-        if (record.citizenshipStatus != IdentityTypes.CitizenshipStatus.Citizen) {
-            return false;
-        }
-        if (record.ageClass != IdentityTypes.AgeClass.Adult || record.finalSuspension) {
-            return false;
-        }
-        if (stakeRegistry.activeStakeOf(personId) < _citizenEligibilityPolicy.minimumCitizenStake()) {
-            return false;
-        }
-
-        return !stakeRegistry.hasActiveUnstakeCooldown(personId);
     }
 }

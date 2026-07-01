@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
 
@@ -9,11 +9,18 @@ interface IActionTimelock {
     error ActionAlreadyQueued(bytes32 actionId);
     error ActionAlreadyFinalized(bytes32 actionId, GovernanceTypes.ActionState state);
     error ActionExpired(bytes32 actionId, uint64 expiresAt);
+    error ActionCancellationPending(bytes32 actionId, uint64 deadline);
+    error ActionSuspended(bytes32 actionId, uint64 suspendedUntil);
+    error ActionUnderConstitutionalReview(bytes32 actionId);
     error ActionNotFound(bytes32 actionId);
     error ActionNotExpired(bytes32 actionId, uint64 expiresAt);
     error ActionNotReady(bytes32 actionId, uint64 earliestExecutionTime);
     error InvalidActionExpiry(bytes32 actionId, uint64 expiresAt, uint64 earliestExecutionTime);
     error InvalidActionPayload(bytes32 actionId);
+    error InvalidDelayConfig(GovernanceTypes.TimelockDelayConfig config);
+    error QueuedTargetModuleChanged(
+        bytes32 actionId, bytes32 targetModule, address expectedAddress, address actualAddress
+    );
     error UnauthorizedTimelockCaller(address caller);
     error UnsupportedExecutionAction(GovernanceTypes.ActionType actionType);
 
@@ -24,6 +31,7 @@ interface IActionTimelock {
         GovernanceTypes.ActionOrigin origin,
         bytes32 originReference,
         bytes32 policyReference,
+        address targetModuleAddress,
         bytes32 payloadHash,
         uint64 createdAt,
         uint64 earliestExecutionTime,
@@ -77,4 +85,10 @@ interface IActionTimelock {
     /// @param actionType The governance action type.
     /// @return delaySeconds The minimum delay in seconds.
     function minimumDelay(GovernanceTypes.ActionType actionType) external view returns (uint64 delaySeconds);
+
+    /// @notice Returns whether the timelock accepts and can execute a governance action type.
+    /// @dev Mirrors {IGovernanceRouter-isActionTypeSupported}; the routed and executable sets must stay identical.
+    /// @param actionType The governance action type.
+    /// @return supported Whether the action type is queueable and executable through the timelock.
+    function isActionTypeSupported(GovernanceTypes.ActionType actionType) external pure returns (bool supported);
 }

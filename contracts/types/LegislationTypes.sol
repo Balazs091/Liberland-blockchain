@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 /// @title LegislationTypes
 /// @notice Shared enums and structs for legislation text records and enactment metadata.
 library LegislationTypes {
     enum LegislationTier {
         Undefined,
-        OrdinaryLaw,
-        ConstitutionalLaw
+        ConstitutionalOrInternationalTreaty,
+        Law,
+        SubLegalTier3,
+        SubLegalTier4,
+        Decision
     }
 
     enum RepealOrigin {
@@ -38,5 +41,18 @@ library LegislationTypes {
         bool repealed;
         uint64 enactedAt;
         uint64 repealedAt;
+    }
+
+    function isConstitutionalTier(LegislationTier tier) internal pure returns (bool eligible) {
+        return tier == LegislationTier.ConstitutionalOrInternationalTreaty;
+    }
+
+    function isLawTier(LegislationTier tier) internal pure returns (bool eligible) {
+        return tier == LegislationTier.Law;
+    }
+
+    function isSubLegalTier(LegislationTier tier) internal pure returns (bool eligible) {
+        return tier == LegislationTier.SubLegalTier3 || tier == LegislationTier.SubLegalTier4
+            || tier == LegislationTier.Decision;
     }
 }

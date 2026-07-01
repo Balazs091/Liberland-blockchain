@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -137,32 +137,23 @@ contract DemoCitizenGateway is IDemoCitizenGateway {
     }
 
     /// @inheritdoc IDemoCitizenGateway
-    function requestUnstake(uint256 amount) external {
-        if (amount == 0) {
-            revert ZeroAmount();
-        }
-
+    function unstake() external returns (uint256 releasedAmount) {
         bytes32 personId = _requireRegisteredWallet(msg.sender);
-        if (!unstakingPolicy.canStartUnstake(personId, amount)) {
-            revert UnstakeNotAllowed(personId, amount);
-        }
 
-        uint64 cooldownEnd = unstakingPolicy.previewCooldownEnd(uint64(block.timestamp));
-        stakeRegistry.requestUnstake(personId, amount, cooldownEnd);
+        uint64 welfareUntil;
+        (releasedAmount, welfareUntil) = stakeRegistry.unstake(personId);
 
-        emit DemoUnstakeRequested(
-            msg.sender, personId, amount, cooldownEnd, stakeRegistry.activeStakeOf(personId), uint64(block.timestamp)
-        );
-    }
-
-    /// @inheritdoc IDemoCitizenGateway
-    function claimUnstake() external returns (uint256 claimedAmount) {
-        bytes32 personId = _requireRegisteredWallet(msg.sender);
-        claimedAmount = stakeRegistry.claimUnstake(personId);
-        bool transferred = _meritToken.transfer(msg.sender, claimedAmount);
+        bool transferred = _meritToken.transfer(msg.sender, releasedAmount);
         require(transferred, "demo unstake transfer failed");
 
-        emit DemoUnstakeClaimed(msg.sender, personId, claimedAmount, uint64(block.timestamp));
+        emit DemoUnstakeExecuted(
+            msg.sender,
+            personId,
+            releasedAmount,
+            stakeRegistry.activeStakeOf(personId),
+            welfareUntil,
+            uint64(block.timestamp)
+        );
     }
 
     function _requireRegisteredWallet(address wallet) private view returns (bytes32 personId) {

@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {Test} from "forge-std/Test.sol";
 
 import {BudgetEnvelopeRegistry} from "../../contracts/registries/BudgetEnvelopeRegistry.sol";
 import {IdentityRegistry} from "../../contracts/registries/IdentityRegistry.sol";
+import {LegislationRegistry} from "../../contracts/registries/LegislationRegistry.sol";
 import {OfficeRegistry} from "../../contracts/registries/OfficeRegistry.sol";
+import {PresidentRegistry} from "../../contracts/registries/PresidentRegistry.sol";
 import {SenateSeatRegistry} from "../../contracts/registries/SenateSeatRegistry.sol";
 import {StakeRegistry} from "../../contracts/registries/StakeRegistry.sol";
 import {OfficeExecutor} from "../../contracts/apps/OfficeExecutor.sol";
@@ -22,6 +24,7 @@ import {IOfficePermissionPolicy} from "../../contracts/interfaces/IOfficePermiss
 import {IOfficeRegistry} from "../../contracts/interfaces/IOfficeRegistry.sol";
 import {IPayoutQueue} from "../../contracts/interfaces/IPayoutQueue.sol";
 import {ISenateApp} from "../../contracts/interfaces/ISenateApp.sol";
+import {ITreasuryVault} from "../../contracts/interfaces/ITreasuryVault.sol";
 import {ITreasurySpendingPolicy} from "../../contracts/interfaces/ITreasurySpendingPolicy.sol";
 import {KernelModuleIds} from "../../contracts/libraries/KernelModuleIds.sol";
 import {MockModule} from "../../contracts/mocks/MockModule.sol";
@@ -34,17 +37,35 @@ import {IdentityTypes} from "../../contracts/types/IdentityTypes.sol";
 import {OfficeTypes} from "../../contracts/types/OfficeTypes.sol";
 import {TreasuryTypes} from "../../contracts/types/TreasuryTypes.sol";
 
+contract MockReferendumAppForTreasury {
+    address public immutable governanceRouter;
+    address public immutable legislationRegistry;
+    address public immutable referendumRegistry;
+
+    constructor(address governanceRouterAddress, address legislationRegistryAddress) {
+        governanceRouter = governanceRouterAddress;
+        legislationRegistry = legislationRegistryAddress;
+        referendumRegistry = address(0);
+    }
+
+    function routeAction(GovernanceTypes.ActionRequest calldata request) external returns (bytes32 actionId) {
+        return GovernanceRouter(governanceRouter).routeAction(request);
+    }
+}
+
 /// @title Milestone6TreasuryAndOfficesTest
 /// @notice Covers v1 office administration, budget approval, delayed payouts, and Senate-vetoable treasury execution.
 contract Milestone6TreasuryAndOfficesTest is Test {
     uint256 internal constant MINIMUM_CITIZEN_STAKE = 5_000;
     uint32 internal constant SENATE_CANCELLATION_THRESHOLD = 2;
+    uint64 internal constant DISBURSEMENT_SUSPENSION_PERIOD = 30 days;
     uint256 internal constant FINANCE_CLERK_OPERATIONS_LIMIT = 3 ether;
     uint256 internal constant FINANCE_CLERK_SALARY_LIMIT = 2 ether;
 
     bytes32 internal constant FINANCE_OFFICE_ID = keccak256("office.ministry-finance");
     bytes32 internal constant IDENTITY_OFFICE_ID = keccak256("office.identity");
     bytes32 internal constant LAND_OFFICE_ID = keccak256("office.land");
+    bytes32 internal constant COMPANY_REGISTRY_OFFICE_ID = keccak256("office.company-registry");
     bytes32 internal constant OPERATIONS_BUDGET_ID = keccak256("budget.operations");
     bytes32 internal constant VETO_BUDGET_ID = keccak256("budget.veto");
     bytes32 internal constant PAYOUT_REQUEST_ID = keccak256("payout.operations");
@@ -58,6 +79,8 @@ contract Milestone6TreasuryAndOfficesTest is Test {
     address internal constant IDENTITY_ADMIN = address(0x1D01);
     address internal constant IDENTITY_CLERK = address(0x1D02);
     address internal constant LAND_ADMIN = address(0x1A01);
+    address internal constant COMPANY_REGISTRY_ADMIN = address(0xC001);
+    address internal constant COMPANY_REGISTRY_CLERK = address(0xC002);
     address internal constant TREASURY_RECIPIENT = address(0xBEEF);
     address internal constant SENATOR_ONE = address(0xA11CE);
     address internal constant SENATOR_TWO = address(0xB0B);
@@ -68,10 +91,13 @@ contract Milestone6TreasuryAndOfficesTest is Test {
     MockModule internal identityAuthority;
     MockModule internal stakeAuthority;
     IdentityRegistry internal identityRegistry;
+    LegislationRegistry internal legislationRegistry;
     StakeRegistry internal stakeRegistry;
     CitizenEligibilityPolicy internal citizenEligibilityPolicy;
     SenateSeatRegistry internal senateSeatRegistry;
+    PresidentRegistry internal presidentRegistry;
     SenatePowersPolicy internal senatePowersPolicy;
+    MockReferendumAppForTreasury internal mockReferendumApp;
     SenateApp internal senateApp;
     TreasuryVault internal treasuryVault;
     BudgetEnvelopeRegistry internal budgetEnvelopeRegistry;
@@ -85,6 +111,13 @@ contract Milestone6TreasuryAndOfficesTest is Test {
         _deployFoundation();
         _registerCitizen(SENATOR_ONE_PERSON_ID, SENATOR_ONE, 10_000);
         _registerCitizen(SENATOR_TWO_PERSON_ID, SENATOR_TWO, 12_000);
+        presidentRegistry.setPresident(
+            SENATOR_ONE,
+            SENATOR_ONE_PERSON_ID,
+            keccak256("president.mandate"),
+            uint64(block.timestamp),
+            type(uint64).max
+        );
         _seedInitialSenateSeats();
         _bootstrapOffices();
 
@@ -105,7 +138,16 @@ contract Milestone6TreasuryAndOfficesTest is Test {
         assertTrue(IOfficeRegistry.registerOffice.selector != bytes4(0));
         assertTrue(IPayoutQueue.syncPayoutState.selector != bytes4(0));
         assertTrue(ISenateApp.supportActionCancellation.selector != bytes4(0));
+        assertTrue(ITreasuryVault.receiveNativeDeposit.selector != bytes4(0));
         assertTrue(ITreasurySpendingPolicy.isPayoutAllowed.selector != bytes4(0));
+    }
+
+    function test_TreasuryVault_ReceivesNativeDepositsThroughExplicitEntrypoint() public {
+        uint256 balanceBefore = address(treasuryVault).balance;
+
+        treasuryVault.receiveNativeDeposit{value: 1 ether}(keccak256("test.deposit"));
+
+        assertEq(address(treasuryVault).balance, balanceBefore + 1 ether);
     }
 
     function test_OfficeAdminsCanChooseClerksWithinTheirOwnOffice() public {
@@ -146,13 +188,64 @@ contract Milestone6TreasuryAndOfficesTest is Test {
         officeExecutor.assignClerk(FINANCE_OFFICE_ID, address(0xCC12));
     }
 
-    function test_BudgetApproval_IsDelayedAndExecutableThroughTimelock() public {
-        bytes32 actionId = _requestBudgetApproval(OPERATIONS_BUDGET_ID, 8 ether);
+    function test_CompanyRegistryOffice_IsPlaceholderWithoutTreasuryPayoutAuthority() public {
+        vm.prank(COMPANY_REGISTRY_ADMIN);
+        officeExecutor.assignClerk(COMPANY_REGISTRY_OFFICE_ID, COMPANY_REGISTRY_CLERK);
+
+        assertEq(
+            uint256(officeRegistry.roleOf(COMPANY_REGISTRY_OFFICE_ID, COMPANY_REGISTRY_CLERK)),
+            uint256(OfficeTypes.OfficeRole.Clerk)
+        );
+
+        vm.prank(COMPANY_REGISTRY_ADMIN);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IOfficeExecutor.UnauthorizedOfficeAction.selector,
+                COMPANY_REGISTRY_ADMIN,
+                COMPANY_REGISTRY_OFFICE_ID,
+                OfficeTypes.OfficeActionClass.ProposePayout
+            )
+        );
+        officeExecutor.proposePayout(
+            COMPANY_REGISTRY_OFFICE_ID,
+            TreasuryTypes.DisbursementRequestInput({
+                requestId: keccak256("company-registry-payout"),
+                budgetId: OPERATIONS_BUDGET_ID,
+                officeId: COMPANY_REGISTRY_OFFICE_ID,
+                disbursementType: TreasuryTypes.DisbursementType.Operations,
+                asset: address(0),
+                recipient: TREASURY_RECIPIENT,
+                amount: 1 ether,
+                policyReference: bytes32(0),
+                noteHash: keccak256("company-registry"),
+                noteURI: "ipfs://company-registry"
+            })
+        );
+    }
+
+    function test_OfficeBudgetApproval_RevertsBecauseBudgetsRequireReferendum() public {
+        vm.prank(MINISTER_OF_FINANCE);
+        vm.expectRevert(
+            abi.encodeWithSelector(IOfficeExecutor.BudgetApprovalRequiresReferendum.selector, OPERATIONS_BUDGET_ID)
+        );
+        officeExecutor.requestBudgetApproval(
+            FINANCE_OFFICE_ID,
+            OPERATIONS_BUDGET_ID,
+            TreasuryTypes.DisbursementType.Operations,
+            address(0),
+            8 ether,
+            uint64(block.timestamp),
+            uint64(block.timestamp + 30 days)
+        );
+    }
+
+    function test_ReferendumBudgetApproval_IsExecutableThroughTimelock() public {
+        bytes32 actionId = _queueBudgetApprovalFromReferendum(OPERATIONS_BUDGET_ID, 8 ether);
 
         assertEq(uint256(timelock.getActionState(actionId)), uint256(GovernanceTypes.ActionState.Queued));
         assertFalse(budgetEnvelopeRegistry.budgetExists(OPERATIONS_BUDGET_ID));
 
-        vm.warp(block.timestamp + 2 days);
+        _warpToActionDeadline(actionId);
         timelock.executeAction(actionId);
 
         TreasuryTypes.BudgetEnvelope memory budgetEnvelope =
@@ -168,12 +261,14 @@ contract Milestone6TreasuryAndOfficesTest is Test {
     }
 
     function test_SenateCanVetoQueuedBudgetApproval() public {
-        bytes32 actionId = _requestBudgetApproval(VETO_BUDGET_ID, 4 ether);
+        bytes32 actionId = _queueBudgetApprovalFromReferendum(VETO_BUDGET_ID, 4 ether);
 
         vm.prank(SENATOR_ONE);
         senateApp.supportActionCancellation(actionId, 0);
         vm.prank(SENATOR_TWO);
         senateApp.supportActionCancellation(actionId, 1);
+
+        _finalizeActionCancellationAtDeadline(actionId);
 
         assertEq(uint256(timelock.getActionState(actionId)), uint256(GovernanceTypes.ActionState.Canceled));
         assertFalse(budgetEnvelopeRegistry.budgetExists(VETO_BUDGET_ID));
@@ -269,6 +364,7 @@ contract Milestone6TreasuryAndOfficesTest is Test {
         vm.prank(SENATOR_TWO);
         senateApp.supportActionCancellation(actionId, 1);
 
+        _finalizeActionCancellationAtDeadline(actionId);
         payoutQueue.syncPayoutState(VETO_PAYOUT_REQUEST_ID);
 
         request = payoutQueue.getDisbursementRequest(VETO_PAYOUT_REQUEST_ID);
@@ -311,7 +407,7 @@ contract Milestone6TreasuryAndOfficesTest is Test {
 
     function _deployFoundation() private {
         kernel = new ConstitutionKernel(address(this));
-        timelock = new ActionTimelock(address(kernel));
+        timelock = new ActionTimelock(address(kernel), _defaultDelayConfig());
         router = new GovernanceRouter(address(kernel), address(this));
         identityAuthority = new MockModule(keccak256("milestone6.identity-authority"));
         stakeAuthority = new MockModule(keccak256("milestone6.stake-authority"));
@@ -320,18 +416,23 @@ contract Milestone6TreasuryAndOfficesTest is Test {
         kernel.bootstrapSetModule(KernelModuleIds.ACTION_TIMELOCK, address(timelock));
 
         identityRegistry = new IdentityRegistry(address(kernel));
+        legislationRegistry = new LegislationRegistry(address(kernel));
         stakeRegistry = new StakeRegistry(address(kernel));
         citizenEligibilityPolicy =
             new CitizenEligibilityPolicy(address(identityRegistry), address(stakeRegistry), MINIMUM_CITIZEN_STAKE);
 
         senateSeatRegistry = new SenateSeatRegistry(address(kernel));
-        senatePowersPolicy = new SenatePowersPolicy(SENATE_CANCELLATION_THRESHOLD);
+        presidentRegistry = new PresidentRegistry(address(kernel));
+        senatePowersPolicy = new SenatePowersPolicy(SENATE_CANCELLATION_THRESHOLD, DISBURSEMENT_SUSPENSION_PERIOD);
+        mockReferendumApp = new MockReferendumAppForTreasury(address(router), address(legislationRegistry));
         senateApp = new SenateApp(
             address(identityRegistry),
             address(senateSeatRegistry),
             address(senatePowersPolicy),
+            address(presidentRegistry),
             address(router),
-            address(timelock)
+            address(timelock),
+            address(mockReferendumApp)
         );
 
         treasuryVault = new TreasuryVault(address(kernel));
@@ -353,12 +454,15 @@ contract Milestone6TreasuryAndOfficesTest is Test {
         kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, address(identityAuthority));
         kernel.bootstrapSetModule(KernelModuleIds.STAKE_REGISTRY_AUTHORITY, address(stakeAuthority));
         kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY, address(identityRegistry));
+        kernel.bootstrapSetModule(KernelModuleIds.LEGISLATION_REGISTRY, address(legislationRegistry));
         kernel.bootstrapSetModule(KernelModuleIds.STAKE_REGISTRY, address(stakeRegistry));
         kernel.bootstrapSetModule(KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY, address(citizenEligibilityPolicy));
         kernel.bootstrapSetModule(KernelModuleIds.SENATE_SEAT_REGISTRY_AUTHORITY, address(senateApp));
         kernel.bootstrapSetModule(KernelModuleIds.SENATE_SEAT_REGISTRY, address(senateSeatRegistry));
+        kernel.bootstrapSetModule(KernelModuleIds.PRESIDENT_REGISTRY, address(presidentRegistry));
         kernel.bootstrapSetModule(KernelModuleIds.SENATE_POWERS_POLICY, address(senatePowersPolicy));
         kernel.bootstrapSetModule(KernelModuleIds.SENATE_APP, address(senateApp));
+        kernel.bootstrapSetModule(KernelModuleIds.REFERENDUM_APP, address(mockReferendumApp));
         kernel.bootstrapSetModule(KernelModuleIds.TREASURY_VAULT, address(treasuryVault));
         kernel.bootstrapSetModule(KernelModuleIds.BUDGET_ENVELOPE_REGISTRY, address(budgetEnvelopeRegistry));
         kernel.bootstrapSetModule(KernelModuleIds.BUDGET_ENVELOPE_REGISTRY_AUTHORITY, address(timelock));
@@ -371,6 +475,7 @@ contract Milestone6TreasuryAndOfficesTest is Test {
         kernel.bootstrapSetModule(KernelModuleIds.OFFICE_EXECUTOR, address(officeExecutor));
 
         router.configureOriginAuthority(GovernanceTypes.ActionOrigin.Office, address(officeExecutor));
+        router.configureOriginAuthority(GovernanceTypes.ActionOrigin.Referendum, address(this));
         router.configureOriginAuthority(GovernanceTypes.ActionOrigin.Senate, address(senateApp));
     }
 
@@ -384,6 +489,22 @@ contract Milestone6TreasuryAndOfficesTest is Test {
         officeExecutor.bootstrapCreateOffice(
             LAND_OFFICE_ID, OfficeTypes.OfficeKind.LandRegistryOffice, "Land Registry Office", LAND_ADMIN
         );
+        officeExecutor.bootstrapCreateOffice(
+            COMPANY_REGISTRY_OFFICE_ID,
+            OfficeTypes.OfficeKind.CompanyRegistryOffice,
+            "Company Registry Office",
+            COMPANY_REGISTRY_ADMIN
+        );
+    }
+
+    function _defaultDelayConfig() internal pure returns (GovernanceTypes.TimelockDelayConfig memory config) {
+        config = GovernanceTypes.TimelockDelayConfig({
+            moduleGovernanceDelay: 2 days,
+            treasuryBudgetApprovalDelay: 1 days,
+            legislationEnactmentDelay: 1 days,
+            treasuryDisbursementDelay: 2 days,
+            defaultExecutionWindow: 7 days
+        });
     }
 
     function _registerCitizen(bytes32 personId, address wallet, uint256 stakeAmount) private {
@@ -413,22 +534,54 @@ contract Milestone6TreasuryAndOfficesTest is Test {
         senateApp.bootstrapAssignSeat(1, SENATOR_TWO);
     }
 
-    function _requestBudgetApproval(bytes32 budgetId, uint256 allocatedAmount) private returns (bytes32 actionId) {
-        vm.prank(MINISTER_OF_FINANCE);
-        actionId = officeExecutor.requestBudgetApproval(
-            FINANCE_OFFICE_ID,
-            budgetId,
-            TreasuryTypes.DisbursementType.Operations,
-            address(0),
-            allocatedAmount,
-            uint64(block.timestamp),
-            uint64(block.timestamp + 30 days)
+    function _queueBudgetApprovalFromReferendum(bytes32 budgetId, uint256 allocatedAmount)
+        private
+        returns (bytes32 actionId)
+    {
+        GovernanceTypes.TreasuryBudgetApprovalPayload memory payload =
+            GovernanceTypes.TreasuryBudgetApprovalPayload({
+                budgetId: budgetId,
+                officeId: FINANCE_OFFICE_ID,
+                disbursementType: TreasuryTypes.DisbursementType.Operations,
+                asset: address(0),
+                allocatedAmount: allocatedAmount,
+                startsAt: uint64(block.timestamp),
+                endsAt: uint64(block.timestamp + 30 days),
+                policyReference: treasurySpendingPolicy.computePolicyReference(
+                    FINANCE_OFFICE_ID,
+                    OfficeTypes.OfficeRole.Admin,
+                    TreasuryTypes.DisbursementType.Operations,
+                    allocatedAmount
+                )
+            });
+
+        actionId = mockReferendumApp.routeAction(
+            GovernanceTypes.ActionRequest({
+                actionType: GovernanceTypes.ActionType.TreasuryBudgetApproval,
+                origin: GovernanceTypes.ActionOrigin.Referendum,
+                originReference: keccak256(abi.encodePacked("budget-law", budgetId)),
+                policyReference: payload.policyReference,
+                targetModule: KernelModuleIds.BUDGET_ENVELOPE_REGISTRY,
+                payload: abi.encode(payload),
+                requestedExecutionTime: uint64(block.timestamp + 7 days),
+                expiresAt: 0
+            })
         );
     }
 
     function _approveBudget(bytes32 budgetId, uint256 allocatedAmount) private {
-        bytes32 actionId = _requestBudgetApproval(budgetId, allocatedAmount);
-        vm.warp(block.timestamp + 2 days);
+        bytes32 actionId = _queueBudgetApprovalFromReferendum(budgetId, allocatedAmount);
+        _warpToActionDeadline(actionId);
         timelock.executeAction(actionId);
+    }
+
+    function _finalizeActionCancellationAtDeadline(bytes32 actionId) private {
+        _warpToActionDeadline(actionId);
+        senateApp.finalizeActionCancellation(actionId);
+    }
+
+    function _warpToActionDeadline(bytes32 actionId) private {
+        GovernanceTypes.ActionRecord memory actionRecord = timelock.getAction(actionId);
+        vm.warp(actionRecord.earliestExecutionTime);
     }
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {IGovernanceRouter} from "../interfaces/IGovernanceRouter.sol";
 import {IOfficeExecutor} from "../interfaces/IOfficeExecutor.sol";
@@ -13,7 +13,7 @@ import {TreasuryTypes} from "../types/TreasuryTypes.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 
 /// @title OfficeExecutor
-/// @notice Explicit office-role executor for office administration, budget proposals, and treasury payout routing.
+/// @notice Explicit office-role executor for office administration and treasury payout routing.
 contract OfficeExecutor is IOfficeExecutor {
     IOfficeRegistry private immutable _officeRegistry;
     IOfficePermissionPolicy private immutable _officePermissionPolicy;
@@ -98,46 +98,33 @@ contract OfficeExecutor is IOfficeExecutor {
     }
 
     /// @inheritdoc IOfficeExecutor
+    function renameOffice(bytes32 officeId, string calldata newName) external {
+        _authorizeOfficeAdminIncludingInactive(officeId, msg.sender, OfficeTypes.OfficeActionClass.ManageOfficeMetadata);
+        _officeRegistry.renameOffice(officeId, newName);
+    }
+
+    /// @inheritdoc IOfficeExecutor
+    function setOfficeActive(bytes32 officeId, bool active) external {
+        _authorizeOfficeAdminIncludingInactive(officeId, msg.sender, OfficeTypes.OfficeActionClass.SetOfficeActive);
+        _officeRegistry.setOfficeActive(officeId, active);
+    }
+
+    /// @inheritdoc IOfficeExecutor
+    function computeBudgetId(bytes32 officeId, uint256 sequence) external pure returns (bytes32 budgetId) {
+        return keccak256(abi.encode("budget-envelope", officeId, sequence));
+    }
+
+    /// @inheritdoc IOfficeExecutor
     function requestBudgetApproval(
-        bytes32 officeId,
+        bytes32,
         bytes32 budgetId,
-        TreasuryTypes.DisbursementType disbursementType,
-        address asset,
-        uint256 allocatedAmount,
-        uint64 startsAt,
-        uint64 endsAt
-    ) external returns (bytes32 actionId) {
-        (OfficeTypes.OfficeRecord memory officeRecord, OfficeTypes.OfficeRole officeRole) =
-            _authorizeOfficeAction(officeId, msg.sender, OfficeTypes.OfficeActionClass.ProposeBudget);
-
-        bytes32 budgetPolicyReference =
-            _treasurySpendingPolicy.computePolicyReference(officeId, officeRole, disbursementType, allocatedAmount);
-
-        GovernanceTypes.TreasuryBudgetApprovalPayload memory payload = GovernanceTypes.TreasuryBudgetApprovalPayload({
-            budgetId: budgetId,
-            officeId: officeId,
-            disbursementType: disbursementType,
-            asset: asset,
-            allocatedAmount: allocatedAmount,
-            startsAt: startsAt,
-            endsAt: endsAt,
-            policyReference: budgetPolicyReference
-        });
-
-        actionId = _governanceRouter.routeAction(
-            GovernanceTypes.ActionRequest({
-                actionType: GovernanceTypes.ActionType.TreasuryBudgetApproval,
-                origin: GovernanceTypes.ActionOrigin.Office,
-                originReference: officeId,
-                policyReference: _officePermissionPolicy.computePolicyReference(
-                    officeRecord.kind, officeRole, OfficeTypes.OfficeActionClass.ProposeBudget
-                ),
-                targetModule: KernelModuleIds.BUDGET_ENVELOPE_REGISTRY,
-                payload: abi.encode(payload),
-                requestedExecutionTime: 0,
-                expiresAt: 0
-            })
-        );
+        TreasuryTypes.DisbursementType,
+        address,
+        uint256,
+        uint64,
+        uint64
+    ) external pure returns (bytes32) {
+        revert BudgetApprovalRequiresReferendum(budgetId);
     }
 
     /// @inheritdoc IOfficeExecutor
@@ -185,6 +172,17 @@ contract OfficeExecutor is IOfficeExecutor {
         if (request.officeId != officeId) {
             revert OfficeActionOfficeMismatch(officeId, request.officeId);
         }
+        if (!_treasurySpendingPolicy.isPayoutAllowed(
+                officeId, officeRole, request.disbursementType, request.asset, request.amount
+            )) {
+            revert UnauthorizedOfficeAction(msg.sender, officeId, OfficeTypes.OfficeActionClass.RoutePayout);
+        }
+        bytes32 expectedPolicyReference = _treasurySpendingPolicy.computePolicyReference(
+            officeId, officeRole, request.disbursementType, request.amount
+        );
+        if (request.policyReference != expectedPolicyReference) {
+            revert UnauthorizedOfficeAction(msg.sender, officeId, OfficeTypes.OfficeActionClass.RoutePayout);
+        }
 
         GovernanceTypes.TreasuryDisbursementPayload memory payload = _payoutQueue.prepareRouting(requestId);
 
@@ -193,9 +191,7 @@ contract OfficeExecutor is IOfficeExecutor {
                 actionType: GovernanceTypes.ActionType.TreasuryDisbursement,
                 origin: GovernanceTypes.ActionOrigin.Office,
                 originReference: officeId,
-                policyReference: _treasurySpendingPolicy.computePolicyReference(
-                    officeId, officeRole, request.disbursementType, request.amount
-                ),
+                policyReference: expectedPolicyReference,
                 targetModule: KernelModuleIds.TREASURY_VAULT,
                 payload: abi.encode(payload),
                 requestedExecutionTime: 0,
@@ -229,6 +225,22 @@ contract OfficeExecutor is IOfficeExecutor {
         if (
             officeRecord.officeId == bytes32(0) || !officeRecord.active
                 || !_officePermissionPolicy.isActionAuthorized(officeRecord.kind, officeRole, actionClass)
+        ) {
+            revert UnauthorizedOfficeAction(caller, officeId, actionClass);
+        }
+    }
+
+    function _authorizeOfficeAdminIncludingInactive(
+        bytes32 officeId,
+        address caller,
+        OfficeTypes.OfficeActionClass actionClass
+    ) private view {
+        OfficeTypes.OfficeRecord memory officeRecord = _officeRegistry.getOfficeRecord(officeId);
+        if (
+            officeRecord.officeId == bytes32(0) || officeRecord.admin != caller
+                || !_officePermissionPolicy.isActionAuthorized(
+                    officeRecord.kind, OfficeTypes.OfficeRole.Admin, actionClass
+                )
         ) {
             revert UnauthorizedOfficeAction(caller, officeId, actionClass);
         }

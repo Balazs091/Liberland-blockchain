@@ -1,36 +1,65 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {IActionTimelock} from "../interfaces/IActionTimelock.sol";
 import {IBudgetEnvelopeRegistry} from "../interfaces/IBudgetEnvelopeRegistry.sol";
+import {IConstitutionalReview} from "../interfaces/IConstitutionalReview.sol";
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
 import {ILegislationRegistry} from "../interfaces/ILegislationRegistry.sol";
+import {ISenateApp} from "../interfaces/ISenateApp.sol";
 import {ITreasuryVault} from "../interfaces/ITreasuryVault.sol";
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
 import {LegislationTypes} from "../types/LegislationTypes.sol";
+import {SenateTypes} from "../types/SenateTypes.sol";
 import {TreasuryTypes} from "../types/TreasuryTypes.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 
 /// @title ActionTimelock
 /// @notice Delayed execution queue for explicit privileged governance actions.
 contract ActionTimelock is IActionTimelock {
-    uint64 internal constant MODULE_UPDATE_DELAY = 2 days;
-    uint64 internal constant TREASURY_BUDGET_APPROVAL_DELAY = 2 days;
-    uint64 internal constant LEGISLATION_ENACTMENT_DELAY = 2 days;
-    uint64 internal constant TREASURY_DISBURSEMENT_DELAY = 2 days;
+    uint64 internal constant DEFAULT_MODULE_GOVERNANCE_DELAY = 2 days;
+    uint64 internal constant DEFAULT_TREASURY_BUDGET_APPROVAL_DELAY = 1 days;
+    uint64 internal constant DEFAULT_LEGISLATION_ENACTMENT_DELAY = 1 days;
+    uint64 internal constant DEFAULT_TREASURY_DISBURSEMENT_DELAY = 2 days;
     uint64 internal constant DEFAULT_EXECUTION_WINDOW = 7 days;
 
     mapping(bytes32 actionId => GovernanceTypes.ActionRecord actionRecord) private _actions;
 
     IConstitutionKernel private immutable _kernel;
+    uint64 private immutable _moduleGovernanceDelay;
+    uint64 private immutable _treasuryBudgetApprovalDelay;
+    uint64 private immutable _legislationEnactmentDelay;
+    uint64 private immutable _treasuryDisbursementDelay;
+    uint64 private immutable _defaultExecutionWindow;
 
     /// @param kernelAddress The canonical kernel registry address.
-    constructor(address kernelAddress) {
+    /// @param delayConfig The minimum action delays and default execution window to use for this deployment.
+    constructor(address kernelAddress, GovernanceTypes.TimelockDelayConfig memory delayConfig) {
         if (kernelAddress == address(0) || kernelAddress.code.length == 0) {
             revert IConstitutionKernel.InvalidModuleAddress(bytes32(0), kernelAddress);
         }
+        if (delayConfig.defaultExecutionWindow == 0) {
+            revert InvalidDelayConfig(delayConfig);
+        }
 
         _kernel = IConstitutionKernel(kernelAddress);
+        _moduleGovernanceDelay = delayConfig.moduleGovernanceDelay;
+        _treasuryBudgetApprovalDelay = delayConfig.treasuryBudgetApprovalDelay;
+        _legislationEnactmentDelay = delayConfig.legislationEnactmentDelay;
+        _treasuryDisbursementDelay = delayConfig.treasuryDisbursementDelay;
+        _defaultExecutionWindow = delayConfig.defaultExecutionWindow;
+    }
+
+    /// @notice Returns the conservative default timelock delays used by production scripts.
+    /// @return delayConfig The default delay configuration.
+    function defaultDelayConfig() external pure returns (GovernanceTypes.TimelockDelayConfig memory delayConfig) {
+        delayConfig = GovernanceTypes.TimelockDelayConfig({
+            moduleGovernanceDelay: DEFAULT_MODULE_GOVERNANCE_DELAY,
+            treasuryBudgetApprovalDelay: DEFAULT_TREASURY_BUDGET_APPROVAL_DELAY,
+            legislationEnactmentDelay: DEFAULT_LEGISLATION_ENACTMENT_DELAY,
+            treasuryDisbursementDelay: DEFAULT_TREASURY_DISBURSEMENT_DELAY,
+            defaultExecutionWindow: DEFAULT_EXECUTION_WINDOW
+        });
     }
 
     /// @notice Returns the kernel used for module pointer execution.
@@ -42,20 +71,21 @@ contract ActionTimelock is IActionTimelock {
     /// @inheritdoc IActionTimelock
     function computeActionId(GovernanceTypes.ActionRequest calldata request) external view returns (bytes32 actionId) {
         (uint64 earliestExecutionTime, uint64 expiresAt) = _resolveActionSchedule(request, uint64(block.timestamp));
-        return _computeActionId(request, earliestExecutionTime, expiresAt);
+        return _computeActionId(request, _targetModuleAddressForId(request), earliestExecutionTime, expiresAt);
     }
 
     /// @inheritdoc IActionTimelock
     function queueAction(GovernanceTypes.ActionRequest calldata request) external returns (bytes32 actionId) {
         _requireRouterCaller(msg.sender);
 
-        if (minimumDelay(request.actionType) == 0) {
+        if (!isActionTypeSupported(request.actionType)) {
             revert UnsupportedExecutionAction(request.actionType);
         }
 
         uint64 createdAt = uint64(block.timestamp);
         (uint64 earliestExecutionTime, uint64 expiresAt) = _resolveActionSchedule(request, createdAt);
-        actionId = _computeActionId(request, earliestExecutionTime, expiresAt);
+        address targetModuleAddress = _targetModuleAddressForQueue(request);
+        actionId = _computeActionId(request, targetModuleAddress, earliestExecutionTime, expiresAt);
 
         GovernanceTypes.ActionState existingState = _loadActionState(actionId);
         if (existingState == GovernanceTypes.ActionState.Queued) {
@@ -69,11 +99,6 @@ contract ActionTimelock is IActionTimelock {
             revert InvalidActionExpiry(actionId, expiresAt, earliestExecutionTime);
         }
 
-        // Defense in depth: queued updates may only target already-registered modules.
-        address targetModuleAddress = _kernel.getModule(request.targetModule);
-        if (targetModuleAddress == address(0)) {
-            revert IConstitutionKernel.ModuleNotRegistered(request.targetModule);
-        }
         _validateQueuedAction(request, actionId);
 
         _actions[actionId] = GovernanceTypes.ActionRecord({
@@ -83,6 +108,7 @@ contract ActionTimelock is IActionTimelock {
             originReference: request.originReference,
             policyReference: request.policyReference,
             targetModule: request.targetModule,
+            targetModuleAddress: targetModuleAddress,
             payload: request.payload,
             createdAt: createdAt,
             earliestExecutionTime: earliestExecutionTime,
@@ -97,6 +123,7 @@ contract ActionTimelock is IActionTimelock {
             request.origin,
             request.originReference,
             request.policyReference,
+            targetModuleAddress,
             keccak256(request.payload),
             createdAt,
             earliestExecutionTime,
@@ -140,11 +167,15 @@ contract ActionTimelock is IActionTimelock {
         if (block.timestamp < actionRecord.earliestExecutionTime) {
             revert ActionNotReady(actionId, actionRecord.earliestExecutionTime);
         }
+        _requireNoPendingSenateCancellation(actionId);
+        _requireNoActiveSenateSuspension(actionId);
+        _requireNotUnderConstitutionalReview(actionId);
+        _requireQueuedTargetUnchanged(actionRecord);
 
         actionRecord.state = GovernanceTypes.ActionState.Executed;
-        _executeAction(actionRecord);
-
         emit ActionExecuted(actionId, msg.sender);
+
+        _executeAction(actionRecord);
     }
 
     /// @inheritdoc IActionTimelock
@@ -196,25 +227,38 @@ contract ActionTimelock is IActionTimelock {
         }
 
         return _deriveState(actionRecord) == GovernanceTypes.ActionState.Queued
-            && block.timestamp >= actionRecord.earliestExecutionTime;
+            && block.timestamp >= actionRecord.earliestExecutionTime && !_hasPendingSenateCancellation(actionId)
+            && !_hasActiveSenateSuspension(actionId) && !_isUnderConstitutionalReview(actionId);
     }
 
     /// @inheritdoc IActionTimelock
-    function minimumDelay(GovernanceTypes.ActionType actionType) public pure returns (uint64 delaySeconds) {
-        if (actionType == GovernanceTypes.ActionType.ModulePointerUpdate) {
-            return MODULE_UPDATE_DELAY;
+    function minimumDelay(GovernanceTypes.ActionType actionType) public view returns (uint64 delaySeconds) {
+        if (
+            actionType == GovernanceTypes.ActionType.ModulePointerUpdate
+                || actionType == GovernanceTypes.ActionType.ModuleRegistration
+        ) {
+            return _moduleGovernanceDelay;
         }
         if (actionType == GovernanceTypes.ActionType.TreasuryBudgetApproval) {
-            return TREASURY_BUDGET_APPROVAL_DELAY;
+            return _treasuryBudgetApprovalDelay;
         }
         if (actionType == GovernanceTypes.ActionType.LegislationEnactment) {
-            return LEGISLATION_ENACTMENT_DELAY;
+            return _legislationEnactmentDelay;
         }
         if (actionType == GovernanceTypes.ActionType.TreasuryDisbursement) {
-            return TREASURY_DISBURSEMENT_DELAY;
+            return _treasuryDisbursementDelay;
         }
 
         return 0;
+    }
+
+    /// @inheritdoc IActionTimelock
+    function isActionTypeSupported(GovernanceTypes.ActionType actionType) public pure returns (bool supported) {
+        return actionType == GovernanceTypes.ActionType.ModulePointerUpdate
+            || actionType == GovernanceTypes.ActionType.ModuleRegistration
+            || actionType == GovernanceTypes.ActionType.TreasuryBudgetApproval
+            || actionType == GovernanceTypes.ActionType.LegislationEnactment
+            || actionType == GovernanceTypes.ActionType.TreasuryDisbursement;
     }
 
     function _executeAction(GovernanceTypes.ActionRecord storage actionRecord) private {
@@ -225,12 +269,19 @@ contract ActionTimelock is IActionTimelock {
             _kernel.governanceUpdateModule(actionRecord.targetModule, payload.newModuleAddress);
             return;
         }
+        if (actionRecord.actionType == GovernanceTypes.ActionType.ModuleRegistration) {
+            GovernanceTypes.ModuleUpdatePayload memory payload =
+                _decodeModuleUpdatePayload(actionRecord.payload, actionRecord.actionId, actionRecord.targetModule);
+
+            _kernel.governanceRegisterModule(actionRecord.targetModule, payload.newModuleAddress);
+            return;
+        }
         if (actionRecord.actionType == GovernanceTypes.ActionType.TreasuryBudgetApproval) {
             GovernanceTypes.TreasuryBudgetApprovalPayload memory payload = _decodeTreasuryBudgetApprovalPayload(
                 actionRecord.payload, actionRecord.actionId, actionRecord.targetModule
             );
 
-            IBudgetEnvelopeRegistry(_kernel.getModule(actionRecord.targetModule))
+            IBudgetEnvelopeRegistry(actionRecord.targetModuleAddress)
                 .recordBudgetApproval(
                     payload.budgetId,
                     TreasuryTypes.BudgetEnvelopeInput({
@@ -250,8 +301,7 @@ contract ActionTimelock is IActionTimelock {
                 actionRecord.payload, actionRecord.actionId, actionRecord.targetModule
             );
 
-            ILegislationRegistry legislationRegistry =
-                ILegislationRegistry(_kernel.getModule(actionRecord.targetModule));
+            ILegislationRegistry legislationRegistry = ILegislationRegistry(actionRecord.targetModuleAddress);
             legislationRegistry.recordEnactment(
                 payload.measureId,
                 LegislationTypes.LegislationRecordInput({
@@ -269,7 +319,7 @@ contract ActionTimelock is IActionTimelock {
                 actionRecord.payload, actionRecord.actionId, actionRecord.targetModule
             );
 
-            ITreasuryVault(_kernel.getModule(actionRecord.targetModule)).executeDisbursement(payload);
+            ITreasuryVault(actionRecord.targetModuleAddress).executeDisbursement(payload);
             return;
         }
 
@@ -278,17 +328,18 @@ contract ActionTimelock is IActionTimelock {
 
     function _resolveActionSchedule(GovernanceTypes.ActionRequest calldata request, uint64 currentTimestamp)
         private
-        pure
+        view
         returns (uint64 earliestExecutionTime, uint64 expiresAt)
     {
         uint64 earliestAllowed = currentTimestamp + minimumDelay(request.actionType);
         earliestExecutionTime =
             request.requestedExecutionTime > earliestAllowed ? request.requestedExecutionTime : earliestAllowed;
-        expiresAt = request.expiresAt == 0 ? earliestExecutionTime + DEFAULT_EXECUTION_WINDOW : request.expiresAt;
+        expiresAt = request.expiresAt == 0 ? earliestExecutionTime + _defaultExecutionWindow : request.expiresAt;
     }
 
     function _computeActionId(
         GovernanceTypes.ActionRequest calldata request,
+        address targetModuleAddress,
         uint64 earliestExecutionTime,
         uint64 expiresAt
     ) private view returns (bytes32 actionId) {
@@ -301,6 +352,7 @@ contract ActionTimelock is IActionTimelock {
                 request.originReference,
                 request.policyReference,
                 request.targetModule,
+                targetModuleAddress,
                 keccak256(request.payload),
                 earliestExecutionTime,
                 expiresAt
@@ -310,6 +362,10 @@ contract ActionTimelock is IActionTimelock {
 
     function _validateQueuedAction(GovernanceTypes.ActionRequest calldata request, bytes32 actionId) private view {
         if (request.actionType == GovernanceTypes.ActionType.ModulePointerUpdate) {
+            _decodeModuleUpdatePayload(request.payload, actionId, request.targetModule);
+            return;
+        }
+        if (request.actionType == GovernanceTypes.ActionType.ModuleRegistration) {
             _decodeModuleUpdatePayload(request.payload, actionId, request.targetModule);
             return;
         }
@@ -359,7 +415,10 @@ contract ActionTimelock is IActionTimelock {
         ) {
             revert InvalidActionPayload(actionId);
         }
-        if (payload.enactedByReferendumId == bytes32(0) || payload.tier == LegislationTypes.LegislationTier.Undefined) {
+        if (
+            payload.enactedByReferendumId == bytes32(0)
+                || (!LegislationTypes.isConstitutionalTier(payload.tier) && !LegislationTypes.isLawTier(payload.tier))
+        ) {
             revert InvalidActionPayload(actionId);
         }
     }
@@ -440,6 +499,148 @@ contract ActionTimelock is IActionTimelock {
     function _requireRouterCaller(address caller) private view {
         if (caller != _kernel.getModule(KernelModuleIds.GOVERNANCE_ROUTER)) {
             revert UnauthorizedTimelockCaller(caller);
+        }
+    }
+
+    function _targetModuleAddressForId(GovernanceTypes.ActionRequest calldata request)
+        private
+        view
+        returns (address targetModuleAddress)
+    {
+        if (request.actionType == GovernanceTypes.ActionType.ModuleRegistration) {
+            return address(0);
+        }
+
+        try _kernel.getModule(request.targetModule) returns (address moduleAddress) {
+            return moduleAddress;
+        } catch {
+            return address(0);
+        }
+    }
+
+    function _targetModuleAddressForQueue(GovernanceTypes.ActionRequest calldata request)
+        private
+        view
+        returns (address targetModuleAddress)
+    {
+        if (request.actionType == GovernanceTypes.ActionType.ModuleRegistration) {
+            _requireUnregisteredTargetModule(request.targetModule);
+            return address(0);
+        }
+
+        targetModuleAddress = _kernel.getModule(request.targetModule);
+        if (targetModuleAddress == address(0)) {
+            revert IConstitutionKernel.ModuleNotRegistered(request.targetModule);
+        }
+    }
+
+    function _requireQueuedTargetUnchanged(GovernanceTypes.ActionRecord storage actionRecord) private view {
+        if (actionRecord.actionType == GovernanceTypes.ActionType.ModuleRegistration) {
+            _requireUnregisteredTargetModule(actionRecord.targetModule);
+            return;
+        }
+
+        address currentTargetModuleAddress = _kernel.getModule(actionRecord.targetModule);
+        if (currentTargetModuleAddress != actionRecord.targetModuleAddress) {
+            revert QueuedTargetModuleChanged(
+                actionRecord.actionId,
+                actionRecord.targetModule,
+                actionRecord.targetModuleAddress,
+                currentTargetModuleAddress
+            );
+        }
+    }
+
+    function _requireNoPendingSenateCancellation(bytes32 actionId) private view {
+        (bool pending, uint64 deadline) = _senateCancellationPending(actionId);
+        if (pending) {
+            revert ActionCancellationPending(actionId, deadline);
+        }
+    }
+
+    function _hasPendingSenateCancellation(bytes32 actionId) private view returns (bool pending) {
+        (pending,) = _senateCancellationPending(actionId);
+    }
+
+    function _senateCancellationPending(bytes32 actionId) private view returns (bool pending, uint64 deadline) {
+        address senateAppAddress = address(0);
+        try _kernel.getModule(KernelModuleIds.SENATE_APP) returns (address moduleAddress) {
+            senateAppAddress = moduleAddress;
+        } catch {
+            return (false, 0);
+        }
+
+        SenateTypes.ActionCancellationRecord memory cancellationRecord =
+            ISenateApp(senateAppAddress).getActionCancellationRecord(actionId);
+        deadline = cancellationRecord.deadline;
+        pending =
+            cancellationRecord.exists && !cancellationRecord.finalized && deadline != 0 && block.timestamp >= deadline;
+    }
+
+    function _requireNoActiveSenateSuspension(bytes32 actionId) private view {
+        (bool suspended, uint64 suspendedUntil) = _senateSuspensionActive(actionId);
+        if (suspended) {
+            revert ActionSuspended(actionId, suspendedUntil);
+        }
+    }
+
+    function _hasActiveSenateSuspension(bytes32 actionId) private view returns (bool active) {
+        (active,) = _senateSuspensionActive(actionId);
+    }
+
+    function _senateSuspensionActive(bytes32 actionId) private view returns (bool active, uint64 suspendedUntil) {
+        address senateAppAddress = address(0);
+        try _kernel.getModule(KernelModuleIds.SENATE_APP) returns (address moduleAddress) {
+            senateAppAddress = moduleAddress;
+        } catch {
+            return (false, 0);
+        }
+
+        SenateTypes.DisbursementSuspension memory suspension =
+            ISenateApp(senateAppAddress).getDisbursementSuspension(actionId);
+        suspendedUntil = suspension.suspendedUntil;
+        // Auto-lapses once suspendedUntil passes: no un-suspend call is required for execution to resume.
+        active = suspension.exists && block.timestamp < suspendedUntil;
+    }
+
+    function _requireNotUnderConstitutionalReview(bytes32 actionId) private view {
+        if (_isUnderConstitutionalReview(actionId)) {
+            revert ActionUnderConstitutionalReview(actionId);
+        }
+    }
+
+    function _isUnderConstitutionalReview(bytes32 actionId) private view returns (bool paused) {
+        // Optional judiciary hook: a court module registered under CONSTITUTIONAL_REVIEW can pause execution of a
+        // queued action pending review. Fail-open (not paused) when no such module is registered or the call fails,
+        // so the deliberately un-repointable core timelock is never bricked by an absent or broken review module — a
+        // future constitutional court is a pure add-on registered via an ordinary module-registration referendum.
+        address reviewAddress;
+        try _kernel.getModule(KernelModuleIds.CONSTITUTIONAL_REVIEW) returns (address moduleAddress) {
+            reviewAddress = moduleAddress;
+        } catch {
+            return false;
+        }
+
+        try IConstitutionalReview(reviewAddress).isActionExecutionPaused(actionId) returns (bool actionPaused) {
+            return actionPaused;
+        } catch {
+            return false;
+        }
+    }
+
+    function _requireUnregisteredTargetModule(bytes32 moduleId) private view {
+        if (moduleId == bytes32(0)) {
+            revert IConstitutionKernel.ModuleNotRegistered(moduleId);
+        }
+
+        try _kernel.getModuleRecord(moduleId) returns (GovernanceTypes.ModuleRecord memory moduleRecord) {
+            if (moduleRecord.moduleAddress == address(0)) {
+                return;
+            }
+
+            revert IConstitutionKernel.ModuleAlreadyRegistered(moduleId);
+        } catch {
+            return;
         }
     }
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -201,6 +201,11 @@ contract Milestone4CongressElectionsTest is Test {
         assertTrue(congressElectionApp.isCongressMember(WALLET_THREE));
         assertFalse(congressElectionApp.isCongressMember(WALLET_TWO));
 
+        address[] memory currentMembers = congressCandidateRegistry.currentCongressMembers();
+        assertEq(currentMembers.length, 2);
+        assertEq(currentMembers[0], WALLET_ONE);
+        assertEq(currentMembers[1], WALLET_THREE);
+
         ElectionTypes.CongressCycleRecord memory nextCycle = congressCandidateRegistry.getCycle(cycleId + 1);
         assertEq(congressCandidateRegistry.latestCycleId(), cycleId + 1);
         assertEq(uint256(nextCycle.status), uint256(ElectionTypes.ElectionStatus.CandidateRegistration));
@@ -226,6 +231,64 @@ contract Milestone4CongressElectionsTest is Test {
         assertEq(cycleRecord.nominationStart, expectedNominationStart);
         assertEq(cycleRecord.votingStart, expectedVotingStart);
         assertEq(cycleRecord.votingEnd, expectedVotingEnd);
+    }
+
+    function test_AutoRegisteredIncumbents_ReelectWhenNoOneActs() public {
+        (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycleRecord) = _createCycle();
+
+        vm.warp(cycleRecord.nominationStart);
+        _applyCandidate(cycleId, WALLET_ONE, "candidate-1");
+        vm.warp(cycleRecord.nominationStart + 1);
+        _applyCandidate(cycleId, WALLET_TWO, "candidate-2");
+
+        vm.warp(cycleRecord.votingEnd);
+        congressElectionApp.finalizeElection(cycleId);
+
+        uint256 nextCycleId = cycleId + 1;
+        ElectionTypes.CongressCycleRecord memory nextCycle = congressCandidateRegistry.getCycle(nextCycleId);
+
+        assertEq(congressCandidateRegistry.getCycleCandidateCount(nextCycleId), 2);
+        _assertAutoIncumbentCandidate(nextCycleId, WALLET_ONE);
+        _assertAutoIncumbentCandidate(nextCycleId, WALLET_TWO);
+
+        vm.warp(nextCycle.votingEnd);
+        congressElectionApp.finalizeElection(nextCycleId);
+
+        ElectionTypes.CongressOfficeTerm memory officeTerm = congressCandidateRegistry.getCurrentOfficeTerm();
+        assertEq(officeTerm.cycleId, nextCycleId);
+        assertEq(officeTerm.occupiedSeatCount, 2);
+        assertTrue(congressElectionApp.isCongressMember(WALLET_ONE));
+        assertTrue(congressElectionApp.isCongressMember(WALLET_TWO));
+    }
+
+    function test_AutoRegisteredIncumbent_CanWithdrawCandidacy() public {
+        (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycleRecord) = _createCycle();
+
+        vm.warp(cycleRecord.nominationStart);
+        _applyCandidate(cycleId, WALLET_ONE, "candidate-1");
+        _applyCandidate(cycleId, WALLET_TWO, "candidate-2");
+
+        vm.warp(cycleRecord.votingEnd);
+        congressElectionApp.finalizeElection(cycleId);
+
+        uint256 nextCycleId = cycleId + 1;
+        ElectionTypes.CongressCycleRecord memory nextCycle = congressCandidateRegistry.getCycle(nextCycleId);
+
+        vm.prank(WALLET_ONE);
+        congressElectionApp.withdrawCandidacy(nextCycleId);
+
+        assertEq(congressCandidateRegistry.getCycleCandidateCount(nextCycleId), 1);
+        _assertCandidateStatus(nextCycleId, WALLET_ONE, ElectionTypes.CandidateStatus.Withdrawn);
+        _assertCandidateStatus(nextCycleId, WALLET_TWO, ElectionTypes.CandidateStatus.Accepted);
+
+        vm.warp(nextCycle.votingEnd);
+        congressElectionApp.finalizeElection(nextCycleId);
+
+        ElectionTypes.CongressOfficeTerm memory officeTerm = congressCandidateRegistry.getCurrentOfficeTerm();
+        assertEq(officeTerm.cycleId, nextCycleId);
+        assertEq(officeTerm.occupiedSeatCount, 1);
+        assertFalse(congressElectionApp.isCongressMember(WALLET_ONE));
+        assertTrue(congressElectionApp.isCongressMember(WALLET_TWO));
     }
 
     function test_CastBallot_ReplacesEntireSignedBallot() public {
@@ -266,6 +329,50 @@ contract Milestone4CongressElectionsTest is Test {
         assertEq(congressCandidateRegistry.getCandidate(cycleId, WALLET_TWO).voteTotal, 0);
         assertEq(congressCandidateRegistry.getCandidate(cycleId, WALLET_THREE).voteTotal, 7_000);
         assertEq(congressCandidateRegistry.getCandidate(cycleId, WALLET_FOUR).voteTotal, 2_000);
+    }
+
+    function test_CastBallot_RejectsMinimumSignedAllocation() public {
+        (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycleRecord) = _createCycle();
+
+        vm.warp(cycleRecord.nominationStart);
+        _applyAllDefaultCandidates(cycleId);
+
+        vm.warp(cycleRecord.votingStart);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICongressCandidateRegistry.InvalidSignedAllocation.selector, WALLET_TWO, type(int256).min
+            )
+        );
+        _castBallot(WALLET_ONE, cycleId, _asAddressArray(WALLET_TWO), _asIntArray(type(int256).min));
+    }
+
+    function test_StandingBallot_CarriesForwardUntilChanged() public {
+        (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycleRecord) = _createCycle();
+
+        vm.warp(cycleRecord.nominationStart);
+        _applyAllDefaultCandidates(cycleId);
+
+        vm.warp(cycleRecord.votingStart);
+        _castFullWeightBallot(WALLET_FIVE, cycleId, WALLET_ONE);
+
+        vm.warp(cycleRecord.votingEnd);
+        congressElectionApp.finalizeElection(cycleId);
+
+        uint256 nextCycleId = cycleId + 1;
+        ElectionTypes.CongressCycleRecord memory nextCycle = congressCandidateRegistry.getCycle(nextCycleId);
+        vm.warp(nextCycle.nominationStart);
+
+        assertEq(congressCandidateRegistry.getCycleCandidateCount(nextCycleId), 2);
+        _assertCandidateStatus(nextCycleId, WALLET_ONE, ElectionTypes.CandidateStatus.Accepted);
+        _assertCandidateStatus(nextCycleId, WALLET_TWO, ElectionTypes.CandidateStatus.Accepted);
+        assertEq(congressCandidateRegistry.getCandidate(nextCycleId, WALLET_ONE).voteTotal, 5_500);
+        assertEq(congressCandidateRegistry.getCandidate(nextCycleId, WALLET_TWO).voteTotal, 0);
+
+        vm.warp(nextCycle.votingStart);
+        _castFullWeightBallot(WALLET_FIVE, nextCycleId, WALLET_TWO);
+
+        assertEq(congressCandidateRegistry.getCandidate(nextCycleId, WALLET_ONE).voteTotal, 0);
+        assertEq(congressCandidateRegistry.getCandidate(nextCycleId, WALLET_TWO).voteTotal, 5_500);
     }
 
     function test_ResignSeat_PromotesRunnerUpsInOrder() public {
@@ -386,6 +493,23 @@ contract Milestone4CongressElectionsTest is Test {
         ElectionTypes.CongressCandidateRecord memory candidateRecord =
             congressCandidateRegistry.getCandidate(cycleId, candidate);
         assertEq(uint256(candidateRecord.status), uint256(expectedStatus));
+    }
+
+    function _assertAutoIncumbentCandidate(uint256 cycleId, address candidate) internal view {
+        ElectionTypes.CongressCandidateRecord memory candidateRecord =
+            congressCandidateRegistry.getCandidate(cycleId, candidate);
+        assertEq(uint256(candidateRecord.status), uint256(ElectionTypes.CandidateStatus.Accepted));
+        assertEq(
+            candidateRecord.applicationHash,
+            keccak256(
+                abi.encode(
+                    keccak256("LiberlandCongressIncumbentCandidacy(uint256 cycleId,address incumbent)"),
+                    cycleId,
+                    candidate
+                )
+            )
+        );
+        assertEq(candidateRecord.applicationURI, "liberland://congress/incumbent-candidacy");
     }
 
     function _assertSeatHolder(

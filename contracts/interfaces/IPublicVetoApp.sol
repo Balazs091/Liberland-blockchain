@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {VetoTypes} from "../types/VetoTypes.sol";
 
@@ -81,6 +81,11 @@ interface IPublicVetoApp {
     /// @param measureId The legislation measure identifier.
     /// @return remaining The number of additional supports required.
     function remainingRepealSupport(bytes32 measureId) external view returns (uint256 remaining);
+
+    /// @notice Returns the currently eligible active support count for a measure.
+    /// @param measureId The legislation measure identifier.
+    /// @return count The active support count after excluding stale ineligible receipts.
+    function currentPublicVetoSupportCount(bytes32 measureId) external view returns (uint256 count);
 
     /// @notice Casts a headcount-based public veto on an eligible legislation measure.
     /// @param measureId The legislation measure identifier.

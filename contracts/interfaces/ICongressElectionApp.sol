@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 /// @title ICongressElectionApp
 /// @notice User-facing interface for Congress election scheduling, candidacy, voting, finalization, and vacancies.
@@ -23,6 +23,7 @@ interface ICongressElectionApp {
     error NoVotingPower(address voter);
     error NotActiveCongressMember(address wallet);
     error NotEligibleCandidate(address candidate);
+    error MemberStillEligible(address member);
     error UnknownCandidateReference(address candidate);
     error VotingClosed(uint256 cycleId, uint64 votingStart, uint64 votingEnd, uint64 currentTime);
 
@@ -101,8 +102,20 @@ interface ICongressElectionApp {
     /// @param cycleId The cycle identifier to finalize.
     function finalizeElection(uint256 cycleId) external;
 
-    /// @notice Vacates the caller's current seat and promotes the next runner-up when available.
+    /// @notice Vacates the caller's current seat and promotes the next eligible runner-up when available.
     /// @return seatIndex The vacated seat index.
     /// @return replacementCandidate The promoted runner-up, or zero if none remains.
     function resignSeat() external returns (uint32 seatIndex, address replacementCandidate);
+
+    /// @notice Removes a sitting member who has lost candidacy eligibility and fills the seat from a runner-up.
+    /// @dev Permissionless; reverts if the member is still an eligible candidate.
+    /// @param member The sitting Congress member to recall.
+    /// @return seatIndex The vacated seat index.
+    /// @return replacementCandidate The promoted runner-up, or zero if none remains.
+    function recallMember(address member) external returns (uint32 seatIndex, address replacementCandidate);
+
+    /// @notice Drops the standing ballots of listed voters who no longer have voting power (welfare/ineligible).
+    /// @param cycleId The open election cycle whose tallies should be synced.
+    /// @param voters The voters to check and purge when their current voting weight is zero.
+    function purgeIneligibleStandingBallots(uint256 cycleId, address[] calldata voters) external;
 }

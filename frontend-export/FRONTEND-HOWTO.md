@@ -24,6 +24,14 @@ Important:
 - `sepolia-demo.example.json` is only a schema example and contains no usable deployment addresses
 - after redeploying, copy `deployments/sepolia-demo.json` into `frontend-export/sepolia-demo.json`
 
+## Governance timing rule
+
+Do not hardcode timelock delays in the UI.
+
+- read `actionTimelock.minimumDelay(actionType)` for the currently deployed delay
+- read `actionTimelock.getAction(actionId)` for `earliestExecutionTime`, `expiresAt`, `targetModuleAddress`, and final state
+- queued actions pin the target module address; if a module is replaced before execution, the queued action reverts instead of silently executing against the new module
+
 ## Page 1: Finances
 
 ### User-facing goal
@@ -52,8 +60,9 @@ For the connected wallet `wallet`:
 
 1. `identityRegistry.getWalletLink(wallet)`
 2. `identityRegistry.getWalletIdentityRecord(wallet)`
-3. `llmToken.balanceOf(wallet)`
-4. If `personId != 0x0`:
+3. `llmToken.decimals()`
+4. `llmToken.balanceOf(wallet)`
+5. If `personId != 0x0`:
    - `stakeRegistry.getStakeRecord(personId)`
    - `stakeRegistry.activeStakeOf(personId)`
    - `stakeRegistry.pendingUnstakeOf(personId)`
@@ -68,6 +77,8 @@ For the connected wallet `wallet`:
 The current demo deploy uses a `24 hour` unstake cooldown. Read it from `unstakingPolicy.cooldownDuration()`.
 
 Changing this is a contract config change and requires a new demo deployment.
+
+`LLMToken.decimals()` is `18` (standard ERC-20). Multiply user-entered whole LLM by `1e18` before every on-chain call (mint, approve, stake) and divide base-unit balances by `1e18` for display. Stake thresholds, bonds, and quorums are likewise in base units (e.g. the 5000 LLM minimum stake is `5000e18`).
 
 ### Writes
 
@@ -146,12 +157,13 @@ Allow eligible citizens to view the latest Congress election cycle, inspect cand
 1. `congressCandidateRegistry.latestCycleId()`
 2. `congressCandidateRegistry.getCycle(cycleId)`
 3. `congressCandidateRegistry.getCurrentOfficeTerm()`
-4. `congressElectionApp.currentCongressCycleId()`
-5. `congressCandidateRegistry.getCycleCandidateCount(cycleId)`
-6. For each index:
+4. `congressCandidateRegistry.currentCongressMembers()`
+5. `congressElectionApp.currentCongressCycleId()`
+6. `congressCandidateRegistry.getCycleCandidateCount(cycleId)`
+7. For each index:
    - `congressCandidateRegistry.getCycleCandidateAt(cycleId, index)`
    - `congressCandidateRegistry.getCandidate(cycleId, candidate)`
-7. For connected user:
+8. For connected user:
    - `congressElectionPolicy.isEligibleVoter(wallet)`
    - `congressElectionPolicy.votingWeight(wallet)`
    - `candidateEligibilityPolicy.isEligibleCandidate(wallet)`
@@ -159,6 +171,9 @@ Allow eligible citizens to view the latest Congress election cycle, inspect cand
    - `congressCandidateRegistry.getBallotReceipt(cycleId, wallet)`
    - `congressCandidateRegistry.getBallotAllocationCount(cycleId, wallet)`
    - `congressCandidateRegistry.getBallotAllocationAt(cycleId, wallet, index)`
+   - `congressCandidateRegistry.getStandingBallotReceipt(wallet)`
+   - `congressCandidateRegistry.getStandingBallotAllocationCount(wallet)`
+   - `congressCandidateRegistry.getStandingBallotAllocationAt(wallet, index)`
 
 Important:
 
@@ -166,6 +181,7 @@ Important:
 - `currentCongressCycleId()` returns the active Congress office term only; it stays `0` until an election is finalized and seats are activated
 - a newly deployed demo can include a seeded active voting cycle; read its id from `sepolia-demo.json.congressCycleId` as a fallback, but still prefer `latestCycleId()` on-chain
 - read the current election policy from `congressElectionApp.congressElectionPolicy()` before policy reads, because future referenda can replace the timing policy module
+- `currentCongressMembers()` is the preferred direct getter for the active Congress directory
 
 ### Calls and write actions
 
@@ -225,6 +241,8 @@ Before showing the create-cycle form, read:
 
 Hide or disable create-cycle when the latest cycle exists and is not `Finalized`. Show finalization when `now >= votingEnd` and the cycle is not finalized; after a successful finalization, refresh `latestCycleId()` because the next cycle may already exist.
 
+If no eligible candidates remain at finalization, the cycle still finalizes and the next cycle is scheduled when applicable. In that case active Congress can have zero occupied seats until a later cycle elects eligible members. This is intentional to avoid a permanent election deadlock.
+
 For the first explicit cycle only, use timestamps where:
 
 - `nominationStart >= now`
@@ -264,7 +282,9 @@ The current election system is not a simple single-choice vote.
 
 - the frontend must collect an ordered / weighted ballot
 - `candidates[]` and `allocations[]` are parallel arrays
-- a later `castBallot` replaces the previous full ballot
+- `castBallot` stores a standing ballot; a later `castBallot` replaces the previous full standing ballot
+- the standing ballot remains in force across future voting periods until the voter changes it or calls `clearBallot`
+- when a candidate registers in a later cycle, their cycle vote total starts with any standing support already assigned to that candidate
 - candidates must have status `Accepted`
 
 Before submission:
@@ -274,6 +294,13 @@ Before submission:
 - read `congressElectionPolicy.votingWeight(wallet)`
 
 Validate in the UI before calling the contract.
+
+For display:
+
+- use `getStandingBallotReceipt` and `getStandingBallotAllocationAt` for the user's saved long-term preference
+- use `getBallotReceipt(cycleId, wallet)` and `getBallotAllocationAt(cycleId, wallet, index)` for the current cycle receipt, if the user has submitted during that cycle
+- after `castBallot`, refresh both standing and cycle-specific reads
+- after `clearBallot`, refresh both reads and candidate totals
 
 ### Suggested election page sections
 
@@ -301,6 +328,80 @@ Validate in the UI before calling the contract.
   - preview total positive and negative allocation
   - submit / replace / clear
 
+## Page 3: Offices, treasury, land, and company registry
+
+### User-facing goal
+
+Show office records, budget envelopes, payout requests, and the office-mediated land/company registries.
+
+### Contracts
+
+- `OfficeRegistry`
+- `DecisionApp` demo scope only; outside first production audit scope unless explicitly added
+- `OfficeExecutor`
+- `BudgetEnvelopeRegistry`
+- `PayoutQueue`
+- `TreasuryVault`
+- `LandRegistry`
+- `LandRegistryApp`
+- `CompanyRegistry`
+- `CompanyRegistryApp`
+
+### Office reads
+
+- `officeRegistry.getOfficeRecord(officeId)`
+- `officeRegistry.roleOf(officeId, wallet)`
+- `officeExecutor.computeBudgetId(officeId, sequence)`
+
+### Office admin writes
+
+Call these on `OfficeExecutor`, not directly on `OfficeRegistry`:
+
+- `officeExecutor.assignClerk(officeId, clerk)`
+- `officeExecutor.revokeClerk(officeId, clerk)`
+- `officeExecutor.transferOfficeAdmin(officeId, newAdmin)`
+- `officeExecutor.renameOffice(officeId, newName)`
+- `officeExecutor.setOfficeActive(officeId, active)`
+
+`OfficeRecord.active` is now mutable. Hide operational actions when an office is inactive.
+
+### Decision notes
+
+This section applies to Sepolia demo deployments that wire `DecisionApp`. It is not part of the first production deployment/audit scope by default.
+
+Use `DecisionApp` for bounded Congress and ministry decisions:
+
+- Congress ERC20 transfer:
+  - `createCongressTokenTransferDecision(...)`
+  - `supportCongressDecision(decisionId)`
+  - `revokeCongressDecisionSupport(decisionId)`
+  - `executeCongressDecision(decisionId)`
+- Ministry ERC20 transfer:
+  - `prepareMinistryTokenTransferDecision(...)`
+  - `executeMinistryDecision(decisionId)`
+- Ministry LLM transfer-and-stake:
+  - `prepareMinistryLlmStakeDecision(...)`
+  - `executeMinistryDecision(decisionId)`
+- Ministry clerk add/remove:
+  - `prepareMinistryClerkDecision(...)`
+  - `executeMinistryDecision(decisionId)`
+
+Before execution, the source wallet must approve `DecisionApp` for the ERC20 amount. For ministry decisions, the current contract model treats the office admin wallet as the ministry signer/source wallet.
+
+### Treasury notes
+
+- budget approvals are referendum/timelock actions, not office-only actions
+- use `computeBudgetId(officeId, sequence)` for deterministic budget ids when the frontend proposes a new budget id
+- payout routing revalidates the current office role and treasury spending policy at route time, so a stale proposed payout can fail if permissions or policy changed
+- use `actionTimelock.getAction(actionId)` to show when queued payouts become executable
+
+### Land and company notes
+
+- use the app contracts for writes because they enforce the relevant office role checks
+- use the registries for read pages and event indexing
+- rejected company applications release their name / registration-number reservation, so a corrected application can reuse the identifiers
+- leasehold land titles must have a future `leaseExpiresAt`, and expired leaseholds cannot be transferred
+
 ## Minimal implementation order
 
 1. Wallet connect
@@ -312,6 +413,9 @@ Validate in the UI before calling the contract.
 7. Cycle preview, finalization, and candidacy actions
 8. Ballot builder and `castBallot`
 9. Finalize ended cycles and show elected / runner-up results
+10. Office and treasury read-only pages
+11. Decision read/write pages for office admins, clerks, and Congress members
+12. Land/company registry read-only pages
 
 ## Practical notes
 

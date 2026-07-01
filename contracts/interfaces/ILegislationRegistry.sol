@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
+import {IKernelModule} from "./IKernelModule.sol";
 import {LegislationTypes} from "../types/LegislationTypes.sol";
 
 /// @title ILegislationRegistry
 /// @notice Stable fact registry for enacted legislation text and enactment metadata.
-interface ILegislationRegistry {
+interface ILegislationRegistry is IKernelModule {
     error InvalidEnactingReferendum(bytes32 referendumId);
     error InvalidLegislationTier(LegislationTypes.LegislationTier tier);
     error InvalidMeasureId(bytes32 measureId);
@@ -16,6 +17,7 @@ interface ILegislationRegistry {
     error LegislationAlreadyExists(bytes32 measureId);
     error LegislationAlreadyRepealed(bytes32 measureId);
     error LegislationNotFound(bytes32 measureId);
+    error RepealTierNotPermitted(LegislationTypes.RepealOrigin repealOrigin, LegislationTypes.LegislationTier tier);
     error UnauthorizedLegislationRegistryCaller(address caller);
     error UnauthorizedLegislationRepealCaller(address caller);
     error UnknownAmendmentTarget(bytes32 measureId);
@@ -38,10 +40,6 @@ interface ILegislationRegistry {
         uint64 repealedAt,
         address repealedBy
     );
-
-    /// @notice Returns the kernel used for narrow write authorization.
-    /// @return kernelAddress The configured kernel address.
-    function kernel() external view returns (address kernelAddress);
 
     /// @notice Returns the stored legislation record for a measure identifier.
     /// @param measureId The canonical measure identifier.

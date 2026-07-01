@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
-import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
+import {KernelModule} from "../base/KernelModule.sol";
 import {ICongressCandidateRegistry} from "../interfaces/ICongressCandidateRegistry.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {ElectionTypes} from "../types/ElectionTypes.sol";
 
 /// @title CongressCandidateRegistry
 /// @notice Stable fact registry for Congress election cycles, candidate states, signed ballots, and active seat occupancy.
-contract CongressCandidateRegistry is ICongressCandidateRegistry {
+contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
     struct BallotConfig {
         uint256 cycleId;
         address voter;
@@ -26,8 +26,6 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry {
         uint32 positiveCandidateCount;
     }
 
-    IConstitutionKernel private immutable _kernel;
-
     uint256 private _latestCycleId;
 
     mapping(uint256 cycleId => ElectionTypes.CongressCycleRecord cycleRecord) private _cycles;
@@ -40,24 +38,16 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry {
     mapping(uint256 cycleId => mapping(address voter => ElectionTypes.BallotReceipt receipt)) private _ballotReceipts;
     mapping(uint256 cycleId => mapping(address voter => ElectionTypes.BallotAllocation[] allocations)) private
         _ballotAllocations;
+    mapping(address voter => ElectionTypes.BallotReceipt receipt) private _standingBallotReceipts;
+    mapping(address voter => ElectionTypes.BallotAllocation[] allocations) private _standingBallotAllocations;
+    mapping(address candidate => int256 voteTotal) private _standingVoteTotals;
     mapping(uint32 seatIndex => ElectionTypes.CongressSeatRecord seatRecord) private _seatRecords;
     mapping(address wallet => uint32 seatIndexPlusOne) private _activeSeatIndexPlusOne;
 
     ElectionTypes.CongressOfficeTerm private _currentOfficeTerm;
 
     /// @param kernelAddress The canonical kernel registry address.
-    constructor(address kernelAddress) {
-        if (kernelAddress == address(0) || kernelAddress.code.length == 0) {
-            revert IConstitutionKernel.InvalidModuleAddress(bytes32(0), kernelAddress);
-        }
-
-        _kernel = IConstitutionKernel(kernelAddress);
-    }
-
-    /// @inheritdoc ICongressCandidateRegistry
-    function kernel() external view returns (address kernelAddress) {
-        return address(_kernel);
-    }
+    constructor(address kernelAddress) KernelModule(kernelAddress) {}
 
     /// @inheritdoc ICongressCandidateRegistry
     function latestCycleId() external view returns (uint256 cycleId) {
@@ -99,6 +89,29 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry {
         returns (ElectionTypes.BallotAllocation memory allocation)
     {
         return _ballotAllocations[cycleId][voter][index];
+    }
+
+    /// @inheritdoc ICongressCandidateRegistry
+    function getStandingBallotReceipt(address voter)
+        external
+        view
+        returns (ElectionTypes.BallotReceipt memory receipt)
+    {
+        return _standingBallotReceipts[voter];
+    }
+
+    /// @inheritdoc ICongressCandidateRegistry
+    function getStandingBallotAllocationCount(address voter) external view returns (uint256 count) {
+        return _standingBallotAllocations[voter].length;
+    }
+
+    /// @inheritdoc ICongressCandidateRegistry
+    function getStandingBallotAllocationAt(address voter, uint256 index)
+        external
+        view
+        returns (ElectionTypes.BallotAllocation memory allocation)
+    {
+        return _standingBallotAllocations[voter][index];
     }
 
     /// @inheritdoc ICongressCandidateRegistry
@@ -153,6 +166,22 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry {
     /// @inheritdoc ICongressCandidateRegistry
     function isActiveCongressMember(address wallet) external view returns (bool active) {
         return _activeSeatIndexPlusOne[wallet] != 0;
+    }
+
+    /// @inheritdoc ICongressCandidateRegistry
+    function currentCongressMembers() external view returns (address[] memory members) {
+        ElectionTypes.CongressOfficeTerm memory currentOfficeTerm = _currentOfficeTerm;
+        members = new address[](currentOfficeTerm.occupiedSeatCount);
+        uint256 outputIndex = 0;
+        for (uint32 seatIndex = 0; seatIndex < currentOfficeTerm.seatCount; ++seatIndex) {
+            address holder = _seatRecords[seatIndex].holder;
+            if (holder == address(0)) {
+                continue;
+            }
+
+            members[outputIndex] = holder;
+            outputIndex += 1;
+        }
     }
 
     /// @inheritdoc ICongressCandidateRegistry
@@ -266,7 +295,7 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry {
             applicationURI: applicationURI,
             appliedAt: appliedAt,
             updatedAt: appliedAt,
-            voteTotal: 0,
+            voteTotal: _standingVoteTotals[candidate],
             rank: 0
         });
 
@@ -320,7 +349,7 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry {
             revert InvalidCandidateCount(candidates.length, allocations.length);
         }
 
-        _clearBallotAllocations(cycleId, voter);
+        _clearStandingBallot(cycleId, voter);
         BallotConfig memory config = BallotConfig({
             cycleId: cycleId,
             voter: voter,
@@ -344,13 +373,13 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry {
             revert InvalidVoter(voter);
         }
 
-        ElectionTypes.BallotReceipt memory existingReceipt = _ballotReceipts[cycleId][voter];
+        ElectionTypes.BallotReceipt memory existingReceipt = _standingBallotReceipts[voter];
         if (existingReceipt.voter == address(0)) {
             revert VoteNotFound(cycleId, voter);
         }
 
         uint256 ballotWeight = existingReceipt.ballotWeight;
-        _clearBallotAllocations(cycleId, voter);
+        _clearStandingBallot(cycleId, voter);
         cycleRecord.status = ElectionTypes.ElectionStatus.Voting;
 
         emit CongressBallotCleared(cycleId, voter, ballotWeight, uint64(block.timestamp), msg.sender);
@@ -432,7 +461,7 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry {
     }
 
     /// @inheritdoc ICongressCandidateRegistry
-    function vacateAndFillSeat(address vacatingMember)
+    function vacateAndFillSeat(address vacatingMember, bool hasReplacement, uint256 runnerUpIndex)
         external
         returns (uint32 seatIndex, address replacementCandidate)
     {
@@ -465,13 +494,27 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry {
 
         emit CongressSeatVacated(cycleId, seatIndex, vacatingMember, updatedAt, msg.sender);
 
-        if (currentOfficeTerm.nextRunnerUpIndex >= _runnerUpCandidates[cycleId].length) {
+        // The caller (app) selects the next ELIGIBLE runner-up and passes its index. This lets the app
+        // skip runner-ups who have lost candidacy eligibility since finalization, instead of blindly
+        // promoting the next in line (M9). hasReplacement == false leaves the seat vacant.
+        if (!hasReplacement) {
             emit CongressSeatLeftVacant(cycleId, seatIndex, updatedAt, msg.sender);
             return (seatIndex, address(0));
         }
 
-        replacementCandidate = _runnerUpCandidates[cycleId][currentOfficeTerm.nextRunnerUpIndex];
-        currentOfficeTerm.nextRunnerUpIndex += 1;
+        if (runnerUpIndex < currentOfficeTerm.nextRunnerUpIndex || runnerUpIndex >= _runnerUpCandidates[cycleId].length)
+        {
+            revert InvalidRunnerUpIndex(runnerUpIndex);
+        }
+
+        replacementCandidate = _runnerUpCandidates[cycleId][runnerUpIndex];
+        if (_activeSeatIndexPlusOne[replacementCandidate] != 0) {
+            revert CandidateAlreadySeated(replacementCandidate);
+        }
+
+        // Consume every runner-up up to and including the chosen one; skipped indices were ineligible.
+        // forge-lint: disable-next-line(unsafe-typecast)
+        currentOfficeTerm.nextRunnerUpIndex = uint32(runnerUpIndex) + 1;
         currentOfficeTerm.occupiedSeatCount += 1;
         currentOfficeTerm.updatedAt = updatedAt;
 
@@ -502,6 +545,20 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry {
         emit CongressSeatAssigned(
             cycleId, seatIndex, replacementCandidate, candidateRecord.rank, true, updatedAt, msg.sender
         );
+    }
+
+    /// @inheritdoc ICongressCandidateRegistry
+    function dropStandingBallot(uint256 cycleId, address voter) external {
+        _requireRegistryAuthority(msg.sender);
+        _requireOpenCycle(cycleId);
+        if (voter == address(0)) {
+            revert InvalidVoter(voter);
+        }
+
+        // Removes a voter's persisted standing ballot and its contribution to the open cycle's candidate
+        // tallies. The app gates this on the voter no longer having voting power (welfare/ineligible), so a
+        // stake-drawdown voter's frozen weight stops counting in future cycles (M2).
+        _clearStandingBallot(cycleId, voter);
     }
 
     function _activateOfficeTerm(uint256 cycleId, uint32 electedCount, uint32 runnerUpCount, uint64 activatedAt)
@@ -602,21 +659,29 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry {
         delete _candidateIndexPlusOne[cycleId][candidate];
     }
 
-    function _clearBallotAllocations(uint256 cycleId, address voter) private {
-        ElectionTypes.BallotAllocation[] storage storedAllocations = _ballotAllocations[cycleId][voter];
-        uint256 allocationCount = storedAllocations.length;
+    function _clearStandingBallot(uint256 cycleId, address voter) private {
+        ElectionTypes.BallotAllocation[] storage standingAllocations = _standingBallotAllocations[voter];
+        uint256 allocationCount = standingAllocations.length;
         if (allocationCount == 0) {
+            delete _ballotAllocations[cycleId][voter];
             delete _ballotReceipts[cycleId][voter];
             return;
         }
 
+        uint64 updatedAt = uint64(block.timestamp);
+        uint256 ballotWeight = _standingBallotReceipts[voter].ballotWeight;
         for (uint256 index = 0; index < allocationCount; ++index) {
-            ElectionTypes.BallotAllocation storage allocation = storedAllocations[index];
-            _candidateRecords[cycleId][allocation.candidate].voteTotal -= allocation.amount;
+            ElectionTypes.BallotAllocation storage allocation = standingAllocations[index];
+            _standingVoteTotals[allocation.candidate] -= allocation.amount;
+            _syncActiveCandidateVoteTotal(cycleId, allocation.candidate);
         }
 
+        delete _standingBallotAllocations[voter];
+        delete _standingBallotReceipts[voter];
         delete _ballotAllocations[cycleId][voter];
         delete _ballotReceipts[cycleId][voter];
+
+        emit CongressStandingBallotCleared(voter, ballotWeight, updatedAt, msg.sender);
     }
 
     function _storeBallotAllocations(
@@ -627,7 +692,7 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry {
         for (uint256 index = 0; index < config.allocationCount; ++index) {
             address candidate = candidates[index];
             int256 allocation = allocations[index];
-            if (allocation == 0) {
+            if (allocation == 0 || allocation == type(int256).min) {
                 revert InvalidSignedAllocation(candidate, allocation);
             }
 
@@ -661,10 +726,28 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry {
             allocationCount: uint32(config.allocationCount),
             updatedAt: config.updatedAt
         });
+        _standingBallotReceipts[config.voter] = ElectionTypes.BallotReceipt({
+            cycleId: 0,
+            voter: config.voter,
+            ballotWeight: config.ballotWeight,
+            positiveAllocationTotal: totals.positiveAllocationTotal,
+            negativeAllocationTotal: totals.negativeAllocationTotal,
+            allocationCount: uint32(config.allocationCount),
+            updatedAt: config.updatedAt
+        });
         cycleRecord.status = ElectionTypes.ElectionStatus.Voting;
 
         emit CongressBallotRecorded(
             config.cycleId,
+            config.voter,
+            config.ballotWeight,
+            totals.positiveAllocationTotal,
+            totals.negativeAllocationTotal,
+            uint32(config.allocationCount),
+            config.updatedAt,
+            msg.sender
+        );
+        emit CongressStandingBallotUpdated(
             config.voter,
             config.ballotWeight,
             totals.positiveAllocationTotal,
@@ -709,8 +792,13 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry {
             updatedTotals.negativeAllocationTotal += absoluteAllocation;
         }
 
-        candidateRecord.voteTotal += allocation;
+        int256 newVoteTotal = _standingVoteTotals[candidate] + allocation;
+        _standingVoteTotals[candidate] = newVoteTotal;
+        candidateRecord.voteTotal = newVoteTotal;
         _ballotAllocations[cycleId][voter].push(
+            ElectionTypes.BallotAllocation({candidate: candidate, amount: allocation})
+        );
+        _standingBallotAllocations[voter].push(
             ElectionTypes.BallotAllocation({candidate: candidate, amount: allocation})
         );
 
@@ -721,15 +809,35 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry {
 
     function _absoluteValue(int256 value) private pure returns (uint256 amount) {
         if (value > 0) {
+            // forge-lint: disable-next-line(unsafe-typecast)
             return uint256(value);
         }
 
+        // `type(int256).min` is rejected before allocation storage because it cannot be negated.
+        // forge-lint: disable-next-line(unsafe-typecast)
         return uint256(-value);
     }
 
-    function _requireRegistryAuthority(address caller) private view {
-        if (caller != _kernel.getModule(KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY_AUTHORITY)) {
-            revert UnauthorizedCongressCandidateRegistryCaller(caller);
+    function _syncActiveCandidateVoteTotal(uint256 cycleId, address candidate) private {
+        ElectionTypes.CongressCandidateRecord storage candidateRecord = _candidateRecords[cycleId][candidate];
+        if (
+            candidateRecord.candidate != address(0) && candidateRecord.status == ElectionTypes.CandidateStatus.Accepted
+                && _candidateIndexPlusOne[cycleId][candidate] != 0
+        ) {
+            candidateRecord.voteTotal = _standingVoteTotals[candidate];
         }
+    }
+
+    function _requireRegistryAuthority(address caller) private view {
+        // L7: resolve the primary authority through the same try/catch used for the setup-authority fallback so
+        // that an unregistered CONGRESS_CANDIDATE_REGISTRY_AUTHORITY does not brick every write (or its fallback).
+        if (_isModuleCaller(KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY_AUTHORITY, caller)) {
+            return;
+        }
+        if (_isModuleCaller(KernelModuleIds.INITIAL_SETUP_AUTHORITY, caller)) {
+            return;
+        }
+
+        revert UnauthorizedCongressCandidateRegistryCaller(caller);
     }
 }

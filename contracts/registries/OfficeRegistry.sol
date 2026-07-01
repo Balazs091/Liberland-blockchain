@@ -1,32 +1,19 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
-import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
+import {KernelModule} from "../base/KernelModule.sol";
 import {IOfficeRegistry} from "../interfaces/IOfficeRegistry.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {OfficeTypes} from "../types/OfficeTypes.sol";
 
 /// @title OfficeRegistry
 /// @notice Stable fact registry for offices, office admins, and office clerk assignments.
-contract OfficeRegistry is IOfficeRegistry {
-    IConstitutionKernel private immutable _kernel;
-
+contract OfficeRegistry is IOfficeRegistry, KernelModule {
     mapping(bytes32 officeId => OfficeTypes.OfficeRecord officeRecord) private _officeRecords;
     mapping(bytes32 officeId => mapping(address member => OfficeTypes.OfficeMembership membership)) private _clerks;
     bytes32[] private _officeIds;
 
-    constructor(address kernelAddress) {
-        if (kernelAddress == address(0) || kernelAddress.code.length == 0) {
-            revert IConstitutionKernel.InvalidModuleAddress(bytes32(0), kernelAddress);
-        }
-
-        _kernel = IConstitutionKernel(kernelAddress);
-    }
-
-    /// @inheritdoc IOfficeRegistry
-    function kernel() external view returns (address kernelAddress) {
-        return address(_kernel);
-    }
+    constructor(address kernelAddress) KernelModule(kernelAddress) {}
 
     /// @inheritdoc IOfficeRegistry
     function getOfficeRecord(bytes32 officeId) external view returns (OfficeTypes.OfficeRecord memory officeRecord) {
@@ -170,6 +157,45 @@ contract OfficeRegistry is IOfficeRegistry {
         emit OfficeClerkStatusUpdated(officeId, clerk, active, currentTimestamp, msg.sender);
     }
 
+    /// @inheritdoc IOfficeRegistry
+    function renameOffice(bytes32 officeId, string calldata newName) external {
+        _requireRegistryAuthority(msg.sender);
+
+        OfficeTypes.OfficeRecord storage officeRecord = _officeRecords[officeId];
+        if (officeRecord.officeId == bytes32(0)) {
+            revert OfficeNotFound(officeId);
+        }
+        if (bytes(newName).length == 0) {
+            revert InvalidOfficeId(officeId);
+        }
+
+        string memory previousName = officeRecord.name;
+        uint64 currentTimestamp = uint64(block.timestamp);
+        officeRecord.name = newName;
+        officeRecord.lastUpdatedAt = currentTimestamp;
+
+        emit OfficeRenamed(officeId, previousName, newName, currentTimestamp, msg.sender);
+    }
+
+    /// @inheritdoc IOfficeRegistry
+    function setOfficeActive(bytes32 officeId, bool active) external {
+        _requireRegistryAuthority(msg.sender);
+
+        OfficeTypes.OfficeRecord storage officeRecord = _officeRecords[officeId];
+        if (officeRecord.officeId == bytes32(0)) {
+            revert OfficeNotFound(officeId);
+        }
+        if (officeRecord.active == active) {
+            revert InvalidOfficeId(officeId);
+        }
+
+        uint64 currentTimestamp = uint64(block.timestamp);
+        officeRecord.active = active;
+        officeRecord.lastUpdatedAt = currentTimestamp;
+
+        emit OfficeActiveStatusUpdated(officeId, active, currentTimestamp, msg.sender);
+    }
+
     function _clearClerkRecord(bytes32 officeId, address member, uint64 currentTimestamp) private {
         if (member == address(0)) {
             return;
@@ -187,8 +213,19 @@ contract OfficeRegistry is IOfficeRegistry {
     }
 
     function _requireRegistryAuthority(address caller) private view {
-        if (caller != _kernel.getModule(KernelModuleIds.OFFICE_REGISTRY_AUTHORITY)) {
-            revert UnauthorizedOfficeRegistryCaller(caller);
+        if (caller == _kernel.getModule(KernelModuleIds.OFFICE_REGISTRY_AUTHORITY)) {
+            return;
         }
+        if (_isModuleCaller(KernelModuleIds.DECISION_APP, caller)) {
+            return;
+        }
+        if (_isModuleCaller(KernelModuleIds.CABINET_APP, caller)) {
+            return;
+        }
+        if (_isModuleCaller(KernelModuleIds.INITIAL_SETUP_AUTHORITY, caller)) {
+            return;
+        }
+
+        revert UnauthorizedOfficeRegistryCaller(caller);
     }
 }

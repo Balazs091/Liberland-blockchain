@@ -1,35 +1,26 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
-import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
 import {IReferendumRegistry} from "../interfaces/IReferendumRegistry.sol";
+import {KernelModule} from "../base/KernelModule.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
+import {GovernanceTypes} from "../types/GovernanceTypes.sol";
 import {LegislationTypes} from "../types/LegislationTypes.sol";
 import {ReferendumTypes} from "../types/ReferendumTypes.sol";
+import {TreasuryTypes} from "../types/TreasuryTypes.sol";
 
 /// @title ReferendumRegistry
 /// @notice Stable fact registry for referendum proposals, mutable vote receipts, and result snapshots.
-contract ReferendumRegistry is IReferendumRegistry {
-    IConstitutionKernel private immutable _kernel;
-
+contract ReferendumRegistry is IReferendumRegistry, KernelModule {
     mapping(bytes32 referendumId => ReferendumTypes.ReferendumRecord referendumRecord) private _referendumRecords;
     mapping(bytes32 referendumId => ReferendumTypes.ReferendumResult referendumResult) private _referendumResults;
+    mapping(bytes32 referendumId => ReferendumTypes.BudgetApprovalDetails budgetDetails) private _budgetApprovalDetails;
+    mapping(bytes32 referendumId => uint64 adoptionDelay) private _adoptionDelays;
     mapping(bytes32 referendumId => mapping(address voter => ReferendumTypes.VoteReceipt receipt)) private
         _voteReceipts;
 
     /// @param kernelAddress The canonical kernel registry address.
-    constructor(address kernelAddress) {
-        if (kernelAddress == address(0) || kernelAddress.code.length == 0) {
-            revert IConstitutionKernel.InvalidModuleAddress(bytes32(0), kernelAddress);
-        }
-
-        _kernel = IConstitutionKernel(kernelAddress);
-    }
-
-    /// @inheritdoc IReferendumRegistry
-    function kernel() external view returns (address kernelAddress) {
-        return address(_kernel);
-    }
+    constructor(address kernelAddress) KernelModule(kernelAddress) {}
 
     /// @inheritdoc IReferendumRegistry
     function getReferendum(bytes32 referendumId)
@@ -59,6 +50,20 @@ contract ReferendumRegistry is IReferendumRegistry {
     }
 
     /// @inheritdoc IReferendumRegistry
+    function adoptionDelayOf(bytes32 referendumId) external view returns (uint64 delaySeconds) {
+        return _adoptionDelays[referendumId];
+    }
+
+    /// @inheritdoc IReferendumRegistry
+    function getBudgetApprovalDetails(bytes32 referendumId)
+        external
+        view
+        returns (ReferendumTypes.BudgetApprovalDetails memory details)
+    {
+        return _budgetApprovalDetails[referendumId];
+    }
+
+    /// @inheritdoc IReferendumRegistry
     function referendumExists(bytes32 referendumId) public view returns (bool exists) {
         return _referendumRecords[referendumId].referendumId != bytes32(0);
     }
@@ -73,7 +78,27 @@ contract ReferendumRegistry is IReferendumRegistry {
         external
     {
         _requireRegistryAuthority(msg.sender);
+        if (referendumInput.referendumClass == ReferendumTypes.ReferendumClass.BudgetApproval) {
+            revert InvalidBudgetPayload(referendumInput.proposedMeasureId);
+        }
+        _createReferendum(referendumId, referendumInput);
+    }
 
+    /// @inheritdoc IReferendumRegistry
+    function createBudgetApprovalReferendum(
+        bytes32 referendumId,
+        ReferendumTypes.ReferendumRecordInput calldata referendumInput,
+        ReferendumTypes.BudgetApprovalDetails calldata budgetDetails
+    ) external {
+        _requireRegistryAuthority(msg.sender);
+        _validateBudgetApprovalDetails(referendumInput.proposedMeasureId, budgetDetails);
+        _createReferendum(referendumId, referendumInput);
+        _budgetApprovalDetails[referendumId] = budgetDetails;
+    }
+
+    function _createReferendum(bytes32 referendumId, ReferendumTypes.ReferendumRecordInput calldata referendumInput)
+        private
+    {
         if (referendumId == bytes32(0)) {
             revert InvalidReferendumId(referendumId);
         }
@@ -84,6 +109,8 @@ contract ReferendumRegistry is IReferendumRegistry {
             referendumInput.referendumClass != ReferendumTypes.ReferendumClass.Legislation
                 && referendumInput.referendumClass != ReferendumTypes.ReferendumClass.ConstitutionalAmendment
                 && referendumInput.referendumClass != ReferendumTypes.ReferendumClass.CongressElectionPolicy
+                && referendumInput.referendumClass != ReferendumTypes.ReferendumClass.BudgetApproval
+                && referendumInput.referendumClass != ReferendumTypes.ReferendumClass.ModuleGovernance
         ) {
             revert InvalidReferendumClass(referendumInput.referendumClass);
         }
@@ -116,11 +143,27 @@ contract ReferendumRegistry is IReferendumRegistry {
             ) {
                 revert InvalidProposedModule(referendumInput.targetModule, referendumInput.proposedModuleAddress);
             }
+        } else if (referendumInput.referendumClass == ReferendumTypes.ReferendumClass.ModuleGovernance) {
+            _validateModuleGovernanceReferendum(referendumInput);
+        } else if (referendumInput.referendumClass == ReferendumTypes.ReferendumClass.BudgetApproval) {
+            _validateBudgetApprovalReferendum(referendumInput);
         } else {
             if (referendumInput.legislationTextHash == bytes32(0)) {
                 revert InvalidTextHash(referendumInput.legislationTextHash);
             }
             if (referendumInput.legislationTier == LegislationTypes.LegislationTier.Undefined) {
+                revert InvalidLegislationTier(uint8(referendumInput.legislationTier));
+            }
+            if (
+                referendumInput.referendumClass == ReferendumTypes.ReferendumClass.ConstitutionalAmendment
+                    && !LegislationTypes.isConstitutionalTier(referendumInput.legislationTier)
+            ) {
+                revert InvalidLegislationTier(uint8(referendumInput.legislationTier));
+            }
+            if (
+                referendumInput.referendumClass == ReferendumTypes.ReferendumClass.Legislation
+                    && !LegislationTypes.isLawTier(referendumInput.legislationTier)
+            ) {
                 revert InvalidLegislationTier(uint8(referendumInput.legislationTier));
             }
             if (referendumInput.targetModule != bytes32(0) || referendumInput.proposedModuleAddress != address(0)) {
@@ -129,6 +172,25 @@ contract ReferendumRegistry is IReferendumRegistry {
         }
         if (referendumInput.startTime >= referendumInput.endTime) {
             revert InvalidVotingWindow(referendumInput.startTime, referendumInput.endTime);
+        }
+        if (
+            referendumInput.referendumClass == ReferendumTypes.ReferendumClass.ConstitutionalAmendment
+                || referendumInput.requiresSupermajority
+        ) {
+            if (referendumInput.electorateHeadcountSnapshot == 0 || referendumInput.electorateVotingPowerSnapshot == 0)
+            {
+                revert InvalidResultSnapshot(
+                    referendumId,
+                    referendumInput.electorateVotingPowerSnapshot,
+                    referendumInput.electorateHeadcountSnapshot
+                );
+            }
+        } else if (
+            referendumInput.electorateHeadcountSnapshot != 0 || referendumInput.electorateVotingPowerSnapshot != 0
+        ) {
+            revert InvalidResultSnapshot(
+                referendumId, referendumInput.electorateVotingPowerSnapshot, referendumInput.electorateHeadcountSnapshot
+            );
         }
 
         _referendumRecords[referendumId] = ReferendumTypes.ReferendumRecord({
@@ -142,9 +204,13 @@ contract ReferendumRegistry is IReferendumRegistry {
             legislationTier: referendumInput.legislationTier,
             targetModule: referendumInput.targetModule,
             proposedModuleAddress: referendumInput.proposedModuleAddress,
+            registerNewModule: referendumInput.registerNewModule,
             proposerReference: referendumInput.proposerReference,
             startTime: referendumInput.startTime,
             endTime: referendumInput.endTime,
+            electorateHeadcountSnapshot: referendumInput.electorateHeadcountSnapshot,
+            electorateVotingPowerSnapshot: referendumInput.electorateVotingPowerSnapshot,
+            requiresSupermajority: referendumInput.requiresSupermajority,
             status: ReferendumTypes.ReferendumStatus.Active,
             forVotes: 0,
             againstVotes: 0,
@@ -155,6 +221,7 @@ contract ReferendumRegistry is IReferendumRegistry {
             enactedMeasureId: bytes32(0),
             enactmentActionId: bytes32(0)
         });
+        _adoptionDelays[referendumId] = referendumInput.adoptionDelay;
 
         emit ReferendumCreated(
             referendumId,
@@ -168,6 +235,9 @@ contract ReferendumRegistry is IReferendumRegistry {
             referendumInput.legislationTextHash,
             referendumInput.startTime,
             referendumInput.endTime,
+            referendumInput.adoptionDelay,
+            referendumInput.electorateHeadcountSnapshot,
+            referendumInput.electorateVotingPowerSnapshot,
             msg.sender
         );
     }
@@ -268,6 +338,77 @@ contract ReferendumRegistry is IReferendumRegistry {
             resultInput.passed ? ReferendumTypes.ReferendumStatus.Succeeded : ReferendumTypes.ReferendumStatus.Defeated;
 
         _storeFinalizedResult(referendumId, referendumRecord, resultInput, status, finalizedAt);
+    }
+
+    /// @inheritdoc IReferendumRegistry
+    function cancelReferendum(bytes32 referendumId) external {
+        _requireRegistryAuthority(msg.sender);
+
+        ReferendumTypes.ReferendumRecord storage referendumRecord = _getActiveReferendum(referendumId);
+        referendumRecord.status = ReferendumTypes.ReferendumStatus.Canceled;
+
+        emit ReferendumCanceled(referendumId, uint64(block.timestamp), msg.sender);
+    }
+
+    function _validateBudgetApprovalReferendum(ReferendumTypes.ReferendumRecordInput calldata referendumInput)
+        private
+        pure
+    {
+        if (
+            referendumInput.targetModule != KernelModuleIds.BUDGET_ENVELOPE_REGISTRY
+                || referendumInput.proposedModuleAddress != address(0)
+        ) {
+            revert InvalidProposedModule(referendumInput.targetModule, referendumInput.proposedModuleAddress);
+        }
+        if (referendumInput.legislationTextHash == bytes32(0)) {
+            revert InvalidTextHash(referendumInput.legislationTextHash);
+        }
+        if (!LegislationTypes.isLawTier(referendumInput.legislationTier)) {
+            revert InvalidLegislationTier(uint8(referendumInput.legislationTier));
+        }
+    }
+
+    function _validateModuleGovernanceReferendum(ReferendumTypes.ReferendumRecordInput calldata referendumInput)
+        private
+        view
+    {
+        if (
+            referendumInput.targetModule == bytes32(0) || referendumInput.proposedModuleAddress == address(0)
+                || referendumInput.proposedModuleAddress.code.length == 0
+                || referendumInput.legislationTextHash != bytes32(0)
+                || referendumInput.legislationTier != LegislationTypes.LegislationTier.Undefined
+                || referendumInput.targetModule == KernelModuleIds.CONGRESS_ELECTION_POLICY
+        ) {
+            revert InvalidProposedModule(referendumInput.targetModule, referendumInput.proposedModuleAddress);
+        }
+
+        bool moduleActive = _isActiveModule(referendumInput.targetModule);
+        if (referendumInput.registerNewModule == moduleActive) {
+            revert InvalidProposedModule(referendumInput.targetModule, referendumInput.proposedModuleAddress);
+        }
+    }
+
+    function _validateBudgetApprovalDetails(
+        bytes32 budgetId,
+        ReferendumTypes.BudgetApprovalDetails calldata budgetDetails
+    ) private pure {
+        if (
+            budgetDetails.officeId == bytes32(0)
+                || budgetDetails.disbursementType == TreasuryTypes.DisbursementType.Undefined
+                || budgetDetails.asset != address(0) || budgetDetails.allocatedAmount == 0
+                || budgetDetails.endsAt <= budgetDetails.startsAt
+        ) {
+            revert InvalidBudgetPayload(budgetId);
+        }
+    }
+
+    function _isActiveModule(bytes32 moduleId) private view returns (bool active) {
+        try _kernel.getModuleRecord(moduleId) returns (GovernanceTypes.ModuleRecord memory moduleRecord) {
+            return
+                moduleRecord.status == GovernanceTypes.ModuleStatus.Active && moduleRecord.moduleAddress != address(0);
+        } catch {
+            return false;
+        }
     }
 
     function _applyVoteOption(

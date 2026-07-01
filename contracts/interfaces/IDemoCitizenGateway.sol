@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 /// @title IDemoCitizenGateway
 /// @notice Demo-only onboarding and merit staking interface for live frontend testing.
@@ -8,7 +8,6 @@ interface IDemoCitizenGateway {
     error InvalidRegistrar(address registrar_);
     error NotRegistered(address wallet);
     error NotRegistrar(address caller);
-    error UnstakeNotAllowed(bytes32 personId, uint256 amount);
     error ZeroAmount();
 
     event DemoRegistrationSubmitted(
@@ -27,16 +26,14 @@ interface IDemoCitizenGateway {
         address indexed wallet, bytes32 indexed personId, uint256 amount, uint256 newActiveStake, uint64 stakedAt
     );
 
-    event DemoUnstakeRequested(
+    event DemoUnstakeExecuted(
         address indexed wallet,
         bytes32 indexed personId,
-        uint256 amount,
-        uint64 cooldownEnd,
+        uint256 releasedAmount,
         uint256 remainingActiveStake,
-        uint64 requestedAt
+        uint64 welfareUntil,
+        uint64 executedAt
     );
-
-    event DemoUnstakeClaimed(address indexed wallet, bytes32 indexed personId, uint256 amount, uint64 claimedAt);
 
     function registrar() external view returns (address registrarAddress);
     function meritToken() external view returns (address tokenAddress);
@@ -45,6 +42,5 @@ interface IDemoCitizenGateway {
     function confirmCitizenship(address wallet, bool approved, bool adult) external;
     function updateRegistrar(address newRegistrar) external;
     function stake(uint256 amount) external;
-    function requestUnstake(uint256 amount) external;
-    function claimUnstake() external returns (uint256 claimedAmount);
+    function unstake() external returns (uint256 releasedAmount);
 }

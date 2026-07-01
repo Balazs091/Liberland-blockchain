@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {Test} from "forge-std/Test.sol";
 
 import {ActionTimelock} from "../../contracts/core/ActionTimelock.sol";
 import {ReferendumApp} from "../../contracts/apps/ReferendumApp.sol";
+import {TreasuryVault} from "../../contracts/apps/TreasuryVault.sol";
 import {ConstitutionKernel} from "../../contracts/core/ConstitutionKernel.sol";
 import {GovernanceRouter} from "../../contracts/core/GovernanceRouter.sol";
 import {IActionTimelock} from "../../contracts/interfaces/IActionTimelock.sol";
@@ -26,6 +27,7 @@ import {CitizenEligibilityPolicy} from "../../contracts/policies/CitizenEligibil
 import {CongressElectionPolicy} from "../../contracts/policies/CongressElectionPolicy.sol";
 import {ReferendumPolicy} from "../../contracts/policies/ReferendumPolicy.sol";
 import {VotingPowerPolicy} from "../../contracts/policies/VotingPowerPolicy.sol";
+import {BudgetEnvelopeRegistry} from "../../contracts/registries/BudgetEnvelopeRegistry.sol";
 import {IdentityRegistry} from "../../contracts/registries/IdentityRegistry.sol";
 import {LegislationRegistry} from "../../contracts/registries/LegislationRegistry.sol";
 import {ReferendumRegistry} from "../../contracts/registries/ReferendumRegistry.sol";
@@ -34,6 +36,58 @@ import {GovernanceTypes} from "../../contracts/types/GovernanceTypes.sol";
 import {IdentityTypes} from "../../contracts/types/IdentityTypes.sol";
 import {LegislationTypes} from "../../contracts/types/LegislationTypes.sol";
 import {ReferendumTypes} from "../../contracts/types/ReferendumTypes.sol";
+import {SenateTypes} from "../../contracts/types/SenateTypes.sol";
+import {TreasuryTypes} from "../../contracts/types/TreasuryTypes.sol";
+
+contract MockSenateAppForReferendumFinalization {
+    mapping(bytes32 referendumId => SenateTypes.ReferendumVetoRecord record) private _referendumVetoRecords;
+    mapping(bytes32 actionId => SenateTypes.ActionCancellationRecord record) private _actionCancellationRecords;
+
+    function openReferendumVeto(bytes32 referendumId, uint64 deadline) external {
+        _referendumVetoRecords[referendumId] = SenateTypes.ReferendumVetoRecord({
+            referendumId: referendumId,
+            createdAt: uint64(block.timestamp),
+            deadline: deadline,
+            finalizedAt: 0,
+            vetoedAt: 0,
+            supportSnapshot: 0,
+            presidentProxySupportSnapshot: 0,
+            exists: true,
+            finalized: false,
+            vetoed: false
+        });
+    }
+
+    function finalizeReferendumVeto(bytes32 referendumId) external {
+        SenateTypes.ReferendumVetoRecord storage record = _referendumVetoRecords[referendumId];
+        record.finalized = true;
+        record.finalizedAt = uint64(block.timestamp);
+    }
+
+    function getReferendumVetoRecord(bytes32 referendumId)
+        external
+        view
+        returns (SenateTypes.ReferendumVetoRecord memory record)
+    {
+        return _referendumVetoRecords[referendumId];
+    }
+
+    function getActionCancellationRecord(bytes32 actionId)
+        external
+        view
+        returns (SenateTypes.ActionCancellationRecord memory record)
+    {
+        return _actionCancellationRecords[actionId];
+    }
+
+    function getDisbursementSuspension(bytes32)
+        external
+        pure
+        returns (SenateTypes.DisbursementSuspension memory suspension)
+    {
+        return suspension;
+    }
+}
 
 /// @title Milestone3ReferendaTest
 /// @notice Covers referendum proposal, mutable fixed-weight voting, queued enactment, and constitutional routing.
@@ -57,7 +111,8 @@ contract Milestone3ReferendaTest is Test {
     uint256 internal constant MINIMUM_CANDIDATE_STAKE = 6_000;
     uint256 internal constant CANDIDATE_BOND_REQUIREMENT = 6_000;
     uint256 internal constant CITIZEN_PROPOSAL_BOND = 6_000;
-    uint64 internal constant MINIMUM_VOTING_DURATION = 3 days;
+    uint64 internal constant MINIMUM_VOTING_DURATION = 7 days;
+    uint64 internal constant STANDARD_ADOPTION_DELAY = 7 days;
     uint32 internal constant CONGRESS_SEAT_COUNT = 2;
     uint32 internal constant CONGRESS_RUNNER_UP_COUNT = 2;
     uint32 internal constant CONGRESS_MAX_CANDIDATE_COUNT = 8;
@@ -68,7 +123,9 @@ contract Milestone3ReferendaTest is Test {
     uint256 internal constant CITIZEN_QUORUM = 10_000;
     uint256 internal constant CONGRESS_QUORUM = 8_000;
     uint256 internal constant CONSTITUTIONAL_FOR_VOTER_QUORUM = 2;
-    uint16 internal constant CONSTITUTIONAL_FOR_STAKE_BPS = 5_000;
+    uint16 internal constant CONSTITUTIONAL_FOR_STAKE_BPS = 6_500;
+
+    bytes32 internal constant FINANCE_OFFICE_ID = keccak256("office.ministry-finance");
 
     bytes32 internal constant PERSON_ONE_ID = bytes32(uint256(1));
     bytes32 internal constant PERSON_TWO_ID = bytes32(uint256(2));
@@ -94,8 +151,11 @@ contract Milestone3ReferendaTest is Test {
     CongressElectionPolicy internal congressElectionPolicy;
     LegislationRegistry internal legislationRegistry;
     ReferendumRegistry internal referendumRegistry;
+    TreasuryVault internal treasuryVault;
+    BudgetEnvelopeRegistry internal budgetEnvelopeRegistry;
     ReferendumPolicy internal referendumPolicy;
     ReferendumApp internal referendumApp;
+    MockSenateAppForReferendumFinalization internal mockSenateApp;
 
     function setUp() public {
         _deployFoundation();
@@ -107,7 +167,7 @@ contract Milestone3ReferendaTest is Test {
 
     function _deployFoundation() internal {
         kernel = new ConstitutionKernel(address(this));
-        timelock = new ActionTimelock(address(kernel));
+        timelock = new ActionTimelock(address(kernel), _defaultDelayConfig());
         router = new GovernanceRouter(address(kernel), address(this));
 
         identityAuthority = new MockModule(keccak256("identity-authority"));
@@ -133,17 +193,30 @@ contract Milestone3ReferendaTest is Test {
             new VotingPowerPolicy(address(identityRegistry), address(stakeRegistry), address(citizenEligibilityPolicy));
     }
 
+    function _defaultDelayConfig() internal pure returns (GovernanceTypes.TimelockDelayConfig memory config) {
+        config = GovernanceTypes.TimelockDelayConfig({
+            moduleGovernanceDelay: 2 days,
+            treasuryBudgetApprovalDelay: 1 days,
+            legislationEnactmentDelay: 1 days,
+            treasuryDisbursementDelay: 2 days,
+            defaultExecutionWindow: 7 days
+        });
+    }
+
     function _deployReferendumSystem() internal {
         legislationRegistry = new LegislationRegistry(address(kernel));
         referendumRegistry = new ReferendumRegistry(address(kernel));
+        treasuryVault = new TreasuryVault(address(kernel));
+        budgetEnvelopeRegistry = new BudgetEnvelopeRegistry(address(kernel));
         congressElectionPolicy = _deployCongressElectionPolicy(ELECTION_CYCLE_DURATION);
         kernel.bootstrapSetModule(KernelModuleIds.LEGISLATION_REGISTRY, address(legislationRegistry));
+        kernel.bootstrapSetModule(KernelModuleIds.TREASURY_VAULT, address(treasuryVault));
+        kernel.bootstrapSetModule(KernelModuleIds.BUDGET_ENVELOPE_REGISTRY, address(budgetEnvelopeRegistry));
         kernel.bootstrapSetModule(KernelModuleIds.CONGRESS_ELECTION_POLICY, address(congressElectionPolicy));
         referendumPolicy = new ReferendumPolicy(
             address(citizenEligibilityPolicy),
             address(votingPowerPolicy),
             address(congressAuthority),
-            MINIMUM_VOTING_DURATION,
             0,
             0,
             CITIZEN_QUORUM,
@@ -160,9 +233,12 @@ contract Milestone3ReferendaTest is Test {
             address(router),
             address(votingPowerPolicy)
         );
+        mockSenateApp = new MockSenateAppForReferendumFinalization();
 
         kernel.bootstrapSetModule(KernelModuleIds.LEGISLATION_REGISTRY_AUTHORITY, address(timelock));
+        kernel.bootstrapSetModule(KernelModuleIds.BUDGET_ENVELOPE_REGISTRY_AUTHORITY, address(timelock));
         kernel.bootstrapSetModule(KernelModuleIds.REFERENDUM_REGISTRY_AUTHORITY, address(referendumApp));
+        kernel.bootstrapSetModule(KernelModuleIds.SENATE_APP, address(mockSenateApp));
 
         router.configureOriginAuthority(GovernanceTypes.ActionOrigin.Referendum, address(referendumApp));
     }
@@ -202,6 +278,9 @@ contract Milestone3ReferendaTest is Test {
         assertTrue(IReferendumApp.createCitizenLegislationReferendum.selector != bytes4(0));
         assertTrue(IReferendumApp.createCitizenCongressElectionPolicyReferendum.selector != bytes4(0));
         assertTrue(IReferendumApp.createCongressConstitutionalAmendmentReferendum.selector != bytes4(0));
+        assertTrue(IReferendumApp.createCongressBudgetApprovalReferendum.selector != bytes4(0));
+        assertTrue(IReferendumApp.createCitizenModuleGovernanceReferendum.selector != bytes4(0));
+        assertTrue(IReferendumApp.createCongressModuleGovernanceReferendum.selector != bytes4(0));
         assertTrue(IReferendumApp.finalizeReferendum.selector != bytes4(0));
         assertTrue(ICongressElectionPolicy.cycleDuration.selector != bytes4(0));
         assertTrue(ICitizenEligibilityPolicy.isCitizenInGoodStanding.selector != bytes4(0));
@@ -216,6 +295,43 @@ contract Milestone3ReferendaTest is Test {
         vm.prank(WALLET_ONE);
         bytes32 referendumId = referendumApp.createCitizenLegislationReferendum(proposal);
 
+        ReferendumTypes.ReferendumRecord memory referendumRecord = referendumRegistry.getReferendum(referendumId);
+        _assertCreatedReferendum(referendumId, referendumRecord, proposal, PERSON_ONE_ID);
+    }
+
+    function test_CreateReferendum_TransfersProposalFeeToTreasury() public {
+        uint256 proposalFee = 1 ether;
+        ReferendumPolicy feePolicy = new ReferendumPolicy(
+            address(citizenEligibilityPolicy),
+            address(votingPowerPolicy),
+            address(congressAuthority),
+            proposalFee,
+            0,
+            CITIZEN_QUORUM,
+            CONGRESS_QUORUM,
+            CITIZEN_PROPOSAL_BOND,
+            CONSTITUTIONAL_FOR_VOTER_QUORUM,
+            CONSTITUTIONAL_FOR_STAKE_BPS
+        );
+        ReferendumApp feeApp = new ReferendumApp(
+            address(identityRegistry),
+            address(legislationRegistry),
+            address(referendumRegistry),
+            address(feePolicy),
+            address(router),
+            address(votingPowerPolicy)
+        );
+        vm.prank(address(timelock));
+        kernel.governanceUpdateModule(KernelModuleIds.REFERENDUM_REGISTRY_AUTHORITY, address(feeApp));
+
+        ReferendumTypes.LegislationProposal memory proposal = _defaultProposal("measure-fee", "proposal-fee", "law-fee");
+        uint256 treasuryBalanceBefore = address(treasuryVault).balance;
+
+        vm.deal(WALLET_ONE, proposalFee);
+        vm.prank(WALLET_ONE);
+        bytes32 referendumId = feeApp.createCitizenLegislationReferendum{value: proposalFee}(proposal);
+
+        assertEq(address(treasuryVault).balance, treasuryBalanceBefore + proposalFee);
         ReferendumTypes.ReferendumRecord memory referendumRecord = referendumRegistry.getReferendum(referendumId);
         _assertCreatedReferendum(referendumId, referendumRecord, proposal, PERSON_ONE_ID);
     }
@@ -246,6 +362,24 @@ contract Milestone3ReferendaTest is Test {
         );
         assertEq(uint256(referendumRecord.proposalOrigin), uint256(ReferendumTypes.ProposalOrigin.Congress));
         assertEq(referendumRecord.proposerReference, bytes32(uint256(uint160(WALLET_TWO))));
+    }
+
+    function test_CreateCongressConstitutionalReferendum_RevertsForEmergencySchedule() public {
+        ReferendumTypes.LegislationProposal memory proposal =
+            _constitutionalProposal("measure-2c", "proposal-2c", "constitution-2c");
+        proposal.endTime = uint64(block.timestamp + 3 days);
+        proposal.adoptionDelay = 0;
+        proposal.emergency = true;
+        congressAuthority.setMember(WALLET_TWO, true);
+
+        vm.prank(WALLET_TWO);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IReferendumApp.InvalidEmergencyReferendumClass.selector,
+                ReferendumTypes.ReferendumClass.ConstitutionalAmendment
+            )
+        );
+        referendumApp.createCongressConstitutionalAmendmentReferendum(proposal);
     }
 
     function test_VoteAndFinalize_SucceedsWhenQuorumAndPassConditionsAreMet() public {
@@ -303,7 +437,8 @@ contract Milestone3ReferendaTest is Test {
             proposalId: keccak256("change-election-cycle-duration"),
             newPolicy: address(newPolicy),
             startTime: uint64(block.timestamp),
-            endTime: uint64(block.timestamp + MINIMUM_VOTING_DURATION)
+            endTime: uint64(block.timestamp + MINIMUM_VOTING_DURATION),
+            adoptionDelay: STANDARD_ADOPTION_DELAY
         });
 
         vm.prank(WALLET_ONE);
@@ -339,6 +474,302 @@ contract Milestone3ReferendaTest is Test {
         assertEq(
             ICongressElectionPolicy(kernel.getModule(KernelModuleIds.CONGRESS_ELECTION_POLICY)).cycleDuration(), 7 days
         );
+    }
+
+    function test_ModuleGovernanceReferendum_QueuesAndExecutesModuleRegistration() public {
+        bytes32 spaceshipRegistry = keccak256("registry.spaceship");
+        MockModule newModule = new MockModule(keccak256("spaceship-registry"));
+        ReferendumTypes.ModuleGovernanceProposal memory proposal = _defaultModuleGovernanceProposal(
+            "proposal-register-spaceship", "module-register-spaceship", spaceshipRegistry, address(newModule), true
+        );
+
+        vm.prank(WALLET_ONE);
+        bytes32 referendumId = referendumApp.createCitizenModuleGovernanceReferendum(proposal);
+
+        ReferendumTypes.ReferendumRecord memory referendumRecord = referendumRegistry.getReferendum(referendumId);
+        assertEq(uint256(referendumRecord.referendumClass), uint256(ReferendumTypes.ReferendumClass.ModuleGovernance));
+        assertEq(referendumRecord.targetModule, spaceshipRegistry);
+        assertEq(referendumRecord.proposedModuleAddress, address(newModule));
+        assertTrue(referendumRecord.registerNewModule);
+
+        vm.prank(WALLET_ONE);
+        referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.For);
+        vm.prank(WALLET_THREE);
+        referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.For);
+
+        vm.warp(proposal.endTime);
+        referendumApp.finalizeReferendum(referendumId);
+
+        ReferendumTypes.ReferendumResult memory result = referendumRegistry.getReferendumResult(referendumId);
+        assertTrue(result.passed);
+
+        GovernanceTypes.ActionRecord memory actionRecord = timelock.getAction(result.enactmentActionId);
+        assertEq(uint256(actionRecord.actionType), uint256(GovernanceTypes.ActionType.ModuleRegistration));
+        assertEq(actionRecord.targetModule, spaceshipRegistry);
+
+        vm.warp(actionRecord.earliestExecutionTime);
+        timelock.executeAction(result.enactmentActionId);
+
+        assertEq(kernel.getModule(spaceshipRegistry), address(newModule));
+    }
+
+    function test_ModuleGovernanceReferendum_QueuesAndExecutesModulePointerUpdate() public {
+        congressAuthority.setMember(WALLET_TWO, true);
+        MockModule replacementBudgetRegistry = new MockModule(keccak256("replacement-budget-registry"));
+        ReferendumTypes.ModuleGovernanceProposal memory proposal = _defaultModuleGovernanceProposal(
+            "proposal-replace-budget",
+            "module-replace-budget",
+            KernelModuleIds.BUDGET_ENVELOPE_REGISTRY,
+            address(replacementBudgetRegistry),
+            false
+        );
+
+        vm.prank(WALLET_TWO);
+        bytes32 referendumId = referendumApp.createCongressModuleGovernanceReferendum(proposal);
+
+        vm.prank(WALLET_ONE);
+        referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.For);
+        vm.prank(WALLET_THREE);
+        referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.For);
+
+        vm.warp(proposal.endTime);
+        referendumApp.finalizeReferendum(referendumId);
+
+        ReferendumTypes.ReferendumResult memory result = referendumRegistry.getReferendumResult(referendumId);
+        GovernanceTypes.ActionRecord memory actionRecord = timelock.getAction(result.enactmentActionId);
+        assertEq(uint256(actionRecord.actionType), uint256(GovernanceTypes.ActionType.ModulePointerUpdate));
+        assertEq(actionRecord.targetModule, KernelModuleIds.BUDGET_ENVELOPE_REGISTRY);
+
+        vm.warp(actionRecord.earliestExecutionTime);
+        timelock.executeAction(result.enactmentActionId);
+
+        assertEq(kernel.getModule(KernelModuleIds.BUDGET_ENVELOPE_REGISTRY), address(replacementBudgetRegistry));
+    }
+
+    function test_SensitiveModuleGovernanceReferendum_TakesSnapshotAndFailsWithoutSupermajority() public {
+        MockModule replacementLegislationRegistry = new MockModule(keccak256("replacement-legislation-registry"));
+        ReferendumTypes.ModuleGovernanceProposal memory proposal = _defaultModuleGovernanceProposal(
+            "proposal-repoint-legislation",
+            "module-repoint-legislation",
+            KernelModuleIds.LEGISLATION_REGISTRY,
+            address(replacementLegislationRegistry),
+            false
+        );
+
+        vm.prank(WALLET_ONE);
+        bytes32 referendumId = referendumApp.createCitizenModuleGovernanceReferendum(proposal);
+
+        // A rule-defining `registry.*` target flags the supermajority path and snapshots the electorate.
+        ReferendumTypes.ReferendumRecord memory referendumRecord = referendumRegistry.getReferendum(referendumId);
+        assertTrue(referendumRecord.requiresSupermajority);
+        assertEq(referendumRecord.electorateHeadcountSnapshot, 3);
+        assertEq(referendumRecord.electorateVotingPowerSnapshot, 19_000);
+
+        // 11_000 For / 8_000 Against of 19_000 cast clears the ordinary absolute quorum (For > Against and
+        // turnout >= CITIZEN_QUORUM) but is only ~58% of cast, below the 65% supermajority prong.
+        vm.prank(WALLET_ONE);
+        referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.For);
+        vm.prank(WALLET_TWO);
+        referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.For);
+        vm.prank(WALLET_THREE);
+        referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.Against);
+
+        vm.warp(proposal.endTime);
+        referendumApp.finalizeReferendum(referendumId);
+
+        ReferendumTypes.ReferendumResult memory result = referendumRegistry.getReferendumResult(referendumId);
+        assertEq(result.forVotes, 11_000);
+        assertEq(result.againstVotes, 8_000);
+        assertGe(result.turnout, CITIZEN_QUORUM);
+        assertGt(result.forVotes, result.againstVotes);
+        assertEq(result.headcountQuorumRequired, 2);
+        assertEq(result.quorumRequired, 12_350);
+        assertFalse(result.quorumMet);
+        assertFalse(result.passed);
+
+        ReferendumTypes.ReferendumRecord memory finalizedRecord = referendumRegistry.getReferendum(referendumId);
+        assertEq(uint256(finalizedRecord.status), uint256(ReferendumTypes.ReferendumStatus.Defeated));
+        assertEq(result.enactmentActionId, bytes32(0));
+        assertEq(kernel.getModule(KernelModuleIds.LEGISLATION_REGISTRY), address(legislationRegistry));
+    }
+
+    function test_SensitiveModuleGovernanceReferendum_PassesUnderDoubleThresholdAndExecutesRepoint() public {
+        MockModule replacementStakeAuthority = new MockModule(keccak256("replacement-stake-authority"));
+        ReferendumTypes.ModuleGovernanceProposal memory proposal = _defaultModuleGovernanceProposal(
+            "proposal-repoint-stake-authority",
+            "module-repoint-stake-authority",
+            KernelModuleIds.STAKE_REGISTRY_AUTHORITY,
+            address(replacementStakeAuthority),
+            false
+        );
+
+        vm.prank(WALLET_ONE);
+        bytes32 referendumId = referendumApp.createCitizenModuleGovernanceReferendum(proposal);
+
+        // A rule-defining `authority.*` target likewise flags the supermajority path and snapshots.
+        ReferendumTypes.ReferendumRecord memory referendumRecord = referendumRegistry.getReferendum(referendumId);
+        assertTrue(referendumRecord.requiresSupermajority);
+        assertEq(referendumRecord.electorateHeadcountSnapshot, 3);
+        assertEq(referendumRecord.electorateVotingPowerSnapshot, 19_000);
+
+        // Genuine supermajority: all three citizens (19_000 = 100% of cast, 3 of 3 by headcount) vote For.
+        vm.prank(WALLET_ONE);
+        referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.For);
+        vm.prank(WALLET_TWO);
+        referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.For);
+        vm.prank(WALLET_THREE);
+        referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.For);
+
+        vm.warp(proposal.endTime);
+        referendumApp.finalizeReferendum(referendumId);
+
+        ReferendumTypes.ReferendumResult memory result = referendumRegistry.getReferendumResult(referendumId);
+        assertEq(result.headcountQuorumRequired, 2);
+        assertEq(result.quorumRequired, 12_350);
+        assertEq(result.electorateVotingPower, 19_000);
+        assertTrue(result.quorumMet);
+        assertTrue(result.passed);
+
+        GovernanceTypes.ActionRecord memory actionRecord = timelock.getAction(result.enactmentActionId);
+        assertEq(uint256(actionRecord.actionType), uint256(GovernanceTypes.ActionType.ModulePointerUpdate));
+        assertEq(actionRecord.targetModule, KernelModuleIds.STAKE_REGISTRY_AUTHORITY);
+
+        vm.warp(actionRecord.earliestExecutionTime);
+        timelock.executeAction(result.enactmentActionId);
+
+        assertEq(kernel.getModule(KernelModuleIds.STAKE_REGISTRY_AUTHORITY), address(replacementStakeAuthority));
+    }
+
+    function test_AppModuleGovernanceReferendum_StaysOrdinaryThreshold() public {
+        MockModule replacementSenateApp = new MockModule(keccak256("replacement-senate-app"));
+        ReferendumTypes.ModuleGovernanceProposal memory proposal = _defaultModuleGovernanceProposal(
+            "proposal-repoint-senate-app",
+            "module-repoint-senate-app",
+            KernelModuleIds.SENATE_APP,
+            address(replacementSenateApp),
+            false
+        );
+
+        vm.prank(WALLET_ONE);
+        bytes32 referendumId = referendumApp.createCitizenModuleGovernanceReferendum(proposal);
+
+        // An operational `app.*` pointer stays at the ordinary threshold: no supermajority flag, no snapshot.
+        ReferendumTypes.ReferendumRecord memory referendumRecord = referendumRegistry.getReferendum(referendumId);
+        assertFalse(referendumRecord.requiresSupermajority);
+        assertEq(referendumRecord.electorateHeadcountSnapshot, 0);
+        assertEq(referendumRecord.electorateVotingPowerSnapshot, 0);
+
+        // The same 11_000-of-19_000 (~58%) tally that fails the sensitive path passes here at ordinary quorum.
+        vm.prank(WALLET_ONE);
+        referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.For);
+        vm.prank(WALLET_TWO);
+        referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.For);
+        vm.prank(WALLET_THREE);
+        referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.Against);
+
+        vm.warp(proposal.endTime);
+        referendumApp.finalizeReferendum(referendumId);
+
+        ReferendumTypes.ReferendumResult memory result = referendumRegistry.getReferendumResult(referendumId);
+        assertEq(result.quorumRequired, CITIZEN_QUORUM);
+        assertEq(result.headcountQuorumRequired, 0);
+        assertEq(result.electorateVotingPower, 0);
+        assertTrue(result.quorumMet);
+        assertTrue(result.passed);
+
+        GovernanceTypes.ActionRecord memory actionRecord = timelock.getAction(result.enactmentActionId);
+        assertEq(uint256(actionRecord.actionType), uint256(GovernanceTypes.ActionType.ModulePointerUpdate));
+        assertEq(actionRecord.targetModule, KernelModuleIds.SENATE_APP);
+
+        vm.warp(actionRecord.earliestExecutionTime);
+        timelock.executeAction(result.enactmentActionId);
+
+        assertEq(kernel.getModule(KernelModuleIds.SENATE_APP), address(replacementSenateApp));
+    }
+
+    function test_ModuleGovernanceReferendum_RevertsForCoreRouterAndTimelockTargets() public {
+        MockModule replacement = new MockModule(keccak256("core-replacement"));
+
+        ReferendumTypes.ModuleGovernanceProposal memory routerProposal = _defaultModuleGovernanceProposal(
+            "proposal-repoint-router",
+            "module-repoint-router",
+            KernelModuleIds.GOVERNANCE_ROUTER,
+            address(replacement),
+            false
+        );
+        vm.prank(WALLET_ONE);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IReferendumApp.InvalidModuleGovernanceProposal.selector,
+                KernelModuleIds.GOVERNANCE_ROUTER,
+                address(replacement),
+                false
+            )
+        );
+        referendumApp.createCitizenModuleGovernanceReferendum(routerProposal);
+
+        ReferendumTypes.ModuleGovernanceProposal memory timelockProposal = _defaultModuleGovernanceProposal(
+            "proposal-repoint-timelock",
+            "module-repoint-timelock",
+            KernelModuleIds.ACTION_TIMELOCK,
+            address(replacement),
+            false
+        );
+        vm.prank(WALLET_ONE);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IReferendumApp.InvalidModuleGovernanceProposal.selector,
+                KernelModuleIds.ACTION_TIMELOCK,
+                address(replacement),
+                false
+            )
+        );
+        referendumApp.createCitizenModuleGovernanceReferendum(timelockProposal);
+    }
+
+    function test_CongressBudgetApprovalReferendum_QueuesBudgetLawAfterAdoptionDelay() public {
+        congressAuthority.setMember(WALLET_TWO, true);
+        ReferendumTypes.BudgetApprovalProposal memory proposal =
+            _defaultBudgetProposal("budget-operations", "proposal-budget", "budget-law");
+
+        vm.prank(WALLET_TWO);
+        bytes32 referendumId = referendumApp.createCongressBudgetApprovalReferendum(proposal);
+
+        ReferendumTypes.ReferendumRecord memory referendumRecord = referendumRegistry.getReferendum(referendumId);
+        assertEq(uint256(referendumRecord.referendumClass), uint256(ReferendumTypes.ReferendumClass.BudgetApproval));
+        assertEq(uint256(referendumRecord.proposalOrigin), uint256(ReferendumTypes.ProposalOrigin.Congress));
+        assertEq(referendumRecord.proposedMeasureId, proposal.budgetId);
+        assertEq(referendumRecord.targetModule, KernelModuleIds.BUDGET_ENVELOPE_REGISTRY);
+        ReferendumTypes.BudgetApprovalDetails memory budgetDetails =
+            referendumRegistry.getBudgetApprovalDetails(referendumId);
+        assertEq(budgetDetails.officeId, proposal.budget.officeId);
+        assertEq(budgetDetails.allocatedAmount, proposal.budget.allocatedAmount);
+
+        vm.prank(WALLET_TWO);
+        referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.For);
+        vm.prank(WALLET_THREE);
+        referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.For);
+
+        vm.warp(proposal.endTime);
+        referendumApp.finalizeReferendum(referendumId);
+
+        ReferendumTypes.ReferendumResult memory result = referendumRegistry.getReferendumResult(referendumId);
+        assertTrue(result.passed);
+        assertTrue(result.enactmentActionId != bytes32(0));
+        assertFalse(budgetEnvelopeRegistry.budgetExists(proposal.budgetId));
+
+        GovernanceTypes.ActionRecord memory actionRecord = timelock.getAction(result.enactmentActionId);
+        assertEq(uint256(actionRecord.actionType), uint256(GovernanceTypes.ActionType.TreasuryBudgetApproval));
+        assertEq(actionRecord.targetModule, KernelModuleIds.BUDGET_ENVELOPE_REGISTRY);
+        assertEq(actionRecord.earliestExecutionTime, proposal.endTime + proposal.adoptionDelay);
+
+        vm.warp(actionRecord.earliestExecutionTime);
+        timelock.executeAction(result.enactmentActionId);
+
+        TreasuryTypes.BudgetEnvelope memory budgetEnvelope = budgetEnvelopeRegistry.getBudgetEnvelope(proposal.budgetId);
+        assertEq(budgetEnvelope.budgetId, proposal.budgetId);
+        assertEq(budgetEnvelope.officeId, FINANCE_OFFICE_ID);
+        assertEq(budgetEnvelope.allocatedAmount, proposal.budget.allocatedAmount);
     }
 
     function test_FinalizeReferendum_FailsWhenQuorumIsNotMet() public {
@@ -404,6 +835,31 @@ contract Milestone3ReferendaTest is Test {
         assertFalse(legislationRegistry.legislationExists(proposal.proposedMeasureId));
     }
 
+    function test_FinalizeReferendum_WaitsForOpenedSenateVetoAtDeadline() public {
+        ReferendumTypes.LegislationProposal memory proposal =
+            _defaultProposal("measure-veto-wait", "proposal-veto-wait", "law-veto-wait");
+        bytes32 referendumId = _createCitizenReferendum(WALLET_ONE, proposal);
+
+        vm.prank(WALLET_ONE);
+        referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.For);
+        vm.prank(WALLET_THREE);
+        referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.For);
+
+        mockSenateApp.openReferendumVeto(referendumId, proposal.endTime);
+        vm.warp(proposal.endTime);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IReferendumApp.SenateVetoPending.selector, referendumId, proposal.endTime)
+        );
+        referendumApp.finalizeReferendum(referendumId);
+
+        mockSenateApp.finalizeReferendumVeto(referendumId);
+        referendumApp.finalizeReferendum(referendumId);
+
+        ReferendumTypes.ReferendumRecord memory referendumRecord = referendumRegistry.getReferendum(referendumId);
+        assertEq(uint256(referendumRecord.status), uint256(ReferendumTypes.ReferendumStatus.Succeeded));
+    }
+
     function test_CastVote_AllowsOptionChangesWhileKeepingStoredWeight() public {
         ReferendumTypes.LegislationProposal memory proposal = _defaultProposal("measure-6", "proposal-6", "law-6");
         bytes32 referendumId = _createCitizenReferendum(WALLET_ONE, proposal);
@@ -453,7 +909,7 @@ contract Milestone3ReferendaTest is Test {
         ReferendumTypes.ReferendumRecord memory referendumRecord,
         ReferendumTypes.LegislationProposal memory proposal,
         bytes32 proposerReference
-    ) internal pure {
+    ) internal view {
         assertEq(referendumRecord.referendumId, referendumId);
         assertEq(uint256(referendumRecord.referendumClass), uint256(ReferendumTypes.ReferendumClass.Legislation));
         assertEq(uint256(referendumRecord.proposalOrigin), uint256(ReferendumTypes.ProposalOrigin.Citizen));
@@ -463,6 +919,7 @@ contract Milestone3ReferendaTest is Test {
         assertEq(referendumRecord.proposerReference, proposerReference);
         assertEq(referendumRecord.startTime, proposal.startTime);
         assertEq(referendumRecord.endTime, proposal.endTime);
+        assertEq(referendumRegistry.adoptionDelayOf(referendumId), proposal.adoptionDelay);
         assertEq(uint256(referendumRecord.status), uint256(ReferendumTypes.ReferendumStatus.Active));
     }
 
@@ -495,7 +952,7 @@ contract Milestone3ReferendaTest is Test {
         bytes32 proposerReference
     ) internal pure {
         assertEq(legislationRecord.measureId, proposal.proposedMeasureId);
-        assertEq(uint256(legislationRecord.tier), uint256(LegislationTypes.LegislationTier.OrdinaryLaw));
+        assertEq(uint256(legislationRecord.tier), uint256(LegislationTypes.LegislationTier.Law));
         assertEq(legislationRecord.textHash, proposal.legislationTextHash);
         assertEq(legislationRecord.proposerReference, proposerReference);
         assertEq(legislationRecord.enactedByReferendumId, referendumId);
@@ -535,9 +992,11 @@ contract Milestone3ReferendaTest is Test {
             proposedMeasureId: keccak256(bytes(measureSeed)),
             amendsMeasureId: bytes32(0),
             legislationTextHash: keccak256(bytes(lawSeed)),
-            legislationTier: LegislationTypes.LegislationTier.OrdinaryLaw,
+            legislationTier: LegislationTypes.LegislationTier.Law,
             startTime: uint64(block.timestamp),
-            endTime: uint64(block.timestamp + MINIMUM_VOTING_DURATION)
+            endTime: uint64(block.timestamp + MINIMUM_VOTING_DURATION),
+            adoptionDelay: STANDARD_ADOPTION_DELAY,
+            emergency: false
         });
     }
 
@@ -547,7 +1006,50 @@ contract Milestone3ReferendaTest is Test {
         returns (ReferendumTypes.LegislationProposal memory proposal)
     {
         proposal = _defaultProposal(measureSeed, proposalSeed, lawSeed);
-        proposal.legislationTier = LegislationTypes.LegislationTier.ConstitutionalLaw;
+        proposal.legislationTier = LegislationTypes.LegislationTier.ConstitutionalOrInternationalTreaty;
+    }
+
+    function _defaultBudgetProposal(string memory budgetSeed, string memory proposalSeed, string memory lawSeed)
+        internal
+        view
+        returns (ReferendumTypes.BudgetApprovalProposal memory proposal)
+    {
+        return ReferendumTypes.BudgetApprovalProposal({
+            proposalMetadataHash: keccak256(bytes(proposalSeed)),
+            budgetId: keccak256(bytes(budgetSeed)),
+            budgetLawTextHash: keccak256(bytes(lawSeed)),
+            budget: ReferendumTypes.BudgetApprovalDetails({
+                officeId: FINANCE_OFFICE_ID,
+                disbursementType: TreasuryTypes.DisbursementType.Operations,
+                asset: address(0),
+                allocatedAmount: 8 ether,
+                startsAt: uint64(block.timestamp),
+                endsAt: uint64(block.timestamp + 90 days)
+            }),
+            startTime: uint64(block.timestamp),
+            endTime: uint64(block.timestamp + MINIMUM_VOTING_DURATION),
+            adoptionDelay: STANDARD_ADOPTION_DELAY,
+            emergency: false
+        });
+    }
+
+    function _defaultModuleGovernanceProposal(
+        string memory proposalSeed,
+        string memory proposalIdSeed,
+        bytes32 targetModule,
+        address newModuleAddress,
+        bool registerNewModule
+    ) internal view returns (ReferendumTypes.ModuleGovernanceProposal memory proposal) {
+        return ReferendumTypes.ModuleGovernanceProposal({
+                proposalMetadataHash: keccak256(bytes(proposalSeed)),
+                proposalId: keccak256(bytes(proposalIdSeed)),
+                targetModule: targetModule,
+                newModuleAddress: newModuleAddress,
+                registerNewModule: registerNewModule,
+                startTime: uint64(block.timestamp),
+                endTime: uint64(block.timestamp + MINIMUM_VOTING_DURATION),
+                adoptionDelay: STANDARD_ADOPTION_DELAY
+            });
     }
 
     function _defaultIdentityInput() internal pure returns (IdentityTypes.IdentityRecordInput memory input) {

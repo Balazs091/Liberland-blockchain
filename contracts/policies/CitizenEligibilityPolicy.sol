@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {ICitizenEligibilityPolicy} from "../interfaces/ICitizenEligibilityPolicy.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
@@ -81,6 +81,6 @@ contract CitizenEligibilityPolicy is ICitizenEligibilityPolicy {
             return false;
         }
 
-        return !_stakeRegistry.hasActiveUnstakeCooldown(walletLink.personId);
+        return !_stakeRegistry.isInWelfare(walletLink.personId);
     }
 }

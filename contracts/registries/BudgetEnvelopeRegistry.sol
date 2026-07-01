@@ -1,38 +1,25 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {IBudgetEnvelopeRegistry} from "../interfaces/IBudgetEnvelopeRegistry.sol";
-import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
+import {KernelModule} from "../base/KernelModule.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {TreasuryTypes} from "../types/TreasuryTypes.sol";
 
 /// @title BudgetEnvelopeRegistry
 /// @notice Stable fact registry for approved budget envelopes and committed outflows.
-contract BudgetEnvelopeRegistry is IBudgetEnvelopeRegistry {
+contract BudgetEnvelopeRegistry is IBudgetEnvelopeRegistry, KernelModule {
     struct BudgetCommitment {
         bytes32 budgetId;
         uint256 amount;
         bool active;
     }
 
-    IConstitutionKernel private immutable _kernel;
-
     mapping(bytes32 budgetId => TreasuryTypes.BudgetEnvelope envelope) private _budgetEnvelopes;
     mapping(bytes32 requestId => BudgetCommitment commitment) private _budgetCommitments;
     bytes32[] private _budgetIds;
 
-    constructor(address kernelAddress) {
-        if (kernelAddress == address(0) || kernelAddress.code.length == 0) {
-            revert IConstitutionKernel.InvalidModuleAddress(bytes32(0), kernelAddress);
-        }
-
-        _kernel = IConstitutionKernel(kernelAddress);
-    }
-
-    /// @inheritdoc IBudgetEnvelopeRegistry
-    function kernel() external view returns (address kernelAddress) {
-        return address(_kernel);
-    }
+    constructor(address kernelAddress) KernelModule(kernelAddress) {}
 
     /// @inheritdoc IBudgetEnvelopeRegistry
     function getBudgetEnvelope(bytes32 budgetId) external view returns (TreasuryTypes.BudgetEnvelope memory envelope) {

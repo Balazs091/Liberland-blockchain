@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {ICandidateEligibilityPolicy} from "../interfaces/ICandidateEligibilityPolicy.sol";
 import {ICongressCandidateRegistry} from "../interfaces/ICongressCandidateRegistry.sol";
@@ -14,6 +14,17 @@ import {ElectionTypes} from "../types/ElectionTypes.sol";
 /// @title CongressElectionApp
 /// @notice User-facing application for bounded Congress election scheduling, candidacy, signed ballot voting, and vacancies.
 contract CongressElectionApp is ICongressElectionApp {
+    bytes32 private constant _INCUMBENT_CANDIDACY_TYPEHASH =
+        keccak256("LiberlandCongressIncumbentCandidacy(uint256 cycleId,address incumbent)");
+    string private constant _INCUMBENT_CANDIDACY_URI = "liberland://congress/incumbent-candidacy";
+
+    struct RankingEntry {
+        address candidate;
+        int256 voteTotal;
+        uint64 appliedAt;
+        bool eligible;
+    }
+
     IIdentityRegistry private immutable _identityRegistry;
     ICongressCandidateRegistry private immutable _congressCandidateRegistry;
     IConstitutionKernel private immutable _kernel;
@@ -183,36 +194,54 @@ contract CongressElectionApp is ICongressElectionApp {
         }
         ICongressElectionPolicy policy = _currentElectionPolicy();
 
-        uint256 candidateCount = _congressCandidateRegistry.getCycleCandidateCount(cycleId);
-        address[] memory rankedCandidates = new address[](candidateCount);
-        int256[] memory rankedVoteTotals = new int256[](candidateCount);
-        uint64[] memory appliedAt = new uint64[](candidateCount);
+        {
+            uint256 candidateCount = _congressCandidateRegistry.getCycleCandidateCount(cycleId);
+            RankingEntry[] memory ranking = new RankingEntry[](candidateCount);
+            uint256 qualifiedCandidateCount = 0;
 
-        for (uint256 index = 0; index < candidateCount; ++index) {
-            address candidate = _congressCandidateRegistry.getCycleCandidateAt(cycleId, index);
-            ElectionTypes.CongressCandidateRecord memory candidateRecord =
-                _congressCandidateRegistry.getCandidate(cycleId, candidate);
+            for (uint256 index = 0; index < candidateCount; ++index) {
+                address candidate = _congressCandidateRegistry.getCycleCandidateAt(cycleId, index);
+                ElectionTypes.CongressCandidateRecord memory candidateRecord =
+                    _congressCandidateRegistry.getCandidate(cycleId, candidate);
+                bool eligibleCandidate = policy.isEligibleCandidate(candidate);
 
-            rankedCandidates[index] = candidate;
-            rankedVoteTotals[index] = candidateRecord.voteTotal;
-            appliedAt[index] = candidateRecord.appliedAt;
+                ranking[index] = RankingEntry({
+                    candidate: candidate,
+                    voteTotal: candidateRecord.voteTotal,
+                    appliedAt: candidateRecord.appliedAt,
+                    eligible: eligibleCandidate
+                });
+                // A seat requires eligibility AND non-negative net support: a candidate net-REJECTED
+                // (voteTotal < 0) by the electorate is not seated even when eligible seats remain (M10).
+                // Zero is still qualified so uncontested incumbents/genesis members keep continuity.
+                if (eligibleCandidate && candidateRecord.voteTotal >= 0) {
+                    qualifiedCandidateCount += 1;
+                }
+            }
+
+            _sortRanking(ranking);
+            address[] memory rankedCandidates = new address[](candidateCount);
+            int256[] memory rankedVoteTotals = new int256[](candidateCount);
+            for (uint256 index = 0; index < candidateCount; ++index) {
+                rankedCandidates[index] = ranking[index].candidate;
+                rankedVoteTotals[index] = ranking[index].voteTotal;
+            }
+
+            uint32 electedCount = _minConfiguredCount(cycleRecord.seatCount, qualifiedCandidateCount);
+            uint256 remainingQualifiedCandidates =
+                qualifiedCandidateCount > electedCount ? qualifiedCandidateCount - electedCount : 0;
+            uint32 runnerUpCount = _minConfiguredCount(cycleRecord.runnerUpCount, remainingQualifiedCandidates);
+
+            _congressCandidateRegistry.finalizeCycle(
+                cycleId,
+                ElectionTypes.CongressFinalizationInput({
+                    rankedCandidates: rankedCandidates,
+                    rankedVoteTotals: rankedVoteTotals,
+                    electedCount: electedCount,
+                    runnerUpCount: runnerUpCount
+                })
+            );
         }
-
-        _sortRanking(rankedCandidates, rankedVoteTotals, appliedAt);
-
-        uint32 electedCount = _minConfiguredCount(cycleRecord.seatCount, candidateCount);
-        uint256 remainingCandidates = candidateCount > electedCount ? candidateCount - electedCount : 0;
-        uint32 runnerUpCount = _minConfiguredCount(cycleRecord.runnerUpCount, remainingCandidates);
-
-        _congressCandidateRegistry.finalizeCycle(
-            cycleId,
-            ElectionTypes.CongressFinalizationInput({
-                rankedCandidates: rankedCandidates,
-                rankedVoteTotals: rankedVoteTotals,
-                electedCount: electedCount,
-                runnerUpCount: runnerUpCount
-            })
-        );
 
         if (_congressCandidateRegistry.latestCycleId() == cycleId) {
             (uint64 nominationStart, uint64 votingStart, uint64 votingEnd) = _nextElectionWindow(cycleId, policy);
@@ -226,7 +255,62 @@ contract CongressElectionApp is ICongressElectionApp {
             revert NotActiveCongressMember(msg.sender);
         }
 
-        (seatIndex, replacementCandidate) = _congressCandidateRegistry.vacateAndFillSeat(msg.sender);
+        (seatIndex, replacementCandidate) = _vacateAndFill(msg.sender);
+    }
+
+    /// @inheritdoc ICongressElectionApp
+    function recallMember(address member) external returns (uint32 seatIndex, address replacementCandidate) {
+        if (!_congressCandidateRegistry.isActiveCongressMember(member)) {
+            revert NotActiveCongressMember(member);
+        }
+        // Anyone may remove a sitting member who has lost candidacy eligibility (lost citizenship,
+        // dropped below the bond, or entered unstaking welfare). Eligible members cannot be recalled (M9).
+        if (_currentElectionPolicy().isEligibleCandidate(member)) {
+            revert MemberStillEligible(member);
+        }
+
+        (seatIndex, replacementCandidate) = _vacateAndFill(member);
+    }
+
+    /// @inheritdoc ICongressElectionApp
+    function purgeIneligibleStandingBallots(uint256 cycleId, address[] calldata voters) external {
+        // Permissionless cleanup: drop the persisted standing ballot of any listed voter who no longer has
+        // voting power (welfare/ineligible/insufficient stake), so their frozen weight stops counting (M2).
+        ICongressElectionPolicy policy = _currentElectionPolicy();
+        for (uint256 index = 0; index < voters.length; ++index) {
+            address voter = voters[index];
+            if (policy.votingWeight(voter) == 0) {
+                _congressCandidateRegistry.dropStandingBallot(cycleId, voter);
+            }
+        }
+    }
+
+    function _vacateAndFill(address member) private returns (uint32 seatIndex, address replacementCandidate) {
+        (bool hasReplacement, uint256 runnerUpIndex) = _findNextEligibleRunnerUp();
+        (seatIndex, replacementCandidate) =
+            _congressCandidateRegistry.vacateAndFillSeat(member, hasReplacement, runnerUpIndex);
+    }
+
+    function _findNextEligibleRunnerUp() private view returns (bool found, uint256 runnerUpIndex) {
+        ElectionTypes.CongressOfficeTerm memory term = _congressCandidateRegistry.getCurrentOfficeTerm();
+        uint256 cycleId = term.cycleId;
+        ICongressElectionPolicy policy = _currentElectionPolicy();
+        uint256 runnerUpCount = _congressCandidateRegistry.getRunnerUpCount(cycleId);
+
+        for (uint256 index = term.nextRunnerUpIndex; index < runnerUpCount; ++index) {
+            address candidate = _congressCandidateRegistry.getRunnerUpAt(cycleId, index);
+            if (_congressCandidateRegistry.isActiveCongressMember(candidate)) {
+                continue;
+            }
+            if (
+                policy.isEligibleCandidate(candidate)
+                    && _congressCandidateRegistry.getCandidate(cycleId, candidate).voteTotal >= 0
+            ) {
+                return (true, index);
+            }
+        }
+
+        return (false, 0);
     }
 
     function _createElectionCycle(
@@ -257,6 +341,26 @@ contract CongressElectionApp is ICongressElectionApp {
                 policyReference: _policyReference(policy)
             })
         );
+        _autoRegisterIncumbents(cycleId);
+    }
+
+    function _autoRegisterIncumbents(uint256 cycleId) private {
+        address[] memory incumbents = _congressCandidateRegistry.currentCongressMembers();
+        for (uint256 index = 0; index < incumbents.length; ++index) {
+            address incumbent = incumbents[index];
+            bytes32 personId = _identityRegistry.resolveWalletToPersonId(incumbent);
+            if (personId == bytes32(0)) {
+                revert UnknownCandidateReference(incumbent);
+            }
+
+            _congressCandidateRegistry.registerCandidate(
+                cycleId,
+                incumbent,
+                personId,
+                keccak256(abi.encode(_INCUMBENT_CANDIDACY_TYPEHASH, cycleId, incumbent)),
+                _INCUMBENT_CANDIDACY_URI
+            );
+        }
     }
 
     function _nextElectionWindow(uint256 previousCycleId, ICongressElectionPolicy policy)
@@ -405,58 +509,35 @@ contract CongressElectionApp is ICongressElectionApp {
         }
     }
 
-    function _sortRanking(address[] memory candidates, int256[] memory voteTotals, uint64[] memory appliedAt)
-        private
-        pure
-    {
-        for (uint256 index = 1; index < candidates.length; ++index) {
-            address candidate = candidates[index];
-            int256 voteTotal = voteTotals[index];
-            uint64 candidateAppliedAt = appliedAt[index];
+    function _sortRanking(RankingEntry[] memory ranking) private pure {
+        for (uint256 index = 1; index < ranking.length; ++index) {
+            RankingEntry memory entry = ranking[index];
             uint256 insertionIndex = index;
 
-            while (
-                insertionIndex > 0
-                    && _ranksAhead(
-                        voteTotal,
-                        candidateAppliedAt,
-                        candidate,
-                        voteTotals[insertionIndex - 1],
-                        appliedAt[insertionIndex - 1],
-                        candidates[insertionIndex - 1]
-                    )
-            ) {
-                candidates[insertionIndex] = candidates[insertionIndex - 1];
-                voteTotals[insertionIndex] = voteTotals[insertionIndex - 1];
-                appliedAt[insertionIndex] = appliedAt[insertionIndex - 1];
+            while (insertionIndex > 0 && _ranksAhead(entry, ranking[insertionIndex - 1])) {
+                ranking[insertionIndex] = ranking[insertionIndex - 1];
 
                 unchecked {
                     --insertionIndex;
                 }
             }
 
-            candidates[insertionIndex] = candidate;
-            voteTotals[insertionIndex] = voteTotal;
-            appliedAt[insertionIndex] = candidateAppliedAt;
+            ranking[insertionIndex] = entry;
         }
     }
 
-    function _ranksAhead(
-        int256 leftVotes,
-        uint64 leftAppliedAt,
-        address leftCandidate,
-        int256 rightVotes,
-        uint64 rightAppliedAt,
-        address rightCandidate
-    ) private pure returns (bool ahead) {
-        if (leftVotes != rightVotes) {
-            return leftVotes > rightVotes;
+    function _ranksAhead(RankingEntry memory left, RankingEntry memory right) private pure returns (bool ahead) {
+        if (left.eligible != right.eligible) {
+            return left.eligible;
         }
-        if (leftAppliedAt != rightAppliedAt) {
-            return leftAppliedAt < rightAppliedAt;
+        if (left.voteTotal != right.voteTotal) {
+            return left.voteTotal > right.voteTotal;
+        }
+        if (left.appliedAt != right.appliedAt) {
+            return left.appliedAt < right.appliedAt;
         }
 
-        return uint160(leftCandidate) < uint160(rightCandidate);
+        return uint160(left.candidate) < uint160(right.candidate);
     }
 
     function _minConfiguredCount(uint32 configuredCount, uint256 candidateCount) private pure returns (uint32 count) {

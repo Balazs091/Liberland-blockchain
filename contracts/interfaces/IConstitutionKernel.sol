@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
 
@@ -7,6 +7,7 @@ import {GovernanceTypes} from "../types/GovernanceTypes.sol";
 /// @notice Canonical interface for governed module pointer storage.
 interface IConstitutionKernel {
     error InvalidModuleAddress(bytes32 moduleId, address moduleAddress);
+    error ModuleAlreadyRegistered(bytes32 moduleId);
     error ModuleNotRegistered(bytes32 moduleId);
     error UnauthorizedKernelCaller(address caller);
 
@@ -44,4 +45,9 @@ interface IConstitutionKernel {
     /// @param moduleId The module identifier to update.
     /// @param moduleAddress The new active module address.
     function governanceUpdateModule(bytes32 moduleId, address moduleAddress) external;
+
+    /// @notice Registers a new module pointer through the governed execution path.
+    /// @param moduleId The module identifier to register.
+    /// @param moduleAddress The active module address.
+    function governanceRegisterModule(bytes32 moduleId, address moduleAddress) external;
 }

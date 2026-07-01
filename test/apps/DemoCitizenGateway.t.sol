@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {Test} from "forge-std/Test.sol";
 
 import {DemoCitizenGateway} from "../../contracts/mocks/DemoCitizenGateway.sol";
 import {LLMToken} from "../../contracts/mocks/LLMToken.sol";
 import {ConstitutionKernel} from "../../contracts/core/ConstitutionKernel.sol";
+import {IStakeRegistry} from "../../contracts/interfaces/IStakeRegistry.sol";
 import {IdentityRegistry} from "../../contracts/registries/IdentityRegistry.sol";
 import {StakeRegistry} from "../../contracts/registries/StakeRegistry.sol";
 import {CitizenEligibilityPolicy} from "../../contracts/policies/CitizenEligibilityPolicy.sol";
@@ -17,7 +18,8 @@ import {KernelModuleIds} from "../../contracts/libraries/KernelModuleIds.sol";
 contract DemoCitizenGatewayTest is Test {
     uint256 internal constant MINIMUM_CITIZEN_STAKE = 5_000;
     uint256 internal constant MINIMUM_CANDIDATE_STAKE = 6_000;
-    uint64 internal constant UNSTAKE_COOLDOWN = 1 days;
+    uint64 internal constant WELFARE_PERIOD = 30 days;
+    uint16 internal constant ANNUAL_UNSTAKE_RATE_BPS = 1_000;
 
     address internal constant REGISTRAR = address(0xABCD);
     address internal constant APPLICANT = address(0x1111);
@@ -38,7 +40,7 @@ contract DemoCitizenGatewayTest is Test {
         stakeRegistry = new StakeRegistry(address(kernel));
         citizenEligibilityPolicy =
             new CitizenEligibilityPolicy(address(identityRegistry), address(stakeRegistry), MINIMUM_CITIZEN_STAKE);
-        unstakingPolicy = new UnstakingPolicy(address(stakeRegistry), UNSTAKE_COOLDOWN);
+        unstakingPolicy = new UnstakingPolicy(address(stakeRegistry), WELFARE_PERIOD, ANNUAL_UNSTAKE_RATE_BPS);
         votingPowerPolicy =
             new VotingPowerPolicy(address(identityRegistry), address(stakeRegistry), address(citizenEligibilityPolicy));
         candidateEligibilityPolicy = new CandidateEligibilityPolicy(
@@ -61,7 +63,11 @@ contract DemoCitizenGatewayTest is Test {
         kernel.disableBootstrapAuthority();
     }
 
-    function test_Register_Approve_Stake_Unstake_AndClaim_DrivesEligibility() public {
+    function test_LLMToken_UsesStandardErc20Decimals() public view {
+        assertEq(llmToken.decimals(), 18);
+    }
+
+    function test_Register_Approve_Stake_Unstake_DrivesEligibilityAndWelfare() public {
         vm.prank(APPLICANT);
         bytes32 personId = gateway.registerSelf(keccak256("applicant"), "ipfs://applicant");
 
@@ -86,25 +92,30 @@ contract DemoCitizenGatewayTest is Test {
         assertEq(stakeRegistry.activeStakeOf(personId), 6_000);
         assertEq(llmToken.balanceOf(address(gateway)), 6_000);
 
-        vm.prank(APPLICANT);
-        gateway.requestUnstake(1_000);
+        // Discrete unstake releases 10%/yr * 30/365 of 6,000 == 49 LLM immediately.
+        assertEq(unstakingPolicy.unstakePortion(6_000), 49);
 
+        vm.prank(APPLICANT);
+        uint256 releasedAmount = gateway.unstake();
+        assertEq(releasedAmount, 49);
+
+        // In welfare: voting and candidacy suspended, and a second unstake reverts.
+        assertTrue(stakeRegistry.isInWelfare(personId));
         assertFalse(citizenEligibilityPolicy.isCitizenInGoodStanding(APPLICANT));
         assertEq(votingPowerPolicy.votingPower(APPLICANT), 0);
         assertFalse(candidateEligibilityPolicy.isEligibleCandidate(APPLICANT));
-        assertEq(stakeRegistry.activeStakeOf(personId), 5_000);
-        assertEq(stakeRegistry.pendingUnstakeOf(personId), 1_000);
+        assertEq(stakeRegistry.activeStakeOf(personId), 5_951);
+        assertEq(llmToken.balanceOf(APPLICANT), 49);
+        assertEq(llmToken.balanceOf(address(gateway)), 5_951);
 
-        vm.warp(block.timestamp + UNSTAKE_COOLDOWN);
-
+        uint64 welfareUntil = stakeRegistry.welfareUntilOf(personId);
+        vm.expectRevert(abi.encodeWithSelector(IStakeRegistry.InWelfarePeriod.selector, personId, welfareUntil));
         vm.prank(APPLICANT);
-        uint256 claimedAmount = gateway.claimUnstake();
+        gateway.unstake();
 
-        assertEq(claimedAmount, 1_000);
+        // After welfare elapses, good standing and voting weight return.
+        vm.warp(welfareUntil);
         assertTrue(citizenEligibilityPolicy.isCitizenInGoodStanding(APPLICANT));
-        assertEq(votingPowerPolicy.votingPower(APPLICANT), 5_000);
-        assertFalse(candidateEligibilityPolicy.isEligibleCandidate(APPLICANT));
-        assertEq(llmToken.balanceOf(APPLICANT), 1_000);
-        assertEq(llmToken.balanceOf(address(gateway)), 5_000);
+        assertEq(votingPowerPolicy.votingPower(APPLICANT), 5_951);
     }
 }

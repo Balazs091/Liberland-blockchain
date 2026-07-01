@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {LegislationTypes} from "./LegislationTypes.sol";
 import {TreasuryTypes} from "./TreasuryTypes.sol";
@@ -19,7 +19,8 @@ library GovernanceTypes {
         EmergencyPause,
         EmergencyUnpause,
         LegislationEnactment,
-        LegislationRepeal
+        LegislationRepeal,
+        ModuleRegistration
     }
 
     enum ActionOrigin {
@@ -89,6 +90,14 @@ library GovernanceTypes {
         bytes32 policyReference;
     }
 
+    struct TimelockDelayConfig {
+        uint64 moduleGovernanceDelay;
+        uint64 treasuryBudgetApprovalDelay;
+        uint64 legislationEnactmentDelay;
+        uint64 treasuryDisbursementDelay;
+        uint64 defaultExecutionWindow;
+    }
+
     struct ActionRecord {
         bytes32 actionId;
         ActionType actionType;
@@ -96,6 +105,7 @@ library GovernanceTypes {
         bytes32 originReference;
         bytes32 policyReference;
         bytes32 targetModule;
+        address targetModuleAddress;
         bytes payload;
         uint64 createdAt;
         uint64 earliestExecutionTime;

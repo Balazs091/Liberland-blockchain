@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
@@ -94,11 +94,19 @@ contract ConstitutionKernel is IConstitutionKernel {
 
     /// @inheritdoc IConstitutionKernel
     function governanceUpdateModule(bytes32 moduleId, address moduleAddress) external {
-        if (msg.sender != _moduleRecords[KernelModuleIds.ACTION_TIMELOCK].moduleAddress) {
-            revert UnauthorizedKernelCaller(msg.sender);
-        }
+        _requireGovernanceCaller(msg.sender);
 
         _setModule(moduleId, moduleAddress, false);
+    }
+
+    /// @inheritdoc IConstitutionKernel
+    function governanceRegisterModule(bytes32 moduleId, address moduleAddress) external {
+        _requireGovernanceCaller(msg.sender);
+        if (_moduleRecords[moduleId].moduleAddress != address(0)) {
+            revert ModuleAlreadyRegistered(moduleId);
+        }
+
+        _setModule(moduleId, moduleAddress, true);
     }
 
     function _setModule(bytes32 moduleId, address moduleAddress, bool allowRegistration) private {
@@ -154,6 +162,12 @@ contract ConstitutionKernel is IConstitutionKernel {
 
         if (caller != _bootstrapAuthority) {
             revert NotBootstrapAuthority(caller);
+        }
+    }
+
+    function _requireGovernanceCaller(address caller) private view {
+        if (caller != _moduleRecords[KernelModuleIds.ACTION_TIMELOCK].moduleAddress) {
+            revert UnauthorizedKernelCaller(caller);
         }
     }
 }

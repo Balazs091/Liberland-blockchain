@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 /// @title IdentityTypes
 /// @notice Shared enums and structs for identity and citizenship state.
@@ -62,5 +62,14 @@ library IdentityTypes {
         WalletLinkStatus status;
         uint64 linkedAt;
         uint64 unlinkedAt;
+    }
+
+    struct MigrationRequest {
+        address oldWallet;
+        address newWallet;
+        uint64 requestedAt;
+        uint64 approvedAt;
+        bool approved;
+        bool exists;
     }
 }

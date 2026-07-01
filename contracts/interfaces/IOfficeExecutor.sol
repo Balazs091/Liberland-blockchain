@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {TreasuryTypes} from "../types/TreasuryTypes.sol";
 import {OfficeTypes} from "../types/OfficeTypes.sol";
@@ -8,6 +8,7 @@ import {OfficeTypes} from "../types/OfficeTypes.sol";
 /// @notice Interface for explicit office-admin actions and office-origin treasury routing.
 interface IOfficeExecutor {
     error BootstrapAlreadyDisabled();
+    error BudgetApprovalRequiresReferendum(bytes32 budgetId);
     error InvalidBootstrapAuthority(address authority);
     error NotBootstrapAuthority(address caller);
     error UnauthorizedOfficeAction(address caller, bytes32 officeId, OfficeTypes.OfficeActionClass actionClass);
@@ -22,6 +23,9 @@ interface IOfficeExecutor {
     function assignClerk(bytes32 officeId, address clerk) external;
     function revokeClerk(bytes32 officeId, address clerk) external;
     function transferOfficeAdmin(bytes32 officeId, address newAdmin) external;
+    function renameOffice(bytes32 officeId, string calldata newName) external;
+    function setOfficeActive(bytes32 officeId, bool active) external;
+    function computeBudgetId(bytes32 officeId, uint256 sequence) external pure returns (bytes32 budgetId);
 
     function requestBudgetApproval(
         bytes32 officeId,

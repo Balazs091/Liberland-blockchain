@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
+import {IKernelModule} from "./IKernelModule.sol";
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
 import {TreasuryTypes} from "../types/TreasuryTypes.sol";
 
 /// @title IPayoutQueue
 /// @notice Audited queue for office-authorized treasury payout requests.
-interface IPayoutQueue {
+interface IPayoutQueue is IKernelModule {
     error InvalidPayoutRequest(bytes32 requestId);
     error PayoutRequestAlreadyExists(bytes32 requestId);
     error PayoutRequestAlreadyFinalized(bytes32 requestId, TreasuryTypes.DisbursementState state);
@@ -39,7 +40,6 @@ interface IPayoutQueue {
         bytes32 indexed requestId, bytes32 indexed actionId, uint64 expiredAt, address indexed recordedBy
     );
 
-    function kernel() external view returns (address kernelAddress);
     function getDisbursementRequest(bytes32 requestId)
         external
         view

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {ReferendumTypes} from "../types/ReferendumTypes.sol";
 
@@ -26,6 +26,18 @@ interface IReferendumPolicy {
     /// @return duration The minimum allowed voting duration.
     function minimumVotingDuration() external view returns (uint64 duration);
 
+    /// @notice Returns the shorter minimum voting duration allowed for Congress-origin emergency measures.
+    /// @return duration The minimum emergency voting duration.
+    function emergencyVotingDuration() external view returns (uint64 duration);
+
+    /// @notice Returns the standard post-vote adoption review delay.
+    /// @return duration The standard adoption delay.
+    function standardAdoptionDelay() external view returns (uint64 duration);
+
+    /// @notice Returns the maximum post-vote adoption review delay a proposal may request.
+    /// @return duration The maximum adoption delay.
+    function maximumAdoptionDelay() external view returns (uint64 duration);
+
     /// @notice Returns the configured proposal fee for a proposal origin.
     /// @param proposalOrigin The proposal origin to query.
     /// @return feeAmount The configured proposal fee amount.
@@ -49,6 +61,9 @@ interface IReferendumPolicy {
     /// @param againstVotes The total voting power recorded against.
     /// @param forVoterCount The number of voters currently recorded in favor.
     /// @param againstVoterCount The number of voters currently recorded against.
+    /// @param electorateHeadcountSnapshot The eligible electorate headcount stored when the referendum was created.
+    /// @param electorateVotingPowerSnapshot The eligible electorate voting power stored when the referendum was created.
+    /// @param requiresSupermajority Whether the referendum must clear the constitutional double-threshold pass rule.
     /// @return outcome The evaluated turnout, quorum, and pass outcome.
     function evaluateOutcome(
         ReferendumTypes.ReferendumClass referendumClass,
@@ -56,6 +71,9 @@ interface IReferendumPolicy {
         uint256 forVotes,
         uint256 againstVotes,
         uint256 forVoterCount,
-        uint256 againstVoterCount
+        uint256 againstVoterCount,
+        uint256 electorateHeadcountSnapshot,
+        uint256 electorateVotingPowerSnapshot,
+        bool requiresSupermajority
     ) external view returns (ReferendumTypes.PolicyOutcome memory outcome);
 }

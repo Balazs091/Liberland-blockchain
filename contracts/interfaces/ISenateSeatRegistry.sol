@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
+import {IKernelModule} from "./IKernelModule.sol";
 import {SenateTypes} from "../types/SenateTypes.sol";
 
 /// @title ISenateSeatRegistry
 /// @notice Stable fact registry for the fixed v1 Senate seat set and succession metadata.
-interface ISenateSeatRegistry {
+interface ISenateSeatRegistry is IKernelModule {
     error InvalidPersonId(bytes32 personId);
     error InvalidSeatHolder(address holder);
     error InvalidSeatIndex(uint32 seatIndex);
@@ -57,10 +58,6 @@ interface ISenateSeatRegistry {
         uint64 transferredAt,
         address transferredBy
     );
-
-    /// @notice Returns the kernel used for narrow registry write authorization.
-    /// @return kernelAddress The configured kernel address.
-    function kernel() external view returns (address kernelAddress);
 
     /// @notice Returns the fixed v1 Senate seat count.
     /// @return count The total number of Senate seats.

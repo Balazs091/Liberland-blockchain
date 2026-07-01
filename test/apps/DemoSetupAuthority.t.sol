@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -85,7 +85,7 @@ contract DemoSetupAuthorityTest is Test {
         demoAuthority.seedLegislation(
             MEASURE_ID,
             LegislationTypes.LegislationRecordInput({
-                tier: LegislationTypes.LegislationTier.OrdinaryLaw,
+                tier: LegislationTypes.LegislationTier.Law,
                 textHash: keccak256("demo-law"),
                 proposerReference: PERSON_ID,
                 enactedByReferendumId: keccak256("demo-law-referendum"),
@@ -104,12 +104,17 @@ contract DemoSetupAuthorityTest is Test {
                 proposedMeasureId: keccak256("demo-new-law"),
                 amendsMeasureId: bytes32(0),
                 legislationTextHash: keccak256("demo-new-law-text"),
-                legislationTier: LegislationTypes.LegislationTier.OrdinaryLaw,
+                legislationTier: LegislationTypes.LegislationTier.Law,
                 targetModule: bytes32(0),
                 proposedModuleAddress: address(0),
+                registerNewModule: false,
                 proposerReference: PERSON_ID,
                 startTime: uint64(block.timestamp - 1 days),
-                endTime: uint64(block.timestamp + 1 days)
+                endTime: uint64(block.timestamp + 1 days),
+                adoptionDelay: 7 days,
+                electorateHeadcountSnapshot: 0,
+                electorateVotingPowerSnapshot: 0,
+                requiresSupermajority: false
             })
         );
         demoAuthority.seedReferendumVote(REFERENDUM_ID, wallet, ReferendumTypes.VoteOption.For, 9_000);

@@ -11,7 +11,7 @@ This repository is a constitution-aligned governance system, not a generic DAO.
 - Coding agent: official Codex extension
 - Primary framework: Foundry
 - Local node: Anvil
-- Compiler: Solidity 0.8.34
+- Compiler: Solidity 0.8.35
 - Tests: Forge
 - Deployment scripts: Forge scripts
 - Static analysis: Slither
@@ -32,7 +32,7 @@ This repository is a constitution-aligned governance system, not a generic DAO.
 4. Define interfaces first, then concrete contracts, then tests.
 5. Keep registries stable and policies replaceable.
 6. Emit events for every governance-relevant state transition.
-7. Use pinned `pragma solidity 0.8.34;` consistently.
+7. Use pinned `pragma solidity 0.8.35;` consistently.
 8. Use NatSpec on public and external functions.
 9. Use custom errors where practical.
 10. Do not use `onlyOwner` as a long-term authority model.

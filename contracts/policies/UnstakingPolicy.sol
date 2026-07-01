@@ -1,31 +1,40 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {IStakeRegistry} from "../interfaces/IStakeRegistry.sol";
 import {IUnstakingPolicy} from "../interfaces/IUnstakingPolicy.sol";
-import {StakeTypes} from "../types/StakeTypes.sol";
 
 /// @title UnstakingPolicy
-/// @notice Evaluates unstake cooldown rules and the resulting political-rights effect.
+/// @notice Parameterizes the discrete 30-day unstake portion and welfare period.
 contract UnstakingPolicy is IUnstakingPolicy {
-    error InvalidCooldownDuration(uint64 cooldownDurationSeconds);
     error InvalidRegistry(address registryAddress);
+    error InvalidUnstakeRate(uint16 annualUnstakeRateBps);
+    error InvalidWelfarePeriod(uint64 welfarePeriodSeconds);
 
-    uint64 private immutable _cooldownDuration;
+    uint64 public constant YEAR = 365 days;
+    uint16 private constant BPS_DENOMINATOR = 10_000;
+
     IStakeRegistry private immutable _stakeRegistry;
+    uint64 private immutable _welfarePeriod;
+    uint16 private immutable _annualUnstakeRateBps;
 
     /// @param stakeRegistryAddress The stake registry address.
-    /// @param cooldownDurationSeconds The cooldown duration applied to new unstake requests.
-    constructor(address stakeRegistryAddress, uint64 cooldownDurationSeconds) {
+    /// @param welfarePeriodSeconds The welfare period applied after each unstake.
+    /// @param annualUnstakeRateBps_ The annual unstake rate cap in basis points (max 10_000).
+    constructor(address stakeRegistryAddress, uint64 welfarePeriodSeconds, uint16 annualUnstakeRateBps_) {
         if (stakeRegistryAddress == address(0) || stakeRegistryAddress.code.length == 0) {
             revert InvalidRegistry(stakeRegistryAddress);
         }
-        if (cooldownDurationSeconds == 0) {
-            revert InvalidCooldownDuration(cooldownDurationSeconds);
+        if (welfarePeriodSeconds == 0) {
+            revert InvalidWelfarePeriod(welfarePeriodSeconds);
+        }
+        if (annualUnstakeRateBps_ == 0 || annualUnstakeRateBps_ > BPS_DENOMINATOR) {
+            revert InvalidUnstakeRate(annualUnstakeRateBps_);
         }
 
         _stakeRegistry = IStakeRegistry(stakeRegistryAddress);
-        _cooldownDuration = cooldownDurationSeconds;
+        _welfarePeriod = welfarePeriodSeconds;
+        _annualUnstakeRateBps = annualUnstakeRateBps_;
     }
 
     /// @inheritdoc IUnstakingPolicy
@@ -34,39 +43,42 @@ contract UnstakingPolicy is IUnstakingPolicy {
     }
 
     /// @inheritdoc IUnstakingPolicy
-    function cooldownDuration() external view returns (uint64 durationSeconds) {
-        return _cooldownDuration;
+    function welfarePeriod() external view returns (uint64 durationSeconds) {
+        return _welfarePeriod;
     }
 
     /// @inheritdoc IUnstakingPolicy
-    function previewCooldownEnd(uint64 startTimestamp) external view returns (uint64 cooldownEnd) {
-        return startTimestamp + _cooldownDuration;
+    function annualUnstakeRateBps() external view returns (uint16 rateBps) {
+        return _annualUnstakeRateBps;
     }
 
     /// @inheritdoc IUnstakingPolicy
-    function canStartUnstake(bytes32 personId, uint256 amount) external view returns (bool allowed) {
-        if (personId == bytes32(0) || amount == 0) {
+    function unstakePortion(uint256 activeStake) public view returns (uint256 portion) {
+        return activeStake * _annualUnstakeRateBps * _welfarePeriod / (uint256(BPS_DENOMINATOR) * YEAR);
+    }
+
+    /// @inheritdoc IUnstakingPolicy
+    function previewWelfareUntil(uint64 startTimestamp) external view returns (uint64 welfareUntil) {
+        return startTimestamp + _welfarePeriod;
+    }
+
+    /// @inheritdoc IUnstakingPolicy
+    function isInWelfare(bytes32 personId) external view returns (bool inWelfare) {
+        return _stakeRegistry.isInWelfare(personId);
+    }
+
+    /// @inheritdoc IUnstakingPolicy
+    function canUnstake(bytes32 personId) external view returns (bool allowed) {
+        if (personId == bytes32(0)) {
+            return false;
+        }
+        if (_stakeRegistry.isInWelfare(personId)) {
             return false;
         }
 
-        StakeTypes.StakeRecord memory stakeRecord = _stakeRegistry.getStakeRecord(personId);
-        if (stakeRecord.pendingUnstake != 0) {
-            return false;
-        }
-        if (stakeRecord.activeStake < amount) {
-            return false;
-        }
+        uint256 activeStake = _stakeRegistry.activeStakeOf(personId);
+        uint256 requiredFloor = _stakeRegistry.requiredActiveStakeFloorOf(personId);
 
-        return stakeRecord.activeStake - amount >= stakeRecord.protectedStakeFloor;
-    }
-
-    /// @inheritdoc IUnstakingPolicy
-    function isPoliticalRightsBlocked(bytes32 personId) external view returns (bool blocked) {
-        return _stakeRegistry.hasActiveUnstakeCooldown(personId);
-    }
-
-    /// @inheritdoc IUnstakingPolicy
-    function claimableAmount(bytes32 personId) external view returns (uint256 amount) {
-        return _stakeRegistry.claimableUnstake(personId);
+        return activeStake > requiredFloor && unstakePortion(activeStake) > 0;
     }
 }

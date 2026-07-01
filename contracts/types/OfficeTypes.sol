@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 /// @title OfficeTypes
 /// @notice Shared enums and structs for executive and ministry office administration.
@@ -8,7 +8,8 @@ library OfficeTypes {
         Undefined,
         MinistryOfFinance,
         IdentityOffice,
-        LandRegistryOffice
+        LandRegistryOffice,
+        CompanyRegistryOffice
     }
 
     enum OfficeRole {
@@ -24,14 +25,19 @@ library OfficeTypes {
         ProposeBudget,
         ProposePayout,
         RoutePayout,
-        CancelPayout
+        CancelPayout,
+        ManageLandRegistry,
+        ManageCompanyRegistry,
+        ManageOfficeMetadata,
+        SetOfficeActive
     }
 
     struct OfficeRecord {
         bytes32 officeId;
-        OfficeKind kind;
         string name;
+        // `kind`, `active`, and the timestamps pack alongside `admin` in a single slot (E2).
         address admin;
+        OfficeKind kind;
         bool active;
         uint64 createdAt;
         uint64 lastUpdatedAt;

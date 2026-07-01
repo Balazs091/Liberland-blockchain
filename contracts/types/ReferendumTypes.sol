@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {LegislationTypes} from "./LegislationTypes.sol";
+import {TreasuryTypes} from "./TreasuryTypes.sol";
 
 /// @title ReferendumTypes
 /// @notice Shared enums and structs for referendum proposal, voting, and finalization state.
@@ -10,7 +11,9 @@ library ReferendumTypes {
         Undefined,
         Legislation,
         ConstitutionalAmendment,
-        CongressElectionPolicy
+        CongressElectionPolicy,
+        BudgetApproval,
+        ModuleGovernance
     }
 
     enum ProposalOrigin {
@@ -41,6 +44,8 @@ library ReferendumTypes {
         LegislationTypes.LegislationTier legislationTier;
         uint64 startTime;
         uint64 endTime;
+        uint64 adoptionDelay;
+        bool emergency;
     }
 
     struct CongressElectionPolicyProposal {
@@ -49,6 +54,38 @@ library ReferendumTypes {
         address newPolicy;
         uint64 startTime;
         uint64 endTime;
+        uint64 adoptionDelay;
+    }
+
+    struct BudgetApprovalProposal {
+        bytes32 proposalMetadataHash;
+        bytes32 budgetId;
+        bytes32 budgetLawTextHash;
+        BudgetApprovalDetails budget;
+        uint64 startTime;
+        uint64 endTime;
+        uint64 adoptionDelay;
+        bool emergency;
+    }
+
+    struct ModuleGovernanceProposal {
+        bytes32 proposalMetadataHash;
+        bytes32 proposalId;
+        bytes32 targetModule;
+        address newModuleAddress;
+        bool registerNewModule;
+        uint64 startTime;
+        uint64 endTime;
+        uint64 adoptionDelay;
+    }
+
+    struct BudgetApprovalDetails {
+        bytes32 officeId;
+        TreasuryTypes.DisbursementType disbursementType;
+        address asset;
+        uint256 allocatedAmount;
+        uint64 startsAt;
+        uint64 endsAt;
     }
 
     struct ReferendumRecordInput {
@@ -61,9 +98,14 @@ library ReferendumTypes {
         LegislationTypes.LegislationTier legislationTier;
         bytes32 targetModule;
         address proposedModuleAddress;
+        bool registerNewModule;
         bytes32 proposerReference;
         uint64 startTime;
         uint64 endTime;
+        uint64 adoptionDelay;
+        uint256 electorateHeadcountSnapshot;
+        uint256 electorateVotingPowerSnapshot;
+        bool requiresSupermajority;
     }
 
     struct ReferendumRecord {
@@ -77,9 +119,13 @@ library ReferendumTypes {
         LegislationTypes.LegislationTier legislationTier;
         bytes32 targetModule;
         address proposedModuleAddress;
+        bool registerNewModule;
         bytes32 proposerReference;
         uint64 startTime;
         uint64 endTime;
+        uint256 electorateHeadcountSnapshot;
+        uint256 electorateVotingPowerSnapshot;
+        bool requiresSupermajority;
         ReferendumStatus status;
         uint256 forVotes;
         uint256 againstVotes;

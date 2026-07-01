@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
+import {IKernelModule} from "./IKernelModule.sol";
 import {IdentityTypes} from "../types/IdentityTypes.sol";
 
 /// @title IIdentityRegistry
 /// @notice Stable fact registry for person-level identity state and wallet links.
-interface IIdentityRegistry {
+interface IIdentityRegistry is IKernelModule {
     error InvalidPersonId(bytes32 personId);
     error InvalidWallet(address wallet);
     error InvalidWalletLinkStatus(IdentityTypes.WalletLinkStatus status);
+    error PersonAlreadyHasActiveWallet(bytes32 personId);
     error UnauthorizedIdentityRegistryCaller(address caller);
     error WalletLinkPersonMismatch(address wallet, bytes32 expectedPersonId, bytes32 providedPersonId);
     error WalletLinkRequiresIdentity(bytes32 personId);
@@ -43,14 +45,27 @@ interface IIdentityRegistry {
         address indexed updatedBy
     );
 
-    /// @notice Returns the kernel used for narrow write authorization.
-    /// @return kernelAddress The configured kernel address.
-    function kernel() external view returns (address kernelAddress);
-
     /// @notice Returns the stored identity record for a person identifier.
     /// @param personId The canonical person identifier.
     /// @return record The stored identity record, or an empty record if unset.
     function getIdentityRecord(bytes32 personId) external view returns (IdentityTypes.IdentityRecord memory record);
+
+    /// @notice Returns only the citizenship-relevant status fields for a person, avoiding the metadata string copy.
+    /// @dev Intended for O(n) electorate scans where copying `metadataURI` per identity is wasteful.
+    /// @param personId The canonical person identifier.
+    /// @return verificationStatus The person's verification status.
+    /// @return citizenshipStatus The person's citizenship status.
+    /// @return ageClass The person's age class.
+    /// @return finalSuspension Whether the person is under a final suspension.
+    function getCitizenshipSummary(bytes32 personId)
+        external
+        view
+        returns (
+            IdentityTypes.VerificationStatus verificationStatus,
+            IdentityTypes.CitizenshipStatus citizenshipStatus,
+            IdentityTypes.AgeClass ageClass,
+            bool finalSuspension
+        );
 
     /// @notice Returns the stored wallet link for a wallet address.
     /// @param wallet The wallet to query.

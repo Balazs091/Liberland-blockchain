@@ -1,20 +1,21 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
+import {IKernelModule} from "./IKernelModule.sol";
 import {StakeTypes} from "../types/StakeTypes.sol";
 
 /// @title IStakeRegistry
-/// @notice Stable fact registry for political stake, cooldowns, and slash accounting.
-interface IStakeRegistry {
-    error CooldownNotComplete(bytes32 personId, uint64 cooldownEnd);
+/// @notice Stable fact registry for political stake, discrete unstaking, welfare, and slash accounting.
+interface IStakeRegistry is IKernelModule {
     error InsufficientActiveStake(bytes32 personId, uint256 availableStake, uint256 requiredStake);
     error InsufficientSlashableStake(bytes32 personId, uint256 slashableStake, uint256 requestedSlash);
-    error InvalidCooldownEnd(uint64 cooldownEnd, uint64 currentTimestamp);
+    error InWelfarePeriod(bytes32 personId, uint64 welfareUntil);
     error InvalidPersonId(bytes32 personId);
     error InvalidStakeAmount(uint256 amount);
-    error NoPendingUnstake(bytes32 personId);
-    error PendingUnstakeExists(bytes32 personId);
+    error InvalidStakeTransfer(bytes32 fromPersonId, bytes32 toPersonId);
+    error NothingToUnstake(bytes32 personId);
     error ProtectedStakeFloorBreached(bytes32 personId, uint256 remainingStake, uint256 protectedFloor);
+    error StakeLienRegistryUnavailable(bytes32 personId);
     error UnauthorizedStakeRegistryCaller(address caller);
 
     event StakeIncreased(
@@ -29,23 +30,19 @@ interface IStakeRegistry {
         address indexed updatedBy
     );
 
-    event UnstakeRequested(
+    event UnstakeExecuted(
         bytes32 indexed personId,
-        uint256 amount,
-        uint256 newActiveStake,
-        uint256 pendingUnstake,
-        uint64 cooldownStart,
-        uint64 cooldownEnd,
-        address indexed updatedBy
+        uint256 releasedAmount,
+        uint256 remainingActiveStake,
+        uint64 welfareUntil,
+        uint64 timestamp,
+        address indexed caller
     );
-
-    event UnstakeClaimed(bytes32 indexed personId, uint256 claimedAmount, uint64 claimedAt, address indexed updatedBy);
 
     event StakeSlashed(
         bytes32 indexed personId,
         uint256 amount,
         uint256 newActiveStake,
-        uint256 newPendingUnstake,
         uint256 totalSlashed,
         uint64 updatedAt,
         address indexed updatedBy
@@ -60,9 +57,15 @@ interface IStakeRegistry {
         address indexed updatedBy
     );
 
-    /// @notice Returns the kernel used for narrow write authorization.
-    /// @return kernelAddress The configured kernel address.
-    function kernel() external view returns (address kernelAddress);
+    event ActiveStakeTransferred(
+        bytes32 indexed fromPersonId,
+        bytes32 indexed toPersonId,
+        uint256 amount,
+        uint256 fromActiveStake,
+        uint256 toActiveStake,
+        uint64 updatedAt,
+        address indexed updatedBy
+    );
 
     /// @notice Returns the full stake record for a person identifier.
     /// @param personId The canonical person identifier.
@@ -74,30 +77,25 @@ interface IStakeRegistry {
     /// @return amount The active political stake.
     function activeStakeOf(bytes32 personId) external view returns (uint256 amount);
 
-    /// @notice Returns the currently pending unstake amount for a person identifier.
-    /// @param personId The canonical person identifier.
-    /// @return amount The pending unstake amount.
-    function pendingUnstakeOf(bytes32 personId) external view returns (uint256 amount);
-
     /// @notice Returns the configured protected political floor for a person identifier.
     /// @param personId The canonical person identifier.
     /// @return amount The protected floor amount.
     function protectedStakeFloorOf(bytes32 personId) external view returns (uint256 amount);
 
-    /// @notice Returns true when a person identifier has any pending unstake amount.
+    /// @notice Returns the active stake that must remain after any unstake or lending transfer.
     /// @param personId The canonical person identifier.
-    /// @return pending Whether a pending unstake exists.
-    function hasPendingUnstake(bytes32 personId) external view returns (bool pending);
+    /// @return amount The required active-stake floor, including lending liens when configured.
+    function requiredActiveStakeFloorOf(bytes32 personId) external view returns (uint256 amount);
 
-    /// @notice Returns true when a person identifier is still inside an active unstaking cooldown.
+    /// @notice Returns true when a person identifier is currently inside a welfare period.
     /// @param personId The canonical person identifier.
-    /// @return active Whether a cooldown is active.
-    function hasActiveUnstakeCooldown(bytes32 personId) external view returns (bool active);
+    /// @return inWelfare Whether the person is in welfare.
+    function isInWelfare(bytes32 personId) external view returns (bool inWelfare);
 
-    /// @notice Returns the amount claimable from a completed unstake cooldown.
+    /// @notice Returns the timestamp until which a person identifier remains in welfare.
     /// @param personId The canonical person identifier.
-    /// @return amount The claimable unstake amount.
-    function claimableUnstake(bytes32 personId) external view returns (uint256 amount);
+    /// @return welfareUntil The welfare end timestamp, or zero if not in welfare.
+    function welfareUntilOf(bytes32 personId) external view returns (uint64 welfareUntil);
 
     /// @notice Increases the active political stake for a person identifier.
     /// @param personId The canonical person identifier.
@@ -109,18 +107,14 @@ interface IStakeRegistry {
     /// @param newProtectedFloor The new protected floor amount.
     function setProtectedStakeFloor(bytes32 personId, uint256 newProtectedFloor) external;
 
-    /// @notice Starts a single outstanding unstake cooldown for a person identifier.
+    /// @notice Releases the discrete unstake portion and starts a welfare period.
+    /// @dev Immediate: the caller transfers the released amount to the user in the same transaction.
     /// @param personId The canonical person identifier.
-    /// @param amount The amount to move into pending unstake.
-    /// @param cooldownEnd The timestamp at which the unstake becomes claimable.
-    function requestUnstake(bytes32 personId, uint256 amount, uint64 cooldownEnd) external;
+    /// @return releasedAmount The active stake released to the caller for payout.
+    /// @return welfareUntil The timestamp until which the person is in welfare.
+    function unstake(bytes32 personId) external returns (uint256 releasedAmount, uint64 welfareUntil);
 
-    /// @notice Claims the currently pending unstake amount after the cooldown completes.
-    /// @param personId The canonical person identifier.
-    /// @return claimedAmount The amount that was claimed.
-    function claimUnstake(bytes32 personId) external returns (uint256 claimedAmount);
-
-    /// @notice Records a slash against slashable stake for a person identifier.
+    /// @notice Records a slash against active political stake for a person identifier.
     /// @param personId The canonical person identifier.
     /// @param amount The amount to slash.
     function slashStake(bytes32 personId, uint256 amount) external;
@@ -129,4 +123,10 @@ interface IStakeRegistry {
     /// @param personId The canonical person identifier.
     /// @param amount The amount to recover.
     function recoverStake(bytes32 personId, uint256 amount) external;
+
+    /// @notice Transfers active political stake between person identifiers through an authorized liquidation path.
+    /// @param fromPersonId The person identifier losing active stake.
+    /// @param toPersonId The person identifier receiving active stake.
+    /// @param amount The active stake amount to transfer.
+    function transferActiveStake(bytes32 fromPersonId, bytes32 toPersonId, uint256 amount) external;
 }

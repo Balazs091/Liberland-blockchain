@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -9,12 +9,14 @@ import {TreasuryVault} from "../../contracts/apps/TreasuryVault.sol";
 import {ActionTimelock} from "../../contracts/core/ActionTimelock.sol";
 import {ConstitutionKernel} from "../../contracts/core/ConstitutionKernel.sol";
 import {GovernanceRouter} from "../../contracts/core/GovernanceRouter.sol";
+import {IActionTimelock} from "../../contracts/interfaces/IActionTimelock.sol";
 import {ICitizenEligibilityPolicy} from "../../contracts/interfaces/ICitizenEligibilityPolicy.sol";
 import {IConstitutionKernel} from "../../contracts/interfaces/IConstitutionKernel.sol";
 import {IGovernanceRouter} from "../../contracts/interfaces/IGovernanceRouter.sol";
 import {IIdentityRegistry} from "../../contracts/interfaces/IIdentityRegistry.sol";
 import {ILegislationRegistry} from "../../contracts/interfaces/ILegislationRegistry.sol";
 import {IPublicVetoApp} from "../../contracts/interfaces/IPublicVetoApp.sol";
+import {IReferendumRegistry} from "../../contracts/interfaces/IReferendumRegistry.sol";
 import {ISenateApp} from "../../contracts/interfaces/ISenateApp.sol";
 import {ISenatePowersPolicy} from "../../contracts/interfaces/ISenatePowersPolicy.sol";
 import {ISenateSeatRegistry} from "../../contracts/interfaces/ISenateSeatRegistry.sol";
@@ -25,27 +27,59 @@ import {CitizenEligibilityPolicy} from "../../contracts/policies/CitizenEligibil
 import {SenatePowersPolicy} from "../../contracts/policies/SenatePowersPolicy.sol";
 import {IdentityRegistry} from "../../contracts/registries/IdentityRegistry.sol";
 import {LegislationRegistry} from "../../contracts/registries/LegislationRegistry.sol";
+import {PresidentRegistry} from "../../contracts/registries/PresidentRegistry.sol";
+import {ReferendumRegistry} from "../../contracts/registries/ReferendumRegistry.sol";
 import {SenateSeatRegistry} from "../../contracts/registries/SenateSeatRegistry.sol";
 import {StakeRegistry} from "../../contracts/registries/StakeRegistry.sol";
 import {GovernanceTypes} from "../../contracts/types/GovernanceTypes.sol";
 import {IdentityTypes} from "../../contracts/types/IdentityTypes.sol";
 import {LegislationTypes} from "../../contracts/types/LegislationTypes.sol";
+import {ReferendumTypes} from "../../contracts/types/ReferendumTypes.sol";
 import {SenateTypes} from "../../contracts/types/SenateTypes.sol";
 import {TreasuryTypes} from "../../contracts/types/TreasuryTypes.sol";
 import {VetoTypes} from "../../contracts/types/VetoTypes.sol";
+
+contract MockReferendumAppForSenate {
+    address public immutable governanceRouter;
+    address public immutable legislationRegistry;
+    address public immutable referendumRegistry;
+
+    constructor(
+        address governanceRouterAddress,
+        address legislationRegistryAddress,
+        address referendumRegistryAddress
+    ) {
+        governanceRouter = governanceRouterAddress;
+        legislationRegistry = legislationRegistryAddress;
+        referendumRegistry = referendumRegistryAddress;
+    }
+
+    function cancelReferendumBySenate(bytes32 referendumId) external {
+        IReferendumRegistry(referendumRegistry).cancelReferendum(referendumId);
+    }
+
+    function routeAction(GovernanceTypes.ActionRequest calldata request) external returns (bytes32 actionId) {
+        return GovernanceRouter(governanceRouter).routeAction(request);
+    }
+}
 
 /// @title Milestone5SenateAndPublicVetoTest
 /// @notice Covers v1 Senate succession, bounded Senate cancellation, and headcount-based public repeal.
 contract Milestone5SenateAndPublicVetoTest is Test {
     uint256 internal constant MINIMUM_CITIZEN_STAKE = 5_000;
     uint32 internal constant SENATE_CANCELLATION_THRESHOLD = 2;
+    // Short window (well inside the queued disbursement's 7-day execution window) so the auto-lapse path is testable.
+    uint64 internal constant DISBURSEMENT_SUSPENSION_PERIOD = 3 days;
     uint256 internal constant PUBLIC_VETO_THRESHOLD = 2;
 
     bytes32 internal constant TARGET_MODULE_ID = keccak256("milestone5.target-module");
     bytes32 internal constant ORDINARY_MEASURE_ID = keccak256("measure.ordinary");
     bytes32 internal constant ORDINARY_MEASURE_TWO_ID = keccak256("measure.ordinary.two");
     bytes32 internal constant CONSTITUTIONAL_MEASURE_ID = keccak256("measure.constitutional");
+    bytes32 internal constant SUB_LEGAL_MEASURE_ID = keccak256("measure.sub-legal");
     bytes32 internal constant PENDING_MEASURE_ID = keccak256("measure.pending");
+    bytes32 internal constant ACTIVE_REFERENDUM_ID = keccak256("referendum.active-law");
+    bytes32 internal constant CONSTITUTIONAL_REFERENDUM_ID = keccak256("referendum.constitutional");
     bytes32 internal constant TREASURY_REQUEST_ID = keccak256("treasury.request");
     bytes32 internal constant TREASURY_BUDGET_ID = keccak256("treasury.budget");
 
@@ -55,7 +89,6 @@ contract Milestone5SenateAndPublicVetoTest is Test {
     bytes32 internal constant PERSON_FOUR_ID = bytes32(uint256(4));
 
     address internal constant WALLET_ONE = address(0xA11CE);
-    address internal constant WALLET_ONE_ALT = address(0xA11CF);
     address internal constant WALLET_TWO = address(0xB0B);
     address internal constant WALLET_THREE = address(0xCAFE);
     address internal constant WALLET_FOUR = address(0xD00D);
@@ -72,10 +105,13 @@ contract Milestone5SenateAndPublicVetoTest is Test {
     IdentityRegistry internal identityRegistry;
     StakeRegistry internal stakeRegistry;
     LegislationRegistry internal legislationRegistry;
+    ReferendumRegistry internal referendumRegistry;
+    PresidentRegistry internal presidentRegistry;
     TreasuryVault internal treasuryVault;
     CitizenEligibilityPolicy internal citizenEligibilityPolicy;
     SenateSeatRegistry internal senateSeatRegistry;
     SenatePowersPolicy internal senatePowersPolicy;
+    MockReferendumAppForSenate internal mockReferendumApp;
     SenateApp internal senateApp;
     PublicVetoApp internal publicVetoApp;
 
@@ -85,9 +121,12 @@ contract Milestone5SenateAndPublicVetoTest is Test {
     function setUp() public {
         _deployFoundation();
         _registerDefaultCitizens();
-        _enactMeasure(ORDINARY_MEASURE_ID, LegislationTypes.LegislationTier.OrdinaryLaw);
-        _enactMeasure(ORDINARY_MEASURE_TWO_ID, LegislationTypes.LegislationTier.OrdinaryLaw);
-        _enactMeasure(CONSTITUTIONAL_MEASURE_ID, LegislationTypes.LegislationTier.ConstitutionalLaw);
+        _enactMeasure(ORDINARY_MEASURE_ID, LegislationTypes.LegislationTier.Law);
+        _enactMeasure(ORDINARY_MEASURE_TWO_ID, LegislationTypes.LegislationTier.Law);
+        _enactMeasure(CONSTITUTIONAL_MEASURE_ID, LegislationTypes.LegislationTier.ConstitutionalOrInternationalTreaty);
+        _enactMeasure(SUB_LEGAL_MEASURE_ID, LegislationTypes.LegislationTier.SubLegalTier3);
+        _seedReferendum(ACTIVE_REFERENDUM_ID, ReferendumTypes.ReferendumClass.Legislation);
+        _seedReferendum(CONSTITUTIONAL_REFERENDUM_ID, ReferendumTypes.ReferendumClass.ConstitutionalAmendment);
         _seedInitialSenateSeats();
 
         router.disableBootstrapAuthority();
@@ -102,6 +141,7 @@ contract Milestone5SenateAndPublicVetoTest is Test {
         assertTrue(ILegislationRegistry.recordRepeal.selector != bytes4(0));
         assertTrue(IPublicVetoApp.castPublicVeto.selector != bytes4(0));
         assertTrue(ISenateApp.supportActionCancellation.selector != bytes4(0));
+        assertTrue(ISenateApp.supportSubLegalMeasureRepeal.selector != bytes4(0));
         assertTrue(ISenateApp.transferMySeat.selector != bytes4(0));
         assertTrue(ISenatePowersPolicy.isActionCancellationAllowed.selector != bytes4(0));
         assertTrue(ISenateSeatRegistry.assignSeat.selector != bytes4(0));
@@ -160,9 +200,13 @@ contract Milestone5SenateAndPublicVetoTest is Test {
         vm.prank(WALLET_THREE);
         senateApp.supportActionCancellation(actionId, 1);
 
+        assertEq(uint256(timelock.getActionState(actionId)), uint256(GovernanceTypes.ActionState.Queued));
+        _finalizeActionCancellationAtDeadline(actionId);
+
         assertEq(uint256(timelock.getActionState(actionId)), uint256(GovernanceTypes.ActionState.Canceled));
 
         SenateTypes.ActionCancellationRecord memory cancellationRecord = senateApp.getActionCancellationRecord(actionId);
+        assertTrue(cancellationRecord.finalized);
         assertTrue(cancellationRecord.canceled);
         assertEq(cancellationRecord.supportSnapshot, 2);
     }
@@ -175,6 +219,8 @@ contract Milestone5SenateAndPublicVetoTest is Test {
         vm.prank(WALLET_THREE);
         senateApp.supportActionCancellation(actionId, 1);
 
+        _finalizeActionCancellationAtDeadline(actionId);
+
         assertEq(uint256(timelock.getActionState(actionId)), uint256(GovernanceTypes.ActionState.Canceled));
     }
 
@@ -186,8 +232,408 @@ contract Milestone5SenateAndPublicVetoTest is Test {
         vm.prank(WALLET_THREE);
         senateApp.supportActionCancellation(actionId, 1);
 
+        _finalizeActionCancellationAtDeadline(actionId);
+
         assertEq(uint256(timelock.getActionState(actionId)), uint256(GovernanceTypes.ActionState.Canceled));
         assertEq(address(treasuryVault).balance, 1 ether);
+    }
+
+    function test_L2_NonOfficeOriginCannotRouteTreasuryDisbursement() public {
+        GovernanceTypes.TreasuryDisbursementPayload memory payload = GovernanceTypes.TreasuryDisbursementPayload({
+            requestId: TREASURY_REQUEST_ID,
+            budgetId: TREASURY_BUDGET_ID,
+            asset: address(0),
+            recipient: TREASURY_RECIPIENT,
+            amount: 0.25 ether,
+            noteHash: keccak256("treasury-note")
+        });
+
+        // The mock is a valid Referendum origin authority, but treasury disbursements are Office-only (L2).
+        GovernanceTypes.ActionRequest memory request = GovernanceTypes.ActionRequest({
+            actionType: GovernanceTypes.ActionType.TreasuryDisbursement,
+            origin: GovernanceTypes.ActionOrigin.Referendum,
+            originReference: payload.requestId,
+            policyReference: keccak256(abi.encode(TreasuryTypes.DisbursementType.Operations, payload.budgetId)),
+            targetModule: KernelModuleIds.TREASURY_VAULT,
+            payload: abi.encode(payload),
+            requestedExecutionTime: 0,
+            expiresAt: 0
+        });
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                GovernanceRouter.UnauthorizedDisbursementOrigin.selector, GovernanceTypes.ActionOrigin.Referendum
+            )
+        );
+        mockReferendumApp.routeAction(request);
+    }
+
+    function test_L6_FinalizeClosesActionCancellationWhenActionExpiredBeforeFinalization() public {
+        bytes32 actionId = _queueModuleUpdate();
+
+        vm.prank(WALLET_ONE);
+        senateApp.supportActionCancellation(actionId, 0);
+        vm.prank(WALLET_THREE);
+        senateApp.supportActionCancellation(actionId, 1);
+        assertEq(senateApp.actionCancellationSupportCount(actionId), 2);
+
+        // Let the queued action expire before the (met) cancellation vote is finalized.
+        GovernanceTypes.ActionRecord memory actionRecord = timelock.getAction(actionId);
+        vm.warp(actionRecord.expiresAt + 1);
+        assertEq(uint256(timelock.getActionState(actionId)), uint256(GovernanceTypes.ActionState.Expired));
+
+        // L6: finalize must not revert; it closes the record without canceling and without the external sink.
+        senateApp.finalizeActionCancellation(actionId);
+
+        SenateTypes.ActionCancellationRecord memory cancellationRecord = senateApp.getActionCancellationRecord(actionId);
+        assertTrue(cancellationRecord.finalized);
+        assertFalse(cancellationRecord.canceled);
+        assertEq(cancellationRecord.supportSnapshot, 2);
+        assertEq(uint256(timelock.getActionState(actionId)), uint256(GovernanceTypes.ActionState.Expired));
+    }
+
+    function test_SenateDisbursementSuspension_BlocksExecutionThenAutoLapses() public {
+        bytes32 actionId = _queueTreasuryDisbursement();
+
+        _supportDisbursementSuspension(actionId);
+        senateApp.suspendDisbursement(actionId);
+
+        SenateTypes.DisbursementSuspension memory suspension = senateApp.getDisbursementSuspension(actionId);
+        assertTrue(suspension.exists);
+        assertEq(suspension.renewalCount, 0);
+        assertEq(suspension.suspendedUntil, uint64(block.timestamp) + DISBURSEMENT_SUSPENSION_PERIOD);
+
+        GovernanceTypes.ActionRecord memory actionRecord = timelock.getAction(actionId);
+        vm.warp(actionRecord.earliestExecutionTime);
+        assertFalse(timelock.isActionExecutable(actionId));
+        vm.expectRevert(
+            abi.encodeWithSelector(IActionTimelock.ActionSuspended.selector, actionId, suspension.suspendedUntil)
+        );
+        timelock.executeAction(actionId);
+
+        // After the window lapses (no renewal) execution resumes with no explicit un-suspend call.
+        vm.warp(suspension.suspendedUntil);
+        assertTrue(timelock.isActionExecutable(actionId));
+        timelock.executeAction(actionId);
+
+        assertEq(uint256(timelock.getActionState(actionId)), uint256(GovernanceTypes.ActionState.Executed));
+        assertEq(TREASURY_RECIPIENT.balance, 0.25 ether);
+    }
+
+    function test_SenateDisbursementSuspension_RenewalKeepsBlockingPastOriginalWindow() public {
+        bytes32 actionId = _queueTreasuryDisbursement();
+
+        _supportDisbursementSuspension(actionId);
+        senateApp.suspendDisbursement(actionId);
+
+        uint64 originalSuspendedUntil = senateApp.getDisbursementSuspension(actionId).suspendedUntil;
+
+        // Renew before the original window lapses; the window extends and the renewal count increments.
+        vm.warp(originalSuspendedUntil - 1 days);
+        senateApp.renewDisbursementSuspension(actionId);
+
+        SenateTypes.DisbursementSuspension memory suspension = senateApp.getDisbursementSuspension(actionId);
+        assertEq(suspension.renewalCount, 1);
+        assertEq(suspension.suspendedUntil, uint64(block.timestamp) + DISBURSEMENT_SUSPENSION_PERIOD);
+        assertGt(suspension.suspendedUntil, originalSuspendedUntil);
+
+        // At the original window boundary the disbursement is still blocked by the renewed suspension.
+        vm.warp(originalSuspendedUntil);
+        vm.expectRevert(
+            abi.encodeWithSelector(IActionTimelock.ActionSuspended.selector, actionId, suspension.suspendedUntil)
+        );
+        timelock.executeAction(actionId);
+    }
+
+    function test_SenateDisbursementSuspension_ProxyOnlyCannotSuspend() public {
+        bytes32 actionId = _queueTreasuryDisbursement();
+
+        vm.prank(WALLET_ONE);
+        senateApp.castPresidentDisbursementSuspensionProxyVote(actionId, SenateTypes.VoteOption.For);
+
+        // Raw proxy support (2) reaches the threshold but violates the participation floor, so suspension is refused.
+        vm.expectRevert(abi.encodeWithSelector(ISenateApp.SenateSupportNotReached.selector, actionId, 2, 2));
+        senateApp.suspendDisbursement(actionId);
+
+        assertFalse(senateApp.getDisbursementSuspension(actionId).exists);
+    }
+
+    function _supportDisbursementSuspension(bytes32 actionId) internal {
+        vm.prank(WALLET_ONE);
+        senateApp.supportDisbursementSuspension(actionId, 0);
+        vm.prank(WALLET_THREE);
+        senateApp.supportDisbursementSuspension(actionId, 1);
+    }
+
+    function test_PresidentProxyVoteCountsForNonVotingSenatorsAtDeadline() public {
+        bytes32 actionId = _queueModuleUpdate();
+
+        // One explicit For (seat 1) plus a President proxy covering the remaining non-voting occupied seat (seat 0):
+        // proxy amplifies direct support and the floor (proxy <= direct) is satisfied.
+        vm.prank(WALLET_THREE);
+        senateApp.supportActionCancellation(actionId, 1);
+        vm.prank(WALLET_ONE);
+        senateApp.castPresidentActionCancellationProxyVote(actionId, SenateTypes.VoteOption.For);
+
+        assertEq(senateApp.actionCancellationSupportCount(actionId), 1);
+
+        _finalizeActionCancellationAtDeadline(actionId);
+
+        SenateTypes.ActionCancellationRecord memory cancellationRecord = senateApp.getActionCancellationRecord(actionId);
+        assertTrue(cancellationRecord.canceled);
+        assertEq(cancellationRecord.supportSnapshot, 2);
+        assertEq(cancellationRecord.presidentProxySupportSnapshot, 1);
+        assertEq(uint256(timelock.getActionState(actionId)), uint256(GovernanceTypes.ActionState.Canceled));
+    }
+
+    function test_PresidentProxyOnlyCannotFabricateActionCancellation() public {
+        bytes32 actionId = _queueModuleUpdate();
+
+        // President proxy-votes For on every non-voting occupied seat, with zero explicit For votes.
+        vm.prank(WALLET_ONE);
+        senateApp.castPresidentActionCancellationProxyVote(actionId, SenateTypes.VoteOption.For);
+
+        assertEq(senateApp.actionCancellationSupportCount(actionId), 0);
+
+        _finalizeActionCancellationAtDeadline(actionId);
+
+        SenateTypes.ActionCancellationRecord memory cancellationRecord = senateApp.getActionCancellationRecord(actionId);
+        assertTrue(cancellationRecord.finalized);
+        // Raw support reaches the threshold (2), but it is entirely proxy so the participation floor blocks it.
+        assertFalse(cancellationRecord.canceled);
+        assertEq(cancellationRecord.supportSnapshot, 2);
+        assertEq(cancellationRecord.presidentProxySupportSnapshot, 2);
+        assertEq(uint256(timelock.getActionState(actionId)), uint256(GovernanceTypes.ActionState.Queued));
+    }
+
+    function test_SenateCancellation_BlocksExecutionUntilOpenedCancellationIsFinalized() public {
+        bytes32 actionId = _queueModuleUpdate();
+
+        // One explicit For plus a President proxy so the opened cancellation clears the participation floor on finalize.
+        vm.prank(WALLET_THREE);
+        senateApp.supportActionCancellation(actionId, 1);
+        vm.prank(WALLET_ONE);
+        senateApp.castPresidentActionCancellationProxyVote(actionId, SenateTypes.VoteOption.For);
+
+        GovernanceTypes.ActionRecord memory actionRecord = timelock.getAction(actionId);
+        vm.warp(actionRecord.earliestExecutionTime);
+
+        assertFalse(timelock.isActionExecutable(actionId));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IActionTimelock.ActionCancellationPending.selector, actionId, actionRecord.earliestExecutionTime
+            )
+        );
+        timelock.executeAction(actionId);
+
+        senateApp.finalizeActionCancellation(actionId);
+        assertEq(uint256(timelock.getActionState(actionId)), uint256(GovernanceTypes.ActionState.Canceled));
+    }
+
+    function test_SenateReferendumVeto_CancelsActiveLawReferendum() public {
+        vm.prank(WALLET_ONE);
+        senateApp.supportReferendumVeto(ACTIVE_REFERENDUM_ID, 0);
+        assertEq(senateApp.referendumVetoSupportCount(ACTIVE_REFERENDUM_ID), 1);
+
+        vm.prank(WALLET_THREE);
+        senateApp.supportReferendumVeto(ACTIVE_REFERENDUM_ID, 1);
+
+        ReferendumTypes.ReferendumRecord memory referendumRecord =
+            referendumRegistry.getReferendum(ACTIVE_REFERENDUM_ID);
+        assertEq(uint256(referendumRecord.status), uint256(ReferendumTypes.ReferendumStatus.Active));
+
+        vm.warp(referendumRecord.endTime);
+        senateApp.finalizeReferendumVeto(ACTIVE_REFERENDUM_ID);
+
+        referendumRecord = referendumRegistry.getReferendum(ACTIVE_REFERENDUM_ID);
+        assertEq(uint256(referendumRecord.status), uint256(ReferendumTypes.ReferendumStatus.Canceled));
+
+        SenateTypes.ReferendumVetoRecord memory vetoRecord = senateApp.getReferendumVetoRecord(ACTIVE_REFERENDUM_ID);
+        assertTrue(vetoRecord.finalized);
+        assertTrue(vetoRecord.vetoed);
+        assertEq(vetoRecord.supportSnapshot, 2);
+    }
+
+    function test_PresidentProxyVoteAppliesToReferendumVetoAtDeadline() public {
+        // One direct seat support so the President proxy amplifies WITHIN the H5 floor (proxy <= direct):
+        // the proxy still applies (it carries the remaining non-voting seat), but cannot pass a veto alone.
+        vm.prank(WALLET_ONE);
+        senateApp.supportReferendumVeto(ACTIVE_REFERENDUM_ID, 0);
+
+        vm.prank(WALLET_ONE);
+        senateApp.castPresidentReferendumVetoProxyVote(ACTIVE_REFERENDUM_ID, SenateTypes.VoteOption.For);
+
+        ReferendumTypes.ReferendumRecord memory referendumRecord =
+            referendumRegistry.getReferendum(ACTIVE_REFERENDUM_ID);
+        vm.warp(referendumRecord.endTime);
+        senateApp.finalizeReferendumVeto(ACTIVE_REFERENDUM_ID);
+
+        SenateTypes.ReferendumVetoRecord memory vetoRecord = senateApp.getReferendumVetoRecord(ACTIVE_REFERENDUM_ID);
+        assertTrue(vetoRecord.vetoed);
+        assertEq(vetoRecord.supportSnapshot, 2);
+        assertEq(vetoRecord.presidentProxySupportSnapshot, 1);
+    }
+
+    function test_PresidentProxyOnlyCannotFabricateReferendumVeto() public {
+        // President proxy-votes For on every non-voting occupied seat, with zero explicit For votes.
+        vm.prank(WALLET_ONE);
+        senateApp.castPresidentReferendumVetoProxyVote(ACTIVE_REFERENDUM_ID, SenateTypes.VoteOption.For);
+
+        ReferendumTypes.ReferendumRecord memory referendumRecord =
+            referendumRegistry.getReferendum(ACTIVE_REFERENDUM_ID);
+        vm.warp(referendumRecord.endTime);
+        senateApp.finalizeReferendumVeto(ACTIVE_REFERENDUM_ID);
+
+        SenateTypes.ReferendumVetoRecord memory vetoRecord = senateApp.getReferendumVetoRecord(ACTIVE_REFERENDUM_ID);
+        assertTrue(vetoRecord.finalized);
+        // Raw support reaches the threshold (2), but it is entirely proxy so the H5 floor blocks the veto:
+        // a solo President cannot cancel an active citizen referendum.
+        assertFalse(vetoRecord.vetoed);
+        assertEq(vetoRecord.supportSnapshot, 2);
+        assertEq(vetoRecord.presidentProxySupportSnapshot, 2);
+    }
+
+    function test_SenateSubLegalRepeal_RepealsTier3AfterVotingPeriod() public {
+        vm.prank(WALLET_ONE);
+        senateApp.supportSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID, 0);
+        vm.prank(WALLET_THREE);
+        senateApp.supportSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID, 1);
+
+        SenateTypes.SubLegalMeasureRepealRecord memory repealRecord =
+            senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID);
+        assertTrue(repealRecord.exists);
+        assertFalse(repealRecord.finalized);
+        assertFalse(repealRecord.repealed);
+        assertEq(senateApp.subLegalMeasureRepealSupportCount(SUB_LEGAL_MEASURE_ID), 2);
+
+        vm.warp(repealRecord.deadline);
+        senateApp.finalizeSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID);
+
+        repealRecord = senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID);
+        assertTrue(repealRecord.finalized);
+        assertTrue(repealRecord.repealed);
+        assertEq(repealRecord.supportSnapshot, 2);
+
+        LegislationTypes.LegislationRecord memory legislationRecord =
+            legislationRegistry.getLegislationRecord(SUB_LEGAL_MEASURE_ID);
+        assertFalse(legislationRecord.active);
+        assertTrue(legislationRecord.repealed);
+        assertEq(uint256(legislationRecord.repealOrigin), uint256(LegislationTypes.RepealOrigin.Senate));
+        assertEq(legislationRecord.repealReference, repealRecord.repealId);
+    }
+
+    function test_SenateSubLegalRepeal_CanRetryFailedVoteWithoutCountingOldSupport() public {
+        vm.prank(WALLET_ONE);
+        senateApp.supportSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID, 0);
+
+        SenateTypes.SubLegalMeasureRepealRecord memory firstAttempt =
+            senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID);
+        assertEq(firstAttempt.attemptNonce, 1);
+        assertEq(senateApp.subLegalMeasureRepealSupportCount(SUB_LEGAL_MEASURE_ID), 1);
+
+        vm.warp(firstAttempt.deadline);
+        senateApp.finalizeSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID);
+
+        firstAttempt = senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID);
+        assertTrue(firstAttempt.finalized);
+        assertFalse(firstAttempt.repealed);
+        assertEq(firstAttempt.supportSnapshot, 1);
+        assertEq(senateApp.subLegalMeasureRepealSupportCount(SUB_LEGAL_MEASURE_ID), 0);
+
+        SenateTypes.VoteSupport memory oldSupport = senateApp.getSubLegalMeasureRepealSupport(SUB_LEGAL_MEASURE_ID, 0);
+        assertFalse(oldSupport.supported);
+
+        vm.prank(WALLET_THREE);
+        senateApp.supportSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID, 1);
+
+        SenateTypes.SubLegalMeasureRepealRecord memory secondAttempt =
+            senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID);
+        assertEq(secondAttempt.attemptNonce, 2);
+        assertNotEq(secondAttempt.repealId, firstAttempt.repealId);
+        assertFalse(secondAttempt.finalized);
+        assertEq(senateApp.subLegalMeasureRepealSupportCount(SUB_LEGAL_MEASURE_ID), 1);
+
+        vm.warp(secondAttempt.deadline);
+        senateApp.finalizeSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID);
+
+        secondAttempt = senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID);
+        assertTrue(secondAttempt.finalized);
+        assertFalse(secondAttempt.repealed);
+        assertEq(secondAttempt.supportSnapshot, 1);
+
+        vm.prank(WALLET_ONE);
+        senateApp.supportSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID, 0);
+
+        SenateTypes.SubLegalMeasureRepealRecord memory thirdAttempt =
+            senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID);
+        assertEq(thirdAttempt.attemptNonce, 3);
+        assertEq(senateApp.subLegalMeasureRepealSupportCount(SUB_LEGAL_MEASURE_ID), 1);
+
+        vm.prank(WALLET_THREE);
+        senateApp.supportSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID, 1);
+        assertEq(senateApp.subLegalMeasureRepealSupportCount(SUB_LEGAL_MEASURE_ID), 2);
+
+        vm.warp(thirdAttempt.deadline);
+        senateApp.finalizeSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID);
+
+        thirdAttempt = senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID);
+        assertTrue(thirdAttempt.finalized);
+        assertTrue(thirdAttempt.repealed);
+        assertEq(thirdAttempt.supportSnapshot, 2);
+    }
+
+    function test_SenateSubLegalRepeal_RevertsForLawTier() public {
+        vm.prank(WALLET_ONE);
+        vm.expectRevert(abi.encodeWithSelector(ISenateApp.SenateProcessNotAllowed.selector, ORDINARY_MEASURE_ID));
+        senateApp.supportSubLegalMeasureRepeal(ORDINARY_MEASURE_ID, 0);
+    }
+
+    function test_PresidentProxyVoteAppliesToSubLegalMeasureRepealAtDeadline() public {
+        // Explicit For (seat 1) plus a President proxy covering the remaining occupied seat: floor satisfied.
+        vm.prank(WALLET_THREE);
+        senateApp.supportSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID, 1);
+        vm.prank(WALLET_ONE);
+        senateApp.castPresidentSubLegalMeasureRepealProxyVote(SUB_LEGAL_MEASURE_ID, SenateTypes.VoteOption.For);
+
+        SenateTypes.SubLegalMeasureRepealRecord memory repealRecord =
+            senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID);
+        vm.warp(repealRecord.deadline);
+        senateApp.finalizeSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID);
+
+        repealRecord = senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID);
+        assertTrue(repealRecord.repealed);
+        assertEq(repealRecord.supportSnapshot, 2);
+        assertEq(repealRecord.presidentProxySupportSnapshot, 1);
+    }
+
+    function test_PresidentProxyOnlyCannotFabricateSubLegalRepeal() public {
+        vm.prank(WALLET_ONE);
+        senateApp.castPresidentSubLegalMeasureRepealProxyVote(SUB_LEGAL_MEASURE_ID, SenateTypes.VoteOption.For);
+
+        SenateTypes.SubLegalMeasureRepealRecord memory repealRecord =
+            senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID);
+        vm.warp(repealRecord.deadline);
+        senateApp.finalizeSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID);
+
+        repealRecord = senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID);
+        assertTrue(repealRecord.finalized);
+        // Proxy-only support reaches the raw threshold (2) but never clears the participation floor.
+        assertFalse(repealRecord.repealed);
+        assertEq(repealRecord.supportSnapshot, 2);
+        assertEq(repealRecord.presidentProxySupportSnapshot, 2);
+
+        LegislationTypes.LegislationRecord memory legislationRecord =
+            legislationRegistry.getLegislationRecord(SUB_LEGAL_MEASURE_ID);
+        assertTrue(legislationRecord.active);
+        assertFalse(legislationRecord.repealed);
+    }
+
+    function test_SenateReferendumVeto_RevertsForConstitutionalReferendum() public {
+        vm.prank(WALLET_ONE);
+        vm.expectRevert(
+            abi.encodeWithSelector(ISenateApp.SenateProcessNotAllowed.selector, CONSTITUTIONAL_REFERENDUM_ID)
+        );
+        senateApp.supportReferendumVeto(CONSTITUTIONAL_REFERENDUM_ID, 0);
     }
 
     function test_PublicVeto_IsPersonCountedAndRepealsAtThreshold() public {
@@ -201,7 +647,8 @@ contract Milestone5SenateAndPublicVetoTest is Test {
         assertEq(firstRecord.supportCount, 1);
         assertFalse(firstRecord.repealed);
 
-        vm.prank(WALLET_ONE_ALT);
+        // The same person cannot double-cast; a second attempt reverts as already cast.
+        vm.prank(WALLET_ONE);
         vm.expectRevert(
             abi.encodeWithSelector(IPublicVetoApp.PublicVetoAlreadyCast.selector, ORDINARY_MEASURE_ID, PERSON_ONE_ID)
         );
@@ -263,7 +710,7 @@ contract Milestone5SenateAndPublicVetoTest is Test {
 
     function _deployFoundation() internal {
         kernel = new ConstitutionKernel(address(this));
-        timelock = new ActionTimelock(address(kernel));
+        timelock = new ActionTimelock(address(kernel), _defaultDelayConfig());
         router = new GovernanceRouter(address(kernel), address(this));
         targetModule = new MockModule(keccak256("target"));
         replacementModule = new MockModule(keccak256("replacement"));
@@ -281,22 +728,32 @@ contract Milestone5SenateAndPublicVetoTest is Test {
         identityRegistry = new IdentityRegistry(address(kernel));
         stakeRegistry = new StakeRegistry(address(kernel));
         legislationRegistry = new LegislationRegistry(address(kernel));
+        referendumRegistry = new ReferendumRegistry(address(kernel));
+        presidentRegistry = new PresidentRegistry(address(kernel));
         treasuryVault = new TreasuryVault(address(kernel));
         citizenEligibilityPolicy =
             new CitizenEligibilityPolicy(address(identityRegistry), address(stakeRegistry), MINIMUM_CITIZEN_STAKE);
         senateSeatRegistry = new SenateSeatRegistry(address(kernel));
-        senatePowersPolicy = new SenatePowersPolicy(SENATE_CANCELLATION_THRESHOLD);
+        senatePowersPolicy = new SenatePowersPolicy(SENATE_CANCELLATION_THRESHOLD, DISBURSEMENT_SUSPENSION_PERIOD);
+        mockReferendumApp =
+            new MockReferendumAppForSenate(address(router), address(legislationRegistry), address(referendumRegistry));
         senateApp = new SenateApp(
             address(identityRegistry),
             address(senateSeatRegistry),
             address(senatePowersPolicy),
+            address(presidentRegistry),
             address(router),
-            address(timelock)
+            address(timelock),
+            address(mockReferendumApp)
         );
         publicVetoApp =
             new PublicVetoApp(address(legislationRegistry), address(citizenEligibilityPolicy), PUBLIC_VETO_THRESHOLD);
 
         kernel.bootstrapSetModule(KernelModuleIds.LEGISLATION_REGISTRY, address(legislationRegistry));
+        kernel.bootstrapSetModule(KernelModuleIds.REFERENDUM_REGISTRY, address(referendumRegistry));
+        kernel.bootstrapSetModule(KernelModuleIds.PRESIDENT_REGISTRY, address(presidentRegistry));
+        kernel.bootstrapSetModule(KernelModuleIds.REFERENDUM_REGISTRY_AUTHORITY, address(mockReferendumApp));
+        kernel.bootstrapSetModule(KernelModuleIds.REFERENDUM_APP, address(mockReferendumApp));
         kernel.bootstrapSetModule(KernelModuleIds.SENATE_SEAT_REGISTRY_AUTHORITY, address(senateApp));
         kernel.bootstrapSetModule(KernelModuleIds.LEGISLATION_REPEAL_AUTHORITY, address(publicVetoApp));
         kernel.bootstrapSetModule(KernelModuleIds.SENATE_SEAT_REGISTRY, address(senateSeatRegistry));
@@ -307,18 +764,33 @@ contract Milestone5SenateAndPublicVetoTest is Test {
 
         router.configureOriginAuthority(GovernanceTypes.ActionOrigin.Referendum, referendumAuthority);
         router.configureOriginAuthority(GovernanceTypes.ActionOrigin.Senate, address(senateApp));
+        // L2: treasury disbursements may only be routed by the Office origin, so the mock stands in for the
+        // OfficeExecutor as the configured Office authority to keep queued-disbursement flows testable.
+        router.configureOriginAuthority(GovernanceTypes.ActionOrigin.Office, address(mockReferendumApp));
 
         vm.deal(address(this), 1 ether);
         (bool funded,) = address(treasuryVault).call{value: 1 ether}("");
         require(funded, "treasury funding failed");
     }
 
+    function _defaultDelayConfig() internal pure returns (GovernanceTypes.TimelockDelayConfig memory config) {
+        config = GovernanceTypes.TimelockDelayConfig({
+            moduleGovernanceDelay: 2 days,
+            treasuryBudgetApprovalDelay: 1 days,
+            legislationEnactmentDelay: 1 days,
+            treasuryDisbursementDelay: 2 days,
+            defaultExecutionWindow: 7 days
+        });
+    }
+
     function _registerDefaultCitizens() internal {
         _registerCitizen(PERSON_ONE_ID, WALLET_ONE, 5_000);
-        _setWalletLink(PERSON_ONE_ID, WALLET_ONE_ALT, IdentityTypes.WalletLinkStatus.Active);
         _registerCitizen(PERSON_TWO_ID, WALLET_TWO, 7_500);
         _registerCitizen(PERSON_THREE_ID, WALLET_THREE, 50_000);
         _registerCitizen(PERSON_FOUR_ID, WALLET_FOUR, 6_000);
+        presidentRegistry.setPresident(
+            WALLET_ONE, PERSON_ONE_ID, keccak256("president.mandate"), uint64(block.timestamp), type(uint64).max
+        );
     }
 
     function _seedInitialSenateSeats() internal {
@@ -341,14 +813,19 @@ contract Milestone5SenateAndPublicVetoTest is Test {
             expiresAt: 0
         });
 
-        vm.prank(referendumAuthority);
-        actionId = router.routeAction(request);
+        actionId = mockReferendumApp.routeAction(request);
+    }
+
+    function _finalizeActionCancellationAtDeadline(bytes32 actionId) internal {
+        GovernanceTypes.ActionRecord memory actionRecord = timelock.getAction(actionId);
+        vm.warp(actionRecord.earliestExecutionTime);
+        senateApp.finalizeActionCancellation(actionId);
     }
 
     function _queueLegislationEnactment() internal returns (bytes32 actionId) {
         GovernanceTypes.LegislationEnactmentPayload memory payload = GovernanceTypes.LegislationEnactmentPayload({
             measureId: PENDING_MEASURE_ID,
-            tier: LegislationTypes.LegislationTier.OrdinaryLaw,
+            tier: LegislationTypes.LegislationTier.Law,
             textHash: keccak256("pending-law"),
             proposerReference: PERSON_ONE_ID,
             enactedByReferendumId: keccak256("pending-referendum"),
@@ -362,12 +839,11 @@ contract Milestone5SenateAndPublicVetoTest is Test {
             policyReference: keccak256("milestone5-legislation-policy"),
             targetModule: KernelModuleIds.LEGISLATION_REGISTRY,
             payload: abi.encode(payload),
-            requestedExecutionTime: 0,
+            requestedExecutionTime: uint64(block.timestamp + 7 days),
             expiresAt: 0
         });
 
-        vm.prank(referendumAuthority);
-        actionId = router.routeAction(request);
+        actionId = mockReferendumApp.routeAction(request);
     }
 
     function _queueTreasuryDisbursement() internal returns (bytes32 actionId) {
@@ -382,7 +858,7 @@ contract Milestone5SenateAndPublicVetoTest is Test {
 
         GovernanceTypes.ActionRequest memory request = GovernanceTypes.ActionRequest({
             actionType: GovernanceTypes.ActionType.TreasuryDisbursement,
-            origin: GovernanceTypes.ActionOrigin.Referendum,
+            origin: GovernanceTypes.ActionOrigin.Office,
             originReference: payload.requestId,
             policyReference: keccak256(abi.encode(TreasuryTypes.DisbursementType.Operations, payload.budgetId)),
             targetModule: KernelModuleIds.TREASURY_VAULT,
@@ -391,8 +867,7 @@ contract Milestone5SenateAndPublicVetoTest is Test {
             expiresAt: 0
         });
 
-        vm.prank(referendumAuthority);
-        actionId = router.routeAction(request);
+        actionId = mockReferendumApp.routeAction(request);
     }
 
     function _enactMeasure(bytes32 measureId, LegislationTypes.LegislationTier tier) internal {
@@ -405,6 +880,39 @@ contract Milestone5SenateAndPublicVetoTest is Test {
                 proposerReference: PERSON_ONE_ID,
                 enactedByReferendumId: keccak256(abi.encodePacked("referendum", measureId)),
                 amendsMeasureId: bytes32(0)
+            })
+        );
+    }
+
+    function _seedReferendum(bytes32 referendumId, ReferendumTypes.ReferendumClass referendumClass) internal {
+        uint256 electorateHeadcountSnapshot =
+            referendumClass == ReferendumTypes.ReferendumClass.ConstitutionalAmendment ? 4 : 0;
+        uint256 electorateVotingPowerSnapshot =
+            referendumClass == ReferendumTypes.ReferendumClass.ConstitutionalAmendment ? 68_500 : 0;
+
+        vm.prank(address(mockReferendumApp));
+        referendumRegistry.createReferendum(
+            referendumId,
+            ReferendumTypes.ReferendumRecordInput({
+                referendumClass: referendumClass,
+                proposalOrigin: ReferendumTypes.ProposalOrigin.Congress,
+                proposalMetadataHash: keccak256(abi.encodePacked("proposal", referendumId)),
+                proposedMeasureId: keccak256(abi.encodePacked("measure", referendumId)),
+                amendsMeasureId: bytes32(0),
+                legislationTextHash: keccak256(abi.encodePacked("text", referendumId)),
+                legislationTier: referendumClass == ReferendumTypes.ReferendumClass.ConstitutionalAmendment
+                    ? LegislationTypes.LegislationTier.ConstitutionalOrInternationalTreaty
+                    : LegislationTypes.LegislationTier.Law,
+                targetModule: bytes32(0),
+                proposedModuleAddress: address(0),
+                registerNewModule: false,
+                proposerReference: PERSON_ONE_ID,
+                startTime: uint64(block.timestamp),
+                endTime: uint64(block.timestamp + 7 days),
+                adoptionDelay: 7 days,
+                electorateHeadcountSnapshot: electorateHeadcountSnapshot,
+                electorateVotingPowerSnapshot: electorateVotingPowerSnapshot,
+                requiresSupermajority: false
             })
         );
     }

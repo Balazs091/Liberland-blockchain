@@ -1,17 +1,15 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.34;
+pragma solidity 0.8.35;
 
-import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
 import {ISenateSeatRegistry} from "../interfaces/ISenateSeatRegistry.sol";
+import {KernelModule} from "../base/KernelModule.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {SenateTypes} from "../types/SenateTypes.sol";
 
 /// @title SenateSeatRegistry
 /// @notice Stable fact registry for the fixed 100-seat v1 Senate and nominated successor metadata.
-contract SenateSeatRegistry is ISenateSeatRegistry {
+contract SenateSeatRegistry is ISenateSeatRegistry, KernelModule {
     uint32 internal constant TOTAL_SEATS = 100;
-
-    IConstitutionKernel private immutable _kernel;
 
     mapping(uint32 seatIndex => SenateTypes.SenateSeatRecord seatRecord) private _seatRecords;
     mapping(address wallet => uint256 count) private _activeSeatCounts;
@@ -19,18 +17,7 @@ contract SenateSeatRegistry is ISenateSeatRegistry {
     uint32 private _occupiedSeatCount;
 
     /// @param kernelAddress The canonical kernel registry address.
-    constructor(address kernelAddress) {
-        if (kernelAddress == address(0) || kernelAddress.code.length == 0) {
-            revert IConstitutionKernel.InvalidModuleAddress(bytes32(0), kernelAddress);
-        }
-
-        _kernel = IConstitutionKernel(kernelAddress);
-    }
-
-    /// @inheritdoc ISenateSeatRegistry
-    function kernel() external view returns (address kernelAddress) {
-        return address(_kernel);
-    }
+    constructor(address kernelAddress) KernelModule(kernelAddress) {}
 
     /// @inheritdoc ISenateSeatRegistry
     function totalSeats() external pure returns (uint32 count) {
@@ -233,9 +220,14 @@ contract SenateSeatRegistry is ISenateSeatRegistry {
     }
 
     function _requireRegistryAuthority(address caller) private view {
-        if (caller != _kernel.getModule(KernelModuleIds.SENATE_SEAT_REGISTRY_AUTHORITY)) {
-            revert UnauthorizedSenateSeatRegistryCaller(caller);
+        if (caller == _kernel.getModule(KernelModuleIds.SENATE_SEAT_REGISTRY_AUTHORITY)) {
+            return;
         }
+        if (_isModuleCaller(KernelModuleIds.INITIAL_SETUP_AUTHORITY, caller)) {
+            return;
+        }
+
+        revert UnauthorizedSenateSeatRegistryCaller(caller);
     }
 
     function _requireValidSeatIndex(uint32 seatIndex) private pure {
