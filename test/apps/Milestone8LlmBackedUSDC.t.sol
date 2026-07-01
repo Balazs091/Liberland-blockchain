@@ -24,7 +24,8 @@ import {LendingTypes} from "../../contracts/types/LendingTypes.sol";
 /// @title Milestone8LlmBackedUSDCTest
 /// @notice Covers USDC lending backed by already-staked LLM above the 5,000 retained floor.
 contract Milestone8LlmBackedUSDCTest is Test {
-    uint256 internal constant MINIMUM_RETAINED_STAKE = 5_000;
+    uint256 internal constant ONE_LLM = 1e18;
+    uint256 internal constant MINIMUM_RETAINED_STAKE = 5_000 * ONE_LLM;
     uint256 internal constant USDC_UNIT = 1_000_000;
     uint256 internal constant BORROW_CAP = 1_000_000 * USDC_UNIT;
     uint64 internal constant WELFARE_PERIOD = 30 days;
@@ -103,7 +104,7 @@ contract Milestone8LlmBackedUSDCTest is Test {
         kernel.bootstrapSetModule(KernelModuleIds.USDC_LENDING_POOL_APP, address(lendingPool));
         kernel.bootstrapSetModule(KernelModuleIds.UNSTAKING_POLICY, address(unstakingPolicy));
 
-        _registerCitizen(BORROWER_PERSON_ID, BORROWER, 10_000);
+        _registerCitizen(BORROWER_PERSON_ID, BORROWER, 10_000 * ONE_LLM);
         _registerCitizen(LIQUIDATOR_PERSON_ID, LIQUIDATOR, MINIMUM_RETAINED_STAKE);
         _fundAndDeposit(LP, 10_000 * USDC_UNIT);
     }
@@ -125,8 +126,8 @@ contract Milestone8LlmBackedUSDCTest is Test {
 
         assertEq(usdc.balanceOf(BORROWER), 1_000 * USDC_UNIT);
         assertEq(lendingPool.currentDebtOf(BORROWER_PERSON_ID), 1_000 * USDC_UNIT);
-        assertEq(stakeLienRegistry.lienedStakeOf(BORROWER_PERSON_ID), 5_000);
-        assertEq(stakeRegistry.requiredActiveStakeFloorOf(BORROWER_PERSON_ID), 10_000);
+        assertEq(stakeLienRegistry.lienedStakeOf(BORROWER_PERSON_ID), 5_000 * ONE_LLM);
+        assertEq(stakeRegistry.requiredActiveStakeFloorOf(BORROWER_PERSON_ID), 10_000 * ONE_LLM);
 
         // The lien lifts the required floor up to the full active stake, so nothing is releasable.
         assertFalse(unstakingPolicy.canUnstake(BORROWER_PERSON_ID));
@@ -137,7 +138,7 @@ contract Milestone8LlmBackedUSDCTest is Test {
 
     function test_HigherProtectedFloorReducesBorrowCollateral() public {
         vm.prank(address(stakeAuthority));
-        stakeRegistry.setProtectedStakeFloor(BORROWER_PERSON_ID, 8_000);
+        stakeRegistry.setProtectedStakeFloor(BORROWER_PERSON_ID, 8_000 * ONE_LLM);
 
         assertEq(lendingPool.maxBorrowable(BORROWER_PERSON_ID), 500 * USDC_UNIT);
 
@@ -152,8 +153,8 @@ contract Milestone8LlmBackedUSDCTest is Test {
         vm.prank(BORROWER);
         lendingPool.borrow(500 * USDC_UNIT);
 
-        assertEq(stakeLienRegistry.lienedStakeOf(BORROWER_PERSON_ID), 2_000);
-        assertEq(stakeRegistry.requiredActiveStakeFloorOf(BORROWER_PERSON_ID), 10_000);
+        assertEq(stakeLienRegistry.lienedStakeOf(BORROWER_PERSON_ID), 2_000 * ONE_LLM);
+        assertEq(stakeRegistry.requiredActiveStakeFloorOf(BORROWER_PERSON_ID), 10_000 * ONE_LLM);
     }
 
     function test_RepayReleasesLienAndRestoresNormalUnstakingFloor() public {
@@ -194,7 +195,7 @@ contract Milestone8LlmBackedUSDCTest is Test {
         assertEq(stakeRegistry.requiredActiveStakeFloorOf(BORROWER_PERSON_ID), 0);
         assertTrue(unstakingPolicy.canUnstake(BORROWER_PERSON_ID));
 
-        uint256 expectedPortion = unstakingPolicy.unstakePortion(10_000);
+        uint256 expectedPortion = unstakingPolicy.unstakePortion(10_000 * ONE_LLM);
         vm.prank(address(stakeAuthority));
         (uint256 releasedAmount,) = stakeRegistry.unstake(BORROWER_PERSON_ID);
         assertEq(releasedAmount, expectedPortion);

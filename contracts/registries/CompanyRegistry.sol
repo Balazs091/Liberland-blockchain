@@ -90,6 +90,10 @@ contract CompanyRegistry is ICompanyRegistry, KernelModule {
         _requireRegistryAuthority(msg.sender);
         _validateNewCompany(companyId, founder, input);
 
+        // A previously rejected id is reusable (its record is fully overwritten below); only a brand-new id is
+        // appended to the enumeration so it is never listed twice.
+        bool isResubmission = companyExists(companyId);
+
         uint64 currentTimestamp = uint64(block.timestamp);
         _companies[companyId] = CompanyTypes.CompanyRecord({
             companyId: companyId,
@@ -113,7 +117,9 @@ contract CompanyRegistry is ICompanyRegistry, KernelModule {
         if (input.registrationNumberHash != bytes32(0)) {
             _companyByRegistrationNumberHash[input.registrationNumberHash] = companyId;
         }
-        _companyIds.push(companyId);
+        if (!isResubmission) {
+            _companyIds.push(companyId);
+        }
 
         emit CompanySubmitted(companyId, input.nameHash, founder, currentTimestamp);
     }
@@ -376,11 +382,15 @@ contract CompanyRegistry is ICompanyRegistry, KernelModule {
         view
     {
         if (
-            companyId == bytes32(0) || companyExists(companyId) || founder == address(0) || input.nameHash == bytes32(0)
+            companyId == bytes32(0) || founder == address(0) || input.nameHash == bytes32(0)
                 || input.jurisdictionHash == bytes32(0) || input.registeredOfficeHash == bytes32(0)
                 || input.metadataHash == bytes32(0) || input.articlesHash == bytes32(0) || input.uboHash == bytes32(0)
                 || input.registeredCapital == 0
         ) {
+            revert InvalidCompanyPayload(companyId);
+        }
+        // An existing id may only be reused when its prior submission was rejected; live/pending ids are immutable.
+        if (companyExists(companyId) && _companies[companyId].status != CompanyTypes.CompanyStatus.Rejected) {
             revert InvalidCompanyPayload(companyId);
         }
         bytes32 existingCompanyId = _companyByNameHash[input.nameHash];

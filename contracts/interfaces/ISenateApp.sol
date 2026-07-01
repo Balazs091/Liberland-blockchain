@@ -155,6 +155,10 @@ interface ISenateApp {
         bytes32 indexed actionId, uint32 indexed seatIndex, address indexed seatHolder, uint64 recordedAt
     );
 
+    event SenateDisbursementSuspensionSupportRemoved(
+        bytes32 indexed actionId, uint32 indexed seatIndex, address indexed seatHolder, uint64 removedAt
+    );
+
     event PresidentDisbursementSuspensionProxyVoteRecorded(
         bytes32 indexed actionId, address indexed president, SenateTypes.VoteOption option, uint64 recordedAt
     );
@@ -394,6 +398,11 @@ interface ISenateApp {
     /// @param actionId The queued treasury disbursement action identifier.
     /// @param seatIndex The caller-controlled seat index contributing support.
     function supportDisbursementSuspension(bytes32 actionId, uint32 seatIndex) external;
+
+    /// @notice Withdraws a seat's standing disbursement-suspension support so it no longer powers future renewals.
+    /// @param actionId The queued treasury disbursement action identifier.
+    /// @param seatIndex The caller-controlled seat index whose support is withdrawn.
+    function removeDisbursementSuspensionSupport(bytes32 actionId, uint32 seatIndex) external;
 
     /// @notice Records the President's proxy vote for non-voting seats in a disbursement-suspension process.
     /// @param actionId The queued treasury disbursement action identifier.

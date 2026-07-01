@@ -28,7 +28,9 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
     uint256 public constant RAY = 1e27;
     uint256 public constant HEALTH_FACTOR_SCALE = 1e18;
     uint256 public constant BPS = 10_000;
-    uint256 public constant MINIMUM_RETAINED_STAKE = 5_000;
+    // 5,000 whole LLM in the registry's 18-decimal stake units — matches MINIMUM_CITIZEN_STAKE so lending can never
+    // pull a citizen below their retained citizenship floor.
+    uint256 public constant MINIMUM_RETAINED_STAKE = 5_000 * 1e18;
     uint16 public constant MAX_LTV_BPS = 2_500;
     uint16 public constant LIQUIDATION_THRESHOLD_BPS = 3_500;
     uint16 public constant LIQUIDATION_BONUS_BPS = 1_000;
@@ -283,8 +285,9 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         if (shares == 0) {
             revert ZeroShares();
         }
-        if (balanceOf(msg.sender) < shares) {
-            revert InsufficientShares(msg.sender, balanceOf(msg.sender), shares);
+        uint256 senderShares = balanceOf(msg.sender);
+        if (senderShares < shares) {
+            revert InsufficientShares(msg.sender, senderShares, shares);
         }
 
         _burn(msg.sender, shares);

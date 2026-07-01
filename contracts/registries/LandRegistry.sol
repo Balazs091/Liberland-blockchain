@@ -152,8 +152,9 @@ contract LandRegistry is ILandRegistry, KernelModule {
         if (_activeTitleOfParcel[parcelId] != bytes32(0) || documentHash == bytes32(0)) {
             revert InvalidParcelPayload(parcelId);
         }
-        // L4: a parcel with an open accepted dispute cannot be retired until the dispute is resolved.
-        if (_activeDisputeCounts[parcelId] != 0) {
+        // L4: a parcel with an open accepted dispute — or an unreleased active encumbrance — cannot be retired
+        // until those are cleared, so no encumbrance is ever left dangling against a retired parcel.
+        if (_activeDisputeCounts[parcelId] != 0 || _activeEncumbranceCounts[parcelId] != 0) {
             revert ParcelTransferLocked(parcelId);
         }
 
@@ -223,9 +224,14 @@ contract LandRegistry is ILandRegistry, KernelModule {
         if (!titleRecord.active || titleRecord.parcelId != parcelId || documentHash == bytes32(0)) {
             revert InvalidTitlePayload(titleId);
         }
+        // Encumbrances must be released before the title is closed, otherwise the parcel's active-encumbrance count
+        // would outlive the title and wrongly lock an unrelated future titleholder's transfer.
+        if (_activeEncumbranceCounts[parcelId] != 0) {
+            revert ParcelTransferLocked(parcelId);
+        }
 
         // L4: retire the title record and release the parcel's active-title slot so the parcel can later be
-        // retired or re-titled. Existing per-title encumbrances remain queryable against the closed title.
+        // retired or re-titled.
         titleRecord.active = false;
         titleRecord.documentHash = documentHash;
         titleRecord.updatedAt = uint64(block.timestamp);
@@ -313,15 +319,14 @@ contract LandRegistry is ILandRegistry, KernelModule {
         disputeRecord.updatedAt = uint64(block.timestamp);
 
         if (wasAccepted) {
-            _activeDisputeCounts[disputeRecord.parcelId] -= 1;
-            LandTypes.ParcelRecord storage parcelRecord = _parcels[disputeRecord.parcelId];
-            if (
-                _activeDisputeCounts[disputeRecord.parcelId] == 0
-                    && parcelRecord.status == LandTypes.ParcelStatus.Disputed
-            ) {
+            bytes32 parcelId = disputeRecord.parcelId;
+            uint256 remainingDisputes = _activeDisputeCounts[parcelId] - 1;
+            _activeDisputeCounts[parcelId] = remainingDisputes;
+            LandTypes.ParcelRecord storage parcelRecord = _parcels[parcelId];
+            if (remainingDisputes == 0 && parcelRecord.status == LandTypes.ParcelStatus.Disputed) {
                 parcelRecord.status = LandTypes.ParcelStatus.Active;
                 parcelRecord.updatedAt = disputeRecord.updatedAt;
-                emit ParcelUpdated(disputeRecord.parcelId, parcelRecord.status, parcelRecord.updatedAt, msg.sender);
+                emit ParcelUpdated(parcelId, parcelRecord.status, parcelRecord.updatedAt, msg.sender);
             }
         }
 
@@ -338,21 +343,22 @@ contract LandRegistry is ILandRegistry, KernelModule {
         if (_encumbrances[encumbranceId].encumbranceId != bytes32(0)) {
             revert EncumbranceAlreadyRegistered(encumbranceId);
         }
-        _requireParcelActiveAndNotDisputed(titleRecord.parcelId);
+        bytes32 parcelId = titleRecord.parcelId;
+        _requireParcelActiveAndNotDisputed(parcelId);
 
         uint64 currentTimestamp = uint64(block.timestamp);
         _encumbrances[encumbranceId] = LandTypes.EncumbranceRecord({
             encumbranceId: encumbranceId,
-            parcelId: titleRecord.parcelId,
+            parcelId: parcelId,
             titleId: titleId,
             status: LandTypes.EncumbranceStatus.Active,
             documentHash: documentHash,
             registeredAt: currentTimestamp,
             releasedAt: 0
         });
-        _activeEncumbranceCounts[titleRecord.parcelId] += 1;
+        _activeEncumbranceCounts[parcelId] += 1;
 
-        emit EncumbranceRegistered(encumbranceId, titleRecord.parcelId, titleId, currentTimestamp);
+        emit EncumbranceRegistered(encumbranceId, parcelId, titleId, currentTimestamp);
     }
 
     /// @inheritdoc ILandRegistry

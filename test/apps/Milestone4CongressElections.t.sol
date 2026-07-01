@@ -331,6 +331,33 @@ contract Milestone4CongressElectionsTest is Test {
         assertEq(congressCandidateRegistry.getCandidate(cycleId, WALLET_FOUR).voteTotal, 2_000);
     }
 
+    /// @notice H-3: a person who migrates wallets mid-cycle cannot double-vote the same stake; the pre-migration
+    ///         standing ballot is dropped when the person re-votes from the new wallet.
+    function test_CastBallot_WalletMigrationCannotDoubleVote() public {
+        address newWallet = address(0x9999);
+        (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycleRecord) = _createCycle();
+
+        vm.warp(cycleRecord.nominationStart);
+        _applyAllDefaultCandidates(cycleId);
+
+        vm.warp(cycleRecord.votingStart);
+        // PERSON_ONE (stake 9,000) votes from WALLET_ONE for candidate WALLET_THREE.
+        _castBallot(WALLET_ONE, cycleId, _asAddressArray(WALLET_THREE), _asIntArray(int256(9_000)));
+        assertEq(congressCandidateRegistry.getCandidate(cycleId, WALLET_THREE).voteTotal, 9_000);
+
+        // Office-approved wallet migration: revoke WALLET_ONE, activate a fresh wallet for the SAME person.
+        _setWalletLink(PERSON_ONE_ID, WALLET_ONE, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(PERSON_ONE_ID, newWallet, IdentityTypes.WalletLinkStatus.Active);
+
+        // Voting again from the new wallet must REPLACE the person's ballot, not stack a second 9,000.
+        _castBallot(newWallet, cycleId, _asAddressArray(WALLET_THREE), _asIntArray(int256(9_000)));
+        assertEq(congressCandidateRegistry.getCandidate(cycleId, WALLET_THREE).voteTotal, 9_000);
+
+        // The stale pre-migration standing ballot is gone.
+        assertEq(congressCandidateRegistry.getStandingBallotReceipt(WALLET_ONE).voter, address(0));
+        assertEq(congressCandidateRegistry.getStandingBallotReceipt(newWallet).ballotWeight, 9_000);
+    }
+
     function test_CastBallot_RejectsMinimumSignedAllocation() public {
         (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycleRecord) = _createCycle();
 

@@ -41,6 +41,11 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
     mapping(address voter => ElectionTypes.BallotReceipt receipt) private _standingBallotReceipts;
     mapping(address voter => ElectionTypes.BallotAllocation[] allocations) private _standingBallotAllocations;
     mapping(address candidate => int256 voteTotal) private _standingVoteTotals;
+    // One standing ballot per PERSON (H-3): tracks which wallet currently holds a person's standing ballot, and the
+    // reverse link, so a citizen who migrates wallets cannot leave a stale ballot behind and double-vote from the
+    // new wallet. Standing maps stay wallet-keyed; these pointers enforce single-ballot-per-person on top of them.
+    mapping(bytes32 personId => address standingBallotWallet) private _standingBallotWalletOf;
+    mapping(address voter => bytes32 personId) private _standingBallotPersonOf;
     mapping(uint32 seatIndex => ElectionTypes.CongressSeatRecord seatRecord) private _seatRecords;
     mapping(address wallet => uint32 seatIndexPlusOne) private _activeSeatIndexPlusOne;
 
@@ -329,6 +334,7 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
     /// @inheritdoc ICongressCandidateRegistry
     function recordBallot(
         uint256 cycleId,
+        bytes32 voterPersonId,
         address voter,
         address[] calldata candidates,
         int256[] calldata allocations,
@@ -342,6 +348,9 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
         if (voter == address(0)) {
             revert InvalidVoter(voter);
         }
+        if (voterPersonId == bytes32(0)) {
+            revert InvalidVoter(voter);
+        }
         if (ballotWeight == 0) {
             revert InvalidVotingWeight(voter, ballotWeight);
         }
@@ -349,7 +358,15 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
             revert InvalidCandidateCount(candidates.length, allocations.length);
         }
 
+        // If this person already has a standing ballot under a *different* (e.g. pre-migration) wallet, drop it
+        // first so their stake votes exactly once regardless of wallet rotation (H-3).
+        address priorWallet = _standingBallotWalletOf[voterPersonId];
+        if (priorWallet != address(0) && priorWallet != voter) {
+            _clearStandingBallot(cycleId, priorWallet);
+        }
         _clearStandingBallot(cycleId, voter);
+        _standingBallotWalletOf[voterPersonId] = voter;
+        _standingBallotPersonOf[voter] = voterPersonId;
         BallotConfig memory config = BallotConfig({
             cycleId: cycleId,
             voter: voter,
@@ -660,6 +677,13 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
     }
 
     function _clearStandingBallot(uint256 cycleId, address voter) private {
+        // Release the person→wallet pointer so the person can cast a fresh single ballot afterwards (H-3).
+        bytes32 personId = _standingBallotPersonOf[voter];
+        if (personId != bytes32(0)) {
+            delete _standingBallotWalletOf[personId];
+            delete _standingBallotPersonOf[voter];
+        }
+
         ElectionTypes.BallotAllocation[] storage standingAllocations = _standingBallotAllocations[voter];
         uint256 allocationCount = standingAllocations.length;
         if (allocationCount == 0) {
@@ -834,7 +858,7 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
         if (_isModuleCaller(KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY_AUTHORITY, caller)) {
             return;
         }
-        if (_isModuleCaller(KernelModuleIds.INITIAL_SETUP_AUTHORITY, caller)) {
+        if (_isActiveSetupAuthority(caller)) {
             return;
         }
 

@@ -222,7 +222,7 @@ contract OfficeRegistry is IOfficeRegistry, KernelModule {
         if (_isModuleCaller(KernelModuleIds.CABINET_APP, caller)) {
             return;
         }
-        if (_isModuleCaller(KernelModuleIds.INITIAL_SETUP_AUTHORITY, caller)) {
+        if (_isActiveSetupAuthority(caller)) {
             return;
         }
 

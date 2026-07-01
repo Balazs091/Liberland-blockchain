@@ -484,6 +484,30 @@ contract CabinetApp is ICabinetApp {
     }
 
     /// @inheritdoc ICabinetApp
+    function retireExpiredMinister(ExecutiveTypes.MinistryKind ministry) external {
+        if (ministry == ExecutiveTypes.MinistryKind.Undefined) {
+            revert InvalidMinistry(ministry);
+        }
+
+        ExecutiveTypes.MinisterRecord memory record = _executiveRegistry.getMinister(ministry);
+        if (!record.active) {
+            revert NotMinister(ministry, address(0));
+        }
+        // Only an out-of-term minister can be retired this way; an in-term minister is removable only by Congress.
+        if (_executiveRegistry.isMinisterInTerm(ministry)) {
+            revert MinisterStillInTerm(ministry);
+        }
+
+        _dismissalNonce[ministry] += 1;
+        _executiveRegistry.clearMinister(ministry);
+
+        emit MinisterTermRetired(ministry, record.minister, uint64(block.timestamp), msg.sender);
+
+        // Deactivate the ministry's office (where one is wired): out-of-term officials keep no operational authority.
+        _syncMinisterOffice(ministry, address(0), false);
+    }
+
+    /// @inheritdoc ICabinetApp
     function resignMinister(ExecutiveTypes.MinistryKind ministry) external {
         if (ministry == ExecutiveTypes.MinistryKind.Undefined) {
             revert InvalidMinistry(ministry);

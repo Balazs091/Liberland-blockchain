@@ -44,6 +44,7 @@ interface ICabinetApp {
         ExecutiveTypes.MinistryKind ministry, uint256 voteCount, uint256 occupiedSeatCount
     );
     error NotMinister(ExecutiveTypes.MinistryKind ministry, address caller);
+    error MinisterStillInTerm(ExecutiveTypes.MinistryKind ministry);
 
     event PrimeMinisterVoteCast(
         address indexed voter,
@@ -105,6 +106,10 @@ interface ICabinetApp {
     );
 
     event MinisterResigned(ExecutiveTypes.MinistryKind indexed ministry, address indexed minister, uint64 resignedAt);
+
+    event MinisterTermRetired(
+        ExecutiveTypes.MinistryKind indexed ministry, address indexed minister, uint64 retiredAt, address indexed retiredBy
+    );
 
     /// @notice Returns the Executive registry this app writes as the standing authority.
     /// @return registryAddress The Executive registry address.
@@ -269,4 +274,11 @@ interface ICabinetApp {
     /// @notice Resigns a minister; callable only by the sitting minister of that ministry, leaving the slot vacant.
     /// @param ministry The ministry the caller resigns from.
     function resignMinister(ExecutiveTypes.MinistryKind ministry) external;
+
+    /// @notice Permissionlessly retires a minister whose fixed term has lapsed: clears the stale record and
+    ///         deactivates the ministry office so an out-of-term official cannot retain operational (treasury)
+    ///         authority when no sitting Prime Minister is available to re-appoint over the slot. Reverts if the
+    ///         minister is still in term. Permissionless because term expiry is a pure function of time.
+    /// @param ministry The ministry whose expired minister is retired.
+    function retireExpiredMinister(ExecutiveTypes.MinistryKind ministry) external;
 }

@@ -199,7 +199,7 @@ contract StakeRegistry is IStakeRegistry, KernelModule {
         if (_isModuleCaller(KernelModuleIds.STAKE_REGISTRY_AUTHORITY, caller)) {
             return;
         }
-        if (_isModuleCaller(KernelModuleIds.INITIAL_SETUP_AUTHORITY, caller)) {
+        if (_isActiveSetupAuthority(caller)) {
             return;
         }
 
@@ -215,7 +215,7 @@ contract StakeRegistry is IStakeRegistry, KernelModule {
             return;
         }
 
-        if (_isModuleCaller(KernelModuleIds.INITIAL_SETUP_AUTHORITY, caller)) {
+        if (_isActiveSetupAuthority(caller)) {
             return;
         }
 

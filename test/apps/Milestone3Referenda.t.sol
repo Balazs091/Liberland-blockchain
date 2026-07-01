@@ -873,7 +873,7 @@ contract Milestone3ReferendaTest is Test {
         referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.Against);
 
         ReferendumTypes.ReferendumRecord memory referendumRecord = referendumRegistry.getReferendum(referendumId);
-        ReferendumTypes.VoteReceipt memory receipt = referendumRegistry.getVoteReceipt(referendumId, WALLET_ONE);
+        ReferendumTypes.VoteReceipt memory receipt = referendumRegistry.getVoteReceipt(referendumId, PERSON_ONE_ID);
         assertEq(uint256(receipt.option), uint256(ReferendumTypes.VoteOption.Against));
         assertEq(receipt.weight, 6_000);
         assertEq(referendumRecord.forVotes, 0);

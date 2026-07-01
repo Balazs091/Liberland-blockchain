@@ -292,6 +292,8 @@ interface ICongressCandidateRegistry is IKernelModule {
 
     /// @notice Stores or replaces a voter's full signed ballot in a cycle.
     /// @param cycleId The cycle identifier to update.
+    /// @param voterPersonId The canonical person identifier the standing ballot is bound to (one ballot per person,
+    ///        so wallet rotation cannot leave a stale ballot behind to double-vote).
     /// @param voter The voting wallet.
     /// @param candidates The candidate wallets referenced by the ballot.
     /// @param allocations The signed ballot allocations to apply.
@@ -300,6 +302,7 @@ interface ICongressCandidateRegistry is IKernelModule {
     /// @param maxNegativeAllocation The maximum total absolute negative allocation allowed by policy.
     function recordBallot(
         uint256 cycleId,
+        bytes32 voterPersonId,
         address voter,
         address[] calldata candidates,
         int256[] calldata allocations,

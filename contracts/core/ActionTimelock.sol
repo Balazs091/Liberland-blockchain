@@ -471,14 +471,7 @@ contract ActionTimelock is IActionTimelock {
         view
         returns (GovernanceTypes.ActionState state)
     {
-        if (
-            actionRecord.state == GovernanceTypes.ActionState.Queued && actionRecord.expiresAt != 0
-                && block.timestamp > actionRecord.expiresAt
-        ) {
-            return GovernanceTypes.ActionState.Expired;
-        }
-
-        return actionRecord.state;
+        return _effectiveState(actionRecord.state, actionRecord.expiresAt);
     }
 
     function _deriveMemoryState(GovernanceTypes.ActionRecord memory actionRecord)
@@ -486,14 +479,21 @@ contract ActionTimelock is IActionTimelock {
         view
         returns (GovernanceTypes.ActionState state)
     {
-        if (
-            actionRecord.state == GovernanceTypes.ActionState.Queued && actionRecord.expiresAt != 0
-                && block.timestamp > actionRecord.expiresAt
-        ) {
+        return _effectiveState(actionRecord.state, actionRecord.expiresAt);
+    }
+
+    /// @dev A still-`Queued` action whose expiry has passed reports as `Expired` without a state write; every other
+    ///      state is returned verbatim. Shared by the storage and memory derivations so the rule lives in one place.
+    function _effectiveState(GovernanceTypes.ActionState storedState, uint64 expiresAt)
+        private
+        view
+        returns (GovernanceTypes.ActionState state)
+    {
+        if (storedState == GovernanceTypes.ActionState.Queued && expiresAt != 0 && block.timestamp > expiresAt) {
             return GovernanceTypes.ActionState.Expired;
         }
 
-        return actionRecord.state;
+        return storedState;
     }
 
     function _requireRouterCaller(address caller) private view {

@@ -4,6 +4,8 @@ pragma solidity 0.8.35;
 import {Test} from "forge-std/Test.sol";
 
 import {ConstitutionKernel} from "../../contracts/core/ConstitutionKernel.sol";
+import {IIdentityRegistry} from "../../contracts/interfaces/IIdentityRegistry.sol";
+import {IStakeRegistry} from "../../contracts/interfaces/IStakeRegistry.sol";
 import {KernelModuleIds} from "../../contracts/libraries/KernelModuleIds.sol";
 import {CongressCandidateRegistry} from "../../contracts/registries/CongressCandidateRegistry.sol";
 import {IdentityRegistry} from "../../contracts/registries/IdentityRegistry.sol";
@@ -29,9 +31,10 @@ contract RegistryAuthorityFallbackTest is Test {
         congressCandidateRegistry = new CongressCandidateRegistry(address(kernel));
 
         // Register ONLY the one-time setup authority. The three primary registry authorities are left
-        // unregistered so getModule reverts for them, exercising the try/catch fallback fixed in L7.
+        // unregistered so getModule reverts for them, exercising the try/catch fallback fixed in L7. Bootstrap
+        // stays active because the setup authority is a genesis-only convenience whose fallback is intentionally
+        // scoped to the live bootstrap phase (M-5).
         kernel.bootstrapSetModule(KernelModuleIds.INITIAL_SETUP_AUTHORITY, address(this));
-        kernel.disableBootstrapAuthority();
     }
 
     function test_L7_IdentityRegistryFallbackWorksWhenPrimaryUnregistered() public {
@@ -58,6 +61,22 @@ contract RegistryAuthorityFallbackTest is Test {
             })
         );
         assertEq(congressCandidateRegistry.getCycle(1).cycleId, 1);
+    }
+
+    /// @notice M-5: once genesis bootstrap is disabled, the setup-authority fallback is inert, so a lingering
+    ///         setup-authority module can never be a standing backdoor into high-value registry writes.
+    function test_M5_SetupAuthorityFallbackDiesAfterBootstrapDisabled() public {
+        kernel.disableBootstrapAuthority();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IStakeRegistry.UnauthorizedStakeRegistryCaller.selector, address(this))
+        );
+        stakeRegistry.increaseStake(PERSON_ID, 5_000);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(IIdentityRegistry.UnauthorizedIdentityRegistryCaller.selector, address(this))
+        );
+        identityRegistry.setIdentityRecord(PERSON_ID, _identityInput(false));
     }
 
     function test_E1_GetCitizenshipSummaryReturnsStatusFields() public {

@@ -216,7 +216,7 @@ contract IdentityRegistry is IIdentityRegistry, KernelModule {
         if (_isModuleCaller(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, caller)) {
             return;
         }
-        if (_isModuleCaller(KernelModuleIds.INITIAL_SETUP_AUTHORITY, caller)) {
+        if (_isActiveSetupAuthority(caller)) {
             return;
         }
 

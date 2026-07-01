@@ -85,9 +85,10 @@ interface IReferendumRegistry is IKernelModule {
 
     /// @notice Returns the stored vote receipt for a voter on a referendum.
     /// @param referendumId The referendum identifier to query.
-    /// @param voter The voter address to query.
+    /// @param voterPersonId The canonical person identifier to query (receipts are person-keyed, not wallet-keyed,
+    ///        so a person cannot vote twice by rotating active wallets mid-referendum).
     /// @return receipt The stored vote receipt, or an empty receipt if none exists.
-    function getVoteReceipt(bytes32 referendumId, address voter)
+    function getVoteReceipt(bytes32 referendumId, bytes32 voterPersonId)
         external
         view
         returns (ReferendumTypes.VoteReceipt memory receipt);
@@ -118,11 +119,11 @@ interface IReferendumRegistry is IKernelModule {
     /// @return exists Whether the referendum exists.
     function referendumExists(bytes32 referendumId) external view returns (bool exists);
 
-    /// @notice Returns true when a voter has already cast a vote on the referendum.
+    /// @notice Returns true when a person has already cast a vote on the referendum.
     /// @param referendumId The referendum identifier to query.
-    /// @param voter The voter to query.
-    /// @return voted Whether the voter already has a stored vote receipt.
-    function hasVoted(bytes32 referendumId, address voter) external view returns (bool voted);
+    /// @param voterPersonId The canonical person identifier to query.
+    /// @return voted Whether the person already has a stored vote receipt.
+    function hasVoted(bytes32 referendumId, bytes32 voterPersonId) external view returns (bool voted);
 
     /// @notice Stores a newly created referendum record.
     /// @param referendumId The referendum identifier to create.
@@ -142,10 +143,17 @@ interface IReferendumRegistry is IKernelModule {
 
     /// @notice Stores a vote receipt and updates tallies for an active referendum.
     /// @param referendumId The referendum identifier to vote on.
-    /// @param voter The voting wallet.
+    /// @param voterPersonId The canonical person identifier the receipt is keyed by (one vote per person).
+    /// @param voterWallet The wallet that submitted the vote, for event attribution only.
     /// @param option The vote option to record.
     /// @param weight The voting weight to attribute to the vote.
-    function recordVote(bytes32 referendumId, address voter, ReferendumTypes.VoteOption option, uint256 weight) external;
+    function recordVote(
+        bytes32 referendumId,
+        bytes32 voterPersonId,
+        address voterWallet,
+        ReferendumTypes.VoteOption option,
+        uint256 weight
+    ) external;
 
     /// @notice Stores the final result snapshot for a referendum and marks it as finalized.
     /// @param referendumId The referendum identifier to finalize.

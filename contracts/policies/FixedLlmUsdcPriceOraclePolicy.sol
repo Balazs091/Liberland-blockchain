@@ -11,6 +11,11 @@ contract FixedLlmUsdcPriceOraclePolicy is ILLMPriceOraclePolicy {
     error InvalidAsset(address assetAddress);
     error InvalidPrice(uint256 assetUnitsPerLlm);
 
+    /// @dev One whole LLM expressed in the 18-decimal stake units the registry stores. `_assetUnitsPerLlm` prices
+    ///      one *whole* LLM, so every conversion normalizes by this unit to keep collateral valuation coherent with
+    ///      the wei-scaled stake registry.
+    uint256 private constant LLM_UNIT = 1e18;
+
     address private immutable _asset;
     uint256 private immutable _assetUnitsPerLlm;
 
@@ -41,11 +46,13 @@ contract FixedLlmUsdcPriceOraclePolicy is ILLMPriceOraclePolicy {
 
     /// @inheritdoc ILLMPriceOraclePolicy
     function quoteLlmToAsset(uint256 llmStakeAmount) external view returns (uint256 assetAmount) {
-        return llmStakeAmount * _assetUnitsPerLlm;
+        // Floors the collateral valuation (protocol-favorable).
+        return Math.mulDiv(llmStakeAmount, _assetUnitsPerLlm, LLM_UNIT);
     }
 
     /// @inheritdoc ILLMPriceOraclePolicy
     function quoteAssetToLlm(uint256 assetAmount) external view returns (uint256 llmStakeAmount) {
-        return Math.ceilDiv(assetAmount, _assetUnitsPerLlm);
+        // Rounds the seized/required stake up (protocol-favorable).
+        return Math.mulDiv(assetAmount, LLM_UNIT, _assetUnitsPerLlm, Math.Rounding.Ceil);
     }
 }

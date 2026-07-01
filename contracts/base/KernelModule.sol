@@ -3,6 +3,7 @@ pragma solidity 0.8.35;
 
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
 import {IKernelModule} from "../interfaces/IKernelModule.sol";
+import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 
 /// @title KernelModule
 /// @notice Base for kernel-bound modules: validates the kernel address once at construction, stores it, and
@@ -40,5 +41,15 @@ abstract contract KernelModule is IKernelModule {
         } catch {
             return false;
         }
+    }
+
+    /// @notice Returns whether `caller` is the initial setup authority AND genesis bootstrap is still active.
+    /// @dev The setup authority is a genesis-only convenience. Tying its registry-write fallback to the live
+    ///      bootstrap phase means it becomes inert automatically the moment `disableBootstrapAuthority()` runs at
+    ///      the end of deployment — so a lingering (unsealed) setup-authority module can never be a standing
+    ///      backdoor into high-value stake/identity/election writes post-genesis.
+    function _isActiveSetupAuthority(address caller) internal view returns (bool authorized) {
+        return _kernel.bootstrapAuthority() != address(0)
+            && _isModuleCaller(KernelModuleIds.INITIAL_SETUP_AUTHORITY, caller);
     }
 }

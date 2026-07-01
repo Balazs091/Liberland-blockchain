@@ -82,11 +82,10 @@ contract GovernanceRouter is IGovernanceRouter {
             revert InvalidTargetModule(request.targetModule);
         }
 
-        IActionTimelock actionTimelock = IActionTimelock(timelock());
-        actionId = actionTimelock.computeActionId(request);
+        // Queue directly and use the returned id: the timelock derives the same deterministic id internally, so a
+        // separate computeActionId staticcall + assert would only re-derive and re-check the same value.
+        actionId = IActionTimelock(timelock()).queueAction(request);
         emit GovernanceActionRouted(actionId, request.actionType, request.origin, request.targetModule);
-        bytes32 queuedActionId = actionTimelock.queueAction(request);
-        assert(queuedActionId == actionId);
     }
 
     /// @inheritdoc IGovernanceRouter

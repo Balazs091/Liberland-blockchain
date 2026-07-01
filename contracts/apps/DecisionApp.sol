@@ -228,8 +228,12 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
             revert InvalidDecisionAction(record.action);
         }
         _requireCongressDecisionTerm(record);
-        if (record.supportCount < record.supportRequired) {
-            revert CongressDecisionNotApproved(decisionId, record.supportCount, record.supportRequired);
+        // Re-verify support against the *current* Congress roster at execution: support from members who have since
+        // left the body no longer counts, and a backfilled seat cannot double-count with its predecessor. The bar
+        // (supportRequired) stays snapshotted from the preparing term.
+        uint32 liveSupport = _liveCongressSupport(decisionId);
+        if (liveSupport < record.supportRequired) {
+            revert CongressDecisionNotApproved(decisionId, liveSupport, record.supportRequired);
         }
 
         DecisionTypes.DecisionAction action = record.action;
@@ -429,6 +433,18 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
         emit CongressDecisionSupportRecorded(
             decisionId, member, record.supportCount, record.supportRequired, uint64(block.timestamp)
         );
+    }
+
+    /// @dev Counts stored supports that belong to a wallet still sitting in the current Congress. Bounded by the
+    ///      seat count, so the loop is small and fixed.
+    function _liveCongressSupport(bytes32 decisionId) private view returns (uint32 liveSupport) {
+        address[] memory members = _congressCandidateRegistry.currentCongressMembers();
+        uint256 memberCount = members.length;
+        for (uint256 index = 0; index < memberCount; ++index) {
+            if (_congressSupports[decisionId][members[index]]) {
+                liveSupport += 1;
+            }
+        }
     }
 
     function _markExecuted(DecisionTypes.DecisionRecord storage record, address executor) private {

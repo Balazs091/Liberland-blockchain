@@ -16,7 +16,7 @@ contract ReferendumRegistry is IReferendumRegistry, KernelModule {
     mapping(bytes32 referendumId => ReferendumTypes.ReferendumResult referendumResult) private _referendumResults;
     mapping(bytes32 referendumId => ReferendumTypes.BudgetApprovalDetails budgetDetails) private _budgetApprovalDetails;
     mapping(bytes32 referendumId => uint64 adoptionDelay) private _adoptionDelays;
-    mapping(bytes32 referendumId => mapping(address voter => ReferendumTypes.VoteReceipt receipt)) private
+    mapping(bytes32 referendumId => mapping(bytes32 voterPersonId => ReferendumTypes.VoteReceipt receipt)) private
         _voteReceipts;
 
     /// @param kernelAddress The canonical kernel registry address.
@@ -32,12 +32,12 @@ contract ReferendumRegistry is IReferendumRegistry, KernelModule {
     }
 
     /// @inheritdoc IReferendumRegistry
-    function getVoteReceipt(bytes32 referendumId, address voter)
+    function getVoteReceipt(bytes32 referendumId, bytes32 voterPersonId)
         external
         view
         returns (ReferendumTypes.VoteReceipt memory receipt)
     {
-        return _voteReceipts[referendumId][voter];
+        return _voteReceipts[referendumId][voterPersonId];
     }
 
     /// @inheritdoc IReferendumRegistry
@@ -69,8 +69,8 @@ contract ReferendumRegistry is IReferendumRegistry, KernelModule {
     }
 
     /// @inheritdoc IReferendumRegistry
-    function hasVoted(bytes32 referendumId, address voter) external view returns (bool voted) {
-        return _voteReceipts[referendumId][voter].option != ReferendumTypes.VoteOption.Undefined;
+    function hasVoted(bytes32 referendumId, bytes32 voterPersonId) external view returns (bool voted) {
+        return _voteReceipts[referendumId][voterPersonId].option != ReferendumTypes.VoteOption.Undefined;
     }
 
     /// @inheritdoc IReferendumRegistry
@@ -243,9 +243,13 @@ contract ReferendumRegistry is IReferendumRegistry, KernelModule {
     }
 
     /// @inheritdoc IReferendumRegistry
-    function recordVote(bytes32 referendumId, address voter, ReferendumTypes.VoteOption option, uint256 weight)
-        external
-    {
+    function recordVote(
+        bytes32 referendumId,
+        bytes32 voterPersonId,
+        address voterWallet,
+        ReferendumTypes.VoteOption option,
+        uint256 weight
+    ) external {
         _requireRegistryAuthority(msg.sender);
 
         ReferendumTypes.ReferendumRecord storage referendumRecord = _getActiveReferendum(referendumId);
@@ -254,7 +258,10 @@ contract ReferendumRegistry is IReferendumRegistry, KernelModule {
             revert InvalidVoteOption(option);
         }
         if (weight == 0) {
-            revert InvalidVotingWeight(voter, weight);
+            revert InvalidVotingWeight(voterWallet, weight);
+        }
+        if (voterPersonId == bytes32(0)) {
+            revert InvalidVotingWeight(voterWallet, weight);
         }
         if (block.timestamp < referendumRecord.startTime || block.timestamp >= referendumRecord.endTime) {
             revert VotingClosed(
@@ -262,17 +269,17 @@ contract ReferendumRegistry is IReferendumRegistry, KernelModule {
             );
         }
 
-        ReferendumTypes.VoteReceipt storage existingReceipt = _voteReceipts[referendumId][voter];
+        ReferendumTypes.VoteReceipt storage existingReceipt = _voteReceipts[referendumId][voterPersonId];
         uint64 votedAt = uint64(block.timestamp);
 
         if (existingReceipt.option == ReferendumTypes.VoteOption.Undefined) {
-            _voteReceipts[referendumId][voter] =
+            _voteReceipts[referendumId][voterPersonId] =
                 ReferendumTypes.VoteReceipt({option: option, weight: weight, votedAt: votedAt});
             _applyVoteOption(referendumRecord, option, weight, true);
             referendumRecord.voterCount += 1;
         } else {
             if (existingReceipt.weight != weight) {
-                revert InvalidVoteWeightUpdate(voter, weight, existingReceipt.weight);
+                revert InvalidVoteWeightUpdate(voterWallet, weight, existingReceipt.weight);
             }
 
             if (existingReceipt.option != option) {
@@ -286,7 +293,7 @@ contract ReferendumRegistry is IReferendumRegistry, KernelModule {
 
         emit ReferendumVoteRecorded(
             referendumId,
-            voter,
+            voterWallet,
             option,
             weight,
             referendumRecord.forVotes,

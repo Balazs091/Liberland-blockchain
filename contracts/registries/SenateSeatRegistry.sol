@@ -223,7 +223,7 @@ contract SenateSeatRegistry is ISenateSeatRegistry, KernelModule {
         if (caller == _kernel.getModule(KernelModuleIds.SENATE_SEAT_REGISTRY_AUTHORITY)) {
             return;
         }
-        if (_isModuleCaller(KernelModuleIds.INITIAL_SETUP_AUTHORITY, caller)) {
+        if (_isActiveSetupAuthority(caller)) {
             return;
         }
 

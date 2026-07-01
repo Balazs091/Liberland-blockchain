@@ -9,6 +9,7 @@ import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 /// @notice Canonical registry of governed module pointers for the protocol.
 contract ConstitutionKernel is IConstitutionKernel {
     error BootstrapAlreadyDisabled();
+    error CoreModuleImmutable(bytes32 moduleId);
     error InvalidBootstrapAuthority(address bootstrapAuthority_);
     error InvalidModuleBatchLength(uint256 moduleIdCount, uint256 moduleAddressCount);
     error InvalidModuleId(bytes32 moduleId);
@@ -95,6 +96,7 @@ contract ConstitutionKernel is IConstitutionKernel {
     /// @inheritdoc IConstitutionKernel
     function governanceUpdateModule(bytes32 moduleId, address moduleAddress) external {
         _requireGovernanceCaller(msg.sender);
+        _requireRepointableModule(moduleId);
 
         _setModule(moduleId, moduleAddress, false);
     }
@@ -102,6 +104,7 @@ contract ConstitutionKernel is IConstitutionKernel {
     /// @inheritdoc IConstitutionKernel
     function governanceRegisterModule(bytes32 moduleId, address moduleAddress) external {
         _requireGovernanceCaller(msg.sender);
+        _requireRepointableModule(moduleId);
         if (_moduleRecords[moduleId].moduleAddress != address(0)) {
             revert ModuleAlreadyRegistered(moduleId);
         }
@@ -168,6 +171,14 @@ contract ConstitutionKernel is IConstitutionKernel {
     function _requireGovernanceCaller(address caller) private view {
         if (caller != _moduleRecords[KernelModuleIds.ACTION_TIMELOCK].moduleAddress) {
             revert UnauthorizedKernelCaller(caller);
+        }
+    }
+
+    /// @dev The core action lifecycle (router + timelock) is the trust root and is never governance-repointable.
+    ///      Enforcing this at the kernel makes the guarantee independent of any repointable app-tier validation.
+    function _requireRepointableModule(bytes32 moduleId) private pure {
+        if (moduleId == KernelModuleIds.GOVERNANCE_ROUTER || moduleId == KernelModuleIds.ACTION_TIMELOCK) {
+            revert CoreModuleImmutable(moduleId);
         }
     }
 }

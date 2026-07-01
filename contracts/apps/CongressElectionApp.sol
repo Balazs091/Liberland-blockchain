@@ -167,8 +167,11 @@ contract CongressElectionApp is ICongressElectionApp {
             revert NoVotingPower(msg.sender);
         }
 
+        // Bind the standing ballot to the person so wallet rotation cannot double-vote the same stake (H-3).
+        bytes32 personId = _identityRegistry.resolveWalletToPersonId(msg.sender);
         _congressCandidateRegistry.recordBallot(
             cycleId,
+            personId,
             msg.sender,
             candidates,
             allocations,
@@ -373,7 +376,11 @@ contract CongressElectionApp is ICongressElectionApp {
         } else {
             ElectionTypes.CongressCycleRecord memory previousCycle =
                 _congressCandidateRegistry.getCycle(previousCycleId);
-            nominationStart = previousCycle.votingEnd;
+            // Anchor to the later of the prior cycle's end and now, so a late finalization can never produce a
+            // past-dated (zero-length) nomination window that disenfranchises challengers and entrenches incumbents
+            // (M-6). On-time cadence is unaffected (votingEnd is still in the future, so it wins the max).
+            uint64 currentTimestamp = uint64(block.timestamp);
+            nominationStart = previousCycle.votingEnd > currentTimestamp ? previousCycle.votingEnd : currentTimestamp;
         }
 
         votingStart = nominationStart + policy.minimumNominationDuration();

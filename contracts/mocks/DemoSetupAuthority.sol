@@ -103,7 +103,9 @@ contract DemoSetupAuthority {
         external
     {
         _requireOwner(msg.sender);
-        referendumRegistry.recordVote(referendumId, voter, option, weight);
+        referendumRegistry.recordVote(
+            referendumId, identityRegistry.resolveWalletToPersonId(voter), voter, option, weight
+        );
     }
 
     /// @notice Seeds a finalized referendum result for demo read-state.
@@ -142,7 +144,14 @@ contract DemoSetupAuthority {
     ) external {
         _requireOwner(msg.sender);
         congressCandidateRegistry.recordBallot(
-            cycleId, voter, candidates, allocations, ballotWeight, maxPositiveCandidates, maxNegativeAllocation
+            cycleId,
+            identityRegistry.resolveWalletToPersonId(voter),
+            voter,
+            candidates,
+            allocations,
+            ballotWeight,
+            maxPositiveCandidates,
+            maxNegativeAllocation
         );
     }
 

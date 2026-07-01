@@ -433,14 +433,15 @@ contract SenateApp is ISenateApp {
         // forge-lint: disable-next-line(unsafe-typecast)
         actionCancellationRecord.presidentProxySupportSnapshot = uint32(presidentProxySupportCount);
 
-        // President proxy amplifies but cannot fabricate support: proxy-counted seats may not exceed the seats that
-        // cast an explicit For, so a proxy-only majority never reaches the threshold.
+        // President proxy amplifies but cannot fabricate support: proxy coverage is capped at explicit For support
+        // (see _effectiveSupport), so a proxy-only majority never reaches the threshold and a supporting proxy can
+        // never defeat an otherwise-passing vote.
         // L6: only cancel while the queued action is still actionable. If support+floor are met but the action
         // has already Expired (or is no longer Queued), finalize the record without reverting and skip the
         // external cancel sink so a stalled vote can always be closed.
         if (
-            supportCount >= _senatePowersPolicy.minimumActionCancellationSupport()
-                && presidentProxySupportCount <= directSupportCount && _isActionCancelable(actionId)
+            _effectiveSupport(directSupportCount, presidentProxySupportCount)
+                >= _senatePowersPolicy.minimumActionCancellationSupport() && _isActionCancelable(actionId)
         ) {
             actionCancellationRecord.canceled = true;
             actionCancellationRecord.canceledAt = currentTimestamp;
@@ -540,10 +541,10 @@ contract SenateApp is ISenateApp {
         referendumVetoRecord.presidentProxySupportSnapshot = uint32(presidentProxySupportCount);
 
         // President-proxy floor (H5): the President may amplify but not fabricate a Senate veto of an
-        // active citizen referendum — proxy support may not exceed explicit direct seat support.
+        // active citizen referendum — proxy coverage is capped at explicit direct seat support.
         if (
-            supportCount >= _senatePowersPolicy.minimumActionCancellationSupport()
-                && presidentProxySupportCount <= directSupportCount
+            _effectiveSupport(directSupportCount, presidentProxySupportCount)
+                >= _senatePowersPolicy.minimumActionCancellationSupport()
         ) {
             referendumVetoRecord.vetoed = true;
             referendumVetoRecord.vetoedAt = currentTimestamp;
@@ -647,14 +648,14 @@ contract SenateApp is ISenateApp {
         // forge-lint: disable-next-line(unsafe-typecast)
         repealRecord.presidentProxySupportSnapshot = uint32(presidentProxySupportCount);
 
-        // President proxy amplifies but cannot fabricate support: proxy-counted seats may not exceed the seats that
-        // cast an explicit For, so a proxy-only majority never reaches the threshold.
+        // President proxy amplifies but cannot fabricate support: proxy coverage is capped at explicit For support
+        // (see _effectiveSupport), so a proxy-only majority never reaches the threshold.
         // L6: only repeal while the measure is still sub-legal, active, and unrepealed. If support+floor are met
         // but the measure was already repealed/inactivated, finalize the record without reverting and skip the
         // external repeal sink so a stalled vote can always be closed.
         if (
-            supportCount >= _senatePowersPolicy.minimumActionCancellationSupport()
-                && presidentProxySupportCount <= directSupportCount && _isSubLegalMeasureRepealable(measureId)
+            _effectiveSupport(directSupportCount, presidentProxySupportCount)
+                >= _senatePowersPolicy.minimumActionCancellationSupport() && _isSubLegalMeasureRepealable(measureId)
         ) {
             repealRecord.repealed = true;
             repealRecord.repealedAt = currentTimestamp;
@@ -706,6 +707,24 @@ contract SenateApp is ISenateApp {
     }
 
     /// @inheritdoc ISenateApp
+    function removeDisbursementSuspensionSupport(bytes32 actionId, uint32 seatIndex) external {
+        _requireSeatHolder(seatIndex, msg.sender);
+
+        SenateTypes.VoteSupport storage support = _disbursementSuspensionSupports[actionId][seatIndex];
+        uint64 currentOccupancyNonce = _currentSeatOccupancyNonce(seatIndex);
+        if (support.option == SenateTypes.VoteOption.Undefined || support.seatOccupancyNonce != currentOccupancyNonce) {
+            revert SenateSupportNotActive(actionId, seatIndex);
+        }
+
+        uint64 currentTimestamp = uint64(block.timestamp);
+        support.supported = false;
+        support.option = SenateTypes.VoteOption.Undefined;
+        support.updatedAt = currentTimestamp;
+
+        emit SenateDisbursementSuspensionSupportRemoved(actionId, seatIndex, msg.sender, currentTimestamp);
+    }
+
+    /// @inheritdoc ISenateApp
     function castPresidentDisbursementSuspensionProxyVote(bytes32 actionId, SenateTypes.VoteOption option) external {
         _requirePresident(msg.sender);
         _requireValidVoteOption(option);
@@ -720,7 +739,7 @@ contract SenateApp is ISenateApp {
 
     /// @inheritdoc ISenateApp
     function suspendDisbursement(bytes32 actionId) external {
-        _requireSuspendableDisbursement(actionId);
+        GovernanceTypes.ActionRecord memory actionRecord = _requireSuspendableDisbursement(actionId);
 
         SenateTypes.DisbursementSuspension storage suspension = _disbursementSuspensions[actionId];
         if (suspension.exists && block.timestamp < suspension.suspendedUntil) {
@@ -732,7 +751,7 @@ contract SenateApp is ISenateApp {
         _requireDisbursementSuspensionAuthorized(actionId, directSupportCount, presidentProxySupportCount);
 
         uint64 currentTimestamp = uint64(block.timestamp);
-        uint64 suspendedUntil = currentTimestamp + _senatePowersPolicy.disbursementSuspensionPeriod();
+        uint64 suspendedUntil = _boundedSuspensionDeadline(currentTimestamp, actionRecord.expiresAt);
         suspension.exists = true;
         suspension.suspendedUntil = suspendedUntil;
         suspension.renewalCount = 0;
@@ -749,7 +768,7 @@ contract SenateApp is ISenateApp {
 
     /// @inheritdoc ISenateApp
     function renewDisbursementSuspension(bytes32 actionId) external {
-        _requireSuspendableDisbursement(actionId);
+        GovernanceTypes.ActionRecord memory actionRecord = _requireSuspendableDisbursement(actionId);
 
         SenateTypes.DisbursementSuspension storage suspension = _disbursementSuspensions[actionId];
         if (!suspension.exists || block.timestamp >= suspension.suspendedUntil) {
@@ -761,7 +780,7 @@ contract SenateApp is ISenateApp {
         _requireDisbursementSuspensionAuthorized(actionId, directSupportCount, presidentProxySupportCount);
 
         uint64 currentTimestamp = uint64(block.timestamp);
-        uint64 suspendedUntil = currentTimestamp + _senatePowersPolicy.disbursementSuspensionPeriod();
+        uint64 suspendedUntil = _boundedSuspensionDeadline(currentTimestamp, actionRecord.expiresAt);
         suspension.suspendedUntil = suspendedUntil;
         suspension.renewalCount += 1;
 
@@ -1060,6 +1079,20 @@ contract SenateApp is ISenateApp {
         }
     }
 
+    /// @dev A disbursement suspension is a temporary pause bounded by the action's own life: it never blocks past
+    ///      the action's expiry. This keeps suspension from acting as an unbounded, renew-forever kill switch that
+    ///      outlasts the execution window — permanently stopping a disbursement is the cancellation path's job.
+    function _boundedSuspensionDeadline(uint64 currentTimestamp, uint64 actionExpiresAt)
+        private
+        view
+        returns (uint64 suspendedUntil)
+    {
+        suspendedUntil = currentTimestamp + _senatePowersPolicy.disbursementSuspensionPeriod();
+        if (suspendedUntil > actionExpiresAt) {
+            suspendedUntil = actionExpiresAt;
+        }
+    }
+
     function _requireSuspendableDisbursement(bytes32 actionId)
         private
         view
@@ -1075,14 +1108,16 @@ contract SenateApp is ISenateApp {
     }
 
     /// @dev Live seat tally (current occupancy) mirroring the cancellation support/President-proxy-floor model. The
-    ///      live proxy is not gated on the President's term (a still-current President cast it moments earlier).
+    ///      proxy is gated on there being a President still in term (L-2), so a resigned/expired President's stale
+    ///      proxy cannot keep powering suspensions and renewals.
     function _disbursementSuspensionSupportBreakdown(bytes32 actionId)
         private
         view
         returns (uint256 directSupportCount, uint256 presidentProxySupportCount)
     {
         SenateTypes.PresidentProxyVote memory proxyVote = _disbursementSuspensionPresidentProxyVotes[actionId];
-        bool proxyActive = proxyVote.option == SenateTypes.VoteOption.For && proxyVote.updatedAt != 0;
+        bool proxyActive = _presidentRegistry.isPresidentInTerm() && proxyVote.option == SenateTypes.VoteOption.For
+            && proxyVote.updatedAt != 0;
         return _tally(_disbursementSuspensionSupports[actionId], proxyActive, 0);
     }
 
@@ -1091,14 +1126,31 @@ contract SenateApp is ISenateApp {
         uint256 directSupportCount,
         uint256 presidentProxySupportCount
     ) private view {
-        uint256 supportCount = directSupportCount + presidentProxySupportCount;
-        // Threshold plus the Change-2 President-proxy floor: proxy support may not exceed explicit seat support.
+        // Threshold with the Change-2 President-proxy floor applied by capping proxy coverage at explicit seat
+        // support: the proxy can amplify but never fabricate or defeat the required support.
         if (
-            supportCount < _senatePowersPolicy.minimumActionCancellationSupport()
-                || presidentProxySupportCount > directSupportCount
+            _effectiveSupport(directSupportCount, presidentProxySupportCount)
+                < _senatePowersPolicy.minimumActionCancellationSupport()
         ) {
-            revert SenateSupportNotReached(actionId, supportCount, presidentProxySupportCount);
+            revert SenateSupportNotReached(
+                actionId, directSupportCount + presidentProxySupportCount, presidentProxySupportCount
+            );
         }
+    }
+
+    /// @dev President-proxy floor applied as a cap: proxy coverage of silent seats counts toward the threshold only
+    ///      up to the number of seats that cast an explicit For. This guarantees the proxy can never (a) manufacture
+    ///      a proxy-only majority, nor (b) reduce an outcome that direct support alone achieves — a supporting proxy
+    ///      only ever adds support. Recorded snapshots/events keep the raw observed counts; only the pass decision
+    ///      uses this capped value.
+    function _effectiveSupport(uint256 directSupportCount, uint256 presidentProxySupportCount)
+        private
+        pure
+        returns (uint256 supportCount)
+    {
+        uint256 countedProxy =
+            presidentProxySupportCount > directSupportCount ? directSupportCount : presidentProxySupportCount;
+        return directSupportCount + countedProxy;
     }
 
     function _presidentProxySupports(SenateTypes.PresidentProxyVote memory proxyVote, uint64 openedAt, uint64 deadline)

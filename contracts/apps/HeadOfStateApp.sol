@@ -202,7 +202,9 @@ contract HeadOfStateApp is IHeadOfStateApp {
         emit PresidentResigned(msg.sender, currentTimestamp);
 
         address firstVicePresident = _presidentRegistry.vicePresident(0);
-        if (firstVicePresident != address(0)) {
+        // The successor must still hold a Senate seat (L): a Vice President who has lost their seat since appointment
+        // cannot inherit the presidency; the office is vacated for a fresh election instead.
+        if (firstVicePresident != address(0) && _senateSeatRegistry.isActiveSeatHolder(firstVicePresident)) {
             // Succession (Art VI §2.5): the first-sworn Vice President assumes the presidency for the remainder of
             // the current term (same termEnd). setPresident clears both Vice President slots, so the successor may
             // re-appoint fresh Vice Presidents.

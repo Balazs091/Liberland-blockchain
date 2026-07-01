@@ -257,8 +257,9 @@ contract ReferendumApp is IReferendumApp {
             revert IReferendumRegistry.ReferendumNotFound(referendumId);
         }
 
-        ReferendumTypes.VoteReceipt memory existingReceipt =
-            _referendumRegistry.getVoteReceipt(referendumId, msg.sender);
+        // Receipts are person-keyed so a citizen cannot vote twice by rotating their active wallet mid-referendum.
+        bytes32 personId = _identityRegistry.resolveWalletToPersonId(msg.sender);
+        ReferendumTypes.VoteReceipt memory existingReceipt = _referendumRegistry.getVoteReceipt(referendumId, personId);
         uint256 weight = existingReceipt.option == ReferendumTypes.VoteOption.Undefined
             ? _votingPowerPolicy.votingPower(msg.sender)
             : existingReceipt.weight;
@@ -266,7 +267,7 @@ contract ReferendumApp is IReferendumApp {
             revert NoVotingPower(msg.sender);
         }
 
-        _referendumRegistry.recordVote(referendumId, msg.sender, option, weight);
+        _referendumRegistry.recordVote(referendumId, personId, msg.sender, option, weight);
     }
 
     /// @inheritdoc IReferendumApp
@@ -1057,6 +1058,7 @@ contract ReferendumApp is IReferendumApp {
             || moduleId == KernelModuleIds.STAKE_LIEN_REGISTRY || moduleId == KernelModuleIds.LAND_REGISTRY
             || moduleId == KernelModuleIds.COMPANY_REGISTRY || moduleId == KernelModuleIds.BUDGET_ENVELOPE_REGISTRY
             || moduleId == KernelModuleIds.OFFICE_REGISTRY || moduleId == KernelModuleIds.PRESIDENT_REGISTRY
+            || moduleId == KernelModuleIds.EXECUTIVE_REGISTRY
             // Rule-defining authorities (`authority.*`).
             || moduleId == KernelModuleIds.BUDGET_ENVELOPE_ACCOUNTING_AUTHORITY
             || moduleId == KernelModuleIds.BUDGET_ENVELOPE_REGISTRY_AUTHORITY
@@ -1069,6 +1071,7 @@ contract ReferendumApp is IReferendumApp {
             || moduleId == KernelModuleIds.LEGISLATION_REPEAL_AUTHORITY
             || moduleId == KernelModuleIds.OFFICE_REGISTRY_AUTHORITY
             || moduleId == KernelModuleIds.PRESIDENT_REGISTRY_AUTHORITY
+            || moduleId == KernelModuleIds.EXECUTIVE_REGISTRY_AUTHORITY
             || moduleId == KernelModuleIds.REFERENDUM_REGISTRY_AUTHORITY
             || moduleId == KernelModuleIds.SENATE_SEAT_REGISTRY_AUTHORITY
             || moduleId == KernelModuleIds.STAKE_LIEN_REGISTRY_AUTHORITY
