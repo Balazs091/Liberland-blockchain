@@ -28,7 +28,7 @@ The Sepolia demo script adds seeded read-state and live onboarding helpers witho
 
 The production deployment script registers a sealable `InitialSetupAuthority` before bootstrap is disabled. It is limited to deterministic genesis setup for citizens, stake additions, Senate seats, Congress terms, and offices. The script also sets the genesis President registry fact during bootstrap, then runs readiness checks and seals the setup authority before bootstrap is disabled, so no setup owner path remains after deployment.
 
-The first production audit scope is narrower than the repository's full milestone code surface. Use `docs/Audit-Scope.md` as the source of truth for what is included in the first audit and which demo/future modules are intentionally excluded.
+The audit scope covers the repository's full contract set under `contracts/`, including the Milestone 8 lending modules and the Milestone 9 `DecisionApp`. Deployment scope is separate and script-dependent: the production `scripts/Deploy.s.sol` deploys the core governance set (neither lending nor `DecisionApp`), while the demo `scripts/DeployDemo.s.sol` also deploys `DecisionApp`.
 
 ## Post-audit remediation (2026-07)
 

@@ -32,7 +32,7 @@ This folder is the clean handoff package for the frontend.
 - Finalizing the latest ended Congress election creates the next deterministic cycle automatically in the same transaction; a public transaction is still required because the EVM has no native scheduler
 - Congress ballots are standing preferences. A citizen's last ballot remains in force across future cycles for candidates that register again, until the citizen casts a replacement ballot or clears it.
 - Future election cadence changes go through a bounded `CongressElectionPolicy` referendum and timelock update
-- `DecisionApp` is included for the Sepolia demo decision screens, but it is outside the first production audit/deployment scope unless explicitly added
+- `DecisionApp` is deployed in the Sepolia demo and powers the bounded-decision screens; it is also the path for creating new offices/ministries after bootstrap
 - For live onboarding demos, set `IDENTITY_ADMIN` to a wallet you control before deploying; that wallet becomes the registrar for `DemoCitizenGateway`
 
 ## Suggested first screens
@@ -102,7 +102,7 @@ For most frontend work, prefer these as entrypoints:
 
 Use registry and policy ABIs for detailed reads where needed.
 
-The current Sepolia demo config includes `DecisionApp`. Lending ABIs are included so the handoff package stays aligned with the repository code surface, but the current demo config does not include lending-pool addresses. Neither `DecisionApp` nor lending are part of the first production audit scope by default.
+The Sepolia demo deploys `DecisionApp`, so it has a live address in `sepolia-demo.json`. Lending (Milestone 8) ABIs are included so the package matches the full repository code surface, but `DeployDemo.s.sol` does not deploy the lending pool, so there are no lending addresses in the demo config — wire the lending screens only against a deployment that actually includes them. The audit scope covers the full contract set in `contracts/`.
 
 ## Demo flow
 

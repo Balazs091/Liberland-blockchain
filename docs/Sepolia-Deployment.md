@@ -123,4 +123,4 @@ The deployment registers `InitialSetupAuthority` before bootstrap is disabled. T
 
 This deploy script creates the production governance baseline only. It does not seed legislation, referenda, land/company data, treasury budgets, or demo balances. Use `scripts/DeployDemo.s.sol` instead when you want a public demo deployment with realistic data already loaded.
 
-`DecisionApp` and Milestone 8 lending contracts are intentionally not deployed by this production-style script. Keep them out of the first production audit scope unless the launch plan explicitly expands to include bounded decisions or lending.
+`DecisionApp` and the Milestone 8 lending contracts are intentionally not deployed by this production-style script (the demo `scripts/DeployDemo.s.sol` deploys `DecisionApp`). They remain part of the repository's audit scope even though this script does not deploy them.

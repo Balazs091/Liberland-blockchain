@@ -24,7 +24,6 @@ The repository contains milestone implementations through the Milestone 9 decisi
 - `AGENTS.md`
 - `docs/Milestone-01.md`
 - `docs/Architecture.md`
-- `docs/Audit-Scope.md`
 - current milestone document under `docs/`
 
 ## Repository layout
@@ -79,6 +78,6 @@ For a public demo deployment, run `scripts/DeployDemo.s.sol`, then copy the gene
 
 For a production-style deployment, `scripts/Deploy.s.sol` registers `InitialSetupAuthority`, seeds deterministic genesis citizens, Senate seats, Congress members, President status, and offices from `.env`, checks readiness, then seals that setup authority before bootstrap is disabled.
 
-The first production audit scope is the contract set deployed by `scripts/Deploy.s.sol`. Milestone 8 lending and Milestone 9 `DecisionApp` contracts remain outside that first audit/deployment scope unless the launch plan explicitly adds them.
+The audit scope covers the full contract set under `contracts/`, including the Milestone 8 lending modules and the Milestone 9 `DecisionApp`. Deployment scope is separate and script-dependent: `scripts/Deploy.s.sol` (production) deploys the core governance set — neither lending nor `DecisionApp` — while `scripts/DeployDemo.s.sol` additionally deploys `DecisionApp`.
 
 The current demo deploy batches bootstrap module registration and is designed to stay below common public-RPC free-tier limits. Re-check the exact transaction count after deployment-script changes; enabling `TREASURY_PREFUND_WEI` adds one prefund transaction.

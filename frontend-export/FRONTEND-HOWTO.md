@@ -337,7 +337,7 @@ Show office records, budget envelopes, payout requests, and the office-mediated 
 ### Contracts
 
 - `OfficeRegistry`
-- `DecisionApp` demo scope only; outside first production audit scope unless explicitly added
+- `DecisionApp` (deployed in the Sepolia demo; also the path for creating new offices/ministries after bootstrap)
 - `OfficeExecutor`
 - `BudgetEnvelopeRegistry`
 - `PayoutQueue`
@@ -367,7 +367,7 @@ Call these on `OfficeExecutor`, not directly on `OfficeRegistry`:
 
 ### Decision notes
 
-This section applies to Sepolia demo deployments that wire `DecisionApp`. It is not part of the first production deployment/audit scope by default.
+This section applies to deployments that wire `DecisionApp`. The Sepolia demo (`DeployDemo.s.sol`) deploys it; the production `Deploy.s.sol` does not.
 
 Use `DecisionApp` for bounded Congress and ministry decisions:
 
