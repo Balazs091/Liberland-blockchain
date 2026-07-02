@@ -108,7 +108,10 @@ interface ICabinetApp {
     event MinisterResigned(ExecutiveTypes.MinistryKind indexed ministry, address indexed minister, uint64 resignedAt);
 
     event MinisterTermRetired(
-        ExecutiveTypes.MinistryKind indexed ministry, address indexed minister, uint64 retiredAt, address indexed retiredBy
+        ExecutiveTypes.MinistryKind indexed ministry,
+        address indexed minister,
+        uint64 retiredAt,
+        address indexed retiredBy
     );
 
     /// @notice Returns the Executive registry this app writes as the standing authority.

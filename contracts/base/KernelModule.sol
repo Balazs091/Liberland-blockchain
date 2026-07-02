@@ -49,7 +49,8 @@ abstract contract KernelModule is IKernelModule {
     ///      the end of deployment — so a lingering (unsealed) setup-authority module can never be a standing
     ///      backdoor into high-value stake/identity/election writes post-genesis.
     function _isActiveSetupAuthority(address caller) internal view returns (bool authorized) {
-        return _kernel.bootstrapAuthority() != address(0)
-            && _isModuleCaller(KernelModuleIds.INITIAL_SETUP_AUTHORITY, caller);
+        return
+            _kernel.bootstrapAuthority() != address(0)
+                && _isModuleCaller(KernelModuleIds.INITIAL_SETUP_AUTHORITY, caller);
     }
 }

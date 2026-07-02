@@ -68,9 +68,7 @@ contract RegistryAuthorityFallbackTest is Test {
     function test_M5_SetupAuthorityFallbackDiesAfterBootstrapDisabled() public {
         kernel.disableBootstrapAuthority();
 
-        vm.expectRevert(
-            abi.encodeWithSelector(IStakeRegistry.UnauthorizedStakeRegistryCaller.selector, address(this))
-        );
+        vm.expectRevert(abi.encodeWithSelector(IStakeRegistry.UnauthorizedStakeRegistryCaller.selector, address(this)));
         stakeRegistry.increaseStake(PERSON_ID, 5_000);
 
         vm.expectRevert(

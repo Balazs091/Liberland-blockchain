@@ -441,7 +441,7 @@ contract SenateApp is ISenateApp {
         // external cancel sink so a stalled vote can always be closed.
         if (
             _effectiveSupport(directSupportCount, presidentProxySupportCount)
-                >= _senatePowersPolicy.minimumActionCancellationSupport() && _isActionCancelable(actionId)
+                    >= _senatePowersPolicy.minimumActionCancellationSupport() && _isActionCancelable(actionId)
         ) {
             actionCancellationRecord.canceled = true;
             actionCancellationRecord.canceledAt = currentTimestamp;
@@ -655,7 +655,7 @@ contract SenateApp is ISenateApp {
         // external repeal sink so a stalled vote can always be closed.
         if (
             _effectiveSupport(directSupportCount, presidentProxySupportCount)
-                >= _senatePowersPolicy.minimumActionCancellationSupport() && _isSubLegalMeasureRepealable(measureId)
+                    >= _senatePowersPolicy.minimumActionCancellationSupport() && _isSubLegalMeasureRepealable(measureId)
         ) {
             repealRecord.repealed = true;
             repealRecord.repealedAt = currentTimestamp;
