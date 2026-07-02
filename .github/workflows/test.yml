@@ -24,6 +24,10 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          # Pin to the stable toolchain: the codebase is formatted with stable `forge fmt`, and nightly's
+          # formatter rules drift over time (breaking `forge fmt --check` on unchanged code).
+          version: stable
 
       - name: Show Forge version
         run: forge --version
