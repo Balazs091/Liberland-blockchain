@@ -285,14 +285,14 @@ contract ActionTimelock is IActionTimelock {
                 .recordBudgetApproval(
                     payload.budgetId,
                     TreasuryTypes.BudgetEnvelopeInput({
-                        officeId: payload.officeId,
-                        disbursementType: payload.disbursementType,
-                        asset: payload.asset,
-                        allocatedAmount: payload.allocatedAmount,
-                        startsAt: payload.startsAt,
-                        endsAt: payload.endsAt,
-                        policyReference: payload.policyReference
-                    })
+                    officeId: payload.officeId,
+                    disbursementType: payload.disbursementType,
+                    asset: payload.asset,
+                    allocatedAmount: payload.allocatedAmount,
+                    startsAt: payload.startsAt,
+                    endsAt: payload.endsAt,
+                    policyReference: payload.policyReference
+                })
                 );
             return;
         }
