@@ -30,11 +30,13 @@ contract LendingRiskParameterPolicy is ILendingRiskParameterPolicy {
     /// @param liquidationThresholdBps_ Liquidation threshold, in basis points; must exceed max LTV.
     /// @param liquidationBonusBps_ Liquidation bonus, in basis points.
     /// @param reserveFactorBps_ Protocol reserve factor, in basis points.
+    /// @param maxDebtPerPerson_ Per-person borrow ceiling in the borrow asset's smallest units; 0 means unlimited.
     constructor(
         uint16 maxLtvBps_,
         uint16 liquidationThresholdBps_,
         uint16 liquidationBonusBps_,
-        uint16 reserveFactorBps_
+        uint16 reserveFactorBps_,
+        uint256 maxDebtPerPerson_
     ) {
         if (maxLtvBps_ == 0) {
             revert InvalidMaxLtv(maxLtvBps_);
@@ -55,7 +57,8 @@ contract LendingRiskParameterPolicy is ILendingRiskParameterPolicy {
             maxLtvBps: maxLtvBps_,
             liquidationThresholdBps: liquidationThresholdBps_,
             liquidationBonusBps: liquidationBonusBps_,
-            reserveFactorBps: reserveFactorBps_
+            reserveFactorBps: reserveFactorBps_,
+            maxDebtPerPerson: maxDebtPerPerson_
         });
     }
 
@@ -82,5 +85,10 @@ contract LendingRiskParameterPolicy is ILendingRiskParameterPolicy {
     /// @inheritdoc ILendingRiskParameterPolicy
     function reserveFactorBps() external view returns (uint16 bps) {
         return _parameters.reserveFactorBps;
+    }
+
+    /// @inheritdoc ILendingRiskParameterPolicy
+    function maxDebtPerPerson() external view returns (uint256 amount) {
+        return _parameters.maxDebtPerPerson;
     }
 }

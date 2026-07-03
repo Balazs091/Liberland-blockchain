@@ -10,11 +10,13 @@ interface ILendingRiskParameterPolicy {
     /// @param liquidationThresholdBps Collateral value fraction that must cover debt before liquidation, in bps.
     /// @param liquidationBonusBps Bonus paid to a liquidator on the repaid amount, in bps.
     /// @param reserveFactorBps Share of accrued borrow interest routed to protocol reserves, in bps.
+    /// @param maxDebtPerPerson Per-person borrow ceiling in the borrow asset's smallest units; 0 means unlimited.
     struct RiskParameters {
         uint16 maxLtvBps;
         uint16 liquidationThresholdBps;
         uint16 liquidationBonusBps;
         uint16 reserveFactorBps;
+        uint256 maxDebtPerPerson;
     }
 
     /// @notice Returns all lending risk parameters in one read.
@@ -36,4 +38,8 @@ interface ILendingRiskParameterPolicy {
     /// @notice Returns the protocol reserve factor, in basis points.
     /// @return bps The reserve factor.
     function reserveFactorBps() external view returns (uint16 bps);
+
+    /// @notice Returns the per-person borrow ceiling in the borrow asset's smallest units (0 = unlimited).
+    /// @return amount The per-person debt cap.
+    function maxDebtPerPerson() external view returns (uint256 amount);
 }

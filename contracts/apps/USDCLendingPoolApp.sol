@@ -41,7 +41,6 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
     IIdentityRegistry private immutable _identityRegistry;
     IStakeRegistry private immutable _stakeRegistry;
     IStakeLienRegistry private immutable _stakeLienRegistry;
-    ILLMPriceOraclePolicy private immutable _priceOraclePolicy;
     IInterestRatePolicy private immutable _interestRatePolicy;
     uint8 private immutable _shareDecimals;
     uint256 private immutable _borrowCap;
@@ -59,16 +58,18 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
     /// @param identityRegistryAddress The identity registry address.
     /// @param stakeRegistryAddress The stake registry address.
     /// @param stakeLienRegistryAddress The stake lien registry address.
-    /// @param priceOraclePolicyAddress The LLM/USDC oracle policy address.
     /// @param interestRatePolicyAddress The utilization-rate policy address.
     /// @param borrowCap_ Maximum total USDC borrows for this v1 pool.
+    /// @dev The LLM/USDC price oracle is resolved live from the kernel (`LLM_USDC_PRICE_ORACLE_POLICY`), not fixed
+    ///      at construction, so governance can move from the launch manual oracle to a Uniswap V4 TWAP oracle by
+    ///      repointing that module without redeploying this pool. The oracle's asset match is enforced by the
+    ///      module-governance review that repoints it.
     constructor(
         address kernelAddress,
         address usdcAddress,
         address identityRegistryAddress,
         address stakeRegistryAddress,
         address stakeLienRegistryAddress,
-        address priceOraclePolicyAddress,
         address interestRatePolicyAddress,
         uint256 borrowCap_
     ) ERC20("Liberland USDC Lending Share", "llUSDC") {
@@ -77,15 +78,9 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         _requireContract(identityRegistryAddress);
         _requireContract(stakeRegistryAddress);
         _requireContract(stakeLienRegistryAddress);
-        _requireContract(priceOraclePolicyAddress);
         _requireContract(interestRatePolicyAddress);
         if (borrowCap_ == 0) {
             revert InvalidBorrowCap(borrowCap_);
-        }
-
-        ILLMPriceOraclePolicy oraclePolicy = ILLMPriceOraclePolicy(priceOraclePolicyAddress);
-        if (oraclePolicy.asset() != usdcAddress) {
-            revert InvalidToken(usdcAddress);
         }
 
         IStakeLienRegistry lienRegistry = IStakeLienRegistry(stakeLienRegistryAddress);
@@ -98,7 +93,6 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         _identityRegistry = IIdentityRegistry(identityRegistryAddress);
         _stakeRegistry = IStakeRegistry(stakeRegistryAddress);
         _stakeLienRegistry = lienRegistry;
-        _priceOraclePolicy = oraclePolicy;
         _interestRatePolicy = IInterestRatePolicy(interestRatePolicyAddress);
         _shareDecimals = IERC20Metadata(usdcAddress).decimals();
         _borrowCap = borrowCap_;
@@ -137,7 +131,7 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
     /// @notice Returns the configured price oracle policy.
     /// @return policyAddress The price oracle policy address.
     function priceOraclePolicy() external view returns (address policyAddress) {
-        return address(_priceOraclePolicy);
+        return _kernel.getModule(KernelModuleIds.LLM_USDC_PRICE_ORACLE_POLICY);
     }
 
     /// @notice Returns the configured interest-rate policy.
@@ -236,6 +230,14 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         if (liquidity < amount) {
             amount = liquidity;
         }
+
+        uint256 perPersonCap = _riskParameters().maxDebtPerPerson;
+        if (perPersonCap != 0) {
+            uint256 availableByPersonCap = perPersonCap > debt ? perPersonCap - debt : 0;
+            if (availableByPersonCap < amount) {
+                amount = availableByPersonCap;
+            }
+        }
     }
 
     /// @inheritdoc IUSDCLendingPoolApp
@@ -306,6 +308,13 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         uint256 maxDebt = _maxDebtForRecord(stakeRecord);
         if (newDebt > maxDebt) {
             revert BorrowWouldBreachLtv(personId, newDebt, maxDebt);
+        }
+
+        // Per-person concentration cap (0 = unlimited): bounds a single borrower's debt regardless of stake size,
+        // so no one position can grow past what liquidators can absorb (the Aave/CRV concentration lesson).
+        uint256 perPersonCap = _riskParameters().maxDebtPerPerson;
+        if (perPersonCap != 0 && newDebt > perPersonCap) {
+            revert BorrowExceedsPerPersonCap(personId, newDebt, perPersonCap);
         }
 
         uint256 newTotalBorrows = _totalBorrows + amount;
@@ -386,7 +395,7 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         repaidAmount = repayAmount > debt ? debt : repayAmount;
         uint256 repaymentWithBonus =
             Math.mulDiv(repaidAmount, BPS + _riskParameters().liquidationBonusBps, BPS, Math.Rounding.Ceil);
-        seizedStake = _priceOraclePolicy.quoteAssetToLlm(repaymentWithBonus);
+        seizedStake = _priceOracle().quoteAssetToLlm(repaymentWithBonus);
 
         StakeTypes.StakeRecord memory stakeRecord = _stakeRegistry.getStakeRecord(borrowerPersonId);
         uint256 seizableStake = _surplusStakeForRecord(stakeRecord);
@@ -497,7 +506,7 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
 
     function _maxDebtForRecord(StakeTypes.StakeRecord memory stakeRecord) private view returns (uint256 amount) {
         return Math.mulDiv(
-            _priceOraclePolicy.quoteLlmToAsset(_surplusStakeForRecord(stakeRecord)), _riskParameters().maxLtvBps, BPS
+            _priceOracle().quoteLlmToAsset(_surplusStakeForRecord(stakeRecord)), _riskParameters().maxLtvBps, BPS
         );
     }
 
@@ -508,7 +517,7 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
 
         StakeTypes.StakeRecord memory stakeRecord = _stakeRegistry.getStakeRecord(personId);
         uint256 liquidationValue = Math.mulDiv(
-            _priceOraclePolicy.quoteLlmToAsset(_surplusStakeForRecord(stakeRecord)),
+            _priceOracle().quoteLlmToAsset(_surplusStakeForRecord(stakeRecord)),
             _riskParameters().liquidationThresholdBps,
             BPS
         );
@@ -522,6 +531,12 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         return
             ILendingRiskParameterPolicy(_kernel.getModule(KernelModuleIds.LENDING_RISK_PARAMETER_POLICY))
                 .riskParameters();
+    }
+
+    /// @dev Resolves the LLM/USDC price oracle live from the kernel so governance can swap the launch manual oracle
+    ///      for a Uniswap V4 TWAP oracle by repointing the module, without redeploying this pool.
+    function _priceOracle() private view returns (ILLMPriceOraclePolicy oracle) {
+        return ILLMPriceOraclePolicy(_kernel.getModule(KernelModuleIds.LLM_USDC_PRICE_ORACLE_POLICY));
     }
 
     function _surplusStakeForRecord(StakeTypes.StakeRecord memory stakeRecord) private pure returns (uint256 amount) {

@@ -7,6 +7,7 @@ import {LendingTypes} from "../types/LendingTypes.sol";
 /// @notice USDC lending app backed by active LLM stake above the retained citizenship floor.
 interface IUSDCLendingPoolApp {
     error BorrowCapExceeded(uint256 requestedTotalBorrows, uint256 borrowCap);
+    error BorrowExceedsPerPersonCap(bytes32 personId, uint256 requestedDebt, uint256 perPersonCap);
     error BorrowWouldBreachLtv(bytes32 personId, uint256 requestedDebt, uint256 maxDebt);
     error InsufficientLiquidity(uint256 availableLiquidity, uint256 requestedAmount);
     error InsufficientLiquidationCollateral(bytes32 personId, uint256 seizableStake, uint256 requestedStake);
