@@ -11,6 +11,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
 import {IInterestRatePolicy} from "../interfaces/IInterestRatePolicy.sol";
+import {ILendingRiskParameterPolicy} from "../interfaces/ILendingRiskParameterPolicy.sol";
 import {ILLMPriceOraclePolicy} from "../interfaces/ILLMPriceOraclePolicy.sol";
 import {IStakeLienRegistry} from "../interfaces/IStakeLienRegistry.sol";
 import {IStakeRegistry} from "../interfaces/IStakeRegistry.sol";
@@ -31,10 +32,6 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
     // 5,000 whole LLM in the registry's 18-decimal stake units — matches MINIMUM_CITIZEN_STAKE so lending can never
     // pull a citizen below their retained citizenship floor.
     uint256 public constant MINIMUM_RETAINED_STAKE = 5_000 * 1e18;
-    uint16 public constant MAX_LTV_BPS = 2_500;
-    uint16 public constant LIQUIDATION_THRESHOLD_BPS = 3_500;
-    uint16 public constant LIQUIDATION_BONUS_BPS = 1_000;
-    uint16 public constant RESERVE_FACTOR_BPS = 1_500;
 
     uint256 private constant VIRTUAL_ASSETS = 1_000_000;
     uint256 private constant VIRTUAL_SHARES = 1_000_000;
@@ -212,7 +209,7 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         preview.utilizationRay = utilizationRate();
         preview.borrowRatePerSecondRay = _interestRatePolicy.borrowRatePerSecond(preview.utilizationRay);
         preview.supplyRatePerSecondRay =
-            _interestRatePolicy.supplyRatePerSecond(preview.utilizationRay, RESERVE_FACTOR_BPS);
+            _interestRatePolicy.supplyRatePerSecond(preview.utilizationRay, _riskParameters().reserveFactorBps);
     }
 
     /// @inheritdoc IUSDCLendingPoolApp
@@ -387,7 +384,8 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         }
 
         repaidAmount = repayAmount > debt ? debt : repayAmount;
-        uint256 repaymentWithBonus = Math.mulDiv(repaidAmount, BPS + LIQUIDATION_BONUS_BPS, BPS, Math.Rounding.Ceil);
+        uint256 repaymentWithBonus =
+            Math.mulDiv(repaidAmount, BPS + _riskParameters().liquidationBonusBps, BPS, Math.Rounding.Ceil);
         seizedStake = _priceOraclePolicy.quoteAssetToLlm(repaymentWithBonus);
 
         StakeTypes.StakeRecord memory stakeRecord = _stakeRegistry.getStakeRecord(borrowerPersonId);
@@ -448,7 +446,7 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         uint256 borrowRateRay = _interestRatePolicy.borrowRatePerSecond(utilizationRate());
         uint256 interestFactorRay = borrowRateRay * elapsed;
         uint256 interestAccrued = Math.mulDiv(_totalBorrows, interestFactorRay, RAY);
-        uint256 protocolReservesAccrued = Math.mulDiv(interestAccrued, RESERVE_FACTOR_BPS, BPS);
+        uint256 protocolReservesAccrued = Math.mulDiv(interestAccrued, _riskParameters().reserveFactorBps, BPS);
 
         _totalBorrows += interestAccrued;
         _totalReserves += protocolReservesAccrued;
@@ -498,7 +496,9 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
     }
 
     function _maxDebtForRecord(StakeTypes.StakeRecord memory stakeRecord) private view returns (uint256 amount) {
-        return Math.mulDiv(_priceOraclePolicy.quoteLlmToAsset(_surplusStakeForRecord(stakeRecord)), MAX_LTV_BPS, BPS);
+        return Math.mulDiv(
+            _priceOraclePolicy.quoteLlmToAsset(_surplusStakeForRecord(stakeRecord)), _riskParameters().maxLtvBps, BPS
+        );
     }
 
     function _healthFactor(bytes32 personId, uint256 debt) private view returns (uint256 healthFactor) {
@@ -508,10 +508,20 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
 
         StakeTypes.StakeRecord memory stakeRecord = _stakeRegistry.getStakeRecord(personId);
         uint256 liquidationValue = Math.mulDiv(
-            _priceOraclePolicy.quoteLlmToAsset(_surplusStakeForRecord(stakeRecord)), LIQUIDATION_THRESHOLD_BPS, BPS
+            _priceOraclePolicy.quoteLlmToAsset(_surplusStakeForRecord(stakeRecord)),
+            _riskParameters().liquidationThresholdBps,
+            BPS
         );
 
         return Math.mulDiv(liquidationValue, HEALTH_FACTOR_SCALE, debt);
+    }
+
+    /// @dev Resolves the governed risk parameters live from the kernel so a module-governance repoint can retune
+    ///      LTV, liquidation threshold/bonus, and reserve factor without redeploying this pool.
+    function _riskParameters() private view returns (ILendingRiskParameterPolicy.RiskParameters memory parameters) {
+        return
+            ILendingRiskParameterPolicy(_kernel.getModule(KernelModuleIds.LENDING_RISK_PARAMETER_POLICY))
+                .riskParameters();
     }
 
     function _surplusStakeForRecord(StakeTypes.StakeRecord memory stakeRecord) private pure returns (uint256 amount) {

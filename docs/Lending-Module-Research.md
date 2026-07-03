@@ -33,7 +33,7 @@ Sky's LockStake Engine is the single production precedent for what Liberland wan
 
 - The evidence supports the **isolated CDP-style collateral engine + pooled stablecoin supply side** that v1 already has. Nothing found argues for switching to a general money market.
 - **Curve's LLAMMA soft liquidation is structurally excluded**: it requires an AMM that custodies collateral and sells it to arbitrageurs mid-loan on external markets. Both legs break for non-transferable, rate-limited staked LLM. Threshold liquidation into the liquidator's staked balance — v1's approach — is the viable mechanism. [verified 3-0]
-- **Keep v1's conservative parameters, but make them replaceable.** Sky's 80% max borrow is not the benchmark for LLM; the Nov 2022 Aave/CRV incident is: liquidating a 92M-CRV position left $1.78M bad debt, with the post-mortem arguing the *liquidation logic itself* (incentives, close factors) caused a toxic spiral — the treasury repaid it. Gauntlet's doctrine ("no fixed parameter setting stays safe; recalibrate on a schedule") applies. v1's constants are compiled in (`MAX_LTV_BPS` etc.); v2 should move them into a replaceable risk-parameter policy module, consistent with the policy-layer architecture, so a referendum can retune without redeploying the pool. [verified 3-0]
+- **Keep v1's conservative parameters, but make them replaceable.** Sky's 80% max borrow is not the benchmark for LLM; the Nov 2022 Aave/CRV incident is: liquidating a 92M-CRV position left $1.78M bad debt, with the post-mortem arguing the *liquidation logic itself* (incentives, close factors) caused a toxic spiral — the treasury repaid it. Gauntlet's doctrine ("no fixed parameter setting stays safe; recalibrate on a schedule") applies. **Shipped 2026-07-03:** the four risk parameters are no longer compiled into the pool — they now live in a replaceable `LendingRiskParameterPolicy` module resolved live from the kernel, so a module-governance referendum can retune LTV/threshold/bonus/reserve without redeploying the pool (see §6). The policy enforces hard bounds so no repoint can set nonsensical values. [verified 3-0]
 - **Supply side and citizenship**: the pool currently accepts deposits from anyone. If "stablecoin provided by citizens" is a hard requirement, gate `deposit` on an active wallet link — but consider leaving supply open: more liquidity lowers borrow rates, and lien/borrow rules already restrict the politically sensitive side to citizens. Recommendation: leave supply open, gate nothing.
 
 ## 4. Making the platform money work: revenue routing (the "reinvest into LLM" idea)
@@ -57,9 +57,15 @@ Recommended Liberland design — a `TreasurySavingsVault` module:
 - If USDS is bridged to the chain, holding sUSDS directly is an alternative — but it imports Sky governance/upgrade risk (sUSDS is DAO-upgradeable; the "fees can never be enabled" claim was refuted 0-3), so a native vault funded by native revenue is the cleaner sovereign design.
 - **Regulatory note** (BIS FSI Brief 27, GENIUS Act §4(a)(11), verified 3-0): every major regime bans *issuer-paid* yield on payment stablecoins; intermediary-layer yield is treated more leniently (US: not explicitly prohibited as of mid-2026; EU/HK: prohibited). Liberland is not directly subject to these, but cross-border users and counterparties are. Design implication: never build yield into a stablecoin itself; keep it in a separate opt-in vault wrapper — which is exactly the recommended design.
 
-## 6. Prerequisite shipped: ERC20-money treasury (2026-07-03)
+## 6. Shipped 2026-07-03
 
-The lending/revenue design above requires the treasury stack to handle ERC20s. This was implemented and tested (202/202 tests pass):
+### Governable lending risk parameters
+
+`LendingRiskParameterPolicy` (`policy.lending-risk-parameter`) holds max LTV, liquidation threshold, liquidation bonus, and reserve factor with invariant-checked bounds (max-LTV < threshold ≤ 90%, bonus ≤ 20%, reserve ≤ 50%). `USDCLendingPoolApp` resolves it live from the kernel on every borrow, health-factor, liquidation, and accrual read — so a module-governance referendum retunes parameters on a live pool without redeploying it (a repoint takes effect on the next interaction, gated by the timelock review window). This directly closes open question #4.
+
+### ERC20-money treasury
+
+The lending/revenue design above also requires the treasury stack to handle ERC20s. This was implemented and tested (full suite green — 204 tests):
 
 - `TreasuryVault`: ERC20-only custody and disbursement (`receiveTokenDeposit`, `treasuryBalanceOf`, ERC20 `executeDisbursement`); no payable path remains.
 - `BudgetEnvelopeRegistry`, `ActionTimelock`, `ReferendumApp`/`ReferendumRegistry`: budget envelopes and disbursements are ERC20-denominated; native assets rejected.
@@ -72,7 +78,7 @@ The lending/revenue design above requires the treasury stack to handle ERC20s. T
 1. **Oracle.** The fixed LLM/USDC oracle is the biggest unresolved risk. For a thin market, the evidence (Gauntlet, Aave/CRV) supports: governed oracle policy with staleness bounds, deviation circuit breakers, and a manipulation-cost analysis before any LTV increase. Concrete TWAP-window/staleness numbers did not survive verification — needs its own design pass once LLM has an on-chain market.
 2. **Liquidation economics for illiquid seized collateral.** The 10% bonus pays liquidators in an asset they cannot exit for ~10%/yr. Either accept that only long-term LLM accumulators will liquidate (arguably aligned with citizenship), raise the bonus, or move to a Dutch-auction discount. Decide the bad-debt backstop explicitly: treasury absorption (Aave's choice in Jan 2023) vs. socializing across suppliers; v1 currently has no mechanism.
 3. **Borrow caps vs. market depth.** Aave/CRV lesson: cap total borrows against thin collateral relative to what liquidators can actually absorb. v1's `borrowCap` exists — set it deliberately, not generously.
-4. **Parameter governance.** Move LTV/threshold/bonus/reserve-factor into a replaceable policy module with a scheduled recalibration cadence.
+4. **Parameter governance. (Shipped 2026-07-03.)** LTV/threshold/bonus/reserve-factor now live in the replaceable `LendingRiskParameterPolicy` module, resolved live from the kernel and repointable by module-governance referendum. Remaining work is process, not code: set a scheduled recalibration cadence. Caveat: because the pool reads params live, a repoint that lowers the liquidation threshold can make existing positions liquidatable on the next interaction — the timelock review window is the warning buffer.
 5. **Partial lien release** on partial repayment (v1 releases only at full repayment) — UX improvement, safe to defer.
 6. **Aave GHO stkAAVE discount mechanics** were refuted in verification (0-3) — if a "staked LLM lowers your borrow rate" feature is attractive, research it separately before citing it.
 

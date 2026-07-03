@@ -14,6 +14,7 @@ import {MockModule} from "../../contracts/mocks/MockModule.sol";
 import {MockUSDC} from "../../contracts/mocks/MockUSDC.sol";
 import {FixedLlmUsdcPriceOraclePolicy} from "../../contracts/policies/FixedLlmUsdcPriceOraclePolicy.sol";
 import {KinkedInterestRatePolicy} from "../../contracts/policies/KinkedInterestRatePolicy.sol";
+import {LendingRiskParameterPolicy} from "../../contracts/policies/LendingRiskParameterPolicy.sol";
 import {UnstakingPolicy} from "../../contracts/policies/UnstakingPolicy.sol";
 import {IdentityRegistry} from "../../contracts/registries/IdentityRegistry.sol";
 import {StakeLienRegistry} from "../../contracts/registries/StakeLienRegistry.sol";
@@ -49,6 +50,7 @@ contract Milestone8LlmBackedUSDCTest is Test {
     MockUSDC internal usdc;
     FixedLlmUsdcPriceOraclePolicy internal oraclePolicy;
     KinkedInterestRatePolicy internal interestRatePolicy;
+    LendingRiskParameterPolicy internal riskParameterPolicy;
     USDCLendingPoolApp internal lendingPool;
 
     function setUp() public {
@@ -65,6 +67,8 @@ contract Milestone8LlmBackedUSDCTest is Test {
         usdc = new MockUSDC();
         oraclePolicy = new FixedLlmUsdcPriceOraclePolicy(address(usdc), USDC_UNIT);
         interestRatePolicy = new KinkedInterestRatePolicy(200, 800, 10_000, 8e26);
+        // Same parameters the pool previously hardcoded: 25% LTV, 35% threshold, 10% bonus, 15% reserve factor.
+        riskParameterPolicy = new LendingRiskParameterPolicy(2_500, 3_500, 1_000, 1_500);
         lendingPool = new USDCLendingPoolApp(
             address(kernel),
             address(usdc),
@@ -76,8 +80,8 @@ contract Milestone8LlmBackedUSDCTest is Test {
             BORROW_CAP
         );
 
-        bytes32[] memory moduleIds = new bytes32[](10);
-        address[] memory moduleAddresses = new address[](10);
+        bytes32[] memory moduleIds = new bytes32[](11);
+        address[] memory moduleAddresses = new address[](11);
 
         moduleIds[0] = KernelModuleIds.IDENTITY_REGISTRY;
         moduleAddresses[0] = address(identityRegistry);
@@ -99,6 +103,8 @@ contract Milestone8LlmBackedUSDCTest is Test {
         moduleAddresses[8] = address(oraclePolicy);
         moduleIds[9] = KernelModuleIds.USDC_INTEREST_RATE_POLICY;
         moduleAddresses[9] = address(interestRatePolicy);
+        moduleIds[10] = KernelModuleIds.LENDING_RISK_PARAMETER_POLICY;
+        moduleAddresses[10] = address(riskParameterPolicy);
 
         kernel.bootstrapSetModules(moduleIds, moduleAddresses);
         kernel.bootstrapSetModule(KernelModuleIds.USDC_LENDING_POOL_APP, address(lendingPool));
@@ -134,6 +140,50 @@ contract Milestone8LlmBackedUSDCTest is Test {
         vm.expectRevert(abi.encodeWithSelector(IStakeRegistry.NothingToUnstake.selector, BORROWER_PERSON_ID));
         vm.prank(address(stakeAuthority));
         stakeRegistry.unstake(BORROWER_PERSON_ID);
+    }
+
+    function test_RiskParameterPolicy_RejectsEconomicallyInvalidBounds() public {
+        vm.expectRevert(abi.encodeWithSelector(LendingRiskParameterPolicy.InvalidMaxLtv.selector, uint16(0)));
+        new LendingRiskParameterPolicy(0, 3_500, 1_000, 1_500);
+
+        // Threshold must sit strictly above max LTV so a fresh max-LTV borrow is not already liquidatable.
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LendingRiskParameterPolicy.InvalidLiquidationThreshold.selector, uint16(3_500), uint16(3_500)
+            )
+        );
+        new LendingRiskParameterPolicy(3_500, 3_500, 1_000, 1_500);
+
+        // Threshold above the 90% ceiling leaves no headroom for seizure plus bonus.
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LendingRiskParameterPolicy.InvalidLiquidationThreshold.selector, uint16(2_500), uint16(9_500)
+            )
+        );
+        new LendingRiskParameterPolicy(2_500, 9_500, 1_000, 1_500);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(LendingRiskParameterPolicy.InvalidLiquidationBonus.selector, uint16(2_500))
+        );
+        new LendingRiskParameterPolicy(2_500, 3_500, 2_500, 1_500);
+
+        vm.expectRevert(abi.encodeWithSelector(LendingRiskParameterPolicy.InvalidReserveFactor.selector, uint16(6_000)));
+        new LendingRiskParameterPolicy(2_500, 3_500, 1_000, 6_000);
+    }
+
+    function test_GovernanceRepointOfRiskPolicyRetunesLivePool() public {
+        // 25% LTV policy in setUp: 5,000 LLM surplus at 1 USDC/LLM caps borrowing at 1,250 USDC.
+        assertEq(lendingPool.maxBorrowable(BORROWER_PERSON_ID), 1_250 * USDC_UNIT);
+
+        // Governance deploys a 50% LTV policy and repoints the module; the change takes effect live on the pool.
+        LendingRiskParameterPolicy loosenedPolicy = new LendingRiskParameterPolicy(5_000, 6_000, 1_000, 1_500);
+        kernel.bootstrapSetModule(KernelModuleIds.LENDING_RISK_PARAMETER_POLICY, address(loosenedPolicy));
+
+        assertEq(lendingPool.maxBorrowable(BORROWER_PERSON_ID), 2_500 * USDC_UNIT);
+
+        vm.prank(BORROWER);
+        lendingPool.borrow(2_500 * USDC_UNIT);
+        assertEq(lendingPool.currentDebtOf(BORROWER_PERSON_ID), 2_500 * USDC_UNIT);
     }
 
     function test_HigherProtectedFloorReducesBorrowCollateral() public {

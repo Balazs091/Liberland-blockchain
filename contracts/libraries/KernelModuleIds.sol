@@ -50,6 +50,7 @@ library KernelModuleIds {
     bytes32 internal constant UNSTAKING_POLICY = keccak256("policy.unstaking");
     bytes32 internal constant LLM_USDC_PRICE_ORACLE_POLICY = keccak256("policy.llm-usdc-price-oracle");
     bytes32 internal constant USDC_INTEREST_RATE_POLICY = keccak256("policy.usdc-interest-rate");
+    bytes32 internal constant LENDING_RISK_PARAMETER_POLICY = keccak256("policy.lending-risk-parameter");
     bytes32 internal constant CABINET_APP = keccak256("app.cabinet");
     bytes32 internal constant CONGRESS_ELECTION_APP = keccak256("app.congress-election");
     bytes32 internal constant COMPANY_REGISTRY_APP = keccak256("app.company-registry");
