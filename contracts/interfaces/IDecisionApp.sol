@@ -25,6 +25,7 @@ interface IDecisionApp {
     error InvalidOfficeKind(OfficeTypes.OfficeKind kind);
     error InvalidOfficeName();
     error OfficeAlreadyRegistered(bytes32 officeId);
+    error MinistryOfficeNotFound(bytes32 officeId);
     error InvalidRegistry(address registryAddress);
     error InvalidToken(address tokenAddress);
     error NoActiveCongressTerm();
@@ -73,6 +74,17 @@ interface IDecisionApp {
         address indexed preparedBy,
         OfficeTypes.OfficeKind kind,
         address admin,
+        uint32 supportRequired,
+        bytes32 metadataHash,
+        uint64 preparedAt
+    );
+
+    event CongressFundMinistryDecisionPrepared(
+        bytes32 indexed decisionId,
+        bytes32 indexed officeId,
+        address indexed preparedBy,
+        address token,
+        uint256 amount,
         uint32 supportRequired,
         bytes32 metadataHash,
         uint64 preparedAt
@@ -140,6 +152,26 @@ interface IDecisionApp {
         OfficeTypes.OfficeKind kind,
         string calldata name,
         address admin,
+        bytes32 metadataHash,
+        string calldata metadataURI
+    ) external;
+
+    /// @notice Opens a Congress decision to fund a ministry/office balance in the MinistryTreasury. On majority
+    ///         approval the source wallet's tokens are pulled and credited to the office's balance. Congress-gated
+    ///         so the regular money flow is not subject to citizen-referendum friction.
+    /// @param decisionId The unique decision identifier.
+    /// @param officeId The office/ministry to credit; must already exist.
+    /// @param source The wallet funding the ministry; must approve this app for the amount before execution.
+    /// @param token The ERC20 asset to fund.
+    /// @param amount The amount to fund in the asset's smallest units.
+    /// @param metadataHash The off-chain decision metadata commitment.
+    /// @param metadataURI The off-chain decision metadata location.
+    function createCongressFundMinistryDecision(
+        bytes32 decisionId,
+        bytes32 officeId,
+        address source,
+        address token,
+        uint256 amount,
         bytes32 metadataHash,
         string calldata metadataURI
     ) external;

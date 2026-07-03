@@ -6,10 +6,13 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {ICongressCandidateRegistry} from "../interfaces/ICongressCandidateRegistry.sol";
+import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
 import {IDecisionApp} from "../interfaces/IDecisionApp.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
+import {IMinistryTreasury} from "../interfaces/IMinistryTreasury.sol";
 import {IOfficeRegistry} from "../interfaces/IOfficeRegistry.sol";
 import {IStakeRegistry} from "../interfaces/IStakeRegistry.sol";
+import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {DecisionTypes} from "../types/DecisionTypes.sol";
 import {ElectionTypes} from "../types/ElectionTypes.sol";
 import {OfficeTypes} from "../types/OfficeTypes.sol";
@@ -198,6 +201,47 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
     }
 
     /// @inheritdoc IDecisionApp
+    function createCongressFundMinistryDecision(
+        bytes32 decisionId,
+        bytes32 officeId,
+        address source,
+        address token,
+        uint256 amount,
+        bytes32 metadataHash,
+        string calldata metadataURI
+    ) external {
+        _requireActiveCongressMember(msg.sender);
+        _requireNewDecisionId(decisionId);
+        _validateMinistryFunding(officeId, source, token, amount);
+
+        ElectionTypes.CongressOfficeTerm memory term = _congressCandidateRegistry.getCurrentOfficeTerm();
+        uint32 supportRequired = _requiredCongressSupport(term);
+        uint64 preparedAt = uint64(block.timestamp);
+
+        DecisionTypes.DecisionRecord storage record = _decisionRecords[decisionId];
+        record.decisionId = decisionId;
+        record.scope = DecisionTypes.DecisionScope.Congress;
+        record.action = DecisionTypes.DecisionAction.FundMinistry;
+        record.status = DecisionTypes.DecisionStatus.Prepared;
+        record.congressCycleId = term.cycleId;
+        record.preparedBy = msg.sender;
+        record.officeId = officeId;
+        record.source = source;
+        record.token = token;
+        record.amount = amount;
+        record.metadataHash = metadataHash;
+        record.metadataURI = metadataURI;
+        record.supportRequired = supportRequired;
+        record.preparedAt = preparedAt;
+
+        emit CongressFundMinistryDecisionPrepared(
+            decisionId, officeId, msg.sender, token, amount, supportRequired, metadataHash, preparedAt
+        );
+
+        _recordCongressSupport(decisionId, msg.sender);
+    }
+
+    /// @inheritdoc IDecisionApp
     function supportCongressDecision(bytes32 decisionId) external {
         _recordCongressSupport(decisionId, msg.sender);
     }
@@ -240,6 +284,7 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
         if (
             action != DecisionTypes.DecisionAction.ERC20Transfer
                 && action != DecisionTypes.DecisionAction.RegisterOffice
+                && action != DecisionTypes.DecisionAction.FundMinistry
         ) {
             revert InvalidDecisionAction(action);
         }
@@ -250,6 +295,15 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
 
         if (action == DecisionTypes.DecisionAction.ERC20Transfer) {
             IERC20(record.token).safeTransferFrom(record.source, record.recipient, record.amount);
+        } else if (action == DecisionTypes.DecisionAction.FundMinistry) {
+            // Pull the source's tokens into this app, then credit the office via the MinistryTreasury (which pulls
+            // from this app as its funding authority). Resolving the treasury live means a governed repoint is
+            // honored without changing this app.
+            address ministryTreasury =
+                IConstitutionKernel(_congressCandidateRegistry.kernel()).getModule(KernelModuleIds.MINISTRY_TREASURY);
+            IERC20(record.token).safeTransferFrom(record.source, address(this), record.amount);
+            IERC20(record.token).forceApprove(ministryTreasury, record.amount);
+            IMinistryTreasury(ministryTreasury).fund(record.officeId, record.token, record.amount);
         } else {
             // registerOffice is a trusted intra-system call into the OfficeRegistry (no external hooks); it
             // re-validates uniqueness and reverts if the office id was taken between preparation and execution.
@@ -534,6 +588,24 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
         }
         if (recipient == address(0)) {
             revert InvalidDecisionRecipient(recipient);
+        }
+        if (amount == 0) {
+            revert InvalidDecisionAmount(amount);
+        }
+    }
+
+    function _validateMinistryFunding(bytes32 officeId, address source, address token, uint256 amount) private view {
+        if (officeId == bytes32(0)) {
+            revert InvalidOfficeId(officeId);
+        }
+        if (!_officeRegistry.officeExists(officeId)) {
+            revert MinistryOfficeNotFound(officeId);
+        }
+        if (source == address(0)) {
+            revert InvalidDecisionSource(source);
+        }
+        if (token == address(0) || token.code.length == 0) {
+            revert InvalidDecisionToken(token);
         }
         if (amount == 0) {
             revert InvalidDecisionAmount(amount);

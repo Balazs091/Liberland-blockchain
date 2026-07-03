@@ -4,6 +4,7 @@ pragma solidity 0.8.35;
 import {Test} from "forge-std/Test.sol";
 
 import {DecisionApp} from "../../contracts/apps/DecisionApp.sol";
+import {MinistryTreasury} from "../../contracts/apps/MinistryTreasury.sol";
 import {ConstitutionKernel} from "../../contracts/core/ConstitutionKernel.sol";
 import {IDecisionApp} from "../../contracts/interfaces/IDecisionApp.sol";
 import {KernelModuleIds} from "../../contracts/libraries/KernelModuleIds.sol";
@@ -118,6 +119,65 @@ contract Milestone9DecisionsTest is Test {
         DecisionTypes.DecisionRecord memory executed = decisionApp.getDecision(decisionId);
         assertEq(uint256(executed.status), uint256(DecisionTypes.DecisionStatus.Executed));
         assertEq(executed.executedBy, address(this));
+    }
+
+    function test_CongressDecision_FundsMinistryTreasuryAfterMajoritySupport() public {
+        MinistryTreasury ministryTreasury = new MinistryTreasury(address(kernel));
+        kernel.bootstrapSetModule(KernelModuleIds.OFFICE_REGISTRY, address(officeRegistry));
+        kernel.bootstrapSetModule(KernelModuleIds.MINISTRY_TREASURY, address(ministryTreasury));
+        // DecisionApp is the Congress-decision funding authority the ministry treasury accepts.
+        kernel.bootstrapSetModule(KernelModuleIds.MINISTRY_TREASURY_FUNDING_AUTHORITY, address(decisionApp));
+
+        bytes32 decisionId = keccak256("decision.congress.fund-finance");
+        uint256 amount = 500_000e6;
+        usdc.mint(CONGRESS_SOURCE, amount);
+
+        vm.prank(CONGRESS_MEMBER_ONE);
+        decisionApp.createCongressFundMinistryDecision(
+            decisionId,
+            FINANCE_OFFICE_ID,
+            CONGRESS_SOURCE,
+            address(usdc),
+            amount,
+            keccak256("fund-finance"),
+            "ipfs://fund-finance"
+        );
+
+        DecisionTypes.DecisionRecord memory prepared = decisionApp.getDecision(decisionId);
+        assertEq(uint256(prepared.action), uint256(DecisionTypes.DecisionAction.FundMinistry));
+        assertEq(prepared.officeId, FINANCE_OFFICE_ID);
+        assertEq(prepared.supportCount, 1);
+        assertEq(prepared.supportRequired, 2);
+
+        // Majority not yet reached.
+        vm.expectRevert(abi.encodeWithSelector(IDecisionApp.CongressDecisionNotApproved.selector, decisionId, 1, 2));
+        decisionApp.executeCongressDecision(decisionId);
+
+        vm.prank(CONGRESS_MEMBER_TWO);
+        decisionApp.supportCongressDecision(decisionId);
+
+        vm.prank(CONGRESS_SOURCE);
+        usdc.approve(address(decisionApp), amount);
+
+        decisionApp.executeCongressDecision(decisionId);
+
+        assertEq(ministryTreasury.balanceOf(FINANCE_OFFICE_ID, address(usdc)), amount);
+        assertEq(usdc.balanceOf(CONGRESS_SOURCE), 0);
+        assertEq(uint256(decisionApp.getDecision(decisionId).status), uint256(DecisionTypes.DecisionStatus.Executed));
+    }
+
+    function test_CongressFundMinistryDecision_RevertsForUnknownOffice() public {
+        vm.prank(CONGRESS_MEMBER_ONE);
+        vm.expectRevert(abi.encodeWithSelector(IDecisionApp.MinistryOfficeNotFound.selector, keccak256("office.ghost")));
+        decisionApp.createCongressFundMinistryDecision(
+            keccak256("decision.ghost"),
+            keccak256("office.ghost"),
+            CONGRESS_SOURCE,
+            address(usdc),
+            1e6,
+            keccak256("x"),
+            "ipfs://x"
+        );
     }
 
     function test_CongressDecision_CannotBeApprovedByLaterCongressTerm() public {

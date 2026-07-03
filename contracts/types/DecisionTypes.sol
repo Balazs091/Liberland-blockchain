@@ -17,7 +17,8 @@ library DecisionTypes {
         ERC20Transfer,
         LLMTransferAndStake,
         ClerkStatus,
-        RegisterOffice
+        RegisterOffice,
+        FundMinistry
     }
 
     enum DecisionStatus {
@@ -33,7 +34,7 @@ library DecisionTypes {
         DecisionAction action;
         DecisionStatus status;
         // For Ministry decisions this is the acting office; for a Congress RegisterOffice decision it is the
-        // identifier of the new office to create.
+        // identifier of the new office to create; for a Congress FundMinistry decision it is the office to credit.
         bytes32 officeId;
         uint256 congressCycleId;
         address preparedBy;
