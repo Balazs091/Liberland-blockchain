@@ -425,6 +425,48 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
     }
 
     /// @inheritdoc IUSDCLendingPoolApp
+    function absorbBadDebt(bytes32 borrowerPersonId)
+        external
+        nonReentrant
+        returns (uint256 writtenOffDebt, uint256 coveredByReserves, uint256 supplierShortfall)
+    {
+        _accrueInterest();
+
+        uint256 debt = _storedDebtOf(borrowerPersonId);
+        if (debt == 0) {
+            revert NoDebt(borrowerPersonId);
+        }
+
+        // Bad debt only exists once every seizable unit of surplus stake is gone (liquidators must seize what they
+        // can first). The remaining collateral is the untouchable citizenship floor, so the debt is unrecoverable.
+        StakeTypes.StakeRecord memory stakeRecord = _stakeRegistry.getStakeRecord(borrowerPersonId);
+        uint256 seizableStake = _surplusStakeForRecord(stakeRecord);
+        if (seizableStake != 0) {
+            revert PositionNotBadDebt(borrowerPersonId, seizableStake);
+        }
+
+        writtenOffDebt = debt;
+        // Protocol reserves are first-loss capital and absorb the write-off before suppliers. Any remainder lowers
+        // the LP share value; governance restores it by a referendum-approved treasury disbursement to this pool
+        // (a plain USDC transfer in raises cash and share value), keeping bad debt off the supplier base.
+        coveredByReserves = debt <= _totalReserves ? debt : _totalReserves;
+        supplierShortfall = debt - coveredByReserves;
+
+        _totalReserves -= coveredByReserves;
+        _totalBorrows = _totalBorrows >= debt ? _totalBorrows - debt : 0;
+        _setDebt(borrowerPersonId, 0);
+
+        uint256 residualLien = _stakeLienRegistry.lienedStakeOf(borrowerPersonId);
+        if (residualLien != 0) {
+            _stakeLienRegistry.decreaseLien(borrowerPersonId, residualLien);
+        }
+
+        emit BadDebtAbsorbed(
+            msg.sender, borrowerPersonId, writtenOffDebt, coveredByReserves, supplierShortfall, uint64(block.timestamp)
+        );
+    }
+
+    /// @inheritdoc IUSDCLendingPoolApp
     function claimProtocolReserves(uint256 amount) external nonReentrant {
         _requireAmount(amount);
         _accrueInterest();

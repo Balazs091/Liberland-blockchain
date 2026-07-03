@@ -358,6 +358,56 @@ contract Milestone8LlmBackedUSDCTest is Test {
         assertEq(stakeRegistry.welfareUntilOf(LIQUIDATOR_PERSON_ID), welfareUntil);
     }
 
+    function test_AbsorbBadDebt_RevertsWhileCollateralIsStillSeizable() public {
+        vm.prank(BORROWER);
+        lendingPool.borrow(1_000 * USDC_UNIT);
+
+        // 5,000 LLM of surplus is still seizable, so liquidators must act first — no write-off is allowed yet.
+        vm.expectRevert(
+            abi.encodeWithSelector(IUSDCLendingPoolApp.PositionNotBadDebt.selector, BORROWER_PERSON_ID, 5_000 * ONE_LLM)
+        );
+        lendingPool.absorbBadDebt(BORROWER_PERSON_ID);
+    }
+
+    function test_AbsorbBadDebt_WritesOffResidualAfterCollateralExhausted() public {
+        vm.prank(BORROWER);
+        lendingPool.borrow(1_250 * USDC_UNIT);
+
+        // LLM/USDC price crashes to 0.11 USDC per LLM; governance repoints the manual oracle to the new price.
+        FixedLlmUsdcPriceOraclePolicy crashedOracle = new FixedLlmUsdcPriceOraclePolicy(address(usdc), 110_000);
+        kernel.bootstrapSetModule(KernelModuleIds.LLM_USDC_PRICE_ORACLE_POLICY, address(crashedOracle));
+
+        // A liquidator seizes all 5,000 LLM of surplus by repaying 500 USDC (500 * 1.1 bonus = 550 USDC = 5,000 LLM).
+        usdc.mint(LIQUIDATOR, 500 * USDC_UNIT);
+        vm.startPrank(LIQUIDATOR);
+        usdc.approve(address(lendingPool), 500 * USDC_UNIT);
+        (, uint256 seizedStake) = lendingPool.liquidate(BORROWER_PERSON_ID, 500 * USDC_UNIT);
+        vm.stopPrank();
+        assertEq(seizedStake, 5_000 * ONE_LLM);
+        assertEq(stakeRegistry.activeStakeOf(BORROWER_PERSON_ID), MINIMUM_RETAINED_STAKE);
+
+        uint256 residualDebt = lendingPool.currentDebtOf(BORROWER_PERSON_ID);
+        assertEq(residualDebt, 750 * USDC_UNIT);
+        uint256 managedBefore = lendingPool.totalManagedAssets();
+
+        // Only the untouchable citizenship floor remains, so the residual is unrecoverable and gets written off.
+        (uint256 writtenOff, uint256 coveredByReserves, uint256 supplierShortfall) =
+            lendingPool.absorbBadDebt(BORROWER_PERSON_ID);
+
+        assertEq(writtenOff, 750 * USDC_UNIT);
+        assertEq(coveredByReserves, 0); // no interest accrued in this block, so reserves are empty
+        assertEq(supplierShortfall, 750 * USDC_UNIT);
+        assertEq(lendingPool.currentDebtOf(BORROWER_PERSON_ID), 0);
+        assertEq(lendingPool.totalBorrows(), 0);
+        assertEq(stakeLienRegistry.lienedStakeOf(BORROWER_PERSON_ID), 0);
+        // Suppliers bear the shortfall (share value drops) until the treasury covers it.
+        assertEq(lendingPool.totalManagedAssets(), managedBefore - supplierShortfall);
+
+        // Governance covers it with a treasury disbursement to the pool: a plain USDC transfer in restores value.
+        usdc.mint(address(lendingPool), supplierShortfall);
+        assertEq(lendingPool.totalManagedAssets(), managedBefore);
+    }
+
     /// @notice H2: a person cannot obtain a second active wallet, blocking cross-wallet self-liquidation.
     function test_SamePersonCannotHoldSecondActiveWalletForSelfLiquidation() public {
         address secondBorrowerWallet = address(0xB0AB);

@@ -21,6 +21,7 @@ interface IUSDCLendingPoolApp {
     error InvalidToken(address tokenAddress);
     error LiquidationNotAllowed(bytes32 personId, uint256 healthFactor);
     error NoDebt(bytes32 personId);
+    error PositionNotBadDebt(bytes32 personId, uint256 seizableStake);
     error UnexpectedAssetAmount(uint256 expectedAmount, uint256 actualAmount);
     error WalletNotActive(address wallet);
     error ZeroShares();
@@ -67,6 +68,15 @@ interface IUSDCLendingPoolApp {
     );
 
     event ProtocolReservesClaimed(address indexed receiver, uint256 amount, uint64 claimedAt);
+
+    event BadDebtAbsorbed(
+        address indexed caller,
+        bytes32 indexed borrowerPersonId,
+        uint256 writtenOffDebt,
+        uint256 coveredByReserves,
+        uint256 supplierShortfall,
+        uint64 absorbedAt
+    );
 
     /// @notice Returns the USDC token accepted by the pool.
     /// @return tokenAddress The USDC token address.
@@ -135,6 +145,18 @@ interface IUSDCLendingPoolApp {
     function liquidate(bytes32 borrowerPersonId, uint256 repayAmount)
         external
         returns (uint256 repaidAmount, uint256 seizedStake);
+
+    /// @notice Writes off the unrecoverable debt of a position whose seizable collateral is fully exhausted.
+    /// @dev Callable once liquidators have seized all surplus stake (only the untouchable citizenship floor remains).
+    ///      Protocol reserves absorb the write-off first; any remainder lowers LP share value until governance
+    ///      restores it with a treasury disbursement to this pool.
+    /// @param borrowerPersonId The borrower person identifier to write off.
+    /// @return writtenOffDebt The debt amount cleared.
+    /// @return coveredByReserves The portion absorbed by protocol reserves.
+    /// @return supplierShortfall The portion borne by suppliers until covered by the treasury.
+    function absorbBadDebt(bytes32 borrowerPersonId)
+        external
+        returns (uint256 writtenOffDebt, uint256 coveredByReserves, uint256 supplierShortfall);
 
     /// @notice Transfers accrued protocol reserves to the canonical treasury module.
     /// @param amount The USDC reserve amount to transfer.
