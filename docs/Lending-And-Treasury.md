@@ -26,16 +26,18 @@ Revenue: 15% of borrow interest accrues as protocol reserves, claimable to the `
 
 A single shared contract holding ERC20 balances **per office ID**, so idle ministry/office stablecoins earn instead of sitting. Balances and the controlling roles are keyed by office ID and resolved live from the `OfficeRegistry`, so offices Congress creates later work with no change to this contract.
 
-- **Funding — Congress-controlled.** `fund(officeId, asset, amount)` is gated to the `MINISTRY_TREASURY_FUNDING_AUTHORITY` module (the Congress-decision executor), keeping the regular money flow out of citizen-referendum friction.
+- **Funding — Congress-controlled.** `fund(officeId, asset, amount)` is gated to the `MINISTRY_TREASURY_FUNDING_AUTHORITY` module, which is `DecisionApp`. Congress funds a ministry through a `createCongressFundMinistryDecision` Congress decision: on majority approval it pulls the source wallet's tokens and credits the office's balance, keeping the regular money flow out of citizen-referendum friction.
 - **Spending — minister + limited clerks.** The office admin (minister) spends any amount. Clerks are bound by a per-asset daily limit the minister sets (`setClerkDailyLimit`; default 0 = blocked), with a rolling daily-window reset.
 - **In-house yield.** The minister can `supplyToPool` / `withdrawFromPool` against the lending pool, with per-office share accounting so one office can never redeem another office's shares.
 
 Idle government stablecoins earn the pool's supply rate. Note the inherent constraint: funds earning the borrow spread are withdrawable only up to the pool's available liquidity — a large, fast withdrawal raises utilization and can spike the borrow rate. Mitigate by keeping the global borrow cap conservative, capping the ministry share of the pool so a full exit stays below the interest-rate kink, and holding an operating-cash buffer outside the pool for scheduled payouts.
 
+## Deployment
+
+The demo script (`scripts/DeployDemo.s.sol`) deploys and wires the full stack end-to-end: the stake-lien registry, the launch oracle (1 LLM = 2 USDC), the kinked interest and risk-parameter policies, the lending pool (as its own stake-lien and liquidation authority), and the `MinistryTreasury` (with `DecisionApp` set as its funding authority). Congress can fund a ministry end-to-end via a `FundMinistry` decision. The production script (`scripts/Deploy.s.sol`) still deploys only the core governance set.
+
 ## Remaining work
 
 - **Uniswap V4 TWAP oracle** — build when the pair has liquidity: long TWAP window, spot-vs-TWAP deviation circuit-breaker that pauses borrows (never liquidations), staleness bounds, and a manipulation-cost analysis before raising LTV above 25%.
-- **Deploy wiring** — the lending pool, its policies, and `MinistryTreasury` are not yet deployed by the production or demo scripts (lending is currently test-only). Wire them in with the launch oracle at 2 USDC/LLM.
-- **`FundMinistry` Congress decision** — add the concrete DecisionApp decision type that calls `MinistryTreasury.fund`, so `MINISTRY_TREASURY_FUNDING_AUTHORITY = DecisionApp` funds ministries end-to-end.
 - **Ministry-share cap / operating-buffer limits** — encode the pool-withdrawal-risk guidance as governed limits once ministries are supplying at scale.
 - **Optional** — Dutch-auction liquidation if fixed-bonus liquidations stall; partial lien release (deliberately deferred — full-surplus lock keeps positions maximally over-collateralized, which suits illiquid collateral).

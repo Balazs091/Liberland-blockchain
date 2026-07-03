@@ -11,12 +11,14 @@ import {DecisionApp} from "../contracts/apps/DecisionApp.sol";
 import {HeadOfStateApp} from "../contracts/apps/HeadOfStateApp.sol";
 import {IdentityApp} from "../contracts/apps/IdentityApp.sol";
 import {LandRegistryApp} from "../contracts/apps/LandRegistryApp.sol";
+import {MinistryTreasury} from "../contracts/apps/MinistryTreasury.sol";
 import {OfficeExecutor} from "../contracts/apps/OfficeExecutor.sol";
 import {PayoutQueue} from "../contracts/apps/PayoutQueue.sol";
 import {PublicVetoApp} from "../contracts/apps/PublicVetoApp.sol";
 import {ReferendumApp} from "../contracts/apps/ReferendumApp.sol";
 import {SenateApp} from "../contracts/apps/SenateApp.sol";
 import {TreasuryVault} from "../contracts/apps/TreasuryVault.sol";
+import {USDCLendingPoolApp} from "../contracts/apps/USDCLendingPoolApp.sol";
 import {ActionTimelock} from "../contracts/core/ActionTimelock.sol";
 import {ConstitutionKernel} from "../contracts/core/ConstitutionKernel.sol";
 import {GovernanceRouter} from "../contracts/core/GovernanceRouter.sol";
@@ -29,6 +31,9 @@ import {MockUSDC} from "../contracts/mocks/MockUSDC.sol";
 import {CandidateEligibilityPolicy} from "../contracts/policies/CandidateEligibilityPolicy.sol";
 import {CitizenEligibilityPolicy} from "../contracts/policies/CitizenEligibilityPolicy.sol";
 import {CongressElectionPolicy} from "../contracts/policies/CongressElectionPolicy.sol";
+import {FixedLlmUsdcPriceOraclePolicy} from "../contracts/policies/FixedLlmUsdcPriceOraclePolicy.sol";
+import {KinkedInterestRatePolicy} from "../contracts/policies/KinkedInterestRatePolicy.sol";
+import {LendingRiskParameterPolicy} from "../contracts/policies/LendingRiskParameterPolicy.sol";
 import {OfficePermissionPolicy} from "../contracts/policies/OfficePermissionPolicy.sol";
 import {ReferendumPolicy} from "../contracts/policies/ReferendumPolicy.sol";
 import {SenatePowersPolicy} from "../contracts/policies/SenatePowersPolicy.sol";
@@ -46,6 +51,7 @@ import {OfficeRegistry} from "../contracts/registries/OfficeRegistry.sol";
 import {PresidentRegistry} from "../contracts/registries/PresidentRegistry.sol";
 import {ReferendumRegistry} from "../contracts/registries/ReferendumRegistry.sol";
 import {SenateSeatRegistry} from "../contracts/registries/SenateSeatRegistry.sol";
+import {StakeLienRegistry} from "../contracts/registries/StakeLienRegistry.sol";
 import {StakeRegistry} from "../contracts/registries/StakeRegistry.sol";
 import {ElectionTypes} from "../contracts/types/ElectionTypes.sol";
 import {GovernanceTypes} from "../contracts/types/GovernanceTypes.sol";
@@ -90,6 +96,10 @@ contract DeployDemo is Script {
     uint256 internal constant FINANCE_CLERK_USDC_OPERATIONS_LIMIT = 3_000 * ONE_USDC;
     uint256 internal constant FINANCE_CLERK_USDC_SALARY_LIMIT = 2_000 * ONE_USDC;
     uint256 internal constant DEMO_OPERATIONS_BUDGET_AMOUNT = 1_000 * ONE_USDC;
+    // Launch lending config: 1 LLM = 2 USDC manual oracle, kinked rates (2% base, +8% to the 80% kink, +100% to
+    // full), 25% LTV / 35% liquidation threshold / 10% bonus / 15% reserve, unlimited per-person cap (0).
+    uint256 internal constant LAUNCH_LLM_USDC_PRICE = 2 * ONE_USDC;
+    uint256 internal constant LENDING_BORROW_CAP = 1_000_000 * ONE_USDC;
     uint64 internal constant IDENTITY_MIGRATION_DELAY = 2 days;
     uint64 internal constant PRESIDENT_TERM = 5 * 365 days;
 
@@ -151,6 +161,12 @@ contract DeployDemo is Script {
     CompanyRegistryApp internal _companyRegistryApp;
     PayoutQueue internal _payoutQueue;
     OfficeExecutor internal _officeExecutor;
+    StakeLienRegistry internal _stakeLienRegistry;
+    FixedLlmUsdcPriceOraclePolicy internal _llmUsdcOracle;
+    KinkedInterestRatePolicy internal _lendingInterestRatePolicy;
+    LendingRiskParameterPolicy internal _lendingRiskPolicy;
+    USDCLendingPoolApp internal _lendingPool;
+    MinistryTreasury internal _ministryTreasury;
 
     address internal _financeOfficeAdmin;
     address internal _identityOfficeAdmin;
@@ -169,6 +185,12 @@ contract DeployDemo is Script {
         address demoCitizenGateway;
         address llmToken;
         address usdcToken;
+        address stakeLienRegistry;
+        address llmUsdcOracle;
+        address lendingInterestRatePolicy;
+        address lendingRiskPolicy;
+        address lendingPool;
+        address ministryTreasury;
         address identityRegistry;
         address stakeRegistry;
         address legislationRegistry;
@@ -406,10 +428,26 @@ contract DeployDemo is Script {
             address(_router),
             deployer
         );
+
+        // Stake-backed lending stack (ERC20 money) plus the office-keyed ministry treasury.
+        _stakeLienRegistry = new StakeLienRegistry(address(_kernel), MINIMUM_CITIZEN_STAKE);
+        _llmUsdcOracle = new FixedLlmUsdcPriceOraclePolicy(address(_usdcToken), LAUNCH_LLM_USDC_PRICE);
+        _lendingInterestRatePolicy = new KinkedInterestRatePolicy(200, 800, 10_000, 8e26);
+        _lendingRiskPolicy = new LendingRiskParameterPolicy(2_500, 3_500, 1_000, 1_500, 0);
+        _lendingPool = new USDCLendingPoolApp(
+            address(_kernel),
+            address(_usdcToken),
+            address(_identityRegistry),
+            address(_stakeRegistry),
+            address(_stakeLienRegistry),
+            address(_lendingInterestRatePolicy),
+            LENDING_BORROW_CAP
+        );
+        _ministryTreasury = new MinistryTreasury(address(_kernel));
     }
 
     function _registerBootstrapModules() internal {
-        (bytes32[] memory moduleIds, address[] memory moduleAddresses) = _allocateModuleBatch(45);
+        (bytes32[] memory moduleIds, address[] memory moduleAddresses) = _allocateModuleBatch(54);
         uint256 index;
 
         _setModuleBatchEntry(
@@ -579,6 +617,50 @@ contract DeployDemo is Script {
         // (Prime Minister + Cabinet) after genesis and is not repointed by _switchToFinalDemoWiring.
         _setModuleBatchEntry(
             moduleIds, moduleAddresses, index++, KernelModuleIds.EXECUTIVE_REGISTRY_AUTHORITY, address(_cabinetApp)
+        );
+
+        // Lending stack: the pool is its own stake-lien and liquidation authority; oracle/interest/risk policies are
+        // governed replaceable modules resolved live by the pool.
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.STAKE_LIEN_REGISTRY, address(_stakeLienRegistry)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.STAKE_LIEN_REGISTRY_AUTHORITY, address(_lendingPool)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.STAKE_LIQUIDATION_AUTHORITY, address(_lendingPool)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.LLM_USDC_PRICE_ORACLE_POLICY, address(_llmUsdcOracle)
+        );
+        _setModuleBatchEntry(
+            moduleIds,
+            moduleAddresses,
+            index++,
+            KernelModuleIds.USDC_INTEREST_RATE_POLICY,
+            address(_lendingInterestRatePolicy)
+        );
+        _setModuleBatchEntry(
+            moduleIds,
+            moduleAddresses,
+            index++,
+            KernelModuleIds.LENDING_RISK_PARAMETER_POLICY,
+            address(_lendingRiskPolicy)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.USDC_LENDING_POOL_APP, address(_lendingPool)
+        );
+
+        // Ministry treasury: office-keyed ERC20 funds, funded by Congress decision (DecisionApp is the authority).
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.MINISTRY_TREASURY, address(_ministryTreasury)
+        );
+        _setModuleBatchEntry(
+            moduleIds,
+            moduleAddresses,
+            index++,
+            KernelModuleIds.MINISTRY_TREASURY_FUNDING_AUTHORITY,
+            address(_decisionApp)
         );
 
         _kernel.bootstrapSetModules(moduleIds, moduleAddresses);
@@ -990,6 +1072,12 @@ contract DeployDemo is Script {
         deployment.demoCitizenGateway = address(_demoCitizenGateway);
         deployment.llmToken = address(_llmToken);
         deployment.usdcToken = address(_usdcToken);
+        deployment.stakeLienRegistry = address(_stakeLienRegistry);
+        deployment.llmUsdcOracle = address(_llmUsdcOracle);
+        deployment.lendingInterestRatePolicy = address(_lendingInterestRatePolicy);
+        deployment.lendingRiskPolicy = address(_lendingRiskPolicy);
+        deployment.lendingPool = address(_lendingPool);
+        deployment.ministryTreasury = address(_ministryTreasury);
         deployment.identityRegistry = address(_identityRegistry);
         deployment.stakeRegistry = address(_stakeRegistry);
         deployment.legislationRegistry = address(_legislationRegistry);
@@ -1105,6 +1193,12 @@ contract DeployDemo is Script {
         vm.serializeAddress(deploymentKey, "companyRegistryOfficeAdmin", deployment.companyRegistryOfficeAdmin);
         vm.serializeAddress(deploymentKey, "financeClerk", deployment.financeClerk);
         vm.serializeAddress(deploymentKey, "usdcToken", deployment.usdcToken);
+        vm.serializeAddress(deploymentKey, "stakeLienRegistry", deployment.stakeLienRegistry);
+        vm.serializeAddress(deploymentKey, "llmUsdcOracle", deployment.llmUsdcOracle);
+        vm.serializeAddress(deploymentKey, "lendingInterestRatePolicy", deployment.lendingInterestRatePolicy);
+        vm.serializeAddress(deploymentKey, "lendingRiskPolicy", deployment.lendingRiskPolicy);
+        vm.serializeAddress(deploymentKey, "lendingPool", deployment.lendingPool);
+        vm.serializeAddress(deploymentKey, "ministryTreasury", deployment.ministryTreasury);
         vm.serializeUint(deploymentKey, "treasuryPrefundUsdc", deployment.treasuryPrefundUsdc);
         vm.serializeUint(deploymentKey, "treasuryPrefundLlm", deployment.treasuryPrefundLlm);
         string memory json = vm.serializeUint(deploymentKey, "meritReserveMinted", deployment.meritReserveMinted);
@@ -1123,6 +1217,12 @@ contract DeployDemo is Script {
         console2.log("DemoCitizenGateway:", deployment.demoCitizenGateway);
         console2.log("LLMToken:", deployment.llmToken);
         console2.log("USDCToken:", deployment.usdcToken);
+        console2.log("StakeLienRegistry:", deployment.stakeLienRegistry);
+        console2.log("LLMUSDCOracle:", deployment.llmUsdcOracle);
+        console2.log("LendingInterestRatePolicy:", deployment.lendingInterestRatePolicy);
+        console2.log("LendingRiskPolicy:", deployment.lendingRiskPolicy);
+        console2.log("USDCLendingPool:", deployment.lendingPool);
+        console2.log("MinistryTreasury:", deployment.ministryTreasury);
         console2.log("IdentityRegistry:", deployment.identityRegistry);
         console2.log("StakeRegistry:", deployment.stakeRegistry);
         console2.log("LegislationRegistry:", deployment.legislationRegistry);
