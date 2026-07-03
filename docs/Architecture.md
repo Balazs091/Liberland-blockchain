@@ -21,7 +21,8 @@ The repository implements the milestone stack through bounded decision execution
 - treasury vault, referendum-approved budget envelopes, office roles, and payout queue routing
 - land registry records for parcels, titles, disputes, and encumbrances, mediated by the Land Registry Office
 - company registry records for incorporation submissions, approvals, directors, filings, share classes, and internal share balances, mediated by the Company Registry Office
-- USDC liquidity, stake-backed borrowing, stake liens, utilization-based interest, treasury reserves, and liquidation into active staked LLM
+- stablecoin liquidity, stake-backed borrowing, stake liens, utilization-based interest, treasury reserves, and liquidation into active staked LLM; risk parameters (LTV, liquidation threshold, votable liquidation bonus, reserve factor, per-person cap) and the price oracle are governed replaceable modules, and unrecoverable positions are cleared through a treasury-absorption bad-debt backstop (see `docs/Lending-And-Treasury.md`)
+- office-keyed `MinistryTreasury` holding ERC20 funds per ministry/office, funded by Congress decision, spent by the minister (office admin) with clerks bound to a minister-set daily limit, and able to earn by supplying idle stablecoins to the lending pool in-house
 - Congress and ministry decisions for wallet-approved ERC20 movement, office clerk decisions, LLM transfer-and-stake decisions, and Congress-approved creation of new government offices and ministries
 
 The Sepolia demo script adds seeded read-state and live onboarding helpers without keeping bootstrap authority active after deployment.
@@ -75,7 +76,9 @@ Still future work (acknowledged, not regressions): the Judiciary (Art III), Agen
 - Senate may open a repeal vote at any time for enacted tiers below law; this is implemented as a 7 day Senate vote before finalization, with retryable failed attempts whose old votes do not carry forward
 - land and company registries are fact registries; office apps authorize bounded registry mutations instead of exposing arbitrary execution
 - lending liens are registry facts and are enforced in the stake registry's required active-stake floor, so borrowing cannot be used to bypass unstaking cooldowns
-- lending liquidations transfer seized collateral as active staked LLM to the liquidator's person ID; no liquidation path releases liquid LLM directly
+- lending liquidations transfer seized collateral as active staked LLM to the liquidator's person ID; no liquidation path releases liquid LLM directly. Once liquidators have seized all surplus above the citizenship floor, the residual is unrecoverable and is cleared by a permissionless `absorbBadDebt` write-off — protocol reserves absorb it first, and any remainder is restored by a governed treasury disbursement to the pool
+- the lending pool resolves its risk-parameter policy and price oracle from the kernel, so a governance repoint can retune parameters or swap the launch manual oracle (1 LLM = 2 USDC) for a Uniswap V4 TWAP oracle without redeploying the pool and losing its deposit/debt/interest state
+- the `MinistryTreasury` keys balances by office ID and resolves the controlling minister/clerks from the office registry, so it needs no per-ministry deployment and automatically covers offices created later; funding is gated to a Congress-decision funding-authority module, and one office can never spend or redeem another office's balance or pool shares
 - decisions are bounded typed workflows, not arbitrary executors; token movement requires approval from the source wallet
 - Congress decisions are bound to the Congress term that prepared them, so a later Congress cannot approve or execute stale decisions
 - ministry decisions currently use the office admin wallet as the ministry signer/source wallet until a separate ministry treasury-account model is specified
