@@ -44,8 +44,9 @@ contract MockLendingPool {
 /// @dev Contract stand-in for the Congress-decision funding authority (a contract in production, e.g. DecisionApp).
 contract MockFundingAuthority {
     function fund(MinistryTreasury treasury, bytes32 officeId, address asset, uint256 amount) external {
+        // Acts as both the gating funding authority (caller) and, for the test, the funding source.
         IERC20(asset).approve(address(treasury), amount);
-        treasury.fund(officeId, asset, amount);
+        treasury.fund(officeId, asset, address(this), amount);
     }
 }
 
@@ -113,7 +114,7 @@ contract MinistryTreasuryTest is Test {
         usdc.mint(address(this), 1_000 * USDC_UNIT);
         usdc.approve(address(treasury), 1_000 * USDC_UNIT);
         vm.expectRevert(abi.encodeWithSelector(IMinistryTreasury.UnauthorizedFundingAuthority.selector, address(this)));
-        treasury.fund(FINANCE_OFFICE_ID, address(usdc), 1_000 * USDC_UNIT);
+        treasury.fund(FINANCE_OFFICE_ID, address(usdc), address(this), 1_000 * USDC_UNIT);
 
         _fund(FINANCE_OFFICE_ID, usdc, 1_000 * USDC_UNIT);
         assertEq(treasury.balanceOf(FINANCE_OFFICE_ID, address(usdc)), 1_000 * USDC_UNIT);

@@ -26,6 +26,7 @@ interface IDecisionApp {
     error InvalidOfficeName();
     error OfficeAlreadyRegistered(bytes32 officeId);
     error MinistryOfficeNotFound(bytes32 officeId);
+    error MinistryFundingAuthorityMismatch(address expectedAuthority, address configuredAuthority);
     error InvalidRegistry(address registryAddress);
     error InvalidToken(address tokenAddress);
     error NoActiveCongressTerm();

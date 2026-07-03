@@ -156,8 +156,9 @@ contract Milestone9DecisionsTest is Test {
         vm.prank(CONGRESS_MEMBER_TWO);
         decisionApp.supportCongressDecision(decisionId);
 
+        // Funding source approves the ministry treasury directly (it pulls in a single transfer on execution).
         vm.prank(CONGRESS_SOURCE);
-        usdc.approve(address(decisionApp), amount);
+        usdc.approve(address(ministryTreasury), amount);
 
         decisionApp.executeCongressDecision(decisionId);
 
@@ -172,6 +173,30 @@ contract Milestone9DecisionsTest is Test {
         decisionApp.createCongressFundMinistryDecision(
             keccak256("decision.ghost"),
             keccak256("office.ghost"),
+            CONGRESS_SOURCE,
+            address(usdc),
+            1e6,
+            keccak256("x"),
+            "ipfs://x"
+        );
+    }
+
+    function test_CongressFundMinistryDecision_RevertsWhenFundingNotWiredToDecisionApp() public {
+        MinistryTreasury ministryTreasury = new MinistryTreasury(address(kernel));
+        kernel.bootstrapSetModule(KernelModuleIds.MINISTRY_TREASURY, address(ministryTreasury));
+        // Funding authority wired to a contract other than DecisionApp: the decision would be dead on arrival, so
+        // preparation must reject it up front rather than let Congress approve an unexecutable decision.
+        kernel.bootstrapSetModule(KernelModuleIds.MINISTRY_TREASURY_FUNDING_AUTHORITY, address(officeRegistry));
+
+        vm.prank(CONGRESS_MEMBER_ONE);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IDecisionApp.MinistryFundingAuthorityMismatch.selector, address(decisionApp), address(officeRegistry)
+            )
+        );
+        decisionApp.createCongressFundMinistryDecision(
+            keccak256("decision.unwired"),
+            FINANCE_OFFICE_ID,
             CONGRESS_SOURCE,
             address(usdc),
             1e6,

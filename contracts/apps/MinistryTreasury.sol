@@ -57,16 +57,21 @@ contract MinistryTreasury is KernelModule, ReentrancyGuard, IMinistryTreasury {
     }
 
     /// @inheritdoc IMinistryTreasury
-    function fund(bytes32 officeId, address asset, uint256 amount) external nonReentrant {
+    function fund(bytes32 officeId, address asset, address from, uint256 amount) external nonReentrant {
         if (msg.sender != _kernel.getModule(KernelModuleIds.MINISTRY_TREASURY_FUNDING_AUTHORITY)) {
             revert UnauthorizedFundingAuthority(msg.sender);
         }
         _requireAsset(asset);
         _requireAmount(amount);
+        if (from == address(0)) {
+            revert InvalidRecipient(from);
+        }
         _requireActiveOffice(officeId);
 
+        // The funding source's approved tokens are pulled in a single transfer. Only the gating funding authority
+        // (msg.sender) can trigger this, so the source's approval to this treasury cannot be spent arbitrarily.
         uint256 balanceBefore = IERC20(asset).balanceOf(address(this));
-        IERC20(asset).safeTransferFrom(msg.sender, address(this), amount);
+        IERC20(asset).safeTransferFrom(from, address(this), amount);
         uint256 received = IERC20(asset).balanceOf(address(this)) - balanceBefore;
         if (received != amount) {
             revert UnexpectedAssetAmount(amount, received);
@@ -74,7 +79,7 @@ contract MinistryTreasury is KernelModule, ReentrancyGuard, IMinistryTreasury {
 
         _balances[officeId][asset] += received;
 
-        emit MinistryFunded(officeId, asset, received, msg.sender, uint64(block.timestamp));
+        emit MinistryFunded(officeId, asset, received, from, uint64(block.timestamp));
     }
 
     /// @inheritdoc IMinistryTreasury
@@ -156,6 +161,8 @@ contract MinistryTreasury is KernelModule, ReentrancyGuard, IMinistryTreasury {
         emit MinistryWithdrewFromPool(officeId, received, shares, uint64(block.timestamp));
     }
 
+    /// @dev The window is a per-UTC-day bucket (`block.timestamp / 1 days`), not a trailing 24h rolling window: the
+    ///      spent-today counter resets at 00:00 UTC. A minister who wants tighter control revokes the clerk.
     function _consumeClerkDailyAllowance(bytes32 officeId, address clerk, address asset, uint256 amount) private {
         uint256 dailyLimit = _clerkDailyLimit[officeId][asset];
         uint64 today = _currentDay();

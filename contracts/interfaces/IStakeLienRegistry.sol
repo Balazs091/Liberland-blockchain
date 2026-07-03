@@ -8,7 +8,6 @@ import {IKernelModule} from "./IKernelModule.sol";
 interface IStakeLienRegistry is IKernelModule {
     error InsufficientStakeLien(bytes32 personId, uint256 currentLien, uint256 requestedAmount);
     error InvalidLienAmount(uint256 amount);
-    error InvalidMinimumRetainedStake(uint256 minimumRetainedStake);
     error InvalidPersonId(bytes32 personId);
     error UnauthorizedStakeLienRegistryCaller(address caller);
 

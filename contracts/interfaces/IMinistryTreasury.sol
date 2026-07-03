@@ -52,9 +52,11 @@ interface IMinistryTreasury is IKernelModule {
 
     /// @notice Credits an office's balance. Restricted to the Congress-decision funding authority.
     /// @param officeId The office/ministry to credit.
-    /// @param asset The ERC20 asset (pulled from the caller, which must have approved this treasury).
+    /// @param asset The ERC20 asset to fund.
+    /// @param from The funding source wallet; must have approved this treasury for the amount. Only the gating
+    ///        funding authority (the caller) can trigger the pull, so the approval cannot be spent arbitrarily.
     /// @param amount The amount to fund in the asset's smallest units.
-    function fund(bytes32 officeId, address asset, uint256 amount) external;
+    function fund(bytes32 officeId, address asset, address from, uint256 amount) external;
 
     /// @notice Sets the per-clerk daily spend limit for an asset. Minister (office admin) only.
     function setClerkDailyLimit(bytes32 officeId, address asset, uint256 dailyLimit) external;

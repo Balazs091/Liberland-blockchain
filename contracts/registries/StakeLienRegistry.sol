@@ -2,29 +2,27 @@
 pragma solidity 0.8.35;
 
 import {KernelModule} from "../base/KernelModule.sol";
+import {ICitizenEligibilityPolicy} from "../interfaces/ICitizenEligibilityPolicy.sol";
 import {IStakeLienRegistry} from "../interfaces/IStakeLienRegistry.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 
 /// @title StakeLienRegistry
 /// @notice Stable fact registry for lending liens against active political stake.
 contract StakeLienRegistry is IStakeLienRegistry, KernelModule {
-    uint256 private immutable _minimumRetainedStake;
-
     mapping(bytes32 personId => uint256 lienedStake) private _liens;
 
     /// @param kernelAddress The canonical kernel registry address.
-    /// @param minimumRetainedStake_ The active stake that cannot be pledged as loan collateral.
-    constructor(address kernelAddress, uint256 minimumRetainedStake_) KernelModule(kernelAddress) {
-        if (minimumRetainedStake_ == 0) {
-            revert InvalidMinimumRetainedStake(minimumRetainedStake_);
-        }
-
-        _minimumRetainedStake = minimumRetainedStake_;
-    }
+    constructor(address kernelAddress) KernelModule(kernelAddress) {}
 
     /// @inheritdoc IStakeLienRegistry
+    /// @dev Sourced live from the governed citizenship stake (`CitizenEligibilityPolicy.minimumCitizenStake`) rather
+    ///      than frozen at deployment, so the stake that lending must leave untouchable stays in lockstep with any
+    ///      governed change to the citizenship requirement. Both the stake registry's active-stake floor and the
+    ///      lending pool read this, so they can never diverge from the current citizenship floor.
     function minimumRetainedStake() external view returns (uint256 amount) {
-        return _minimumRetainedStake;
+        return
+            ICitizenEligibilityPolicy(_kernel.getModule(KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY))
+                .minimumCitizenStake();
     }
 
     /// @inheritdoc IStakeLienRegistry

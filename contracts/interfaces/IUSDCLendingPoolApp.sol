@@ -22,6 +22,7 @@ interface IUSDCLendingPoolApp {
     error LiquidationNotAllowed(bytes32 personId, uint256 healthFactor);
     error NoDebt(bytes32 personId);
     error PositionNotBadDebt(bytes32 personId, uint256 seizableStake);
+    error PositionRecoverable(bytes32 personId, uint256 recoverableValue, uint256 debt);
     error UnexpectedAssetAmount(uint256 expectedAmount, uint256 actualAmount);
     error WalletNotActive(address wallet);
     error ZeroShares();

@@ -429,8 +429,9 @@ contract DeployDemo is Script {
             deployer
         );
 
-        // Stake-backed lending stack (ERC20 money) plus the office-keyed ministry treasury.
-        _stakeLienRegistry = new StakeLienRegistry(address(_kernel), MINIMUM_CITIZEN_STAKE);
+        // Stake-backed lending stack (ERC20 money) plus the office-keyed ministry treasury. The lien registry
+        // sources its retained-stake floor live from the citizenship policy, so no floor amount is passed here.
+        _stakeLienRegistry = new StakeLienRegistry(address(_kernel));
         _llmUsdcOracle = new FixedLlmUsdcPriceOraclePolicy(address(_usdcToken), LAUNCH_LLM_USDC_PRICE);
         _lendingInterestRatePolicy = new KinkedInterestRatePolicy(200, 800, 10_000, 8e26);
         _lendingRiskPolicy = new LendingRiskParameterPolicy(2_500, 3_500, 1_000, 1_500, 0);

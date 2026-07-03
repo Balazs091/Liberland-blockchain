@@ -7,6 +7,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 import {IGovernanceRouter} from "../interfaces/IGovernanceRouter.sol";
 import {ICongressElectionPolicy} from "../interfaces/ICongressElectionPolicy.sol";
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
+import {ITreasurySpendingPolicy} from "../interfaces/ITreasurySpendingPolicy.sol";
 import {IBudgetEnvelopeRegistry} from "../interfaces/IBudgetEnvelopeRegistry.sol";
 import {ICitizenEligibilityPolicy} from "../interfaces/ICitizenEligibilityPolicy.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
@@ -957,16 +958,19 @@ contract ReferendumApp is IReferendumApp {
     }
 
     function _validateBudgetProposal(ReferendumTypes.BudgetApprovalProposal calldata proposal) private view {
+        IConstitutionKernel kernel = IConstitutionKernel(_governanceRouter.kernel());
         if (
             proposal.budgetId == bytes32(0) || proposal.budgetLawTextHash == bytes32(0)
                 || proposal.budget.officeId == bytes32(0)
                 || proposal.budget.disbursementType == TreasuryTypes.DisbursementType.Undefined
                 || proposal.budget.asset == address(0) || proposal.budget.asset.code.length == 0
                 || proposal.budget.allocatedAmount == 0 || proposal.budget.endsAt <= proposal.budget.startsAt
-                || IBudgetEnvelopeRegistry(
-                        IConstitutionKernel(_governanceRouter.kernel())
-                            .getModule(KernelModuleIds.BUDGET_ENVELOPE_REGISTRY)
-                    ).budgetExists(proposal.budgetId)
+                || IBudgetEnvelopeRegistry(kernel.getModule(KernelModuleIds.BUDGET_ENVELOPE_REGISTRY))
+                    .budgetExists(proposal.budgetId)
+                // Fail fast: an asset the spending policy does not allow would produce an approved-but-unspendable
+                // budget (payouts require ITreasurySpendingPolicy.isAssetAllowed). Best-effort at creation time.
+                || !ITreasurySpendingPolicy(kernel.getModule(KernelModuleIds.TREASURY_SPENDING_POLICY))
+                    .isAssetAllowed(proposal.budget.asset)
         ) {
             revert InvalidBudgetProposal(proposal.budgetId);
         }

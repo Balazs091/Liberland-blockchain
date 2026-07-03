@@ -12,6 +12,7 @@ import {IUSDCLendingPoolApp} from "../../contracts/interfaces/IUSDCLendingPoolAp
 import {KernelModuleIds} from "../../contracts/libraries/KernelModuleIds.sol";
 import {MockModule} from "../../contracts/mocks/MockModule.sol";
 import {MockUSDC} from "../../contracts/mocks/MockUSDC.sol";
+import {CitizenEligibilityPolicy} from "../../contracts/policies/CitizenEligibilityPolicy.sol";
 import {FixedLlmUsdcPriceOraclePolicy} from "../../contracts/policies/FixedLlmUsdcPriceOraclePolicy.sol";
 import {KinkedInterestRatePolicy} from "../../contracts/policies/KinkedInterestRatePolicy.sol";
 import {LendingRiskParameterPolicy} from "../../contracts/policies/LendingRiskParameterPolicy.sol";
@@ -46,6 +47,7 @@ contract Milestone8LlmBackedUSDCTest is Test {
     IdentityRegistry internal identityRegistry;
     StakeRegistry internal stakeRegistry;
     StakeLienRegistry internal stakeLienRegistry;
+    CitizenEligibilityPolicy internal citizenEligibilityPolicy;
     UnstakingPolicy internal unstakingPolicy;
     MockUSDC internal usdc;
     FixedLlmUsdcPriceOraclePolicy internal oraclePolicy;
@@ -62,7 +64,10 @@ contract Milestone8LlmBackedUSDCTest is Test {
 
         identityRegistry = new IdentityRegistry(address(kernel));
         stakeRegistry = new StakeRegistry(address(kernel));
-        stakeLienRegistry = new StakeLienRegistry(address(kernel), MINIMUM_RETAINED_STAKE);
+        stakeLienRegistry = new StakeLienRegistry(address(kernel));
+        // The lien registry sources the retained floor from the citizenship policy, so it must be registered.
+        citizenEligibilityPolicy =
+            new CitizenEligibilityPolicy(address(identityRegistry), address(stakeRegistry), MINIMUM_RETAINED_STAKE);
         unstakingPolicy = new UnstakingPolicy(address(stakeRegistry), WELFARE_PERIOD, ANNUAL_UNSTAKE_RATE_BPS);
         usdc = new MockUSDC();
         oraclePolicy = new FixedLlmUsdcPriceOraclePolicy(address(usdc), USDC_UNIT);
@@ -80,8 +85,8 @@ contract Milestone8LlmBackedUSDCTest is Test {
             BORROW_CAP
         );
 
-        bytes32[] memory moduleIds = new bytes32[](11);
-        address[] memory moduleAddresses = new address[](11);
+        bytes32[] memory moduleIds = new bytes32[](12);
+        address[] memory moduleAddresses = new address[](12);
 
         moduleIds[0] = KernelModuleIds.IDENTITY_REGISTRY;
         moduleAddresses[0] = address(identityRegistry);
@@ -105,6 +110,8 @@ contract Milestone8LlmBackedUSDCTest is Test {
         moduleAddresses[9] = address(interestRatePolicy);
         moduleIds[10] = KernelModuleIds.LENDING_RISK_PARAMETER_POLICY;
         moduleAddresses[10] = address(riskParameterPolicy);
+        moduleIds[11] = KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY;
+        moduleAddresses[11] = address(citizenEligibilityPolicy);
 
         kernel.bootstrapSetModules(moduleIds, moduleAddresses);
         kernel.bootstrapSetModule(KernelModuleIds.USDC_LENDING_POOL_APP, address(lendingPool));
@@ -406,6 +413,40 @@ contract Milestone8LlmBackedUSDCTest is Test {
         // Governance covers it with a treasury disbursement to the pool: a plain USDC transfer in restores value.
         usdc.mint(address(lendingPool), supplierShortfall);
         assertEq(lendingPool.totalManagedAssets(), managedBefore);
+    }
+
+    function test_AbsorbBadDebt_RevertsWhenRemainingStakeStillCoversDebt() public {
+        vm.prank(BORROWER);
+        lendingPool.borrow(1_000 * USDC_UNIT);
+
+        // Governance raises the borrower's protected floor to their full stake, zeroing seizable surplus even though
+        // the stake is ample. Bad-debt write-off must be refused (the position is recoverable, not insolvent).
+        vm.prank(address(stakeAuthority));
+        stakeRegistry.setProtectedStakeFloor(BORROWER_PERSON_ID, 10_000 * ONE_LLM);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IUSDCLendingPoolApp.PositionRecoverable.selector,
+                BORROWER_PERSON_ID,
+                3_500 * USDC_UNIT, // 10,000 LLM at 1 USDC/LLM * 35% liquidation threshold
+                1_000 * USDC_UNIT
+            )
+        );
+        lendingPool.absorbBadDebt(BORROWER_PERSON_ID);
+    }
+
+    function test_PriceOracleMustPriceThePoolsUsdc() public {
+        // Repoint the oracle module to one that prices a different token; every collateral read must reject it.
+        MockUSDC otherToken = new MockUSDC();
+        FixedLlmUsdcPriceOraclePolicy wrongOracle = new FixedLlmUsdcPriceOraclePolicy(address(otherToken), USDC_UNIT);
+        kernel.bootstrapSetModule(KernelModuleIds.LLM_USDC_PRICE_ORACLE_POLICY, address(wrongOracle));
+
+        vm.expectRevert(abi.encodeWithSelector(IUSDCLendingPoolApp.InvalidToken.selector, address(wrongOracle)));
+        lendingPool.maxBorrowable(BORROWER_PERSON_ID);
+
+        vm.expectRevert(abi.encodeWithSelector(IUSDCLendingPoolApp.InvalidToken.selector, address(wrongOracle)));
+        vm.prank(BORROWER);
+        lendingPool.borrow(100 * USDC_UNIT);
     }
 
     /// @notice H2: a person cannot obtain a second active wallet, blocking cross-wallet self-liquidation.

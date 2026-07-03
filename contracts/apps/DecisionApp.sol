@@ -296,14 +296,12 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
         if (action == DecisionTypes.DecisionAction.ERC20Transfer) {
             IERC20(record.token).safeTransferFrom(record.source, record.recipient, record.amount);
         } else if (action == DecisionTypes.DecisionAction.FundMinistry) {
-            // Pull the source's tokens into this app, then credit the office via the MinistryTreasury (which pulls
-            // from this app as its funding authority). Resolving the treasury live means a governed repoint is
-            // honored without changing this app.
+            // Credit the office directly: the MinistryTreasury pulls the source's approved tokens in a single
+            // transfer (this app is its gating funding authority, so only a Congress-approved decision can trigger
+            // the pull). Resolving the treasury live means a governed repoint is honored without changing this app.
             address ministryTreasury =
                 IConstitutionKernel(_congressCandidateRegistry.kernel()).getModule(KernelModuleIds.MINISTRY_TREASURY);
-            IERC20(record.token).safeTransferFrom(record.source, address(this), record.amount);
-            IERC20(record.token).forceApprove(ministryTreasury, record.amount);
-            IMinistryTreasury(ministryTreasury).fund(record.officeId, record.token, record.amount);
+            IMinistryTreasury(ministryTreasury).fund(record.officeId, record.token, record.source, record.amount);
         } else {
             // registerOffice is a trusted intra-system call into the OfficeRegistry (no external hooks); it
             // re-validates uniqueness and reverts if the office id was taken between preparation and execution.
@@ -609,6 +607,16 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
         }
         if (amount == 0) {
             revert InvalidDecisionAmount(amount);
+        }
+
+        // Fail fast: the funding path must be wired before a decision is prepared, so Congress cannot approve a
+        // FundMinistry decision that can never execute. getModule reverts if the treasury or the funding-authority
+        // module is unregistered; then require this app is that authority (fund() enforces the same at execution).
+        IConstitutionKernel kernel = IConstitutionKernel(_congressCandidateRegistry.kernel());
+        kernel.getModule(KernelModuleIds.MINISTRY_TREASURY);
+        address fundingAuthority = kernel.getModule(KernelModuleIds.MINISTRY_TREASURY_FUNDING_AUTHORITY);
+        if (fundingAuthority != address(this)) {
+            revert MinistryFundingAuthorityMismatch(address(this), fundingAuthority);
         }
     }
 

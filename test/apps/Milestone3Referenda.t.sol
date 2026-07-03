@@ -27,6 +27,8 @@ import {CandidateEligibilityPolicy} from "../../contracts/policies/CandidateElig
 import {CitizenEligibilityPolicy} from "../../contracts/policies/CitizenEligibilityPolicy.sol";
 import {CongressElectionPolicy} from "../../contracts/policies/CongressElectionPolicy.sol";
 import {ReferendumPolicy} from "../../contracts/policies/ReferendumPolicy.sol";
+import {ITreasurySpendingPolicy} from "../../contracts/interfaces/ITreasurySpendingPolicy.sol";
+import {TreasurySpendingPolicy} from "../../contracts/policies/TreasurySpendingPolicy.sol";
 import {VotingPowerPolicy} from "../../contracts/policies/VotingPowerPolicy.sol";
 import {BudgetEnvelopeRegistry} from "../../contracts/registries/BudgetEnvelopeRegistry.sol";
 import {IdentityRegistry} from "../../contracts/registries/IdentityRegistry.sol";
@@ -155,6 +157,7 @@ contract Milestone3ReferendaTest is Test {
     TreasuryVault internal treasuryVault;
     LLMToken internal llmToken;
     BudgetEnvelopeRegistry internal budgetEnvelopeRegistry;
+    TreasurySpendingPolicy internal treasurySpendingPolicy;
     ReferendumPolicy internal referendumPolicy;
     ReferendumApp internal referendumApp;
     MockSenateAppForReferendumFinalization internal mockSenateApp;
@@ -212,9 +215,18 @@ contract Milestone3ReferendaTest is Test {
         llmToken = new LLMToken();
         budgetEnvelopeRegistry = new BudgetEnvelopeRegistry(address(kernel));
         congressElectionPolicy = _deployCongressElectionPolicy(ELECTION_CYCLE_DURATION);
+        // Budget-approval referenda fail-fast if the asset is outside the spending-policy allowlist, so register a
+        // policy that allows the budget asset (LLM) used by the budget test.
+        ITreasurySpendingPolicy.AssetSpendingLimit[] memory spendingLimits =
+            new ITreasurySpendingPolicy.AssetSpendingLimit[](1);
+        spendingLimits[0] = ITreasurySpendingPolicy.AssetSpendingLimit({
+            asset: address(llmToken), clerkOperationsLimit: 1_000 ether, clerkSalaryLimit: 1_000 ether
+        });
+        treasurySpendingPolicy = new TreasurySpendingPolicy(FINANCE_OFFICE_ID, spendingLimits);
         kernel.bootstrapSetModule(KernelModuleIds.LEGISLATION_REGISTRY, address(legislationRegistry));
         kernel.bootstrapSetModule(KernelModuleIds.TREASURY_VAULT, address(treasuryVault));
         kernel.bootstrapSetModule(KernelModuleIds.BUDGET_ENVELOPE_REGISTRY, address(budgetEnvelopeRegistry));
+        kernel.bootstrapSetModule(KernelModuleIds.TREASURY_SPENDING_POLICY, address(treasurySpendingPolicy));
         kernel.bootstrapSetModule(KernelModuleIds.CONGRESS_ELECTION_POLICY, address(congressElectionPolicy));
         referendumPolicy = new ReferendumPolicy(
             address(citizenEligibilityPolicy),
