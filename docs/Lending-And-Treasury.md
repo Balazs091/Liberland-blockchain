@@ -30,7 +30,7 @@ A single shared contract holding ERC20 balances **per office ID**, so idle minis
 - **Spending — minister + limited clerks.** The office admin (minister) spends any amount. Clerks are bound by a per-asset daily limit the minister sets (`setClerkDailyLimit`; default 0 = blocked), with a rolling daily-window reset.
 - **In-house yield.** The minister can `supplyToPool` / `withdrawFromPool` against the lending pool, with per-office share accounting so one office can never redeem another office's shares.
 
-Idle government stablecoins earn the pool's supply rate. Note the inherent constraint: funds earning the borrow spread are withdrawable only up to the pool's available liquidity — a large, fast withdrawal raises utilization and can spike the borrow rate. Mitigate by keeping the global borrow cap conservative, capping the ministry share of the pool so a full exit stays below the interest-rate kink, and holding an operating-cash buffer outside the pool for scheduled payouts.
+Idle government stablecoins earn the pool's supply rate. The supply side is a free market: any address (citizen or not) may supply and withdraw, and there is no cap on the ministry share of the pool. The one inherent constraint is that funds earning the borrow spread are withdrawable only up to the pool's available liquidity — a large, fast withdrawal raises utilization and pushes the borrow rate up. That is left to the market: the kinked rate is self-correcting (a spike pulls in suppliers and pushes borrowers to repay), and a ministry that needs guaranteed short-term liquidity simply keeps an operating-cash buffer outside the pool by choice.
 
 ## Deployment
 
@@ -39,5 +39,6 @@ The demo script (`scripts/DeployDemo.s.sol`) deploys and wires the full stack en
 ## Remaining work
 
 - **Uniswap V4 TWAP oracle** — build when the pair has liquidity: long TWAP window, spot-vs-TWAP deviation circuit-breaker that pauses borrows (never liquidations), staleness bounds, and a manipulation-cost analysis before raising LTV above 25%.
-- **Ministry-share cap / operating-buffer limits** — encode the pool-withdrawal-risk guidance as governed limits once ministries are supplying at scale.
 - **Optional** — Dutch-auction liquidation if fixed-bonus liquidations stall; partial lien release (deliberately deferred — full-surplus lock keeps positions maximally over-collateralized, which suits illiquid collateral).
+
+The lending supply side is intentionally an open free market: anyone may supply/withdraw, and there is no ministry-share cap — utilization and rates are market-driven, with the kinked rate as the self-correcting shock absorber.
