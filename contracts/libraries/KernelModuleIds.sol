@@ -63,5 +63,7 @@ library KernelModuleIds {
     bytes32 internal constant REFERENDUM_APP = keccak256("app.referendum");
     bytes32 internal constant SENATE_APP = keccak256("app.senate");
     bytes32 internal constant USDC_LENDING_POOL_APP = keccak256("app.usdc-lending-pool");
+    bytes32 internal constant MINISTRY_TREASURY = keccak256("app.ministry-treasury");
+    bytes32 internal constant MINISTRY_TREASURY_FUNDING_AUTHORITY = keccak256("authority.ministry-treasury-funding");
     bytes32 internal constant CONSTITUTIONAL_REVIEW = keccak256("app.constitutional-review");
 }
