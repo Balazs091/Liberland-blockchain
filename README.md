@@ -80,4 +80,4 @@ For a production-style deployment, `scripts/Deploy.s.sol` registers `InitialSetu
 
 The audit scope covers the full contract set under `contracts/`, including the Milestone 8 lending modules and the Milestone 9 `DecisionApp`. Deployment scope is separate and script-dependent: `scripts/Deploy.s.sol` (production) deploys the core governance set — neither lending nor `DecisionApp` — while `scripts/DeployDemo.s.sol` additionally deploys `DecisionApp`.
 
-The current demo deploy batches bootstrap module registration and is designed to stay below common public-RPC free-tier limits. Re-check the exact transaction count after deployment-script changes; enabling `TREASURY_PREFUND_WEI` adds one prefund transaction.
+The current demo deploy batches bootstrap module registration and is designed to stay below common public-RPC free-tier limits. Re-check the exact transaction count after deployment-script changes; the demo always sends one USDC treasury-prefund transaction, and a nonzero `TREASURY_PREFUND_LLM` adds another.

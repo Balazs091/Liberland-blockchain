@@ -23,6 +23,7 @@ import {ISenateSeatRegistry} from "../../contracts/interfaces/ISenateSeatRegistr
 import {IStakeRegistry} from "../../contracts/interfaces/IStakeRegistry.sol";
 import {KernelModuleIds} from "../../contracts/libraries/KernelModuleIds.sol";
 import {MockModule} from "../../contracts/mocks/MockModule.sol";
+import {MockUSDC} from "../../contracts/mocks/MockUSDC.sol";
 import {CitizenEligibilityPolicy} from "../../contracts/policies/CitizenEligibilityPolicy.sol";
 import {SenatePowersPolicy} from "../../contracts/policies/SenatePowersPolicy.sol";
 import {IdentityRegistry} from "../../contracts/registries/IdentityRegistry.sol";
@@ -108,6 +109,7 @@ contract Milestone5SenateAndPublicVetoTest is Test {
     ReferendumRegistry internal referendumRegistry;
     PresidentRegistry internal presidentRegistry;
     TreasuryVault internal treasuryVault;
+    MockUSDC internal usdc;
     CitizenEligibilityPolicy internal citizenEligibilityPolicy;
     SenateSeatRegistry internal senateSeatRegistry;
     SenatePowersPolicy internal senatePowersPolicy;
@@ -235,16 +237,16 @@ contract Milestone5SenateAndPublicVetoTest is Test {
         _finalizeActionCancellationAtDeadline(actionId);
 
         assertEq(uint256(timelock.getActionState(actionId)), uint256(GovernanceTypes.ActionState.Canceled));
-        assertEq(address(treasuryVault).balance, 1 ether);
+        assertEq(usdc.balanceOf(address(treasuryVault)), 1_000 * 1e6);
     }
 
     function test_L2_NonOfficeOriginCannotRouteTreasuryDisbursement() public {
         GovernanceTypes.TreasuryDisbursementPayload memory payload = GovernanceTypes.TreasuryDisbursementPayload({
             requestId: TREASURY_REQUEST_ID,
             budgetId: TREASURY_BUDGET_ID,
-            asset: address(0),
+            asset: address(usdc),
             recipient: TREASURY_RECIPIENT,
-            amount: 0.25 ether,
+            amount: 250 * 1e6,
             noteHash: keccak256("treasury-note")
         });
 
@@ -317,7 +319,7 @@ contract Milestone5SenateAndPublicVetoTest is Test {
         timelock.executeAction(actionId);
 
         assertEq(uint256(timelock.getActionState(actionId)), uint256(GovernanceTypes.ActionState.Executed));
-        assertEq(TREASURY_RECIPIENT.balance, 0.25 ether);
+        assertEq(usdc.balanceOf(TREASURY_RECIPIENT), 250 * 1e6);
     }
 
     function test_SenateDisbursementSuspension_RenewalKeepsBlockingPastOriginalWindow() public {
@@ -768,9 +770,8 @@ contract Milestone5SenateAndPublicVetoTest is Test {
         // OfficeExecutor as the configured Office authority to keep queued-disbursement flows testable.
         router.configureOriginAuthority(GovernanceTypes.ActionOrigin.Office, address(mockReferendumApp));
 
-        vm.deal(address(this), 1 ether);
-        (bool funded,) = address(treasuryVault).call{value: 1 ether}("");
-        require(funded, "treasury funding failed");
+        usdc = new MockUSDC();
+        usdc.mint(address(treasuryVault), 1_000 * 1e6);
     }
 
     function _defaultDelayConfig() internal pure returns (GovernanceTypes.TimelockDelayConfig memory config) {
@@ -850,9 +851,9 @@ contract Milestone5SenateAndPublicVetoTest is Test {
         GovernanceTypes.TreasuryDisbursementPayload memory payload = GovernanceTypes.TreasuryDisbursementPayload({
             requestId: TREASURY_REQUEST_ID,
             budgetId: TREASURY_BUDGET_ID,
-            asset: address(0),
+            asset: address(usdc),
             recipient: TREASURY_RECIPIENT,
-            amount: 0.25 ether,
+            amount: 250 * 1e6,
             noteHash: keccak256("treasury-note")
         });
 

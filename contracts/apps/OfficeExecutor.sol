@@ -150,7 +150,7 @@ contract OfficeExecutor is IOfficeExecutor {
             recipient: input.recipient,
             amount: input.amount,
             policyReference: _treasurySpendingPolicy.computePolicyReference(
-                officeId, officeRole, input.disbursementType, input.amount
+                officeId, officeRole, input.disbursementType, input.asset, input.amount
             ),
             noteHash: input.noteHash,
             noteURI: input.noteURI
@@ -159,7 +159,9 @@ contract OfficeExecutor is IOfficeExecutor {
         _payoutQueue.proposePayout(
             normalizedInput,
             uint64(block.timestamp)
-                + _treasurySpendingPolicy.minimumQueueDelay(officeId, officeRole, input.disbursementType, input.amount)
+                + _treasurySpendingPolicy.minimumQueueDelay(
+                    officeId, officeRole, input.disbursementType, input.asset, input.amount
+                )
         );
     }
 
@@ -178,7 +180,7 @@ contract OfficeExecutor is IOfficeExecutor {
             revert UnauthorizedOfficeAction(msg.sender, officeId, OfficeTypes.OfficeActionClass.RoutePayout);
         }
         bytes32 expectedPolicyReference = _treasurySpendingPolicy.computePolicyReference(
-            officeId, officeRole, request.disbursementType, request.amount
+            officeId, officeRole, request.disbursementType, request.asset, request.amount
         );
         if (request.policyReference != expectedPolicyReference) {
             revert UnauthorizedOfficeAction(msg.sender, officeId, OfficeTypes.OfficeActionClass.RoutePayout);

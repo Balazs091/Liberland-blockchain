@@ -85,7 +85,7 @@ contract BudgetEnvelopeRegistry is IBudgetEnvelopeRegistry, KernelModule {
         if (input.disbursementType == TreasuryTypes.DisbursementType.Undefined) {
             revert InvalidBudgetAmount(0);
         }
-        if (input.asset != address(0)) {
+        if (input.asset == address(0)) {
             revert InvalidBudgetAsset(input.asset);
         }
         if (input.allocatedAmount == 0) {

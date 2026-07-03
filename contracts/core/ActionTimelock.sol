@@ -425,7 +425,7 @@ contract ActionTimelock is IActionTimelock {
 
     function _decodeTreasuryBudgetApprovalPayload(bytes memory payloadData, bytes32 actionId, bytes32 targetModule)
         private
-        pure
+        view
         returns (GovernanceTypes.TreasuryBudgetApprovalPayload memory payload)
     {
         if (targetModule != KernelModuleIds.BUDGET_ENVELOPE_REGISTRY || payloadData.length != 256) {
@@ -436,7 +436,7 @@ contract ActionTimelock is IActionTimelock {
         if (
             payload.budgetId == bytes32(0) || payload.officeId == bytes32(0)
                 || payload.disbursementType == TreasuryTypes.DisbursementType.Undefined || payload.allocatedAmount == 0
-                || payload.asset != address(0) || payload.endsAt <= payload.startsAt
+                || payload.asset == address(0) || payload.asset.code.length == 0 || payload.endsAt <= payload.startsAt
         ) {
             revert InvalidActionPayload(actionId);
         }
@@ -444,7 +444,7 @@ contract ActionTimelock is IActionTimelock {
 
     function _decodeTreasuryDisbursementPayload(bytes memory payloadData, bytes32 actionId, bytes32 targetModule)
         private
-        pure
+        view
         returns (GovernanceTypes.TreasuryDisbursementPayload memory payload)
     {
         if (targetModule != KernelModuleIds.TREASURY_VAULT || payloadData.length != 192) {
@@ -452,7 +452,10 @@ contract ActionTimelock is IActionTimelock {
         }
 
         payload = abi.decode(payloadData, (GovernanceTypes.TreasuryDisbursementPayload));
-        if (payload.requestId == bytes32(0) || payload.recipient == address(0) || payload.amount == 0) {
+        if (
+            payload.requestId == bytes32(0) || payload.asset == address(0) || payload.asset.code.length == 0
+                || payload.recipient == address(0) || payload.amount == 0
+        ) {
             revert InvalidActionPayload(actionId);
         }
     }

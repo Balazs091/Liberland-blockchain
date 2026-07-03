@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.35;
 
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+
 import {IGovernanceRouter} from "../interfaces/IGovernanceRouter.sol";
 import {ICongressElectionPolicy} from "../interfaces/ICongressElectionPolicy.sol";
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
@@ -13,7 +16,6 @@ import {IReferendumPolicy} from "../interfaces/IReferendumPolicy.sol";
 import {IReferendumRegistry} from "../interfaces/IReferendumRegistry.sol";
 import {ISenateApp} from "../interfaces/ISenateApp.sol";
 import {IStakeRegistry} from "../interfaces/IStakeRegistry.sol";
-import {ITreasuryVault} from "../interfaces/ITreasuryVault.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
 import {IdentityTypes} from "../types/IdentityTypes.sol";
@@ -26,6 +28,8 @@ import {TreasuryTypes} from "../types/TreasuryTypes.sol";
 /// @title ReferendumApp
 /// @notice User-facing application for bounded referendum proposal, voting, veto, and finalization flows.
 contract ReferendumApp is IReferendumApp {
+    using SafeERC20 for IERC20;
+
     error InvalidPolicy(address policyAddress);
     error InvalidRegistry(address registryAddress);
 
@@ -157,7 +161,6 @@ contract ReferendumApp is IReferendumApp {
     /// @inheritdoc IReferendumApp
     function createCitizenLegislationReferendum(ReferendumTypes.LegislationProposal calldata proposal)
         external
-        payable
         returns (bytes32 referendumId)
     {
         return _createReferendum(
@@ -168,7 +171,6 @@ contract ReferendumApp is IReferendumApp {
     /// @inheritdoc IReferendumApp
     function createCongressLegislationReferendum(ReferendumTypes.LegislationProposal calldata proposal)
         external
-        payable
         returns (bytes32 referendumId)
     {
         return _createReferendum(
@@ -179,7 +181,6 @@ contract ReferendumApp is IReferendumApp {
     /// @inheritdoc IReferendumApp
     function createCongressConstitutionalAmendmentReferendum(ReferendumTypes.LegislationProposal calldata proposal)
         external
-        payable
         returns (bytes32 referendumId)
     {
         return _createReferendum(
@@ -190,14 +191,13 @@ contract ReferendumApp is IReferendumApp {
     /// @inheritdoc IReferendumApp
     function createCitizenCongressElectionPolicyReferendum(
         ReferendumTypes.CongressElectionPolicyProposal calldata proposal
-    ) external payable returns (bytes32 referendumId) {
+    ) external returns (bytes32 referendumId) {
         return _createCongressElectionPolicyReferendum(proposal, ReferendumTypes.ProposalOrigin.Citizen);
     }
 
     /// @inheritdoc IReferendumApp
     function createCongressElectionPolicyReferendum(ReferendumTypes.CongressElectionPolicyProposal calldata proposal)
         external
-        payable
         returns (bytes32 referendumId)
     {
         return _createCongressElectionPolicyReferendum(proposal, ReferendumTypes.ProposalOrigin.Congress);
@@ -206,7 +206,6 @@ contract ReferendumApp is IReferendumApp {
     /// @inheritdoc IReferendumApp
     function createCongressBudgetApprovalReferendum(ReferendumTypes.BudgetApprovalProposal calldata proposal)
         external
-        payable
         returns (bytes32 referendumId)
     {
         ReferendumTypes.ReferendumClass referendumClass = ReferendumTypes.ReferendumClass.BudgetApproval;
@@ -231,7 +230,6 @@ contract ReferendumApp is IReferendumApp {
     /// @inheritdoc IReferendumApp
     function createCitizenModuleGovernanceReferendum(ReferendumTypes.ModuleGovernanceProposal calldata proposal)
         external
-        payable
         returns (bytes32 referendumId)
     {
         return _createModuleGovernanceReferendum(proposal, ReferendumTypes.ProposalOrigin.Citizen);
@@ -240,7 +238,6 @@ contract ReferendumApp is IReferendumApp {
     /// @inheritdoc IReferendumApp
     function createCongressModuleGovernanceReferendum(ReferendumTypes.ModuleGovernanceProposal calldata proposal)
         external
-        payable
         returns (bytes32 referendumId)
     {
         return _createModuleGovernanceReferendum(proposal, ReferendumTypes.ProposalOrigin.Congress);
@@ -493,17 +490,16 @@ contract ReferendumApp is IReferendumApp {
         }
     }
 
+    /// @dev Proposal fees are ERC20 (the policy's fee asset, LLM by convention) pulled straight into the treasury
+    ///      vault, so the proposer must approve this app for the fee before creating a referendum.
     function _collectProposalFee(uint256 requiredFee) private {
-        if (msg.value != requiredFee) {
-            revert InvalidProposalFee(requiredFee);
-        }
         if (requiredFee == 0) {
             return;
         }
 
         address treasuryVault =
             IConstitutionKernel(_governanceRouter.kernel()).getModule(KernelModuleIds.TREASURY_VAULT);
-        ITreasuryVault(treasuryVault).receiveNativeDeposit{value: requiredFee}(keccak256("referendum.proposal-fee"));
+        IERC20(_referendumPolicy.proposalFeeAsset()).safeTransferFrom(msg.sender, treasuryVault, requiredFee);
     }
 
     /// @dev O(n) over the whole identity set, so constitutional-tier referendum-creation gas is bounded by the
@@ -965,8 +961,8 @@ contract ReferendumApp is IReferendumApp {
             proposal.budgetId == bytes32(0) || proposal.budgetLawTextHash == bytes32(0)
                 || proposal.budget.officeId == bytes32(0)
                 || proposal.budget.disbursementType == TreasuryTypes.DisbursementType.Undefined
-                || proposal.budget.asset != address(0) || proposal.budget.allocatedAmount == 0
-                || proposal.budget.endsAt <= proposal.budget.startsAt
+                || proposal.budget.asset == address(0) || proposal.budget.asset.code.length == 0
+                || proposal.budget.allocatedAmount == 0 || proposal.budget.endsAt <= proposal.budget.startsAt
                 || IBudgetEnvelopeRegistry(
                         IConstitutionKernel(_governanceRouter.kernel())
                             .getModule(KernelModuleIds.BUDGET_ENVELOPE_REGISTRY)

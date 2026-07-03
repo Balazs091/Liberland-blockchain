@@ -7,7 +7,6 @@ import {ReferendumTypes} from "../types/ReferendumTypes.sol";
 /// @notice User-facing interface for bounded referendum proposal, voting, veto, and finalization flows.
 interface IReferendumApp {
     error InvalidLegislationTier(uint8 legislationTier);
-    error InvalidProposalFee(uint256 requiredFee);
     error InvalidProposedCongressElectionPolicy(address policyAddress);
     error InvalidProposerOrigin(address proposer, ReferendumTypes.ProposalOrigin proposalOrigin);
     error InvalidProposerReference(address proposer);
@@ -109,7 +108,6 @@ interface IReferendumApp {
     /// @return referendumId The created referendum identifier.
     function createCitizenLegislationReferendum(ReferendumTypes.LegislationProposal calldata proposal)
         external
-        payable
         returns (bytes32 referendumId);
 
     /// @notice Creates a Congress-origin referendum for legislation enactment.
@@ -117,7 +115,6 @@ interface IReferendumApp {
     /// @return referendumId The created referendum identifier.
     function createCongressLegislationReferendum(ReferendumTypes.LegislationProposal calldata proposal)
         external
-        payable
         returns (bytes32 referendumId);
 
     /// @notice Creates a Congress-origin constitutional-amendment referendum.
@@ -125,7 +122,6 @@ interface IReferendumApp {
     /// @return referendumId The created referendum identifier.
     function createCongressConstitutionalAmendmentReferendum(ReferendumTypes.LegislationProposal calldata proposal)
         external
-        payable
         returns (bytes32 referendumId);
 
     /// @notice Creates a citizen-origin referendum to replace the Congress election policy module.
@@ -133,14 +129,13 @@ interface IReferendumApp {
     /// @return referendumId The created referendum identifier.
     function createCitizenCongressElectionPolicyReferendum(
         ReferendumTypes.CongressElectionPolicyProposal calldata proposal
-    ) external payable returns (bytes32 referendumId);
+    ) external returns (bytes32 referendumId);
 
     /// @notice Creates a Congress-origin referendum to replace the Congress election policy module.
     /// @param proposal The Congress election policy proposal payload.
     /// @return referendumId The created referendum identifier.
     function createCongressElectionPolicyReferendum(ReferendumTypes.CongressElectionPolicyProposal calldata proposal)
         external
-        payable
         returns (bytes32 referendumId);
 
     /// @notice Creates a Congress-origin referendum to approve a budget law.
@@ -148,7 +143,6 @@ interface IReferendumApp {
     /// @return referendumId The created referendum identifier.
     function createCongressBudgetApprovalReferendum(ReferendumTypes.BudgetApprovalProposal calldata proposal)
         external
-        payable
         returns (bytes32 referendumId);
 
     /// @notice Creates a citizen-origin referendum to register or replace a bounded kernel module pointer.
@@ -156,7 +150,6 @@ interface IReferendumApp {
     /// @return referendumId The created referendum identifier.
     function createCitizenModuleGovernanceReferendum(ReferendumTypes.ModuleGovernanceProposal calldata proposal)
         external
-        payable
         returns (bytes32 referendumId);
 
     /// @notice Creates a Congress-origin referendum to register or replace a bounded kernel module pointer.
@@ -164,7 +157,6 @@ interface IReferendumApp {
     /// @return referendumId The created referendum identifier.
     function createCongressModuleGovernanceReferendum(ReferendumTypes.ModuleGovernanceProposal calldata proposal)
         external
-        payable
         returns (bytes32 referendumId);
 
     /// @notice Records a vote on an active referendum using the caller's current voting power.

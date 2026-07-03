@@ -20,6 +20,7 @@ import {TreasuryVault} from "../contracts/apps/TreasuryVault.sol";
 import {ActionTimelock} from "../contracts/core/ActionTimelock.sol";
 import {ConstitutionKernel} from "../contracts/core/ConstitutionKernel.sol";
 import {GovernanceRouter} from "../contracts/core/GovernanceRouter.sol";
+import {ITreasurySpendingPolicy} from "../contracts/interfaces/ITreasurySpendingPolicy.sol";
 import {KernelModuleIds} from "../contracts/libraries/KernelModuleIds.sol";
 import {CandidateEligibilityPolicy} from "../contracts/policies/CandidateEligibilityPolicy.sol";
 import {CitizenEligibilityPolicy} from "../contracts/policies/CitizenEligibilityPolicy.sol";
@@ -72,8 +73,6 @@ contract Deploy is Script {
     uint32 internal constant SENATE_CANCELLATION_THRESHOLD = 2;
     uint64 internal constant DISBURSEMENT_SUSPENSION_PERIOD = 30 days;
     uint256 internal constant PUBLIC_VETO_THRESHOLD = 2;
-    uint256 internal constant FINANCE_CLERK_OPERATIONS_LIMIT = 3 ether;
-    uint256 internal constant FINANCE_CLERK_SALARY_LIMIT = 2 ether;
     uint64 internal constant IDENTITY_MIGRATION_DELAY = 2 days;
     uint64 internal constant PRESIDENT_TERM = 5 * 365 days;
 
@@ -124,6 +123,8 @@ contract Deploy is Script {
     address internal _identityOfficeAdmin;
     address internal _landOfficeAdmin;
     address internal _companyRegistryOfficeAdmin;
+    address internal _llmTokenAddress;
+    ITreasurySpendingPolicy.AssetSpendingLimit[] internal _treasuryAssetLimits;
     uint256 internal _genesisCitizenCount;
     uint32 internal _genesisSenateSeatCount;
     uint32 internal _genesisCongressSeatCount;
@@ -136,6 +137,7 @@ contract Deploy is Script {
 
     struct Deployment {
         address deployer;
+        address llmToken;
         address kernel;
         address timelock;
         address router;
@@ -204,6 +206,12 @@ contract Deploy is Script {
             "office admins must differ from deployer"
         );
 
+        // System money is ERC20: LLM (governance/merit) plus the configured treasury spending assets (stablecoins
+        // such as USDC/USDS). Native ETH is gas-only and has no treasury role, so both inputs are mandatory.
+        _llmTokenAddress = vm.envAddress("LLM_TOKEN");
+        require(_llmTokenAddress != address(0) && _llmTokenAddress.code.length != 0, "LLM_TOKEN must be a contract");
+        _loadTreasuryAssetLimits();
+
         vm.startBroadcast(deployerPrivateKey);
         _deployCore(deployer);
         _deployRegistries();
@@ -219,6 +227,29 @@ contract Deploy is Script {
 
         _writeDeploymentJson(deployment);
         _logDeployment(deployment);
+    }
+
+    /// @dev Reads the governed treasury spending asset set (TREASURY_ASSET_COUNT plus indexed ADDRESS and clerk
+    ///      limit entries). Every configured asset must be a deployed ERC20 with nonzero clerk limits; the policy
+    ///      constructor re-validates and rejects duplicates.
+    function _loadTreasuryAssetLimits() internal {
+        uint256 assetCount = vm.envUint("TREASURY_ASSET_COUNT");
+        require(assetCount != 0, "TREASURY_ASSET_COUNT must be at least 1");
+
+        for (uint256 index = 0; index < assetCount; ++index) {
+            address asset = vm.envAddress(_indexedGenesisKey("TREASURY_ASSET_", index, "_ADDRESS"));
+            require(asset != address(0) && asset.code.length != 0, "treasury asset must be a contract");
+
+            _treasuryAssetLimits.push(
+                ITreasurySpendingPolicy.AssetSpendingLimit({
+                    asset: asset,
+                    clerkOperationsLimit: vm.envUint(
+                        _indexedGenesisKey("TREASURY_ASSET_", index, "_CLERK_OPERATIONS_LIMIT")
+                    ),
+                    clerkSalaryLimit: vm.envUint(_indexedGenesisKey("TREASURY_ASSET_", index, "_CLERK_SALARY_LIMIT"))
+                })
+            );
+        }
     }
 
     function _deployCore(address deployer) internal {
@@ -292,6 +323,7 @@ contract Deploy is Script {
             address(_citizenEligibilityPolicy),
             address(_votingPowerPolicy),
             address(_congressElectionApp),
+            _llmTokenAddress,
             0,
             0,
             CITIZEN_QUORUM,
@@ -329,8 +361,7 @@ contract Deploy is Script {
             address(_officeRegistry)
         );
         _officePermissionPolicy = new OfficePermissionPolicy();
-        _treasurySpendingPolicy =
-            new TreasurySpendingPolicy(FINANCE_OFFICE_ID, FINANCE_CLERK_OPERATIONS_LIMIT, FINANCE_CLERK_SALARY_LIMIT);
+        _treasurySpendingPolicy = new TreasurySpendingPolicy(FINANCE_OFFICE_ID, _treasuryAssetLimits);
         _identityApp = new IdentityApp(
             address(_identityRegistry), address(_officeRegistry), IDENTITY_OFFICE_ID, IDENTITY_MIGRATION_DELAY
         );
@@ -805,6 +836,7 @@ contract Deploy is Script {
 
     function _snapshot(address deployer) internal view returns (Deployment memory deployment) {
         deployment.deployer = deployer;
+        deployment.llmToken = _llmTokenAddress;
         deployment.kernel = address(_kernel);
         deployment.timelock = address(_timelock);
         deployment.router = address(_router);
@@ -862,6 +894,7 @@ contract Deploy is Script {
 
         vm.serializeUint(deploymentKey, "chainId", block.chainid);
         vm.serializeAddress(deploymentKey, "deployer", deployment.deployer);
+        vm.serializeAddress(deploymentKey, "llmToken", deployment.llmToken);
         vm.serializeAddress(deploymentKey, "constitutionKernel", deployment.kernel);
         vm.serializeAddress(deploymentKey, "actionTimelock", deployment.timelock);
         vm.serializeAddress(deploymentKey, "governanceRouter", deployment.router);
@@ -920,6 +953,7 @@ contract Deploy is Script {
 
     function _logDeployment(Deployment memory deployment) internal view {
         console2.log("Deployer:", deployment.deployer);
+        console2.log("LLMToken:", deployment.llmToken);
         console2.log("Chain ID:", block.chainid);
         console2.log("ConstitutionKernel:", deployment.kernel);
         console2.log("ActionTimelock:", deployment.timelock);

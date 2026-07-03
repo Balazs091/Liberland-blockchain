@@ -27,7 +27,9 @@ import {ISenateApp} from "../../contracts/interfaces/ISenateApp.sol";
 import {ITreasuryVault} from "../../contracts/interfaces/ITreasuryVault.sol";
 import {ITreasurySpendingPolicy} from "../../contracts/interfaces/ITreasurySpendingPolicy.sol";
 import {KernelModuleIds} from "../../contracts/libraries/KernelModuleIds.sol";
+import {LLMToken} from "../../contracts/mocks/LLMToken.sol";
 import {MockModule} from "../../contracts/mocks/MockModule.sol";
+import {MockUSDC} from "../../contracts/mocks/MockUSDC.sol";
 import {CitizenEligibilityPolicy} from "../../contracts/policies/CitizenEligibilityPolicy.sol";
 import {OfficePermissionPolicy} from "../../contracts/policies/OfficePermissionPolicy.sol";
 import {SenatePowersPolicy} from "../../contracts/policies/SenatePowersPolicy.sol";
@@ -59,8 +61,9 @@ contract Milestone6TreasuryAndOfficesTest is Test {
     uint256 internal constant MINIMUM_CITIZEN_STAKE = 5_000;
     uint32 internal constant SENATE_CANCELLATION_THRESHOLD = 2;
     uint64 internal constant DISBURSEMENT_SUSPENSION_PERIOD = 30 days;
-    uint256 internal constant FINANCE_CLERK_OPERATIONS_LIMIT = 3 ether;
-    uint256 internal constant FINANCE_CLERK_SALARY_LIMIT = 2 ether;
+    uint256 internal constant ONE_USDC = 1e6;
+    uint256 internal constant FINANCE_CLERK_OPERATIONS_LIMIT = 3_000 * ONE_USDC;
+    uint256 internal constant FINANCE_CLERK_SALARY_LIMIT = 2_000 * ONE_USDC;
 
     bytes32 internal constant FINANCE_OFFICE_ID = keccak256("office.ministry-finance");
     bytes32 internal constant IDENTITY_OFFICE_ID = keccak256("office.identity");
@@ -100,6 +103,7 @@ contract Milestone6TreasuryAndOfficesTest is Test {
     MockReferendumAppForTreasury internal mockReferendumApp;
     SenateApp internal senateApp;
     TreasuryVault internal treasuryVault;
+    MockUSDC internal usdc;
     BudgetEnvelopeRegistry internal budgetEnvelopeRegistry;
     OfficeRegistry internal officeRegistry;
     OfficePermissionPolicy internal officePermissionPolicy;
@@ -125,9 +129,7 @@ contract Milestone6TreasuryAndOfficesTest is Test {
         router.disableBootstrapAuthority();
         kernel.disableBootstrapAuthority();
 
-        vm.deal(address(this), 25 ether);
-        (bool funded,) = address(treasuryVault).call{value: 10 ether}("");
-        assertTrue(funded);
+        usdc.mint(address(treasuryVault), 10_000 * ONE_USDC);
     }
 
     function test_Milestone6InterfacesExposeSelectors() public pure {
@@ -138,16 +140,54 @@ contract Milestone6TreasuryAndOfficesTest is Test {
         assertTrue(IOfficeRegistry.registerOffice.selector != bytes4(0));
         assertTrue(IPayoutQueue.syncPayoutState.selector != bytes4(0));
         assertTrue(ISenateApp.supportActionCancellation.selector != bytes4(0));
-        assertTrue(ITreasuryVault.receiveNativeDeposit.selector != bytes4(0));
+        assertTrue(ITreasuryVault.receiveTokenDeposit.selector != bytes4(0));
         assertTrue(ITreasurySpendingPolicy.isPayoutAllowed.selector != bytes4(0));
     }
 
-    function test_TreasuryVault_ReceivesNativeDepositsThroughExplicitEntrypoint() public {
-        uint256 balanceBefore = address(treasuryVault).balance;
+    function test_TreasuryVault_ReceivesTokenDepositsThroughExplicitEntrypoint() public {
+        uint256 balanceBefore = treasuryVault.treasuryBalanceOf(address(usdc));
 
-        treasuryVault.receiveNativeDeposit{value: 1 ether}(keccak256("test.deposit"));
+        usdc.mint(address(this), 100 * ONE_USDC);
+        usdc.approve(address(treasuryVault), 100 * ONE_USDC);
+        treasuryVault.receiveTokenDeposit(address(usdc), 100 * ONE_USDC, keccak256("test.deposit"));
 
-        assertEq(address(treasuryVault).balance, balanceBefore + 1 ether);
+        assertEq(treasuryVault.treasuryBalanceOf(address(usdc)), balanceBefore + 100 * ONE_USDC);
+    }
+
+    function test_TreasuryVault_RejectsNativeValue() public {
+        vm.deal(address(this), 1 ether);
+        (bool accepted,) = address(treasuryVault).call{value: 1 ether}("");
+        assertFalse(accepted);
+    }
+
+    function test_ProposePayout_RejectsAssetOutsideAllowlist() public {
+        LLMToken rogueToken = new LLMToken();
+        _approveBudget(OPERATIONS_BUDGET_ID, 10_000 * ONE_USDC);
+
+        vm.prank(MINISTER_OF_FINANCE);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IOfficeExecutor.UnauthorizedOfficeAction.selector,
+                MINISTER_OF_FINANCE,
+                FINANCE_OFFICE_ID,
+                OfficeTypes.OfficeActionClass.ProposePayout
+            )
+        );
+        officeExecutor.proposePayout(
+            FINANCE_OFFICE_ID,
+            TreasuryTypes.DisbursementRequestInput({
+                requestId: keccak256("rogue-asset-payout"),
+                budgetId: OPERATIONS_BUDGET_ID,
+                officeId: FINANCE_OFFICE_ID,
+                disbursementType: TreasuryTypes.DisbursementType.Operations,
+                asset: address(rogueToken),
+                recipient: TREASURY_RECIPIENT,
+                amount: 1_000 * ONE_USDC,
+                policyReference: bytes32(0),
+                noteHash: keccak256("rogue-asset"),
+                noteURI: "ipfs://rogue-asset"
+            })
+        );
     }
 
     function test_OfficeAdminsCanChooseClerksWithinTheirOwnOffice() public {
@@ -213,9 +253,9 @@ contract Milestone6TreasuryAndOfficesTest is Test {
                 budgetId: OPERATIONS_BUDGET_ID,
                 officeId: COMPANY_REGISTRY_OFFICE_ID,
                 disbursementType: TreasuryTypes.DisbursementType.Operations,
-                asset: address(0),
+                asset: address(usdc),
                 recipient: TREASURY_RECIPIENT,
-                amount: 1 ether,
+                amount: 1_000 * ONE_USDC,
                 policyReference: bytes32(0),
                 noteHash: keccak256("company-registry"),
                 noteURI: "ipfs://company-registry"
@@ -232,15 +272,15 @@ contract Milestone6TreasuryAndOfficesTest is Test {
             FINANCE_OFFICE_ID,
             OPERATIONS_BUDGET_ID,
             TreasuryTypes.DisbursementType.Operations,
-            address(0),
-            8 ether,
+            address(usdc),
+            8_000 * ONE_USDC,
             uint64(block.timestamp),
             uint64(block.timestamp + 30 days)
         );
     }
 
     function test_ReferendumBudgetApproval_IsExecutableThroughTimelock() public {
-        bytes32 actionId = _queueBudgetApprovalFromReferendum(OPERATIONS_BUDGET_ID, 8 ether);
+        bytes32 actionId = _queueBudgetApprovalFromReferendum(OPERATIONS_BUDGET_ID, 8_000 * ONE_USDC);
 
         assertEq(uint256(timelock.getActionState(actionId)), uint256(GovernanceTypes.ActionState.Queued));
         assertFalse(budgetEnvelopeRegistry.budgetExists(OPERATIONS_BUDGET_ID));
@@ -253,15 +293,15 @@ contract Milestone6TreasuryAndOfficesTest is Test {
         assertEq(budgetEnvelope.budgetId, OPERATIONS_BUDGET_ID);
         assertEq(budgetEnvelope.officeId, FINANCE_OFFICE_ID);
         assertEq(uint256(budgetEnvelope.disbursementType), uint256(TreasuryTypes.DisbursementType.Operations));
-        assertEq(budgetEnvelope.allocatedAmount, 8 ether);
+        assertEq(budgetEnvelope.allocatedAmount, 8_000 * ONE_USDC);
         assertEq(budgetEnvelope.spentAmount, 0);
         assertEq(budgetEnvelope.committedAmount, 0);
         assertTrue(budgetEnvelopeRegistry.isBudgetActive(OPERATIONS_BUDGET_ID));
-        assertEq(budgetEnvelopeRegistry.availableAmount(OPERATIONS_BUDGET_ID), 8 ether);
+        assertEq(budgetEnvelopeRegistry.availableAmount(OPERATIONS_BUDGET_ID), 8_000 * ONE_USDC);
     }
 
     function test_SenateCanVetoQueuedBudgetApproval() public {
-        bytes32 actionId = _queueBudgetApprovalFromReferendum(VETO_BUDGET_ID, 4 ether);
+        bytes32 actionId = _queueBudgetApprovalFromReferendum(VETO_BUDGET_ID, 4_000 * ONE_USDC);
 
         vm.prank(SENATOR_ONE);
         senateApp.supportActionCancellation(actionId, 0);
@@ -278,7 +318,7 @@ contract Milestone6TreasuryAndOfficesTest is Test {
         vm.prank(MINISTER_OF_FINANCE);
         officeExecutor.assignClerk(FINANCE_OFFICE_ID, FINANCE_CLERK);
 
-        _approveBudget(OPERATIONS_BUDGET_ID, 10 ether);
+        _approveBudget(OPERATIONS_BUDGET_ID, 10_000 * ONE_USDC);
 
         vm.prank(FINANCE_CLERK);
         officeExecutor.proposePayout(
@@ -288,9 +328,9 @@ contract Milestone6TreasuryAndOfficesTest is Test {
                 budgetId: OPERATIONS_BUDGET_ID,
                 officeId: FINANCE_OFFICE_ID,
                 disbursementType: TreasuryTypes.DisbursementType.Operations,
-                asset: address(0),
+                asset: address(usdc),
                 recipient: TREASURY_RECIPIENT,
-                amount: 1 ether,
+                amount: 1_000 * ONE_USDC,
                 policyReference: bytes32(0),
                 noteHash: keccak256("ops-payout"),
                 noteURI: "ipfs://ops-payout"
@@ -299,7 +339,7 @@ contract Milestone6TreasuryAndOfficesTest is Test {
 
         TreasuryTypes.DisbursementRequest memory request = payoutQueue.getDisbursementRequest(PAYOUT_REQUEST_ID);
         assertEq(uint256(request.state), uint256(TreasuryTypes.DisbursementState.Proposed));
-        assertEq(request.amount, 1 ether);
+        assertEq(request.amount, 1_000 * ONE_USDC);
 
         vm.warp(request.routeAfter);
 
@@ -312,7 +352,7 @@ contract Milestone6TreasuryAndOfficesTest is Test {
 
         TreasuryTypes.BudgetEnvelope memory budgetEnvelope =
             budgetEnvelopeRegistry.getBudgetEnvelope(OPERATIONS_BUDGET_ID);
-        assertEq(budgetEnvelope.committedAmount, 1 ether);
+        assertEq(budgetEnvelope.committedAmount, 1_000 * ONE_USDC);
         assertEq(budgetEnvelope.spentAmount, 0);
 
         vm.warp(block.timestamp + 2 days);
@@ -323,18 +363,18 @@ contract Milestone6TreasuryAndOfficesTest is Test {
         budgetEnvelope = budgetEnvelopeRegistry.getBudgetEnvelope(OPERATIONS_BUDGET_ID);
 
         assertEq(uint256(request.state), uint256(TreasuryTypes.DisbursementState.Executed));
-        assertEq(address(treasuryVault).balance, 9 ether);
-        assertEq(TREASURY_RECIPIENT.balance, 1 ether);
+        assertEq(usdc.balanceOf(address(treasuryVault)), 9_000 * ONE_USDC);
+        assertEq(usdc.balanceOf(TREASURY_RECIPIENT), 1_000 * ONE_USDC);
         assertEq(budgetEnvelope.committedAmount, 0);
-        assertEq(budgetEnvelope.spentAmount, 1 ether);
-        assertEq(budgetEnvelopeRegistry.availableAmount(OPERATIONS_BUDGET_ID), 9 ether);
+        assertEq(budgetEnvelope.spentAmount, 1_000 * ONE_USDC);
+        assertEq(budgetEnvelopeRegistry.availableAmount(OPERATIONS_BUDGET_ID), 9_000 * ONE_USDC);
     }
 
     function test_SenateCanVetoQueuedPayoutAndReleaseBudgetCommitment() public {
         vm.prank(MINISTER_OF_FINANCE);
         officeExecutor.assignClerk(FINANCE_OFFICE_ID, FINANCE_CLERK);
 
-        _approveBudget(OPERATIONS_BUDGET_ID, 5 ether);
+        _approveBudget(OPERATIONS_BUDGET_ID, 5_000 * ONE_USDC);
 
         vm.prank(FINANCE_CLERK);
         officeExecutor.proposePayout(
@@ -344,9 +384,9 @@ contract Milestone6TreasuryAndOfficesTest is Test {
                 budgetId: OPERATIONS_BUDGET_ID,
                 officeId: FINANCE_OFFICE_ID,
                 disbursementType: TreasuryTypes.DisbursementType.Operations,
-                asset: address(0),
+                asset: address(usdc),
                 recipient: TREASURY_RECIPIENT,
-                amount: 2 ether,
+                amount: 2_000 * ONE_USDC,
                 policyReference: bytes32(0),
                 noteHash: keccak256("veto-payout"),
                 noteURI: "ipfs://veto-payout"
@@ -374,8 +414,8 @@ contract Milestone6TreasuryAndOfficesTest is Test {
         assertEq(uint256(request.state), uint256(TreasuryTypes.DisbursementState.Vetoed));
         assertEq(budgetEnvelope.committedAmount, 0);
         assertEq(budgetEnvelope.spentAmount, 0);
-        assertEq(TREASURY_RECIPIENT.balance, 0);
-        assertEq(address(treasuryVault).balance, 10 ether);
+        assertEq(usdc.balanceOf(TREASURY_RECIPIENT), 0);
+        assertEq(usdc.balanceOf(address(treasuryVault)), 10_000 * ONE_USDC);
     }
 
     function test_NonFinanceOfficeCannotProposeTreasuryPayout() public {
@@ -395,9 +435,9 @@ contract Milestone6TreasuryAndOfficesTest is Test {
                 budgetId: OPERATIONS_BUDGET_ID,
                 officeId: IDENTITY_OFFICE_ID,
                 disbursementType: TreasuryTypes.DisbursementType.Operations,
-                asset: address(0),
+                asset: address(usdc),
                 recipient: TREASURY_RECIPIENT,
-                amount: 1 ether,
+                amount: 1_000 * ONE_USDC,
                 policyReference: bytes32(0),
                 noteHash: keccak256("identity"),
                 noteURI: "ipfs://identity"
@@ -435,12 +475,19 @@ contract Milestone6TreasuryAndOfficesTest is Test {
             address(mockReferendumApp)
         );
 
+        usdc = new MockUSDC();
         treasuryVault = new TreasuryVault(address(kernel));
         budgetEnvelopeRegistry = new BudgetEnvelopeRegistry(address(kernel));
         officeRegistry = new OfficeRegistry(address(kernel));
         officePermissionPolicy = new OfficePermissionPolicy();
-        treasurySpendingPolicy =
-            new TreasurySpendingPolicy(FINANCE_OFFICE_ID, FINANCE_CLERK_OPERATIONS_LIMIT, FINANCE_CLERK_SALARY_LIMIT);
+        ITreasurySpendingPolicy.AssetSpendingLimit[] memory assetLimits =
+            new ITreasurySpendingPolicy.AssetSpendingLimit[](1);
+        assetLimits[0] = ITreasurySpendingPolicy.AssetSpendingLimit({
+            asset: address(usdc),
+            clerkOperationsLimit: FINANCE_CLERK_OPERATIONS_LIMIT,
+            clerkSalaryLimit: FINANCE_CLERK_SALARY_LIMIT
+        });
+        treasurySpendingPolicy = new TreasurySpendingPolicy(FINANCE_OFFICE_ID, assetLimits);
         payoutQueue = new PayoutQueue(address(kernel), address(budgetEnvelopeRegistry));
         officeExecutor = new OfficeExecutor(
             address(officeRegistry),
@@ -543,7 +590,7 @@ contract Milestone6TreasuryAndOfficesTest is Test {
                 budgetId: budgetId,
                 officeId: FINANCE_OFFICE_ID,
                 disbursementType: TreasuryTypes.DisbursementType.Operations,
-                asset: address(0),
+                asset: address(usdc),
                 allocatedAmount: allocatedAmount,
                 startsAt: uint64(block.timestamp),
                 endsAt: uint64(block.timestamp + 30 days),
@@ -551,6 +598,7 @@ contract Milestone6TreasuryAndOfficesTest is Test {
                     FINANCE_OFFICE_ID,
                     OfficeTypes.OfficeRole.Admin,
                     TreasuryTypes.DisbursementType.Operations,
+                    address(usdc),
                     allocatedAmount
                 )
             });

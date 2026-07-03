@@ -21,9 +21,11 @@ import {ActionTimelock} from "../contracts/core/ActionTimelock.sol";
 import {ConstitutionKernel} from "../contracts/core/ConstitutionKernel.sol";
 import {GovernanceRouter} from "../contracts/core/GovernanceRouter.sol";
 import {KernelModuleIds} from "../contracts/libraries/KernelModuleIds.sol";
+import {ITreasurySpendingPolicy} from "../contracts/interfaces/ITreasurySpendingPolicy.sol";
 import {DemoCitizenGateway} from "../contracts/mocks/DemoCitizenGateway.sol";
 import {DemoSetupAuthority} from "../contracts/mocks/DemoSetupAuthority.sol";
 import {LLMToken} from "../contracts/mocks/LLMToken.sol";
+import {MockUSDC} from "../contracts/mocks/MockUSDC.sol";
 import {CandidateEligibilityPolicy} from "../contracts/policies/CandidateEligibilityPolicy.sol";
 import {CitizenEligibilityPolicy} from "../contracts/policies/CitizenEligibilityPolicy.sol";
 import {CongressElectionPolicy} from "../contracts/policies/CongressElectionPolicy.sol";
@@ -81,9 +83,13 @@ contract DeployDemo is Script {
     uint32 internal constant SENATE_CANCELLATION_THRESHOLD = 2;
     uint64 internal constant DISBURSEMENT_SUSPENSION_PERIOD = 30 days;
     uint256 internal constant PUBLIC_VETO_THRESHOLD = 2;
-    uint256 internal constant FINANCE_CLERK_OPERATIONS_LIMIT = 3 ether;
-    uint256 internal constant FINANCE_CLERK_SALARY_LIMIT = 2 ether;
-    uint256 internal constant DEMO_OPERATIONS_BUDGET_AMOUNT = 1 ether;
+    // One whole USDC in base units (USDC uses 6 decimals).
+    uint256 internal constant ONE_USDC = 10 ** 6;
+    uint256 internal constant FINANCE_CLERK_LLM_OPERATIONS_LIMIT = 3_000 * ONE_LLM;
+    uint256 internal constant FINANCE_CLERK_LLM_SALARY_LIMIT = 2_000 * ONE_LLM;
+    uint256 internal constant FINANCE_CLERK_USDC_OPERATIONS_LIMIT = 3_000 * ONE_USDC;
+    uint256 internal constant FINANCE_CLERK_USDC_SALARY_LIMIT = 2_000 * ONE_USDC;
+    uint256 internal constant DEMO_OPERATIONS_BUDGET_AMOUNT = 1_000 * ONE_USDC;
     uint64 internal constant IDENTITY_MIGRATION_DELAY = 2 days;
     uint64 internal constant PRESIDENT_TERM = 5 * 365 days;
 
@@ -123,6 +129,7 @@ contract DeployDemo is Script {
     DemoSetupAuthority internal _demoAuthority;
     DemoCitizenGateway internal _demoCitizenGateway;
     LLMToken internal _llmToken;
+    MockUSDC internal _usdcToken;
     CitizenEligibilityPolicy internal _citizenEligibilityPolicy;
     UnstakingPolicy internal _unstakingPolicy;
     VotingPowerPolicy internal _votingPowerPolicy;
@@ -150,7 +157,8 @@ contract DeployDemo is Script {
     address internal _landOfficeAdmin;
     address internal _companyRegistryOfficeAdmin;
     address internal _financeClerk;
-    uint256 internal _treasuryPrefundWei;
+    uint256 internal _treasuryPrefundUsdc;
+    uint256 internal _treasuryPrefundLlm;
 
     struct Deployment {
         address deployer;
@@ -160,6 +168,7 @@ contract DeployDemo is Script {
         address demoAuthority;
         address demoCitizenGateway;
         address llmToken;
+        address usdcToken;
         address identityRegistry;
         address stakeRegistry;
         address legislationRegistry;
@@ -208,7 +217,8 @@ contract DeployDemo is Script {
         address landOfficeAdmin;
         address companyRegistryOfficeAdmin;
         address financeClerk;
-        uint256 treasuryPrefundWei;
+        uint256 treasuryPrefundUsdc;
+        uint256 treasuryPrefundLlm;
         uint256 meritReserveMinted;
     }
 
@@ -221,7 +231,8 @@ contract DeployDemo is Script {
         _landOfficeAdmin = vm.envOr("LAND_ADMIN", address(0xCAFE));
         _companyRegistryOfficeAdmin = vm.envOr("COMPANY_REGISTRY_ADMIN", deployer);
         _financeClerk = vm.envOr("FINANCE_CLERK", address(0xD00D));
-        _treasuryPrefundWei = vm.envOr("TREASURY_PREFUND_WEI", uint256(0));
+        _treasuryPrefundUsdc = vm.envOr("TREASURY_PREFUND_USDC", uint256(0));
+        _treasuryPrefundLlm = vm.envOr("TREASURY_PREFUND_LLM", uint256(0));
 
         vm.startBroadcast(deployerPrivateKey);
 
@@ -232,7 +243,7 @@ contract DeployDemo is Script {
         _registerBootstrapModules();
         _seedDemoState(deployer);
         _switchToFinalDemoWiring();
-        _prefundTreasuryIfConfigured();
+        _prefundTreasury();
         _officeExecutor.disableBootstrapAuthority();
         _router.disableBootstrapAuthority();
         _kernel.disableBootstrapAuthority();
@@ -286,6 +297,7 @@ contract DeployDemo is Script {
 
     function _deployPoliciesAndApps(address deployer) internal {
         _llmToken = new LLMToken();
+        _usdcToken = new MockUSDC();
         _citizenEligibilityPolicy =
             new CitizenEligibilityPolicy(address(_identityRegistry), address(_stakeRegistry), MINIMUM_CITIZEN_STAKE);
         _unstakingPolicy = new UnstakingPolicy(address(_stakeRegistry), WELFARE_PERIOD, ANNUAL_UNSTAKE_RATE_BPS);
@@ -327,6 +339,7 @@ contract DeployDemo is Script {
             address(_citizenEligibilityPolicy),
             address(_votingPowerPolicy),
             address(_congressElectionApp),
+            address(_llmToken),
             0,
             0,
             CITIZEN_QUORUM,
@@ -371,8 +384,7 @@ contract DeployDemo is Script {
             address(_officeRegistry)
         );
         _officePermissionPolicy = new OfficePermissionPolicy();
-        _treasurySpendingPolicy =
-            new TreasurySpendingPolicy(FINANCE_OFFICE_ID, FINANCE_CLERK_OPERATIONS_LIMIT, FINANCE_CLERK_SALARY_LIMIT);
+        _treasurySpendingPolicy = new TreasurySpendingPolicy(FINANCE_OFFICE_ID, _treasurySpendingAssetLimits());
         _identityApp = new IdentityApp(
             address(_identityRegistry), address(_officeRegistry), IDENTITY_OFFICE_ID, IDENTITY_MIGRATION_DELAY
         );
@@ -716,7 +728,7 @@ contract DeployDemo is Script {
             TreasuryTypes.BudgetEnvelopeInput({
                 officeId: FINANCE_OFFICE_ID,
                 disbursementType: TreasuryTypes.DisbursementType.Operations,
-                asset: address(0),
+                asset: address(_usdcToken),
                 allocatedAmount: DEMO_OPERATIONS_BUDGET_AMOUNT,
                 startsAt: uint64(block.timestamp - 1 hours),
                 endsAt: uint64(block.timestamp + 30 days),
@@ -724,6 +736,7 @@ contract DeployDemo is Script {
                     FINANCE_OFFICE_ID,
                     OfficeTypes.OfficeRole.Admin,
                     TreasuryTypes.DisbursementType.Operations,
+                    address(_usdcToken),
                     DEMO_OPERATIONS_BUDGET_AMOUNT
                 )
             })
@@ -902,13 +915,31 @@ contract DeployDemo is Script {
         });
     }
 
-    function _prefundTreasuryIfConfigured() internal {
-        if (_treasuryPrefundWei == 0) {
-            return;
-        }
+    function _treasurySpendingAssetLimits()
+        internal
+        view
+        returns (ITreasurySpendingPolicy.AssetSpendingLimit[] memory assetLimits)
+    {
+        assetLimits = new ITreasurySpendingPolicy.AssetSpendingLimit[](2);
+        assetLimits[0] = ITreasurySpendingPolicy.AssetSpendingLimit({
+            asset: address(_llmToken),
+            clerkOperationsLimit: FINANCE_CLERK_LLM_OPERATIONS_LIMIT,
+            clerkSalaryLimit: FINANCE_CLERK_LLM_SALARY_LIMIT
+        });
+        assetLimits[1] = ITreasurySpendingPolicy.AssetSpendingLimit({
+            asset: address(_usdcToken),
+            clerkOperationsLimit: FINANCE_CLERK_USDC_OPERATIONS_LIMIT,
+            clerkSalaryLimit: FINANCE_CLERK_USDC_SALARY_LIMIT
+        });
+    }
 
-        (bool success,) = address(_treasuryVault).call{value: _treasuryPrefundWei}("");
-        require(success, "treasury prefund failed");
+    /// @dev Demo money is ERC20 only: the vault is always funded with enough USDC to cover the seeded demo budget,
+    ///      plus any optional env-configured USDC/LLM top-ups. Native ETH is gas-only and never treasury money.
+    function _prefundTreasury() internal {
+        _usdcToken.mint(address(_treasuryVault), DEMO_OPERATIONS_BUDGET_AMOUNT + _treasuryPrefundUsdc);
+        if (_treasuryPrefundLlm != 0) {
+            _llmToken.mint(address(_treasuryVault), _treasuryPrefundLlm);
+        }
     }
 
     function _congressElectionPolicyReference() internal view returns (bytes32 policyReference) {
@@ -958,6 +989,7 @@ contract DeployDemo is Script {
         deployment.demoAuthority = address(_demoAuthority);
         deployment.demoCitizenGateway = address(_demoCitizenGateway);
         deployment.llmToken = address(_llmToken);
+        deployment.usdcToken = address(_usdcToken);
         deployment.identityRegistry = address(_identityRegistry);
         deployment.stakeRegistry = address(_stakeRegistry);
         deployment.legislationRegistry = address(_legislationRegistry);
@@ -1008,7 +1040,8 @@ contract DeployDemo is Script {
         deployment.landOfficeAdmin = _landOfficeAdmin;
         deployment.companyRegistryOfficeAdmin = _companyRegistryOfficeAdmin;
         deployment.financeClerk = _financeClerk;
-        deployment.treasuryPrefundWei = _treasuryPrefundWei;
+        deployment.treasuryPrefundUsdc = DEMO_OPERATIONS_BUDGET_AMOUNT + _treasuryPrefundUsdc;
+        deployment.treasuryPrefundLlm = _treasuryPrefundLlm;
         deployment.meritReserveMinted = _llmToken.balanceOf(address(_demoCitizenGateway));
     }
 
@@ -1071,7 +1104,9 @@ contract DeployDemo is Script {
         vm.serializeAddress(deploymentKey, "landOfficeAdmin", deployment.landOfficeAdmin);
         vm.serializeAddress(deploymentKey, "companyRegistryOfficeAdmin", deployment.companyRegistryOfficeAdmin);
         vm.serializeAddress(deploymentKey, "financeClerk", deployment.financeClerk);
-        vm.serializeUint(deploymentKey, "treasuryPrefundWei", deployment.treasuryPrefundWei);
+        vm.serializeAddress(deploymentKey, "usdcToken", deployment.usdcToken);
+        vm.serializeUint(deploymentKey, "treasuryPrefundUsdc", deployment.treasuryPrefundUsdc);
+        vm.serializeUint(deploymentKey, "treasuryPrefundLlm", deployment.treasuryPrefundLlm);
         string memory json = vm.serializeUint(deploymentKey, "meritReserveMinted", deployment.meritReserveMinted);
 
         string memory path = string.concat(vm.projectRoot(), "/deployments/sepolia-demo.json");
@@ -1087,6 +1122,7 @@ contract DeployDemo is Script {
         console2.log("DemoSetupAuthority:", deployment.demoAuthority);
         console2.log("DemoCitizenGateway:", deployment.demoCitizenGateway);
         console2.log("LLMToken:", deployment.llmToken);
+        console2.log("USDCToken:", deployment.usdcToken);
         console2.log("IdentityRegistry:", deployment.identityRegistry);
         console2.log("StakeRegistry:", deployment.stakeRegistry);
         console2.log("LegislationRegistry:", deployment.legislationRegistry);
@@ -1123,7 +1159,8 @@ contract DeployDemo is Script {
         console2.log("Land Office Admin:", deployment.landOfficeAdmin);
         console2.log("Company Registry Office Admin:", deployment.companyRegistryOfficeAdmin);
         console2.log("Finance Clerk:", deployment.financeClerk);
-        console2.log("Treasury Prefund Wei:", deployment.treasuryPrefundWei);
+        console2.log("Treasury Prefund USDC:", deployment.treasuryPrefundUsdc);
+        console2.log("Treasury Prefund LLM:", deployment.treasuryPrefundLlm);
         console2.log("Merit Reserve Minted:", deployment.meritReserveMinted);
     }
 }

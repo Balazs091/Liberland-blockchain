@@ -402,7 +402,7 @@ contract ReferendumRegistry is IReferendumRegistry, KernelModule {
         if (
             budgetDetails.officeId == bytes32(0)
                 || budgetDetails.disbursementType == TreasuryTypes.DisbursementType.Undefined
-                || budgetDetails.asset != address(0) || budgetDetails.allocatedAmount == 0
+                || budgetDetails.asset == address(0) || budgetDetails.allocatedAmount == 0
                 || budgetDetails.endsAt <= budgetDetails.startsAt
         ) {
             revert InvalidBudgetPayload(budgetId);

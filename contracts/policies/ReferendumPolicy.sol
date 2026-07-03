@@ -15,6 +15,7 @@ contract ReferendumPolicy is IReferendumPolicy {
     error InvalidAuthority(address authority);
     error InvalidConstitutionalStakeThresholdBps(uint16 thresholdBps);
     error InvalidPolicy(address policyAddress);
+    error InvalidProposalFeeAsset(address assetAddress);
     error InvalidQuorum(uint256 quorum);
     error UnsupportedProposalOrigin(ReferendumTypes.ProposalOrigin proposalOrigin);
     error UnsupportedReferendumClass(ReferendumTypes.ReferendumClass referendumClass);
@@ -29,6 +30,7 @@ contract ReferendumPolicy is IReferendumPolicy {
     uint64 internal constant MAXIMUM_ADOPTION_DELAY = 7 days;
 
     address private immutable _congressProposalAuthority;
+    address private immutable _proposalFeeAsset;
     uint256 private immutable _citizenProposalFee;
     uint256 private immutable _congressProposalFee;
     uint256 private immutable _citizenQuorum;
@@ -40,6 +42,7 @@ contract ReferendumPolicy is IReferendumPolicy {
     /// @param citizenEligibilityPolicyAddress The citizen eligibility policy address.
     /// @param votingPowerPolicyAddress The voting power policy address.
     /// @param congressProposalAuthority_ The Congress app used to validate real Congress proposal authority.
+    /// @param proposalFeeAsset_ The ERC20 token proposal fees are denominated in (LLM by convention).
     /// @param citizenProposalFee_ The fee configured for citizen-origin proposals.
     /// @param congressProposalFee_ The fee configured for Congress-origin proposals.
     /// @param citizenQuorum_ The minimum turnout required for citizen-origin referenda.
@@ -51,6 +54,7 @@ contract ReferendumPolicy is IReferendumPolicy {
         address citizenEligibilityPolicyAddress,
         address votingPowerPolicyAddress,
         address congressProposalAuthority_,
+        address proposalFeeAsset_,
         uint256 citizenProposalFee_,
         uint256 congressProposalFee_,
         uint256 citizenQuorum_,
@@ -68,6 +72,9 @@ contract ReferendumPolicy is IReferendumPolicy {
         if (congressProposalAuthority_ == address(0) || congressProposalAuthority_.code.length == 0) {
             revert InvalidAuthority(congressProposalAuthority_);
         }
+        if (proposalFeeAsset_ == address(0) || proposalFeeAsset_.code.length == 0) {
+            revert InvalidProposalFeeAsset(proposalFeeAsset_);
+        }
         if (citizenQuorum_ == 0 || congressQuorum_ == 0) {
             revert InvalidQuorum(citizenQuorum_ == 0 ? citizenQuorum_ : congressQuorum_);
         }
@@ -78,6 +85,7 @@ contract ReferendumPolicy is IReferendumPolicy {
         _citizenEligibilityPolicy = ICitizenEligibilityPolicy(citizenEligibilityPolicyAddress);
         _votingPowerPolicy = IVotingPowerPolicy(votingPowerPolicyAddress);
         _congressProposalAuthority = congressProposalAuthority_;
+        _proposalFeeAsset = proposalFeeAsset_;
         _citizenProposalFee = citizenProposalFee_;
         _congressProposalFee = congressProposalFee_;
         _citizenQuorum = citizenQuorum_;
@@ -125,6 +133,11 @@ contract ReferendumPolicy is IReferendumPolicy {
     /// @inheritdoc IReferendumPolicy
     function maximumAdoptionDelay() external pure returns (uint64 duration) {
         return MAXIMUM_ADOPTION_DELAY;
+    }
+
+    /// @inheritdoc IReferendumPolicy
+    function proposalFeeAsset() external view returns (address assetAddress) {
+        return _proposalFeeAsset;
     }
 
     /// @inheritdoc IReferendumPolicy

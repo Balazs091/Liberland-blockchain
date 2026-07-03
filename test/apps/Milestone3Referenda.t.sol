@@ -20,6 +20,7 @@ import {IReferendumRegistry} from "../../contracts/interfaces/IReferendumRegistr
 import {IStakeRegistry} from "../../contracts/interfaces/IStakeRegistry.sol";
 import {IVotingPowerPolicy} from "../../contracts/interfaces/IVotingPowerPolicy.sol";
 import {KernelModuleIds} from "../../contracts/libraries/KernelModuleIds.sol";
+import {LLMToken} from "../../contracts/mocks/LLMToken.sol";
 import {MockCongressAuthority} from "../../contracts/mocks/MockCongressAuthority.sol";
 import {MockModule} from "../../contracts/mocks/MockModule.sol";
 import {CandidateEligibilityPolicy} from "../../contracts/policies/CandidateEligibilityPolicy.sol";
@@ -152,6 +153,7 @@ contract Milestone3ReferendaTest is Test {
     LegislationRegistry internal legislationRegistry;
     ReferendumRegistry internal referendumRegistry;
     TreasuryVault internal treasuryVault;
+    LLMToken internal llmToken;
     BudgetEnvelopeRegistry internal budgetEnvelopeRegistry;
     ReferendumPolicy internal referendumPolicy;
     ReferendumApp internal referendumApp;
@@ -207,6 +209,7 @@ contract Milestone3ReferendaTest is Test {
         legislationRegistry = new LegislationRegistry(address(kernel));
         referendumRegistry = new ReferendumRegistry(address(kernel));
         treasuryVault = new TreasuryVault(address(kernel));
+        llmToken = new LLMToken();
         budgetEnvelopeRegistry = new BudgetEnvelopeRegistry(address(kernel));
         congressElectionPolicy = _deployCongressElectionPolicy(ELECTION_CYCLE_DURATION);
         kernel.bootstrapSetModule(KernelModuleIds.LEGISLATION_REGISTRY, address(legislationRegistry));
@@ -217,6 +220,7 @@ contract Milestone3ReferendaTest is Test {
             address(citizenEligibilityPolicy),
             address(votingPowerPolicy),
             address(congressAuthority),
+            address(llmToken),
             0,
             0,
             CITIZEN_QUORUM,
@@ -305,6 +309,7 @@ contract Milestone3ReferendaTest is Test {
             address(citizenEligibilityPolicy),
             address(votingPowerPolicy),
             address(congressAuthority),
+            address(llmToken),
             proposalFee,
             0,
             CITIZEN_QUORUM,
@@ -325,13 +330,16 @@ contract Milestone3ReferendaTest is Test {
         kernel.governanceUpdateModule(KernelModuleIds.REFERENDUM_REGISTRY_AUTHORITY, address(feeApp));
 
         ReferendumTypes.LegislationProposal memory proposal = _defaultProposal("measure-fee", "proposal-fee", "law-fee");
-        uint256 treasuryBalanceBefore = address(treasuryVault).balance;
+        uint256 treasuryBalanceBefore = llmToken.balanceOf(address(treasuryVault));
 
-        vm.deal(WALLET_ONE, proposalFee);
+        llmToken.mint(WALLET_ONE, proposalFee);
         vm.prank(WALLET_ONE);
-        bytes32 referendumId = feeApp.createCitizenLegislationReferendum{value: proposalFee}(proposal);
+        llmToken.approve(address(feeApp), proposalFee);
+        vm.prank(WALLET_ONE);
+        bytes32 referendumId = feeApp.createCitizenLegislationReferendum(proposal);
 
-        assertEq(address(treasuryVault).balance, treasuryBalanceBefore + proposalFee);
+        assertEq(llmToken.balanceOf(address(treasuryVault)), treasuryBalanceBefore + proposalFee);
+        assertEq(llmToken.balanceOf(WALLET_ONE), 0);
         ReferendumTypes.ReferendumRecord memory referendumRecord = referendumRegistry.getReferendum(referendumId);
         _assertCreatedReferendum(referendumId, referendumRecord, proposal, PERSON_ONE_ID);
     }
@@ -1021,7 +1029,7 @@ contract Milestone3ReferendaTest is Test {
             budget: ReferendumTypes.BudgetApprovalDetails({
                 officeId: FINANCE_OFFICE_ID,
                 disbursementType: TreasuryTypes.DisbursementType.Operations,
-                asset: address(0),
+                asset: address(llmToken),
                 allocatedAmount: 8 ether,
                 startsAt: uint64(block.timestamp),
                 endsAt: uint64(block.timestamp + 90 days)

@@ -4,6 +4,9 @@ pragma solidity 0.8.35;
 import {Test} from "forge-std/Test.sol";
 
 import {Deploy} from "../../scripts/Deploy.s.sol";
+import {ITreasurySpendingPolicy} from "../../contracts/interfaces/ITreasurySpendingPolicy.sol";
+import {LLMToken} from "../../contracts/mocks/LLMToken.sol";
+import {MockUSDC} from "../../contracts/mocks/MockUSDC.sol";
 import {IConstitutionKernel} from "../../contracts/interfaces/IConstitutionKernel.sol";
 import {IdentityTypes} from "../../contracts/types/IdentityTypes.sol";
 import {OfficeTypes} from "../../contracts/types/OfficeTypes.sol";
@@ -16,6 +19,20 @@ contract DeployGenesisHarness is Deploy {
         _identityOfficeAdmin = address(0x1D);
         _landOfficeAdmin = address(0x1A2D);
         _companyRegistryOfficeAdmin = address(0xC0);
+
+        // System money is ERC20: genesis wiring needs a deployed LLM token plus the treasury spending asset set.
+        _llmTokenAddress = address(new LLMToken());
+        address usdcToken = address(new MockUSDC());
+        _treasuryAssetLimits.push(
+            ITreasurySpendingPolicy.AssetSpendingLimit({
+                asset: _llmTokenAddress, clerkOperationsLimit: 3_000 * 1e18, clerkSalaryLimit: 2_000 * 1e18
+            })
+        );
+        _treasuryAssetLimits.push(
+            ITreasurySpendingPolicy.AssetSpendingLimit({
+                asset: usdcToken, clerkOperationsLimit: 3_000 * 1e6, clerkSalaryLimit: 2_000 * 1e6
+            })
+        );
 
         _deployCore(deployer);
         _deployRegistries();

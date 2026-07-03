@@ -38,9 +38,13 @@ interface IReferendumPolicy {
     /// @return duration The maximum adoption delay.
     function maximumAdoptionDelay() external view returns (uint64 duration);
 
+    /// @notice Returns the ERC20 token proposal fees are denominated in (LLM by convention).
+    /// @return assetAddress The proposal fee token address.
+    function proposalFeeAsset() external view returns (address assetAddress);
+
     /// @notice Returns the configured proposal fee for a proposal origin.
     /// @param proposalOrigin The proposal origin to query.
-    /// @return feeAmount The configured proposal fee amount.
+    /// @return feeAmount The configured proposal fee amount in the fee asset's smallest units.
     function proposalFee(ReferendumTypes.ProposalOrigin proposalOrigin) external view returns (uint256 feeAmount);
 
     /// @notice Returns whether the proposer may create a referendum for the given class and origin.

@@ -37,7 +37,7 @@ That means the final demo deployment does not keep a hidden mutable demo admin p
 
 ## Deployment transaction count
 
-`DeployDemo.s.sol` batches bootstrap module-pointer writes through `ConstitutionKernel.bootstrapSetModules(...)` and is designed to stay below common public RPC free-tier limits around 100 submitted transactions. If `TREASURY_PREFUND_WEI` is nonzero, the script sends one additional treasury prefund transaction.
+`DeployDemo.s.sol` batches bootstrap module-pointer writes through `ConstitutionKernel.bootstrapSetModules(...)` and is designed to stay below common public RPC free-tier limits around 100 submitted transactions. The script always sends one treasury prefund transaction that mints demo USDC covering the seeded finance budget; `TREASURY_PREFUND_USDC` / `TREASURY_PREFUND_LLM` add optional extra amounts (one more transaction when the LLM top-up is nonzero).
 
 To re-check the count after changing the deploy script:
 
@@ -45,7 +45,6 @@ To re-check the count after changing the deploy script:
 anvil --silent
 
 PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
-TREASURY_PREFUND_WEI=0 \
 forge script scripts/DeployDemo.s.sol:DeployDemo \
   --rpc-url http://127.0.0.1:8545 \
   --broadcast \
@@ -83,7 +82,8 @@ The demo script accepts these optional overrides in addition to the normal `SEPO
 - `LAND_ADMIN`
 - `COMPANY_REGISTRY_ADMIN`
 - `FINANCE_CLERK`
-- `TREASURY_PREFUND_WEI`
+- `TREASURY_PREFUND_USDC`
+- `TREASURY_PREFUND_LLM`
 
 If you do not set them:
 
@@ -92,7 +92,7 @@ If you do not set them:
 - `0x...cafE` becomes the land registry office admin
 - the deployer becomes the company registry office admin
 - `0x...D00d` becomes the finance clerk
-- treasury prefunding is skipped
+- the treasury is prefunded with exactly the seeded demo budget amount of mock USDC and no extra LLM
 
 ## Live onboarding demo note
 
@@ -176,10 +176,11 @@ To change it after deployment:
 
 This path changes the election timing policy without giving referenda arbitrary calldata execution.
 
-Set `TREASURY_PREFUND_WEI` if you want live payout execution during the demo. Example:
+The treasury is always prefunded with enough mock USDC to execute the seeded demo budget. Set `TREASURY_PREFUND_USDC` (6-decimal base units) or `TREASURY_PREFUND_LLM` (18-decimal base units) for extra demo money. Example:
 
 ```bash
-export TREASURY_PREFUND_WEI=100000000000000000
+export TREASURY_PREFUND_USDC=5000000000
+export TREASURY_PREFUND_LLM=1000000000000000000000
 ```
 
 ## Commands

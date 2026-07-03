@@ -57,6 +57,8 @@ Still future work (acknowledged, not regressions): the Judiciary (Art III), Agen
 
 ## Design constraints
 
+- system money is ERC20: LLM (governance/merit) and stablecoins (USDC, later USDS). Native ETH is gas-only — the treasury vault holds and disburses only ERC20 assets, budget envelopes and payouts are ERC20-denominated, referendum proposal fees are collected in LLM via `safeTransferFrom`, and no contract in the stack accepts `msg.value`
+- treasury spending assets are an explicit per-asset allowlist in the replaceable `TreasurySpendingPolicy`, with clerk limits configured per asset in that asset's smallest units; changing the asset set or limits means deploying a new policy and repointing the module through governance
 - sensitive actions must use deterministic action identifiers
 - queued actions pin the target module address at queue time and revert if that module pointer changes before execution
 - queued actions must not execute twice

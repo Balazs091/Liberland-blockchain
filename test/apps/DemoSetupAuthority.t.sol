@@ -5,6 +5,7 @@ import {Test} from "forge-std/Test.sol";
 
 import {ConstitutionKernel} from "../../contracts/core/ConstitutionKernel.sol";
 import {DemoSetupAuthority} from "../../contracts/mocks/DemoSetupAuthority.sol";
+import {MockUSDC} from "../../contracts/mocks/MockUSDC.sol";
 import {BudgetEnvelopeRegistry} from "../../contracts/registries/BudgetEnvelopeRegistry.sol";
 import {CongressCandidateRegistry} from "../../contracts/registries/CongressCandidateRegistry.sol";
 import {IdentityRegistry} from "../../contracts/registries/IdentityRegistry.sol";
@@ -36,6 +37,7 @@ contract DemoSetupAuthorityTest is Test {
     CongressCandidateRegistry internal congressCandidateRegistry;
     OfficeRegistry internal officeRegistry;
     BudgetEnvelopeRegistry internal budgetEnvelopeRegistry;
+    MockUSDC internal usdc;
     DemoSetupAuthority internal demoAuthority;
 
     address internal owner = address(this);
@@ -45,6 +47,7 @@ contract DemoSetupAuthorityTest is Test {
         vm.warp(30 days);
 
         kernel = new ConstitutionKernel(owner);
+        usdc = new MockUSDC();
         identityRegistry = new IdentityRegistry(address(kernel));
         stakeRegistry = new StakeRegistry(address(kernel));
         legislationRegistry = new LegislationRegistry(address(kernel));
@@ -164,8 +167,8 @@ contract DemoSetupAuthorityTest is Test {
             TreasuryTypes.BudgetEnvelopeInput({
                 officeId: FINANCE_OFFICE_ID,
                 disbursementType: TreasuryTypes.DisbursementType.Operations,
-                asset: address(0),
-                allocatedAmount: 25 ether,
+                asset: address(usdc),
+                allocatedAmount: 25_000 * 1e6,
                 startsAt: uint64(block.timestamp - 1 days),
                 endsAt: uint64(block.timestamp + 30 days),
                 policyReference: keccak256("demo-budget-policy")
@@ -175,7 +178,7 @@ contract DemoSetupAuthorityTest is Test {
         TreasuryTypes.BudgetEnvelope memory budgetEnvelope = budgetEnvelopeRegistry.getBudgetEnvelope(BUDGET_ID);
         assertEq(budgetEnvelope.officeId, FINANCE_OFFICE_ID);
         assertEq(uint8(budgetEnvelope.disbursementType), uint8(TreasuryTypes.DisbursementType.Operations));
-        assertEq(budgetEnvelope.allocatedAmount, 25 ether);
+        assertEq(budgetEnvelope.allocatedAmount, 25_000 * 1e6);
         assertEq(uint8(budgetEnvelope.status), uint8(TreasuryTypes.BudgetStatus.Active));
     }
 
