@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {VetoTypes} from "../types/VetoTypes.sol";
 
@@ -31,6 +31,14 @@ interface IPublicVetoApp {
         address voter,
         uint256 supportCount,
         uint64 removedAt
+    );
+
+    event PublicVetoEligibilityExpired(
+        bytes32 indexed measureId,
+        bytes32 indexed vetoId,
+        bytes32 indexed personId,
+        uint256 supportCount,
+        uint64 expiredAt
     );
 
     event PublicVetoThresholdReached(

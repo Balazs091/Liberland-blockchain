@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
-import {Script} from "forge-std/Script.sol";
 import {console2} from "forge-std/console2.sol";
 
 import {CabinetApp} from "../contracts/apps/CabinetApp.sol";
@@ -11,6 +10,7 @@ import {DecisionApp} from "../contracts/apps/DecisionApp.sol";
 import {HeadOfStateApp} from "../contracts/apps/HeadOfStateApp.sol";
 import {IdentityApp} from "../contracts/apps/IdentityApp.sol";
 import {LandRegistryApp} from "../contracts/apps/LandRegistryApp.sol";
+import {LLMStakingVault} from "../contracts/apps/LLMStakingVault.sol";
 import {MinistryTreasury} from "../contracts/apps/MinistryTreasury.sol";
 import {OfficeExecutor} from "../contracts/apps/OfficeExecutor.sol";
 import {PayoutQueue} from "../contracts/apps/PayoutQueue.sol";
@@ -44,6 +44,7 @@ import {BudgetEnvelopeRegistry} from "../contracts/registries/BudgetEnvelopeRegi
 import {CongressCandidateRegistry} from "../contracts/registries/CongressCandidateRegistry.sol";
 import {CompanyRegistry} from "../contracts/registries/CompanyRegistry.sol";
 import {ExecutiveRegistry} from "../contracts/registries/ExecutiveRegistry.sol";
+import {ElectorateRegistry} from "../contracts/registries/ElectorateRegistry.sol";
 import {IdentityRegistry} from "../contracts/registries/IdentityRegistry.sol";
 import {LandRegistry} from "../contracts/registries/LandRegistry.sol";
 import {LegislationRegistry} from "../contracts/registries/LegislationRegistry.sol";
@@ -59,49 +60,50 @@ import {LegislationTypes} from "../contracts/types/LegislationTypes.sol";
 import {OfficeTypes} from "../contracts/types/OfficeTypes.sol";
 import {ReferendumTypes} from "../contracts/types/ReferendumTypes.sol";
 import {TreasuryTypes} from "../contracts/types/TreasuryTypes.sol";
+import {SepoliaDemoParameters} from "./parameters/SepoliaDemoParameters.sol";
+import {DeploymentScriptBase} from "./DeploymentScriptBase.sol";
 
-contract DeployDemo is Script {
-    // One whole LLM in base units. LLM uses the standard 18 ERC20 decimals, so every LLM-denominated amount
-    // (stakes, bonds, and the stake-derived voting-power quorums and ballot weights) is written as whole LLM * ONE_LLM.
-    // ONE_LLM_SIGNED is the same unit for signed Congress ballot allocations (which may be negative).
-    uint256 internal constant ONE_LLM = 10 ** 18;
-    int256 internal constant ONE_LLM_SIGNED = 10 ** 18;
-    uint256 internal constant MINIMUM_CITIZEN_STAKE = 5_000 * ONE_LLM;
-    uint256 internal constant MINIMUM_CANDIDATE_STAKE = 6_000 * ONE_LLM;
-    uint256 internal constant CANDIDATE_BOND_REQUIREMENT = 6_000 * ONE_LLM;
-    uint64 internal constant WELFARE_PERIOD = 30 days;
+contract DeployDemo is DeploymentScriptBase {
+    // Demo constants are sourced only from the Sepolia manifest. Production uses EthereumMainnetParameters.
+    uint256 internal constant ONE_LLM = SepoliaDemoParameters.ONE_LLM;
+    int256 internal constant ONE_LLM_SIGNED = SepoliaDemoParameters.ONE_LLM_SIGNED;
+    uint256 internal constant MINIMUM_CITIZEN_STAKE = SepoliaDemoParameters.MINIMUM_CITIZEN_STAKE;
+    uint256 internal constant MINIMUM_CANDIDATE_STAKE = SepoliaDemoParameters.MINIMUM_CANDIDATE_STAKE;
+    uint256 internal constant CANDIDATE_BOND_REQUIREMENT = SepoliaDemoParameters.CANDIDATE_BOND_REQUIREMENT;
+    uint64 internal constant WELFARE_PERIOD = SepoliaDemoParameters.WELFARE_PERIOD;
     // 1064 bps (10.64%/yr): with the 30-day compounding unstake portion, twelve 30-day unstakes release ~10.00% of
     // the original stake over 360 days (each release is annualRate * 30/365 of the current, shrinking balance).
-    uint16 internal constant ANNUAL_UNSTAKE_RATE_BPS = 1_064;
-    uint64 internal constant STANDARD_ADOPTION_DELAY = 7 days;
-    uint256 internal constant CITIZEN_QUORUM = 10_000 * ONE_LLM;
-    uint256 internal constant CONGRESS_QUORUM = 8_000 * ONE_LLM;
-    uint256 internal constant CITIZEN_PROPOSAL_BOND = 6_000 * ONE_LLM;
-    uint256 internal constant CONSTITUTIONAL_FOR_VOTER_QUORUM = 2;
-    uint16 internal constant CONSTITUTIONAL_FOR_STAKE_BPS = 6_500;
-    uint32 internal constant CONGRESS_SEAT_COUNT = 2;
-    uint32 internal constant CONGRESS_RUNNER_UP_COUNT = 2;
-    uint32 internal constant CONGRESS_MAX_CANDIDATE_COUNT = 8;
-    uint64 internal constant MINIMUM_NOMINATION_DURATION = 1 days;
-    uint64 internal constant MINIMUM_ELECTION_VOTING_DURATION = 2 days;
-    uint64 internal constant MAX_SCHEDULE_LEAD_TIME = 3 days;
-    uint64 internal constant ELECTION_CYCLE_DURATION = 3 days;
-    uint32 internal constant SENATE_CANCELLATION_THRESHOLD = 2;
-    uint64 internal constant DISBURSEMENT_SUSPENSION_PERIOD = 30 days;
-    uint256 internal constant PUBLIC_VETO_THRESHOLD = 2;
-    // One whole USDC in base units (USDC uses 6 decimals).
-    uint256 internal constant ONE_USDC = 10 ** 6;
-    uint256 internal constant FINANCE_CLERK_LLM_OPERATIONS_LIMIT = 3_000 * ONE_LLM;
-    uint256 internal constant FINANCE_CLERK_LLM_SALARY_LIMIT = 2_000 * ONE_LLM;
-    uint256 internal constant FINANCE_CLERK_USDC_OPERATIONS_LIMIT = 3_000 * ONE_USDC;
-    uint256 internal constant FINANCE_CLERK_USDC_SALARY_LIMIT = 2_000 * ONE_USDC;
-    uint256 internal constant DEMO_OPERATIONS_BUDGET_AMOUNT = 1_000 * ONE_USDC;
-    // Launch lending config: 1 LLM = 2 USDC manual oracle, kinked rates (2% base, +8% to the 80% kink, +100% to
-    // full), 25% LTV / 35% liquidation threshold / 10% bonus / 15% reserve, unlimited per-person cap (0).
-    uint256 internal constant LAUNCH_LLM_USDC_PRICE = 2 * ONE_USDC;
-    uint256 internal constant LENDING_BORROW_CAP = 1_000_000 * ONE_USDC;
-    uint64 internal constant IDENTITY_MIGRATION_DELAY = 2 days;
-    uint64 internal constant PRESIDENT_TERM = 5 * 365 days;
+    uint16 internal constant ANNUAL_UNSTAKE_RATE_BPS = SepoliaDemoParameters.ANNUAL_UNSTAKE_RATE_BPS;
+    uint64 internal constant STANDARD_ADOPTION_DELAY = SepoliaDemoParameters.STANDARD_ADOPTION_DELAY;
+    uint256 internal constant CITIZEN_QUORUM = SepoliaDemoParameters.CITIZEN_QUORUM;
+    uint256 internal constant CONGRESS_QUORUM = SepoliaDemoParameters.CONGRESS_QUORUM;
+    uint256 internal constant CITIZEN_PROPOSAL_BOND = SepoliaDemoParameters.CITIZEN_PROPOSAL_BOND;
+    uint256 internal constant CONSTITUTIONAL_FOR_VOTER_QUORUM = SepoliaDemoParameters.CONSTITUTIONAL_FOR_VOTER_QUORUM;
+    uint16 internal constant CONSTITUTIONAL_FOR_STAKE_BPS = SepoliaDemoParameters.CONSTITUTIONAL_FOR_STAKE_BPS;
+    uint32 internal constant CONGRESS_SEAT_COUNT = SepoliaDemoParameters.CONGRESS_SEAT_COUNT;
+    uint32 internal constant CONGRESS_RUNNER_UP_COUNT = SepoliaDemoParameters.CONGRESS_RUNNER_UP_COUNT;
+    uint32 internal constant CONGRESS_MAX_CANDIDATE_COUNT = SepoliaDemoParameters.CONGRESS_MAX_CANDIDATE_COUNT;
+    uint64 internal constant MINIMUM_NOMINATION_DURATION = SepoliaDemoParameters.MINIMUM_NOMINATION_DURATION;
+    uint64 internal constant MINIMUM_ELECTION_VOTING_DURATION = SepoliaDemoParameters.MINIMUM_ELECTION_VOTING_DURATION;
+    uint64 internal constant MAX_SCHEDULE_LEAD_TIME = SepoliaDemoParameters.MAX_SCHEDULE_LEAD_TIME;
+    uint64 internal constant ELECTION_CYCLE_DURATION = SepoliaDemoParameters.ELECTION_CYCLE_DURATION;
+    uint32 internal constant SENATE_CANCELLATION_THRESHOLD = SepoliaDemoParameters.SENATE_CANCELLATION_THRESHOLD;
+    uint64 internal constant DISBURSEMENT_SUSPENSION_PERIOD = SepoliaDemoParameters.DISBURSEMENT_SUSPENSION_PERIOD;
+    uint256 internal constant PUBLIC_VETO_THRESHOLD = SepoliaDemoParameters.PUBLIC_VETO_THRESHOLD;
+    uint256 internal constant ONE_USDC = SepoliaDemoParameters.ONE_USDC;
+    uint256 internal constant FINANCE_CLERK_LLM_OPERATIONS_LIMIT =
+        SepoliaDemoParameters.FINANCE_CLERK_LLM_OPERATIONS_LIMIT;
+    uint256 internal constant FINANCE_CLERK_LLM_SALARY_LIMIT = SepoliaDemoParameters.FINANCE_CLERK_LLM_SALARY_LIMIT;
+    uint256 internal constant FINANCE_CLERK_USDC_OPERATIONS_LIMIT =
+        SepoliaDemoParameters.FINANCE_CLERK_USDC_OPERATIONS_LIMIT;
+    uint256 internal constant FINANCE_CLERK_USDC_SALARY_LIMIT = SepoliaDemoParameters.FINANCE_CLERK_USDC_SALARY_LIMIT;
+    uint256 internal constant DEMO_OPERATIONS_BUDGET_AMOUNT = SepoliaDemoParameters.DEMO_OPERATIONS_BUDGET_AMOUNT;
+    // Launch lending parameters are sourced from the Sepolia manifest so demo behavior matches production risk
+    // mechanics while remaining independently configurable.
+    uint256 internal constant LAUNCH_LLM_USDC_PRICE = SepoliaDemoParameters.LAUNCH_LLM_USDC_PRICE;
+    uint256 internal constant LENDING_BORROW_CAP = SepoliaDemoParameters.LENDING_BORROW_CAP;
+    uint64 internal constant IDENTITY_MIGRATION_DELAY = SepoliaDemoParameters.IDENTITY_MIGRATION_DELAY;
+    uint64 internal constant PRESIDENT_TERM = SepoliaDemoParameters.PRESIDENT_TERM;
 
     bytes32 internal constant DEMO_PERSON_ONE = bytes32(uint256(1));
     bytes32 internal constant DEMO_PERSON_TWO = bytes32(uint256(2));
@@ -125,6 +127,8 @@ contract DeployDemo is Script {
     GovernanceRouter internal _router;
     IdentityRegistry internal _identityRegistry;
     StakeRegistry internal _stakeRegistry;
+    ElectorateRegistry internal _electorateRegistry;
+    LLMStakingVault internal _stakingVault;
     LegislationRegistry internal _legislationRegistry;
     ReferendumRegistry internal _referendumRegistry;
     CongressCandidateRegistry internal _congressCandidateRegistry;
@@ -193,6 +197,8 @@ contract DeployDemo is Script {
         address ministryTreasury;
         address identityRegistry;
         address stakeRegistry;
+        address stakingVault;
+        address electorateRegistry;
         address legislationRegistry;
         address referendumRegistry;
         address congressCandidateRegistry;
@@ -241,10 +247,11 @@ contract DeployDemo is Script {
         address financeClerk;
         uint256 treasuryPrefundUsdc;
         uint256 treasuryPrefundLlm;
-        uint256 meritReserveMinted;
+        uint256 stakingBackingSurplus;
     }
 
     function run() external returns (Deployment memory deployment) {
+        require(block.chainid == SepoliaDemoParameters.CHAIN_ID, "demo deployment requires Sepolia");
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
 
@@ -285,12 +292,15 @@ contract DeployDemo is Script {
         (bytes32[] memory moduleIds, address[] memory moduleAddresses) = _allocateModuleBatch(2);
         _setModuleBatchEntry(moduleIds, moduleAddresses, 0, KernelModuleIds.GOVERNANCE_ROUTER, address(_router));
         _setModuleBatchEntry(moduleIds, moduleAddresses, 1, KernelModuleIds.ACTION_TIMELOCK, address(_timelock));
+        _validateModuleBatch(moduleIds, moduleAddresses);
         _kernel.bootstrapSetModules(moduleIds, moduleAddresses);
     }
 
     function _deployRegistries() internal {
         _identityRegistry = new IdentityRegistry(address(_kernel));
         _stakeRegistry = new StakeRegistry(address(_kernel));
+        _electorateRegistry =
+            new ElectorateRegistry(address(_kernel), address(_identityRegistry), address(_stakeRegistry));
         _legislationRegistry = new LegislationRegistry(address(_kernel));
         _referendumRegistry = new ReferendumRegistry(address(_kernel));
         _congressCandidateRegistry = new CongressCandidateRegistry(address(_kernel));
@@ -302,6 +312,11 @@ contract DeployDemo is Script {
         _officeRegistry = new OfficeRegistry(address(_kernel));
         _presidentRegistry = new PresidentRegistry(address(_kernel));
         _executiveRegistry = new ExecutiveRegistry(address(_kernel));
+        _llmToken = new LLMToken();
+        _usdcToken = new MockUSDC();
+        _stakingVault = new LLMStakingVault(
+            address(_kernel), address(_identityRegistry), address(_stakeRegistry), address(_llmToken)
+        );
     }
 
     function _deployDemoAuthority(address deployer) internal {
@@ -309,6 +324,7 @@ contract DeployDemo is Script {
             deployer,
             address(_identityRegistry),
             address(_stakeRegistry),
+            address(_stakingVault),
             address(_legislationRegistry),
             address(_referendumRegistry),
             address(_congressCandidateRegistry),
@@ -318,20 +334,26 @@ contract DeployDemo is Script {
     }
 
     function _deployPoliciesAndApps(address deployer) internal {
-        _llmToken = new LLMToken();
-        _usdcToken = new MockUSDC();
         _citizenEligibilityPolicy =
             new CitizenEligibilityPolicy(address(_identityRegistry), address(_stakeRegistry), MINIMUM_CITIZEN_STAKE);
         _unstakingPolicy = new UnstakingPolicy(address(_stakeRegistry), WELFARE_PERIOD, ANNUAL_UNSTAKE_RATE_BPS);
         _demoCitizenGateway = new DemoCitizenGateway(
             address(_identityRegistry),
             address(_stakeRegistry),
+            address(_stakingVault),
             address(_unstakingPolicy),
             address(_llmToken),
-            _identityOfficeAdmin
+            _identityOfficeAdmin,
+            address(_officeRegistry),
+            IDENTITY_OFFICE_ID,
+            IDENTITY_MIGRATION_DELAY
         );
+        _identityApp = _demoCitizenGateway;
         _votingPowerPolicy = new VotingPowerPolicy(
-            address(_identityRegistry), address(_stakeRegistry), address(_citizenEligibilityPolicy)
+            address(_identityRegistry),
+            address(_stakeRegistry),
+            address(_citizenEligibilityPolicy),
+            address(_electorateRegistry)
         );
         _candidateEligibilityPolicy = new CandidateEligibilityPolicy(
             address(_identityRegistry),
@@ -394,8 +416,7 @@ contract DeployDemo is Script {
             address(_congressCandidateRegistry),
             address(_identityRegistry),
             address(_officeRegistry),
-            address(_stakeRegistry),
-            address(_llmToken)
+            address(_stakingVault)
         );
         _headOfStateApp = new HeadOfStateApp(address(_presidentRegistry), address(_senateSeatRegistry));
         _cabinetApp = new CabinetApp(
@@ -406,10 +427,8 @@ contract DeployDemo is Script {
             address(_officeRegistry)
         );
         _officePermissionPolicy = new OfficePermissionPolicy();
-        _treasurySpendingPolicy = new TreasurySpendingPolicy(FINANCE_OFFICE_ID, _treasurySpendingAssetLimits());
-        _identityApp = new IdentityApp(
-            address(_identityRegistry), address(_officeRegistry), IDENTITY_OFFICE_ID, IDENTITY_MIGRATION_DELAY
-        );
+        _treasurySpendingPolicy =
+            new TreasurySpendingPolicy(FINANCE_OFFICE_ID, address(_llmToken), _treasurySpendingAssetLimits());
         _landRegistryApp = new LandRegistryApp(
             address(_landRegistry), address(_officeRegistry), address(_officePermissionPolicy), LAND_OFFICE_ID
         );
@@ -433,22 +452,32 @@ contract DeployDemo is Script {
         // sources its retained-stake floor live from the citizenship policy, so no floor amount is passed here.
         _stakeLienRegistry = new StakeLienRegistry(address(_kernel));
         _llmUsdcOracle = new FixedLlmUsdcPriceOraclePolicy(address(_usdcToken), LAUNCH_LLM_USDC_PRICE);
-        _lendingInterestRatePolicy = new KinkedInterestRatePolicy(200, 800, 10_000, 8e26);
-        _lendingRiskPolicy = new LendingRiskParameterPolicy(2_500, 3_500, 1_000, 1_500, 0);
+        _lendingInterestRatePolicy = new KinkedInterestRatePolicy(
+            SepoliaDemoParameters.LENDING_BASE_RATE_BPS,
+            SepoliaDemoParameters.LENDING_SLOPE_TO_KINK_BPS,
+            SepoliaDemoParameters.LENDING_SLOPE_AFTER_KINK_BPS,
+            SepoliaDemoParameters.LENDING_KINK_UTILIZATION_RAY
+        );
+        _lendingRiskPolicy = new LendingRiskParameterPolicy(
+            SepoliaDemoParameters.LENDING_MAX_LTV_BPS,
+            SepoliaDemoParameters.LENDING_LIQUIDATION_THRESHOLD_BPS,
+            SepoliaDemoParameters.LENDING_LIQUIDATION_BONUS_BPS,
+            SepoliaDemoParameters.LENDING_RESERVE_FACTOR_BPS,
+            SepoliaDemoParameters.LENDING_PER_PERSON_DEBT_CAP
+        );
         _lendingPool = new USDCLendingPoolApp(
             address(_kernel),
             address(_usdcToken),
             address(_identityRegistry),
             address(_stakeRegistry),
             address(_stakeLienRegistry),
-            address(_lendingInterestRatePolicy),
             LENDING_BORROW_CAP
         );
         _ministryTreasury = new MinistryTreasury(address(_kernel));
     }
 
     function _registerBootstrapModules() internal {
-        (bytes32[] memory moduleIds, address[] memory moduleAddresses) = _allocateModuleBatch(54);
+        (bytes32[] memory moduleIds, address[] memory moduleAddresses) = _allocateModuleBatch(56);
         uint256 index;
 
         _setModuleBatchEntry(
@@ -486,6 +515,12 @@ contract DeployDemo is Script {
         );
         _setModuleBatchEntry(
             moduleIds, moduleAddresses, index++, KernelModuleIds.STAKE_REGISTRY, address(_stakeRegistry)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.LLM_STAKING_VAULT, address(_stakingVault)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.ELECTORATE_REGISTRY, address(_electorateRegistry)
         );
         _setModuleBatchEntry(
             moduleIds, moduleAddresses, index++, KernelModuleIds.LEGISLATION_REGISTRY, address(_legislationRegistry)
@@ -607,7 +642,11 @@ contract DeployDemo is Script {
             moduleIds, moduleAddresses, index++, KernelModuleIds.LEGISLATION_REPEAL_AUTHORITY, address(_publicVetoApp)
         );
         _setModuleBatchEntry(
-            moduleIds, moduleAddresses, index++, KernelModuleIds.STAKE_DEPOSIT_AUTHORITY, address(_decisionApp)
+            moduleIds,
+            moduleAddresses,
+            index++,
+            KernelModuleIds.STAKE_USER_GATEWAY_AUTHORITY,
+            address(_demoCitizenGateway)
         );
         // Standing President-registry authority (fixes the post-genesis freeze): the HeadOfStateApp is the sole
         // live writer of the President registry after genesis and is not repointed by _switchToFinalDemoWiring.
@@ -664,6 +703,7 @@ contract DeployDemo is Script {
             address(_decisionApp)
         );
 
+        _validateModuleBatch(moduleIds, moduleAddresses);
         _kernel.bootstrapSetModules(moduleIds, moduleAddresses);
     }
 
@@ -671,6 +711,8 @@ contract DeployDemo is Script {
         address walletTwo = address(0xB0B);
         address walletThree = address(0xCAFE);
         address walletFour = address(0xD00D);
+
+        _llmToken.mint(address(_stakingVault), 45_000 * ONE_LLM);
 
         _demoAuthority.seedCitizen(
             DEMO_PERSON_ONE, deployer, 20_000 * ONE_LLM, "ipfs://demo/citizen-one.json", keccak256("demo-citizen-one")
@@ -741,6 +783,9 @@ contract DeployDemo is Script {
                 startTime: uint64(block.timestamp - 1 days),
                 endTime: uint64(block.timestamp + 6 days),
                 adoptionDelay: STANDARD_ADOPTION_DELAY,
+                votingPowerSnapshotBlock: 0,
+                referendumPolicy: address(_referendumPolicy),
+                votingPowerPolicy: address(_votingPowerPolicy),
                 electorateHeadcountSnapshot: 0,
                 electorateVotingPowerSnapshot: 0,
                 requiresSupermajority: false
@@ -770,6 +815,9 @@ contract DeployDemo is Script {
                 startTime: uint64(block.timestamp - 10 days),
                 endTime: uint64(block.timestamp - 5 days),
                 adoptionDelay: STANDARD_ADOPTION_DELAY,
+                votingPowerSnapshotBlock: 0,
+                referendumPolicy: address(_referendumPolicy),
+                votingPowerPolicy: address(_votingPowerPolicy),
                 electorateHeadcountSnapshot: 0,
                 electorateVotingPowerSnapshot: 0,
                 requiresSupermajority: false
@@ -829,15 +877,14 @@ contract DeployDemo is Script {
         _senateApp.bootstrapAssignSeat(1, walletThree);
 
         _publicVetoApp.castPublicVeto(ORDINARY_MEASURE_ID);
-        _llmToken.mint(address(_demoCitizenGateway), 45_000 * ONE_LLM);
     }
 
     function _seedCongressElection(address deployer, address walletTwo, address walletThree, address walletFour)
         internal
     {
-        uint64 votingStart = uint64(block.timestamp - 1 hours);
+        uint64 votingEnd = _nextDemoCongressVotingEnd(uint64(block.timestamp));
+        uint64 votingStart = votingEnd - MINIMUM_ELECTION_VOTING_DURATION;
         uint64 nominationStart = votingStart - MINIMUM_NOMINATION_DURATION;
-        uint64 votingEnd = votingStart + MINIMUM_ELECTION_VOTING_DURATION;
 
         _demoAuthority.seedCongressCycle(
             DEMO_CONGRESS_CYCLE_ID,
@@ -845,9 +892,11 @@ contract DeployDemo is Script {
                 nominationStart: nominationStart,
                 votingStart: votingStart,
                 votingEnd: votingEnd,
+                votingPowerSnapshotBlock: 0,
                 seatCount: _congressElectionPolicy.seatCount(),
                 runnerUpCount: _congressElectionPolicy.runnerUpCount(),
                 maxCandidateCount: _congressElectionPolicy.maxCandidateCount(),
+                policy: address(_congressElectionPolicy),
                 policyReference: _congressElectionPolicyReference()
             })
         );
@@ -891,6 +940,17 @@ contract DeployDemo is Script {
         _seedCongressBallot(walletFour, walletFour, 5_500 * ONE_LLM_SIGNED, 5_500 * ONE_LLM);
     }
 
+    /// @dev Keeps the seeded demo election live for 24-48 hours while anchoring it to 17:00 UTC. All later
+    ///      three-day cycles inherit the same endpoint through CongressElectionApp's recurring cadence.
+    function _nextDemoCongressVotingEnd(uint64 currentTimestamp) internal pure returns (uint64 votingEnd) {
+        uint64 dayLength = 1 days;
+        uint64 earliestEnd = currentTimestamp + 1 days;
+        votingEnd = earliestEnd - earliestEnd % dayLength + SepoliaDemoParameters.CONGRESS_CYCLE_END_UTC_SECONDS;
+        if (votingEnd < earliestEnd) {
+            votingEnd += dayLength;
+        }
+    }
+
     function _seedCongressBallot(address voter, address candidate, int256 allocation, uint256 ballotWeight) internal {
         _demoAuthority.seedCongressBallot(
             DEMO_CONGRESS_CYCLE_ID,
@@ -924,14 +984,14 @@ contract DeployDemo is Script {
 
     function _switchToFinalDemoWiring() internal {
         (bytes32[] memory moduleIds, address[] memory moduleAddresses) = _allocateModuleBatch(10);
-        // Standing identity authority: the governed IdentityApp replaces the demo gateway as the sole live
-        // mutator of the identity registry. The gateway remains the stake authority and user staking gateway;
-        // post-genesis identity lifecycle (onboarding, renunciation, wallet migration) now flows through offices.
+        // Standing identity authority: DemoCitizenGateway inherits IdentityApp, so demo
+        // self-onboarding and the standard office/renunciation/migration flows share one canonical registry writer.
+        // The staking vault remains the sole stake-registry custody boundary.
         _setModuleBatchEntry(
             moduleIds, moduleAddresses, 0, KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, address(_identityApp)
         );
         _setModuleBatchEntry(
-            moduleIds, moduleAddresses, 1, KernelModuleIds.STAKE_REGISTRY_AUTHORITY, address(_demoCitizenGateway)
+            moduleIds, moduleAddresses, 1, KernelModuleIds.STAKE_REGISTRY_AUTHORITY, address(_stakingVault)
         );
         _setModuleBatchEntry(
             moduleIds, moduleAddresses, 2, KernelModuleIds.LEGISLATION_REGISTRY_AUTHORITY, address(_timelock)
@@ -961,6 +1021,7 @@ contract DeployDemo is Script {
         _setModuleBatchEntry(
             moduleIds, moduleAddresses, 9, KernelModuleIds.COMPANY_REGISTRY_AUTHORITY, address(_companyRegistryApp)
         );
+        _validateModuleBatch(moduleIds, moduleAddresses);
         _kernel.bootstrapSetModules(moduleIds, moduleAddresses);
 
         _router.configureOriginAuthority(GovernanceTypes.ActionOrigin.Referendum, address(_referendumApp));
@@ -968,33 +1029,13 @@ contract DeployDemo is Script {
         _router.configureOriginAuthority(GovernanceTypes.ActionOrigin.Office, address(_officeExecutor));
     }
 
-    function _allocateModuleBatch(uint256 length)
-        internal
-        pure
-        returns (bytes32[] memory moduleIds, address[] memory moduleAddresses)
-    {
-        moduleIds = new bytes32[](length);
-        moduleAddresses = new address[](length);
-    }
-
-    function _setModuleBatchEntry(
-        bytes32[] memory moduleIds,
-        address[] memory moduleAddresses,
-        uint256 index,
-        bytes32 moduleId,
-        address moduleAddress
-    ) internal pure {
-        moduleIds[index] = moduleId;
-        moduleAddresses[index] = moduleAddress;
-    }
-
     function _timelockDelayConfig() internal pure returns (GovernanceTypes.TimelockDelayConfig memory config) {
         config = GovernanceTypes.TimelockDelayConfig({
-            moduleGovernanceDelay: 2 days,
-            treasuryBudgetApprovalDelay: 1 days,
-            legislationEnactmentDelay: 1 days,
-            treasuryDisbursementDelay: 2 days,
-            defaultExecutionWindow: 7 days
+            moduleGovernanceDelay: SepoliaDemoParameters.MODULE_GOVERNANCE_DELAY,
+            treasuryBudgetApprovalDelay: SepoliaDemoParameters.TREASURY_BUDGET_APPROVAL_DELAY,
+            legislationEnactmentDelay: SepoliaDemoParameters.LEGISLATION_ENACTMENT_DELAY,
+            treasuryDisbursementDelay: SepoliaDemoParameters.TREASURY_DISBURSEMENT_DELAY,
+            defaultExecutionWindow: SepoliaDemoParameters.DEFAULT_EXECUTION_WINDOW
         });
     }
 
@@ -1081,6 +1122,8 @@ contract DeployDemo is Script {
         deployment.ministryTreasury = address(_ministryTreasury);
         deployment.identityRegistry = address(_identityRegistry);
         deployment.stakeRegistry = address(_stakeRegistry);
+        deployment.stakingVault = address(_stakingVault);
+        deployment.electorateRegistry = address(_electorateRegistry);
         deployment.legislationRegistry = address(_legislationRegistry);
         deployment.referendumRegistry = address(_referendumRegistry);
         deployment.congressCandidateRegistry = address(_congressCandidateRegistry);
@@ -1131,7 +1174,7 @@ contract DeployDemo is Script {
         deployment.financeClerk = _financeClerk;
         deployment.treasuryPrefundUsdc = DEMO_OPERATIONS_BUDGET_AMOUNT + _treasuryPrefundUsdc;
         deployment.treasuryPrefundLlm = _treasuryPrefundLlm;
-        deployment.meritReserveMinted = _llmToken.balanceOf(address(_demoCitizenGateway));
+        deployment.stakingBackingSurplus = _stakingVault.backingSurplus();
     }
 
     function _writeDeploymentJson(Deployment memory deployment) internal {
@@ -1147,6 +1190,8 @@ contract DeployDemo is Script {
         vm.serializeAddress(deploymentKey, "llmToken", deployment.llmToken);
         vm.serializeAddress(deploymentKey, "identityRegistry", deployment.identityRegistry);
         vm.serializeAddress(deploymentKey, "stakeRegistry", deployment.stakeRegistry);
+        vm.serializeAddress(deploymentKey, "stakingVault", deployment.stakingVault);
+        vm.serializeAddress(deploymentKey, "electorateRegistry", deployment.electorateRegistry);
         vm.serializeAddress(deploymentKey, "legislationRegistry", deployment.legislationRegistry);
         vm.serializeAddress(deploymentKey, "referendumRegistry", deployment.referendumRegistry);
         vm.serializeAddress(deploymentKey, "congressCandidateRegistry", deployment.congressCandidateRegistry);
@@ -1200,9 +1245,12 @@ contract DeployDemo is Script {
         vm.serializeAddress(deploymentKey, "lendingRiskPolicy", deployment.lendingRiskPolicy);
         vm.serializeAddress(deploymentKey, "lendingPool", deployment.lendingPool);
         vm.serializeAddress(deploymentKey, "ministryTreasury", deployment.ministryTreasury);
-        vm.serializeUint(deploymentKey, "treasuryPrefundUsdc", deployment.treasuryPrefundUsdc);
-        vm.serializeUint(deploymentKey, "treasuryPrefundLlm", deployment.treasuryPrefundLlm);
-        string memory json = vm.serializeUint(deploymentKey, "meritReserveMinted", deployment.meritReserveMinted);
+        // Token base-unit amounts may exceed JavaScript's safe-integer range. Decimal strings let frontend clients
+        // parse every value losslessly with BigInt.
+        vm.serializeString(deploymentKey, "treasuryPrefundUsdc", vm.toString(deployment.treasuryPrefundUsdc));
+        vm.serializeString(deploymentKey, "treasuryPrefundLlm", vm.toString(deployment.treasuryPrefundLlm));
+        string memory json =
+            vm.serializeString(deploymentKey, "stakingBackingSurplus", vm.toString(deployment.stakingBackingSurplus));
 
         string memory path = string.concat(vm.projectRoot(), "/deployments/sepolia-demo.json");
         vm.writeJson(json, path);
@@ -1226,6 +1274,8 @@ contract DeployDemo is Script {
         console2.log("MinistryTreasury:", deployment.ministryTreasury);
         console2.log("IdentityRegistry:", deployment.identityRegistry);
         console2.log("StakeRegistry:", deployment.stakeRegistry);
+        console2.log("LLMStakingVault:", deployment.stakingVault);
+        console2.log("ElectorateRegistry:", deployment.electorateRegistry);
         console2.log("LegislationRegistry:", deployment.legislationRegistry);
         console2.log("ReferendumRegistry:", deployment.referendumRegistry);
         console2.log("CongressCandidateRegistry:", deployment.congressCandidateRegistry);
@@ -1262,6 +1312,6 @@ contract DeployDemo is Script {
         console2.log("Finance Clerk:", deployment.financeClerk);
         console2.log("Treasury Prefund USDC:", deployment.treasuryPrefundUsdc);
         console2.log("Treasury Prefund LLM:", deployment.treasuryPrefundLlm);
-        console2.log("Merit Reserve Minted:", deployment.meritReserveMinted);
+        console2.log("Staking Backing Surplus:", deployment.stakingBackingSurplus);
     }
 }

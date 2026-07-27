@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 /// @title ICongressElectionApp
 /// @notice User-facing interface for Congress election scheduling, candidacy, voting, finalization, and vacancies.
@@ -21,11 +21,17 @@ interface ICongressElectionApp {
     );
     error InvalidScheduleLead(uint64 votingStart, uint64 latestVotingStart);
     error NoVotingPower(address voter);
+    error NotActiveCandidateWallet(address wallet);
     error NotActiveCongressMember(address wallet);
     error NotEligibleCandidate(address candidate);
     error MemberStillEligible(address member);
+    error CongressSeatNotOccupied(uint32 seatIndex);
+    error CongressSeatStillRepresented(uint32 seatIndex, address activeWallet);
     error UnknownCandidateReference(address candidate);
     error VotingClosed(uint256 cycleId, uint64 votingStart, uint64 votingEnd, uint64 currentTime);
+    error VotingPowerElectorateMismatch(
+        address votingPowerPolicy, address policyElectorateRegistry, address currentElectorateRegistry
+    );
 
     /// @notice Returns the configured identity registry address.
     /// @return registryAddress The identity registry address.
@@ -84,13 +90,14 @@ interface ICongressElectionApp {
     /// @param applicationURI The off-chain application metadata URI.
     function applyAsCandidate(uint256 cycleId, bytes32 applicationHash, string calldata applicationURI) external;
 
-    /// @notice Withdraws the caller's candidacy from a cycle before voting starts.
+    /// @notice Withdraws the caller's person-bound candidacy from their sole active wallet before voting starts.
     /// @param cycleId The cycle identifier to update.
     function withdrawCandidacy(uint256 cycleId) external;
 
-    /// @notice Casts or replaces the caller's full signed ballot in a cycle.
+    /// @notice Casts or replaces the caller's full signed ballot using that cycle's person-level electorate snapshot.
     /// @param cycleId The cycle identifier to vote in.
-    /// @param candidates The candidate wallets referenced by the ballot allocations.
+    /// @param candidates Candidate wallet references; a migrated candidate's current wallet resolves to their
+    /// original cycle candidacy.
     /// @param allocations The signed ballot allocations for each candidate.
     function castBallot(uint256 cycleId, address[] calldata candidates, int256[] calldata allocations) external;
 
@@ -114,8 +121,12 @@ interface ICongressElectionApp {
     /// @return replacementCandidate The promoted runner-up, or zero if none remains.
     function recallMember(address member) external returns (uint32 seatIndex, address replacementCandidate);
 
-    /// @notice Drops the standing ballots of listed voters who no longer have voting power (welfare/ineligible).
-    /// @param cycleId The open election cycle whose tallies should be synced.
-    /// @param voters The voters to check and purge when their current voting weight is zero.
-    function purgeIneligibleStandingBallots(uint256 cycleId, address[] calldata voters) external;
+    /// @notice Removes an occupied seat whose person no longer has an active wallet and fills it from a runner-up.
+    /// @dev Permissionless; reverts while the seated person still has an active wallet.
+    /// @param seatIndex The occupied seat index to inspect and vacate.
+    /// @return vacatedSeatIndex The vacated seat index.
+    /// @return replacementCandidate The promoted runner-up, or zero if none remains.
+    function recallUnrepresentedSeat(uint32 seatIndex)
+        external
+        returns (uint32 vacatedSeatIndex, address replacementCandidate);
 }

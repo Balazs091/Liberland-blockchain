@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -24,11 +24,11 @@ contract MinistryTreasury is KernelModule, ReentrancyGuard, IMinistryTreasury {
 
     struct DailySpend {
         uint64 day;
-        uint192 spent;
+        uint256 spent;
     }
 
     mapping(bytes32 officeId => mapping(address asset => uint256 balance)) private _balances;
-    mapping(bytes32 officeId => uint256 shares) private _poolShares;
+    mapping(bytes32 officeId => mapping(address pool => uint256 shares)) private _poolShares;
     mapping(bytes32 officeId => mapping(address asset => uint256 dailyLimit)) private _clerkDailyLimit;
     mapping(bytes32 officeId => mapping(address clerk => mapping(address asset => DailySpend spend))) private
         _clerkSpend;
@@ -42,7 +42,12 @@ contract MinistryTreasury is KernelModule, ReentrancyGuard, IMinistryTreasury {
 
     /// @inheritdoc IMinistryTreasury
     function poolSharesOf(bytes32 officeId) external view returns (uint256 shares) {
-        return _poolShares[officeId];
+        return _poolShares[officeId][address(_lendingPool())];
+    }
+
+    /// @inheritdoc IMinistryTreasury
+    function poolSharesAt(bytes32 officeId, address pool) external view returns (uint256 shares) {
+        return _poolShares[officeId][pool];
     }
 
     /// @inheritdoc IMinistryTreasury
@@ -112,7 +117,13 @@ contract MinistryTreasury is KernelModule, ReentrancyGuard, IMinistryTreasury {
         }
 
         _balances[officeId][asset] = balance - amount;
-        IERC20(asset).safeTransfer(recipient, amount);
+        IERC20 token = IERC20(asset);
+        uint256 recipientBalanceBefore = token.balanceOf(recipient);
+        token.safeTransfer(recipient, amount);
+        uint256 received = token.balanceOf(recipient) - recipientBalanceBefore;
+        if (received != amount) {
+            revert UnexpectedAssetAmount(amount, received);
+        }
 
         emit MinistrySpent(officeId, asset, recipient, amount, msg.sender, uint64(block.timestamp));
     }
@@ -133,9 +144,9 @@ contract MinistryTreasury is KernelModule, ReentrancyGuard, IMinistryTreasury {
         _balances[officeId][asset] = balance - amount;
         IERC20(asset).forceApprove(address(pool), amount);
         shares = pool.deposit(amount, address(this));
-        _poolShares[officeId] += shares;
+        _poolShares[officeId][address(pool)] += shares;
 
-        emit MinistrySuppliedToPool(officeId, amount, shares, uint64(block.timestamp));
+        emit MinistrySuppliedToPool(officeId, address(pool), amount, shares, uint64(block.timestamp));
     }
 
     /// @inheritdoc IMinistryTreasury
@@ -143,22 +154,50 @@ contract MinistryTreasury is KernelModule, ReentrancyGuard, IMinistryTreasury {
         _requireAmount(amount);
         _requireMinister(officeId, msg.sender);
 
-        IUSDCLendingPoolApp pool = _lendingPool();
+        return _withdrawFromPool(officeId, _lendingPool(), amount);
+    }
+
+    /// @inheritdoc IMinistryTreasury
+    function withdrawFromPoolAt(bytes32 officeId, address pool, uint256 amount)
+        external
+        nonReentrant
+        returns (uint256 shares)
+    {
+        _requireAmount(amount);
+        _requireMinister(officeId, msg.sender);
+
+        uint256 officeShares = _poolShares[officeId][pool];
+        if (officeShares == 0) {
+            revert NoMinistryPoolShares(officeId, pool);
+        }
+
+        return _withdrawFromPool(officeId, IUSDCLendingPoolApp(pool), amount);
+    }
+
+    function _withdrawFromPool(bytes32 officeId, IUSDCLendingPoolApp pool, uint256 amount)
+        private
+        returns (uint256 shares)
+    {
+        address poolAddress = address(pool);
+        uint256 officeShares = _poolShares[officeId][poolAddress];
+        if (officeShares == 0) {
+            revert NoMinistryPoolShares(officeId, poolAddress);
+        }
+
         address asset = pool.usdc();
 
         uint256 balanceBefore = IERC20(asset).balanceOf(address(this));
         shares = pool.withdraw(amount, address(this));
 
-        uint256 officeShares = _poolShares[officeId];
         if (officeShares < shares) {
-            revert InsufficientMinistryPoolShares(officeId, officeShares, shares);
+            revert InsufficientMinistryPoolShares(officeId, poolAddress, officeShares, shares);
         }
-        _poolShares[officeId] = officeShares - shares;
+        _poolShares[officeId][poolAddress] = officeShares - shares;
 
         uint256 received = IERC20(asset).balanceOf(address(this)) - balanceBefore;
         _balances[officeId][asset] += received;
 
-        emit MinistryWithdrewFromPool(officeId, received, shares, uint64(block.timestamp));
+        emit MinistryWithdrewFromPool(officeId, poolAddress, received, shares, uint64(block.timestamp));
     }
 
     /// @dev The window is a per-UTC-day bucket (`block.timestamp / 1 days`), not a trailing 24h rolling window: the
@@ -175,7 +214,7 @@ contract MinistryTreasury is KernelModule, ReentrancyGuard, IMinistryTreasury {
         }
 
         record.day = today;
-        record.spent = uint192(newSpent);
+        record.spent = newSpent;
     }
 
     function _resolveActiveOfficeRole(bytes32 officeId, address caller)

@@ -1,0 +1,448 @@
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "kernelAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "identityRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "stakeRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "beginPolicyRebuild",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "epoch",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "currentEpoch",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "identityRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isReady",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "ready",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "kernel",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "kernelAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "rebuild",
+    "inputs": [
+      {
+        "name": "startIndex",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "nextIndex",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "snapshot",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "citizenCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "votingPower",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "snapshotAt",
+    "inputs": [
+      {
+        "name": "blockNumber",
+        "type": "uint48",
+        "internalType": "uint48"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "citizenCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "votingPower",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "snapshotAtCurrentEpoch",
+    "inputs": [
+      {
+        "name": "blockNumber",
+        "type": "uint48",
+        "internalType": "uint48"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "citizenCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "votingPower",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "stakeRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "syncPerson",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "wasEligibleAt",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "blockNumber",
+        "type": "uint48",
+        "internalType": "uint48"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "eligible",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "ElectoratePersonSynchronized",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "eligible",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      },
+      {
+        "name": "votingPower",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "epoch",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ElectorateRebuildStarted",
+    "inputs": [
+      {
+        "name": "epoch",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "CheckpointUnorderedInsertion",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ElectorateCheckpointIncomplete",
+    "inputs": [
+      {
+        "name": "synchronizedIdentities",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalIdentities",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "epoch",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ElectorateCurrentEpochUnavailable",
+    "inputs": [
+      {
+        "name": "blockNumber",
+        "type": "uint48",
+        "internalType": "uint48"
+      },
+      {
+        "name": "currentEpochReadyAt",
+        "type": "uint48",
+        "internalType": "uint48"
+      },
+      {
+        "name": "epoch",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ElectorateSnapshotUnavailable",
+    "inputs": [
+      {
+        "name": "blockNumber",
+        "type": "uint48",
+        "internalType": "uint48"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ElectorateSourceMutationsIncomplete",
+    "inputs": [
+      {
+        "name": "synchronizedIdentityMutations",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "identityMutations",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "synchronizedStakeMutations",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "stakeMutations",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "epoch",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidElectorateAddress",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidElectorateSnapshotBlock",
+    "inputs": [
+      {
+        "name": "blockNumber",
+        "type": "uint48",
+        "internalType": "uint48"
+      },
+      {
+        "name": "currentBlock",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidModuleAddress",
+    "inputs": [
+      {
+        "name": "moduleId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "moduleAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SafeCastOverflowedUintDowncast",
+    "inputs": [
+      {
+        "name": "bits",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedElectorateInvalidation",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnknownElectoratePerson",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  }
+]}

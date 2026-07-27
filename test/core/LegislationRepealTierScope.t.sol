@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -10,7 +10,7 @@ import {LegislationRegistry} from "../../contracts/registries/LegislationRegistr
 import {LegislationTypes} from "../../contracts/types/LegislationTypes.sol";
 
 /// @title LegislationRepealTierScopeTest
-/// @notice L10: the registry enforces each bounded repeal pathway's tier scope, independent of the caller.
+/// @notice The registry enforces each bounded repeal pathway's tier scope, independent of the caller.
 contract LegislationRepealTierScopeTest is Test {
     ConstitutionKernel internal kernel;
     LegislationRegistry internal legislationRegistry;
@@ -33,7 +33,7 @@ contract LegislationRepealTierScopeTest is Test {
         _enact(SUB_LEGAL_MEASURE_ID, LegislationTypes.LegislationTier.SubLegalTier3);
     }
 
-    function test_L10_SenateCannotRepealLawTier() public {
+    function test_SenateCannotRepealLawTier() public {
         vm.expectRevert(
             abi.encodeWithSelector(
                 ILegislationRegistry.RepealTierNotPermitted.selector,
@@ -44,7 +44,7 @@ contract LegislationRepealTierScopeTest is Test {
         legislationRegistry.recordRepeal(LAW_MEASURE_ID, LegislationTypes.RepealOrigin.Senate, REPEAL_REFERENCE);
     }
 
-    function test_L10_PublicVetoCannotRepealSubLegalTier() public {
+    function test_PublicVetoCannotRepealSubLegalTier() public {
         vm.expectRevert(
             abi.encodeWithSelector(
                 ILegislationRegistry.RepealTierNotPermitted.selector,
@@ -57,7 +57,7 @@ contract LegislationRepealTierScopeTest is Test {
         );
     }
 
-    function test_L10_PermittedRepealPairsSucceed() public {
+    function test_PermittedRepealPairsSucceed() public {
         legislationRegistry.recordRepeal(LAW_MEASURE_ID, LegislationTypes.RepealOrigin.PublicVeto, REPEAL_REFERENCE);
         assertTrue(legislationRegistry.getLegislationRecord(LAW_MEASURE_ID).repealed);
 

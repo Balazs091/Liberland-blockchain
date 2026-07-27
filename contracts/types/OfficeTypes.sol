@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 /// @title OfficeTypes
 /// @notice Shared enums and structs for executive and ministry office administration.
@@ -35,12 +35,16 @@ library OfficeTypes {
     struct OfficeRecord {
         bytes32 officeId;
         string name;
-        // `kind`, `active`, and the timestamps pack alongside `admin` in a single slot (E2).
+        // `kind`, `active`, and the timestamps pack alongside `admin` in a single slot.
         address admin;
         OfficeKind kind;
         bool active;
         uint64 createdAt;
         uint64 lastUpdatedAt;
+        // Zero means the admin appointment is permanent. Cabinet appointments use their ministerial term end.
+        uint64 adminAuthorizationEndsAt;
+        // Zero keeps generic offices wallet-bound. Cabinet appointments bind authority to the minister's person ID.
+        bytes32 adminPersonId;
     }
 
     struct OfficeMembership {

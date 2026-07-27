@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
+import {IElectorateRegistry} from "../interfaces/IElectorateRegistry.sol";
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 
@@ -61,6 +62,11 @@ contract ConstitutionKernel is IConstitutionKernel {
     }
 
     /// @inheritdoc IConstitutionKernel
+    function moduleClass(bytes32 moduleId) external pure returns (GovernanceTypes.ModuleClass class) {
+        return _moduleClass(moduleId);
+    }
+
+    /// @inheritdoc IConstitutionKernel
     function isAuthorizedModule(address account) external view returns (bool authorized) {
         return _authorizedModuleRefs[account] != 0;
     }
@@ -96,6 +102,9 @@ contract ConstitutionKernel is IConstitutionKernel {
     /// @inheritdoc IConstitutionKernel
     function governanceUpdateModule(bytes32 moduleId, address moduleAddress) external {
         _requireGovernanceCaller(msg.sender);
+        if (_moduleRecords[moduleId].moduleAddress == address(0)) {
+            revert ModuleNotRegistered(moduleId);
+        }
         _requireRepointableModule(moduleId);
 
         _setModule(moduleId, moduleAddress, false);
@@ -104,7 +113,9 @@ contract ConstitutionKernel is IConstitutionKernel {
     /// @inheritdoc IConstitutionKernel
     function governanceRegisterModule(bytes32 moduleId, address moduleAddress) external {
         _requireGovernanceCaller(msg.sender);
-        _requireRepointableModule(moduleId);
+        if (_moduleClass(moduleId) == GovernanceTypes.ModuleClass.Core) {
+            revert CoreModuleImmutable(moduleId);
+        }
         if (_moduleRecords[moduleId].moduleAddress != address(0)) {
             revert ModuleAlreadyRegistered(moduleId);
         }
@@ -156,6 +167,12 @@ contract ConstitutionKernel is IConstitutionKernel {
         currentRecord.lastUpdatedAt = timestamp;
 
         emit ModuleReplaced(moduleId, previousModule, moduleAddress, timestamp);
+        if (moduleId == KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY) {
+            address electorateRegistry = _moduleRecords[KernelModuleIds.ELECTORATE_REGISTRY].moduleAddress;
+            if (electorateRegistry != address(0)) {
+                IElectorateRegistry(electorateRegistry).beginPolicyRebuild();
+            }
+        }
     }
 
     function _requireBootstrapAuthority(address caller) private view {
@@ -174,11 +191,80 @@ contract ConstitutionKernel is IConstitutionKernel {
         }
     }
 
-    /// @dev The core action lifecycle (router + timelock) is the trust root and is never governance-repointable.
-    ///      Enforcing this at the kernel makes the guarantee independent of any repointable app-tier validation.
+    /// @dev Only the core action lifecycle (router + timelock) is never governance-repointable. State-bearing
+    ///      modules still require an externally reviewed migration, but the kernel must not permanently prevent a
+    ///      future constitutional replacement once that migration has been prepared.
     function _requireRepointableModule(bytes32 moduleId) private pure {
-        if (moduleId == KernelModuleIds.GOVERNANCE_ROUTER || moduleId == KernelModuleIds.ACTION_TIMELOCK) {
+        GovernanceTypes.ModuleClass class = _moduleClass(moduleId);
+        if (class == GovernanceTypes.ModuleClass.Core) {
             revert CoreModuleImmutable(moduleId);
         }
+    }
+
+    function _moduleClass(bytes32 moduleId) private pure returns (GovernanceTypes.ModuleClass class) {
+        if (moduleId == KernelModuleIds.GOVERNANCE_ROUTER || moduleId == KernelModuleIds.ACTION_TIMELOCK) {
+            return GovernanceTypes.ModuleClass.Core;
+        }
+        if (
+            moduleId == KernelModuleIds.IDENTITY_REGISTRY || moduleId == KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY
+                || moduleId == KernelModuleIds.LEGISLATION_REGISTRY || moduleId == KernelModuleIds.REFERENDUM_REGISTRY
+                || moduleId == KernelModuleIds.SENATE_SEAT_REGISTRY || moduleId == KernelModuleIds.STAKE_REGISTRY
+                || moduleId == KernelModuleIds.LLM_STAKING_VAULT || moduleId == KernelModuleIds.STAKE_LIEN_REGISTRY
+                || moduleId == KernelModuleIds.LAND_REGISTRY || moduleId == KernelModuleIds.COMPANY_REGISTRY
+                || moduleId == KernelModuleIds.TREASURY_VAULT || moduleId == KernelModuleIds.BUDGET_ENVELOPE_REGISTRY
+                || moduleId == KernelModuleIds.OFFICE_REGISTRY || moduleId == KernelModuleIds.PRESIDENT_REGISTRY
+                || moduleId == KernelModuleIds.EXECUTIVE_REGISTRY || moduleId == KernelModuleIds.ELECTORATE_REGISTRY
+                || moduleId == KernelModuleIds.USDC_LENDING_POOL_APP || moduleId == KernelModuleIds.MINISTRY_TREASURY
+        ) {
+            return GovernanceTypes.ModuleClass.State;
+        }
+        if (
+            moduleId == KernelModuleIds.CANDIDATE_ELIGIBILITY_POLICY
+                || moduleId == KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY
+                || moduleId == KernelModuleIds.CONGRESS_ELECTION_POLICY
+                || moduleId == KernelModuleIds.OFFICE_PERMISSION_POLICY || moduleId == KernelModuleIds.REFERENDUM_POLICY
+                || moduleId == KernelModuleIds.SENATE_POWERS_POLICY
+                || moduleId == KernelModuleIds.TREASURY_SPENDING_POLICY
+                || moduleId == KernelModuleIds.VOTING_POWER_POLICY || moduleId == KernelModuleIds.UNSTAKING_POLICY
+                || moduleId == KernelModuleIds.LLM_USDC_PRICE_ORACLE_POLICY
+                || moduleId == KernelModuleIds.USDC_INTEREST_RATE_POLICY
+                || moduleId == KernelModuleIds.LENDING_RISK_PARAMETER_POLICY
+        ) {
+            return GovernanceTypes.ModuleClass.Policy;
+        }
+        if (
+            moduleId == KernelModuleIds.BUDGET_ENVELOPE_ACCOUNTING_AUTHORITY
+                || moduleId == KernelModuleIds.BUDGET_ENVELOPE_REGISTRY_AUTHORITY
+                || moduleId == KernelModuleIds.COMPANY_REGISTRY_AUTHORITY
+                || moduleId == KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY_AUTHORITY
+                || moduleId == KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY
+                || moduleId == KernelModuleIds.INITIAL_SETUP_AUTHORITY
+                || moduleId == KernelModuleIds.LAND_REGISTRY_AUTHORITY
+                || moduleId == KernelModuleIds.LEGISLATION_REGISTRY_AUTHORITY
+                || moduleId == KernelModuleIds.LEGISLATION_REPEAL_AUTHORITY
+                || moduleId == KernelModuleIds.OFFICE_REGISTRY_AUTHORITY
+                || moduleId == KernelModuleIds.PRESIDENT_REGISTRY_AUTHORITY
+                || moduleId == KernelModuleIds.EXECUTIVE_REGISTRY_AUTHORITY
+                || moduleId == KernelModuleIds.REFERENDUM_REGISTRY_AUTHORITY
+                || moduleId == KernelModuleIds.SENATE_SEAT_REGISTRY_AUTHORITY
+                || moduleId == KernelModuleIds.STAKE_LIEN_REGISTRY_AUTHORITY
+                || moduleId == KernelModuleIds.STAKE_USER_GATEWAY_AUTHORITY
+                || moduleId == KernelModuleIds.STAKE_LIQUIDATION_AUTHORITY
+                || moduleId == KernelModuleIds.STAKE_REGISTRY_AUTHORITY
+                || moduleId == KernelModuleIds.MINISTRY_TREASURY_FUNDING_AUTHORITY
+        ) {
+            return GovernanceTypes.ModuleClass.Authority;
+        }
+        if (
+            moduleId == KernelModuleIds.CABINET_APP || moduleId == KernelModuleIds.CONGRESS_ELECTION_APP
+                || moduleId == KernelModuleIds.COMPANY_REGISTRY_APP || moduleId == KernelModuleIds.DECISION_APP
+                || moduleId == KernelModuleIds.HEAD_OF_STATE_APP || moduleId == KernelModuleIds.LAND_REGISTRY_APP
+                || moduleId == KernelModuleIds.OFFICE_EXECUTOR || moduleId == KernelModuleIds.PAYOUT_QUEUE
+                || moduleId == KernelModuleIds.PUBLIC_VETO_APP || moduleId == KernelModuleIds.REFERENDUM_APP
+                || moduleId == KernelModuleIds.SENATE_APP || moduleId == KernelModuleIds.CONSTITUTIONAL_REVIEW
+        ) {
+            return GovernanceTypes.ModuleClass.Application;
+        }
+        return GovernanceTypes.ModuleClass.Undefined;
     }
 }

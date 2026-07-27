@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {Test} from "forge-std/Test.sol";
 
 import {ConstitutionKernel} from "../../contracts/core/ConstitutionKernel.sol";
+import {LLMStakingVault} from "../../contracts/apps/LLMStakingVault.sol";
 import {DemoSetupAuthority} from "../../contracts/mocks/DemoSetupAuthority.sol";
+import {LLMToken} from "../../contracts/mocks/LLMToken.sol";
 import {MockUSDC} from "../../contracts/mocks/MockUSDC.sol";
 import {BudgetEnvelopeRegistry} from "../../contracts/registries/BudgetEnvelopeRegistry.sol";
 import {CongressCandidateRegistry} from "../../contracts/registries/CongressCandidateRegistry.sol";
@@ -32,6 +34,8 @@ contract DemoSetupAuthorityTest is Test {
     ConstitutionKernel internal kernel;
     IdentityRegistry internal identityRegistry;
     StakeRegistry internal stakeRegistry;
+    LLMStakingVault internal stakingVault;
+    LLMToken internal llmToken;
     LegislationRegistry internal legislationRegistry;
     ReferendumRegistry internal referendumRegistry;
     CongressCandidateRegistry internal congressCandidateRegistry;
@@ -50,6 +54,9 @@ contract DemoSetupAuthorityTest is Test {
         usdc = new MockUSDC();
         identityRegistry = new IdentityRegistry(address(kernel));
         stakeRegistry = new StakeRegistry(address(kernel));
+        llmToken = new LLMToken();
+        stakingVault =
+            new LLMStakingVault(address(kernel), address(identityRegistry), address(stakeRegistry), address(llmToken));
         legislationRegistry = new LegislationRegistry(address(kernel));
         referendumRegistry = new ReferendumRegistry(address(kernel));
         congressCandidateRegistry = new CongressCandidateRegistry(address(kernel));
@@ -59,6 +66,7 @@ contract DemoSetupAuthorityTest is Test {
             owner,
             address(identityRegistry),
             address(stakeRegistry),
+            address(stakingVault),
             address(legislationRegistry),
             address(referendumRegistry),
             address(congressCandidateRegistry),
@@ -68,6 +76,7 @@ contract DemoSetupAuthorityTest is Test {
 
         kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, address(demoAuthority));
         kernel.bootstrapSetModule(KernelModuleIds.STAKE_REGISTRY_AUTHORITY, address(demoAuthority));
+        kernel.bootstrapSetModule(KernelModuleIds.LLM_STAKING_VAULT, address(stakingVault));
         kernel.bootstrapSetModule(KernelModuleIds.LEGISLATION_REGISTRY_AUTHORITY, address(demoAuthority));
         kernel.bootstrapSetModule(KernelModuleIds.REFERENDUM_REGISTRY_AUTHORITY, address(demoAuthority));
         kernel.bootstrapSetModule(KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY_AUTHORITY, address(demoAuthority));
@@ -76,6 +85,7 @@ contract DemoSetupAuthorityTest is Test {
     }
 
     function test_SeedCitizen_Legislation_Referendum_Office_AndBudget() public {
+        llmToken.mint(address(stakingVault), 9_000);
         demoAuthority.seedCitizen(PERSON_ID, wallet, 9_000, "ipfs://demo/person-1.json", keccak256("person-1"));
 
         IdentityTypes.IdentityRecord memory record = identityRegistry.getIdentityRecord(PERSON_ID);
@@ -115,6 +125,9 @@ contract DemoSetupAuthorityTest is Test {
                 startTime: uint64(block.timestamp - 1 days),
                 endTime: uint64(block.timestamp + 1 days),
                 adoptionDelay: 7 days,
+                votingPowerSnapshotBlock: 0,
+                referendumPolicy: address(demoAuthority),
+                votingPowerPolicy: address(demoAuthority),
                 electorateHeadcountSnapshot: 0,
                 electorateVotingPowerSnapshot: 0,
                 requiresSupermajority: false
@@ -123,6 +136,7 @@ contract DemoSetupAuthorityTest is Test {
         demoAuthority.seedReferendumVote(REFERENDUM_ID, wallet, ReferendumTypes.VoteOption.For, 9_000);
 
         ReferendumTypes.ReferendumRecord memory referendum = referendumRegistry.getReferendum(REFERENDUM_ID);
+        assertEq(referendum.votingPowerSnapshotBlock, block.number);
         assertEq(referendum.forVotes, 9_000);
         assertEq(referendum.voterCount, 1);
 
@@ -132,9 +146,11 @@ contract DemoSetupAuthorityTest is Test {
                 nominationStart: uint64(block.timestamp - 25 hours),
                 votingStart: uint64(block.timestamp - 1 hours),
                 votingEnd: uint64(block.timestamp + 47 hours),
+                votingPowerSnapshotBlock: 0,
                 seatCount: 1,
                 runnerUpCount: 1,
                 maxCandidateCount: 2,
+                policy: address(demoAuthority),
                 policyReference: keccak256("demo-election-policy")
             })
         );
@@ -146,6 +162,7 @@ contract DemoSetupAuthorityTest is Test {
         );
 
         ElectionTypes.CongressCycleRecord memory cycle = congressCandidateRegistry.getCycle(CONGRESS_CYCLE_ID);
+        assertEq(cycle.votingPowerSnapshotBlock, block.number);
         assertEq(uint8(cycle.status), uint8(ElectionTypes.ElectionStatus.Voting));
         assertEq(cycle.candidateCount, 1);
         assertEq(congressCandidateRegistry.getCandidate(CONGRESS_CYCLE_ID, wallet).voteTotal, int256(9_000));

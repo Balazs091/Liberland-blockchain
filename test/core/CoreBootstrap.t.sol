@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -14,9 +14,9 @@ import {GovernanceTypes} from "../../contracts/types/GovernanceTypes.sol";
 import {IdentityTypes} from "../../contracts/types/IdentityTypes.sol";
 import {TreasuryTypes} from "../../contracts/types/TreasuryTypes.sol";
 
-/// @title Milestone1BootstrapTest
-/// @notice Placeholder tests that keep the Milestone 1 scaffold compile-checked.
-contract Milestone1BootstrapTest is Test {
+/// @title CoreBootstrapTest
+/// @notice Covers kernel bootstrap registration and the shared domain types.
+contract CoreBootstrapTest is Test {
     function test_GovernanceTypesCanBeInstantiated() public pure {
         GovernanceTypes.ActionRequest memory request = GovernanceTypes.ActionRequest({
             actionType: GovernanceTypes.ActionType.ModulePointerUpdate,
@@ -113,6 +113,7 @@ contract Milestone1BootstrapTest is Test {
         assertTrue(IActionTimelock.queueAction.selector != bytes4(0));
         assertTrue(IActionTimelock.cancelAction.selector != bytes4(0));
         assertTrue(IActionTimelock.executeAction.selector != bytes4(0));
+        assertTrue(IActionTimelock.executeActions.selector != bytes4(0));
         assertTrue(IActionTimelock.expireAction.selector != bytes4(0));
     }
 

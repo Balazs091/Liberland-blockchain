@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {KernelModule} from "../base/KernelModule.sol";
 import {ICompanyRegistry} from "../interfaces/ICompanyRegistry.sol";
@@ -208,7 +208,7 @@ contract CompanyRegistry is ICompanyRegistry, KernelModule {
     /// @inheritdoc ICompanyRegistry
     function setDirector(bytes32 companyId, address director, bytes32 roleHash, bool active) external {
         _requireRegistryAuthority(msg.sender);
-        CompanyTypes.CompanyRecord storage companyRecord = _getMutableCompanyRecord(companyId);
+        CompanyTypes.CompanyRecord storage companyRecord = _getOperatingCompanyRecord(companyId);
         if (director == address(0) || (active && roleHash == bytes32(0))) {
             revert InvalidDirector(director);
         }

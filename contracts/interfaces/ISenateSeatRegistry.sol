@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IKernelModule} from "./IKernelModule.sol";
 import {SenateTypes} from "../types/SenateTypes.sol";
@@ -9,6 +9,7 @@ import {SenateTypes} from "../types/SenateTypes.sol";
 interface ISenateSeatRegistry is IKernelModule {
     error InvalidPersonId(bytes32 personId);
     error InvalidSeatHolder(address holder);
+    error SeatHolderPersonMismatch(address holder, bytes32 currentPersonId, bytes32 suppliedPersonId);
     error InvalidSeatIndex(uint32 seatIndex);
     error InvalidSuccessor(address nominee);
     error SeatAlreadyOccupied(uint32 seatIndex, address currentHolder);
@@ -76,6 +77,14 @@ interface ISenateSeatRegistry is IKernelModule {
     /// @param wallet The wallet to inspect.
     /// @return active Whether the wallet holds at least one active seat.
     function isActiveSeatHolder(address wallet) external view returns (bool active);
+
+    /// @notice Returns true when a person currently owns at least one occupied Senate seat.
+    function isActiveSeatHolderPerson(bytes32 personId) external view returns (bool active);
+
+    /// @notice Returns the person identifier represented by an active seat-holder wallet.
+    /// @param wallet The wallet to inspect.
+    /// @return personId The represented person identifier, or zero when the wallet holds no active seat.
+    function activeSeatHolderPersonId(address wallet) external view returns (bytes32 personId);
 
     /// @notice Returns the stored Senate seat record for a seat index.
     /// @param seatIndex The fixed seat index to inspect.

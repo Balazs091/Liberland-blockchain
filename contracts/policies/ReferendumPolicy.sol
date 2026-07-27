@@ -1,16 +1,18 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {ICongressElectionApp} from "../interfaces/ICongressElectionApp.sol";
 import {ICitizenEligibilityPolicy} from "../interfaces/ICitizenEligibilityPolicy.sol";
+import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
 import {IReferendumPolicy} from "../interfaces/IReferendumPolicy.sol";
 import {IStakeRegistry} from "../interfaces/IStakeRegistry.sol";
 import {IVotingPowerPolicy} from "../interfaces/IVotingPowerPolicy.sol";
+import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {ReferendumTypes} from "../types/ReferendumTypes.sol";
 
 /// @title ReferendumPolicy
-/// @notice Evaluates referendum proposal eligibility, quorum, and pass conditions for Milestone 3.
+/// @notice Evaluates referendum proposal eligibility, quorum, and pass conditions.
 contract ReferendumPolicy is IReferendumPolicy {
     error InvalidAuthority(address authority);
     error InvalidConstitutionalStakeThresholdBps(uint16 thresholdBps);
@@ -20,8 +22,10 @@ contract ReferendumPolicy is IReferendumPolicy {
     error UnsupportedProposalOrigin(ReferendumTypes.ProposalOrigin proposalOrigin);
     error UnsupportedReferendumClass(ReferendumTypes.ReferendumClass referendumClass);
 
-    ICitizenEligibilityPolicy private immutable _citizenEligibilityPolicy;
-    IVotingPowerPolicy private immutable _votingPowerPolicy;
+    IConstitutionKernel private immutable _kernel;
+    ICitizenEligibilityPolicy private immutable _initialCitizenEligibilityPolicy;
+    IVotingPowerPolicy private immutable _initialVotingPowerPolicy;
+    ICongressElectionApp private immutable _initialCongressProposalAuthority;
 
     uint16 internal constant CONSTITUTIONAL_HEADCOUNT_THRESHOLD_BPS = 5_000;
     uint64 internal constant MINIMUM_VOTING_DURATION = 7 days;
@@ -29,7 +33,6 @@ contract ReferendumPolicy is IReferendumPolicy {
     uint64 internal constant STANDARD_ADOPTION_DELAY = 7 days;
     uint64 internal constant MAXIMUM_ADOPTION_DELAY = 7 days;
 
-    address private immutable _congressProposalAuthority;
     address private immutable _proposalFeeAsset;
     uint256 private immutable _citizenProposalFee;
     uint256 private immutable _congressProposalFee;
@@ -82,9 +85,12 @@ contract ReferendumPolicy is IReferendumPolicy {
             revert InvalidConstitutionalStakeThresholdBps(constitutionalForStakeThresholdBps_);
         }
 
-        _citizenEligibilityPolicy = ICitizenEligibilityPolicy(citizenEligibilityPolicyAddress);
-        _votingPowerPolicy = IVotingPowerPolicy(votingPowerPolicyAddress);
-        _congressProposalAuthority = congressProposalAuthority_;
+        _kernel = IConstitutionKernel(
+            IIdentityRegistry(ICitizenEligibilityPolicy(citizenEligibilityPolicyAddress).identityRegistry()).kernel()
+        );
+        _initialCitizenEligibilityPolicy = ICitizenEligibilityPolicy(citizenEligibilityPolicyAddress);
+        _initialVotingPowerPolicy = IVotingPowerPolicy(votingPowerPolicyAddress);
+        _initialCongressProposalAuthority = ICongressElectionApp(congressProposalAuthority_);
         _proposalFeeAsset = proposalFeeAsset_;
         _citizenProposalFee = citizenProposalFee_;
         _congressProposalFee = congressProposalFee_;
@@ -97,17 +103,17 @@ contract ReferendumPolicy is IReferendumPolicy {
 
     /// @inheritdoc IReferendumPolicy
     function citizenEligibilityPolicy() external view returns (address policyAddress) {
-        return address(_citizenEligibilityPolicy);
+        return address(_citizenEligibilityPolicy());
     }
 
     /// @inheritdoc IReferendumPolicy
     function votingPowerPolicy() external view returns (address policyAddress) {
-        return address(_votingPowerPolicy);
+        return address(_votingPowerPolicy());
     }
 
     /// @inheritdoc IReferendumPolicy
     function congressProposalAuthority() external view returns (address authority) {
-        return _congressProposalAuthority;
+        return address(_congressProposalAuthority());
     }
 
     /// @inheritdoc IReferendumPolicy
@@ -187,7 +193,7 @@ contract ReferendumPolicy is IReferendumPolicy {
     }
 
     function _isCongressProposer(address proposer) private view returns (bool isMember) {
-        return ICongressElectionApp(_congressProposalAuthority).isCongressMember(proposer);
+        return _congressProposalAuthority().isCongressMember(proposer);
     }
 
     /// @inheritdoc IReferendumPolicy
@@ -197,7 +203,7 @@ contract ReferendumPolicy is IReferendumPolicy {
         uint256 forVotes,
         uint256 againstVotes,
         uint256 forVoterCount,
-        uint256 againstVoterCount,
+        uint256,
         uint256 electorateHeadcountSnapshot,
         uint256 electorateVotingPowerSnapshot,
         bool requiresSupermajority
@@ -238,8 +244,7 @@ contract ReferendumPolicy is IReferendumPolicy {
         // whole electorate snapshot. Broad participation is enforced separately by the 50%-of-electorate
         // headcount quorum above, so this measures the supermajority among votes actually cast.
         uint256 supermajorityRequired = _ceilBps(turnout, _constitutionalForStakeThresholdBps);
-        bool quorumMet = forVoterCount >= headcountQuorumRequired && forVotes >= supermajorityRequired
-            && forVoterCount > againstVoterCount;
+        bool quorumMet = forVoterCount >= headcountQuorumRequired && forVotes >= supermajorityRequired;
 
         return ReferendumTypes.PolicyOutcome({
             turnout: turnout,
@@ -271,17 +276,41 @@ contract ReferendumPolicy is IReferendumPolicy {
     }
 
     function _isBondedCitizenProposer(address proposer) private view returns (bool bonded) {
-        if (!_citizenEligibilityPolicy.isCitizenInGoodStanding(proposer)) {
+        ICitizenEligibilityPolicy eligibilityPolicy = _citizenEligibilityPolicy();
+        if (!eligibilityPolicy.isCitizenInGoodStanding(proposer)) {
             return false;
         }
 
-        bytes32 personId =
-            IIdentityRegistry(_citizenEligibilityPolicy.identityRegistry()).resolveWalletToPersonId(proposer);
+        bytes32 personId = IIdentityRegistry(eligibilityPolicy.identityRegistry()).resolveWalletToPersonId(proposer);
         if (personId == bytes32(0)) {
             return false;
         }
 
-        return IStakeRegistry(_citizenEligibilityPolicy.stakeRegistry()).activeStakeOf(personId)
-            >= _citizenProposalBondRequirement;
+        return
+            IStakeRegistry(eligibilityPolicy.stakeRegistry()).activeStakeOf(personId) >= _citizenProposalBondRequirement;
+    }
+
+    function _citizenEligibilityPolicy() private view returns (ICitizenEligibilityPolicy policy) {
+        try _kernel.getModule(KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY) returns (address policyAddress) {
+            return ICitizenEligibilityPolicy(policyAddress);
+        } catch {
+            return _initialCitizenEligibilityPolicy;
+        }
+    }
+
+    function _votingPowerPolicy() private view returns (IVotingPowerPolicy policy) {
+        try _kernel.getModule(KernelModuleIds.VOTING_POWER_POLICY) returns (address policyAddress) {
+            return IVotingPowerPolicy(policyAddress);
+        } catch {
+            return _initialVotingPowerPolicy;
+        }
+    }
+
+    function _congressProposalAuthority() private view returns (ICongressElectionApp authority) {
+        try _kernel.getModule(KernelModuleIds.CONGRESS_ELECTION_APP) returns (address authorityAddress) {
+            return ICongressElectionApp(authorityAddress);
+        } catch {
+            return _initialCongressProposalAuthority;
+        }
     }
 }

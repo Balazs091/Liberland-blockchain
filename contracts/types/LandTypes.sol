@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 /// @title LandTypes
 /// @notice Shared enums and structs for the land registry domain.
@@ -103,7 +103,7 @@ library LandTypes {
         bytes32 parcelId;
         bytes32 titleId;
         bytes32 documentHash;
-        // `status` packs into the trailing timestamp slot (E2).
+        // `status` packs into the trailing timestamp slot.
         EncumbranceStatus status;
         uint64 registeredAt;
         uint64 releasedAt;

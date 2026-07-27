@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IHeadOfStateApp} from "../interfaces/IHeadOfStateApp.sol";
+import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
+import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
 import {IPresidentRegistry} from "../interfaces/IPresidentRegistry.sol";
 import {ISenateSeatRegistry} from "../interfaces/ISenateSeatRegistry.sol";
+import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {SenateTypes} from "../types/SenateTypes.sol";
 
 /// @title HeadOfStateApp
@@ -108,7 +111,7 @@ contract HeadOfStateApp is IHeadOfStateApp {
         if (_presidentRegistry.isPresidentInTerm()) {
             return false;
         }
-        if (!_senateSeatRegistry.isActiveSeatHolder(candidate)) {
+        if (!_isActiveSenatorWallet(candidate)) {
             return false;
         }
 
@@ -117,8 +120,13 @@ contract HeadOfStateApp is IHeadOfStateApp {
 
     /// @inheritdoc IHeadOfStateApp
     function voteForPresident(uint32 seatIndex, address candidate) external {
+        address sittingPresident = _presidentRegistry.currentPresident();
+        if (_presidentRegistry.isPresidentInTerm()) {
+            revert PresidentAlreadyInTerm(sittingPresident);
+        }
+
         _requireSeatHolder(seatIndex, msg.sender);
-        if (!_senateSeatRegistry.isActiveSeatHolder(candidate)) {
+        if (!_isActiveSenatorWallet(candidate)) {
             revert CandidateNotSeatHolder(candidate);
         }
 
@@ -139,7 +147,7 @@ contract HeadOfStateApp is IHeadOfStateApp {
         if (_presidentRegistry.isPresidentInTerm()) {
             revert PresidentAlreadyInTerm(sittingPresident);
         }
-        if (!_senateSeatRegistry.isActiveSeatHolder(candidate)) {
+        if (!_isActiveSenatorWallet(candidate)) {
             revert CandidateNotSeatHolder(candidate);
         }
 
@@ -170,19 +178,19 @@ contract HeadOfStateApp is IHeadOfStateApp {
         if (slot >= 2) {
             revert InvalidVicePresidentSlot(slot);
         }
-        if (!_senateSeatRegistry.isActiveSeatHolder(vp)) {
+        if (!_isActiveSenatorWallet(vp)) {
             revert VicePresidentNotSeatHolder(vp);
         }
-        if (vp == msg.sender) {
+        bytes32 resolvedPersonId = _resolveSeatHolderPersonId(vp);
+        if (resolvedPersonId == _presidentRegistry.currentPresidentPersonId()) {
             revert InvalidVicePresidentCandidate(vp);
         }
 
         uint8 otherSlot = slot == 0 ? 1 : 0;
-        if (vp == _presidentRegistry.vicePresident(otherSlot)) {
+        if (resolvedPersonId == _presidentRegistry.vicePresidentPersonId(otherSlot)) {
             revert InvalidVicePresidentCandidate(vp);
         }
 
-        bytes32 resolvedPersonId = _resolveSeatHolderPersonId(vp);
         if (vpPersonId != resolvedPersonId) {
             revert VicePresidentPersonIdMismatch(vp, vpPersonId, resolvedPersonId);
         }
@@ -194,21 +202,21 @@ contract HeadOfStateApp is IHeadOfStateApp {
 
     /// @inheritdoc IHeadOfStateApp
     function resignPresident() external {
-        if (msg.sender != _presidentRegistry.currentPresident() || msg.sender == address(0)) {
+        if (!_isActiveWalletForPerson(msg.sender, _presidentRegistry.currentPresidentPersonId())) {
             revert NotPresident(msg.sender);
         }
 
         uint64 currentTimestamp = uint64(block.timestamp);
         emit PresidentResigned(msg.sender, currentTimestamp);
 
-        address firstVicePresident = _presidentRegistry.vicePresident(0);
+        bytes32 successorPersonId = _presidentRegistry.vicePresidentPersonId(0);
+        address firstVicePresident = _identityRegistry().activeWalletOf(successorPersonId);
         // The successor must still hold a Senate seat (L): a Vice President who has lost their seat since appointment
         // cannot inherit the presidency; the office is vacated for a fresh election instead.
-        if (firstVicePresident != address(0) && _senateSeatRegistry.isActiveSeatHolder(firstVicePresident)) {
+        if (firstVicePresident != address(0) && _senateSeatRegistry.isActiveSeatHolderPerson(successorPersonId)) {
             // Succession (Art VI §2.5): the first-sworn Vice President assumes the presidency for the remainder of
             // the current term (same termEnd). setPresident clears both Vice President slots, so the successor may
             // re-appoint fresh Vice Presidents.
-            bytes32 successorPersonId = _presidentRegistry.vicePresidentPersonId(0);
             uint64 remainingTermStart = _presidentRegistry.termStart();
             uint64 remainingTermEnd = _presidentRegistry.termEnd();
             bytes32 mandateHash = _successionMandateHash(firstVicePresident, remainingTermEnd);
@@ -253,31 +261,46 @@ contract HeadOfStateApp is IHeadOfStateApp {
     }
 
     function _resolveSeatHolderPersonId(address holder) private view returns (bytes32 personId) {
-        uint32 totalSeats = _senateSeatRegistry.totalSeats();
-        for (uint32 seatIndex = 0; seatIndex < totalSeats; ++seatIndex) {
-            SenateTypes.SenateSeatRecord memory seatRecord = _senateSeatRegistry.getSeatRecord(seatIndex);
-            if (!seatRecord.vacant && seatRecord.holder == holder) {
-                return seatRecord.holderPersonId;
-            }
+        personId = _resolveActivePersonId(holder);
+        if (!_senateSeatRegistry.isActiveSeatHolderPerson(personId)) {
+            return bytes32(0);
         }
-
-        return bytes32(0);
     }
 
     function _requireSeatHolder(uint32 seatIndex, address caller) private view {
         SenateTypes.SenateSeatRecord memory seatRecord = _senateSeatRegistry.getSeatRecord(seatIndex);
-        if (seatRecord.vacant || seatRecord.holder != caller) {
+        if (seatRecord.vacant || !_isActiveWalletForPerson(caller, seatRecord.holderPersonId)) {
             revert NotSeatHolder(seatIndex, caller);
         }
     }
 
     function _requireSittingPresident(address caller) private view {
         if (
-            caller == address(0) || caller != _presidentRegistry.currentPresident()
+            !_isActiveWalletForPerson(caller, _presidentRegistry.currentPresidentPersonId())
                 || !_presidentRegistry.isPresidentInTerm()
         ) {
             revert NotPresident(caller);
         }
+    }
+
+    function _isActiveSenatorWallet(address wallet) private view returns (bool active) {
+        bytes32 personId = _resolveActivePersonId(wallet);
+        return personId != bytes32(0) && _senateSeatRegistry.isActiveSeatHolderPerson(personId);
+    }
+
+    function _isActiveWalletForPerson(address wallet, bytes32 personId) private view returns (bool active) {
+        return personId != bytes32(0) && _identityRegistry().activeWalletOf(personId) == wallet;
+    }
+
+    function _resolveActivePersonId(address wallet) private view returns (bytes32 personId) {
+        IIdentityRegistry identityRegistry_ = _identityRegistry();
+        if (identityRegistry_.hasActiveWalletLink(wallet)) {
+            personId = identityRegistry_.resolveWalletToPersonId(wallet);
+        }
+    }
+
+    function _identityRegistry() private view returns (IIdentityRegistry registry) {
+        return IIdentityRegistry(IConstitutionKernel(_kernel).getModule(KernelModuleIds.IDENTITY_REGISTRY));
     }
 
     function _electionMandateHash(address candidate, uint64 termStart) private view returns (bytes32 mandateHash) {

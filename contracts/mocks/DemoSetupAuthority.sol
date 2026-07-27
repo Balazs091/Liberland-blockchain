@@ -1,8 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
+
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
 import {IStakeRegistry} from "../interfaces/IStakeRegistry.sol";
+import {ILLMStakingVault} from "../interfaces/ILLMStakingVault.sol";
 import {IBudgetEnvelopeRegistry} from "../interfaces/IBudgetEnvelopeRegistry.sol";
 import {ICongressCandidateRegistry} from "../interfaces/ICongressCandidateRegistry.sol";
 import {ILegislationRegistry} from "../interfaces/ILegislationRegistry.sol";
@@ -24,6 +27,7 @@ contract DemoSetupAuthority {
     address public immutable owner;
     IIdentityRegistry public immutable identityRegistry;
     IStakeRegistry public immutable stakeRegistry;
+    ILLMStakingVault public immutable stakingVault;
     ILegislationRegistry public immutable legislationRegistry;
     IReferendumRegistry public immutable referendumRegistry;
     ICongressCandidateRegistry public immutable congressCandidateRegistry;
@@ -34,6 +38,7 @@ contract DemoSetupAuthority {
         address owner_,
         address identityRegistryAddress,
         address stakeRegistryAddress,
+        address stakingVaultAddress,
         address legislationRegistryAddress,
         address referendumRegistryAddress,
         address congressCandidateRegistryAddress,
@@ -47,6 +52,7 @@ contract DemoSetupAuthority {
         owner = owner_;
         identityRegistry = IIdentityRegistry(identityRegistryAddress);
         stakeRegistry = IStakeRegistry(stakeRegistryAddress);
+        stakingVault = ILLMStakingVault(stakingVaultAddress);
         legislationRegistry = ILegislationRegistry(legislationRegistryAddress);
         referendumRegistry = IReferendumRegistry(referendumRegistryAddress);
         congressCandidateRegistry = ICongressCandidateRegistry(congressCandidateRegistryAddress);
@@ -77,7 +83,7 @@ contract DemoSetupAuthority {
             })
         );
         identityRegistry.setWalletLink(personId, wallet, IdentityTypes.WalletLinkStatus.Active);
-        stakeRegistry.increaseStake(personId, activeStake);
+        stakingVault.creditBackedStake(personId, activeStake);
     }
 
     /// @notice Seeds a protected stake floor for a demo citizen.
@@ -93,9 +99,13 @@ contract DemoSetupAuthority {
     }
 
     /// @notice Seeds a referendum record for demo read-state.
+    /// @dev Uses the current block so the single-run demo deployment can seed and exercise state immediately.
+    ///      Another transaction in that same block can still change its checkpoints; production never uses this path.
     function seedReferendum(bytes32 referendumId, ReferendumTypes.ReferendumRecordInput calldata input) external {
         _requireOwner(msg.sender);
-        referendumRegistry.createReferendum(referendumId, input);
+        ReferendumTypes.ReferendumRecordInput memory seededInput = input;
+        seededInput.votingPowerSnapshotBlock = SafeCast.toUint48(block.number);
+        referendumRegistry.createReferendum(referendumId, seededInput);
     }
 
     /// @notice Seeds a referendum vote for demo read-state.
@@ -115,9 +125,13 @@ contract DemoSetupAuthority {
     }
 
     /// @notice Seeds a Congress election cycle for demo read-state.
+    /// @dev Uses the current block so the single-run demo deployment can seed and exercise state immediately.
+    ///      Another transaction in that same block can still change its checkpoints; production never uses this path.
     function seedCongressCycle(uint256 cycleId, ElectionTypes.CongressCycleInput calldata input) external {
         _requireOwner(msg.sender);
-        congressCandidateRegistry.createCycle(cycleId, input);
+        ElectionTypes.CongressCycleInput memory seededInput = input;
+        seededInput.votingPowerSnapshotBlock = SafeCast.toUint48(block.number);
+        congressCandidateRegistry.createCycle(cycleId, seededInput);
     }
 
     /// @notice Seeds an accepted Congress candidate for demo read-state.
@@ -144,14 +158,16 @@ contract DemoSetupAuthority {
     ) external {
         _requireOwner(msg.sender);
         congressCandidateRegistry.recordBallot(
-            cycleId,
-            identityRegistry.resolveWalletToPersonId(voter),
-            voter,
+            ElectionTypes.CongressBallotInput({
+                cycleId: cycleId,
+                voterPersonId: identityRegistry.resolveWalletToPersonId(voter),
+                voter: voter,
+                ballotWeight: ballotWeight,
+                maxPositiveCandidates: maxPositiveCandidates,
+                maxNegativeAllocation: maxNegativeAllocation
+            }),
             candidates,
-            allocations,
-            ballotWeight,
-            maxPositiveCandidates,
-            maxNegativeAllocation
+            allocations
         );
     }
 

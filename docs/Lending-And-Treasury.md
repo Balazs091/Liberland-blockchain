@@ -1,44 +1,126 @@
-# Lending & Treasury (ERC20 money model)
+# Lending and Treasury
 
-This document describes the implemented money, lending, and ministry-treasury design. System money is ERC20 — **LLM** (governance/merit) and **stablecoins** (USDC, later USDS). Native ETH is gas-only and has no treasury role; no contract in this stack accepts `msg.value`.
+System money is ERC20: LLM for governance/merit and stablecoins for spending and lending. Native ETH is gas-only; protocol contracts do not accept `msg.value`.
+
+LLM uses 18 decimals and is hard-capped at `70_000_000e18`. Production requires the external token to expose that
+exact `cap()`. The Treasury is a holder and spender, never an issuer: it has no minting or arbitrary token-call path.
 
 ## Treasury vault and spending
 
-- `TreasuryVault` holds and disburses ERC20 assets only. Deposits come in through `receiveTokenDeposit` (or a plain transfer); disbursement is timelock-executed against a specific asset and recipient.
-- Budget envelopes (`BudgetEnvelopeRegistry`) and disbursement payloads are ERC20-denominated; the zero-address asset is rejected at the registry, timelock, and referendum layers.
-- `TreasurySpendingPolicy` carries an explicit per-asset allowlist (e.g. LLM, USDC) with per-asset clerk limits; the asset is bound into the payout policy reference. Changing the asset set or limits is a governed policy replacement.
-- Referendum proposal fees are collected in the policy's fee asset (LLM) via `safeTransferFrom` into the treasury.
+- `TreasuryVault` holds and disburses ERC20 assets only.
+- Budget envelopes and disbursement payloads bind a nonzero asset address.
+- `TreasurySpendingPolicy` is an explicit per-asset allowlist with per-asset clerk limits.
+- Referendum proposal fees are pulled in the policy's fee asset into the treasury.
+- Treasury disbursements execute only through the typed router/timelock path.
+- The vault independently requires the payload request ID, budget ID, amount, and asset to match an active stable-registry budget commitment.
+- Outbound transfers require the recipient's balance to increase by the exact requested amount; fee-on-transfer and
+  otherwise non-exact assets revert instead of silently underpaying the recipient.
+- `ContributionReward` payouts are LLM-only, Finance-admin-only, evidence-backed, and use the sensitive queue delay.
+- An office cancellation of a routed payout first cancels its queued timelock action; only then may `PayoutQueue`
+  mark it canceled and release the budget commitment.
+- Anyone may call `syncPayoutState` to reconcile an executed, Senate-canceled, or expired timelock action. For
+  execution, it checks `isDisbursementExecuted(requestId)` on the vault address pinned into that action rather than
+  a replacement live vault pointer.
 
-## Stake-backed lending pool (`USDCLendingPoolApp`)
+### Contribution rewards
 
-Citizens borrow stablecoins against **active LLM stake above the 5,000-LLM citizenship floor** (a citizen with 6,000 staked LLM has 1,000 of usable collateral). Anyone may supply stablecoins and earn the utilization-driven supply rate. Liens raise the borrower's required active-stake floor, so borrowed-against stake cannot be unstaked — borrowing cannot bypass the ~10%/yr unstake limit. Liquidation transfers seized collateral to the liquidator as *active staked LLM* (never liquid); the seized stake then exits only through the normal rate-limited unstake path.
+Official rewards for verified donations of time or money use the ordinary treasury safeguards rather than a new
+issuance path. A referendum first approves an LLM-denominated `ContributionReward` budget. The Finance Office admin
+then submits a recipient, amount, evidence hash, and evidence URI. After the sensitive queue and treasury timelock,
+the vault transfers existing LLM. Senate controls apply like any other treasury disbursement.
 
-Two properties make the risk model governable and safe for a thin, transfer-restricted collateral:
+The responsible operational office determines contribution validity off-chain and is expected to be identified in
+the evidence document. V1 does not encode contribution valuation or automatically exchange a stablecoin donation for
+LLM. Finance clerks cannot use this class. The source is always the pre-funded Treasury Vault LLM balance.
 
-- **Governed risk parameters** — `LendingRiskParameterPolicy` (`policy.lending-risk-parameter`) holds max LTV, liquidation threshold, **liquidation bonus** (votable), reserve factor, and a **per-person borrow cap** (0 = unlimited), with invariant-checked bounds (max-LTV < threshold ≤ 90%, bonus ≤ 20%, reserve ≤ 50%). The pool reads it live from the kernel, so a module-governance referendum retunes parameters on a live pool without redeploying it. Launch values: 25% LTV, 35% threshold, 10% bonus, 15% reserve.
-- **Swappable oracle** — the pool resolves `LLM_USDC_PRICE_ORACLE_POLICY` live from the kernel. At launch (no liquid pair) it is a manual `FixedLlmUsdcPriceOraclePolicy` at **1 LLM = 2 USDC** (`assetUnitsPerLlm = 2_000_000`), repriced by referendum repoint (no trusted price key). When the Uniswap V4 LLM/USDC pair has liquidity, governance repoints to a V4 TWAP oracle without redeploying the pool.
+## Political stake custody
 
-**Bad-debt backstop** — once liquidators have seized all surplus and only the untouchable citizenship floor remains, a position's residual debt is unrecoverable. `absorbBadDebt(personId)` writes it off: protocol reserves absorb it first (first-loss capital), and any remainder lowers LP share value until governance restores it with a referendum-approved treasury disbursement to the pool (treasury absorption, not silent supplier socialization). The `PositionNotBadDebt` guard forces liquidators to seize seizable collateral first.
+`LLMStakingVault` holds the LLM backing every redeemable active-stake unit in `StakeRegistry`.
 
-Revenue: 15% of borrow interest accrues as protocol reserves, claimable to the `TreasuryVault`. From there governance can route it (operations, an idle-yield allocation, or LLM buybacks distributed to stakers) — the intended loop for "the platform earns, and earnings strengthen LLM."
+- deposits check the exact token balance delta
+- a person ID must already exist before stake can be credited
+- genesis credits can consume only already funded backing surplus
+- unstaking reduces aggregate active stake before transferring the exact LLM amount to the active wallet
+- unstaking, liquidation, and slashing cannot move active stake below the required protected/lien floor
+- `StakeRegistry.totalActiveStake()` is the aggregate accounting side of the backing invariant
+- liquidation transfers active stake between person IDs and never releases liquid LLM
 
-## Ministry treasury (`MinistryTreasury`)
+The invariant is:
 
-A single shared contract holding ERC20 balances **per office ID**, so idle ministry/office stablecoins earn instead of sitting. Balances and the controlling roles are keyed by office ID and resolved live from the `OfficeRegistry`, so offices Congress creates later work with no change to this contract.
+`LLM.balanceOf(stakingVault) >= StakeRegistry.totalActiveStake()`
 
-- **Funding — Congress-controlled.** `fund(officeId, asset, amount)` is gated to the `MINISTRY_TREASURY_FUNDING_AUTHORITY` module, which is `DecisionApp`. Congress funds a ministry through a `createCongressFundMinistryDecision` Congress decision: on majority approval it pulls the source wallet's tokens and credits the office's balance, keeping the regular money flow out of citizen-referendum friction.
-- **Spending — minister + limited clerks.** The office admin (minister) spends any amount. Clerks are bound by a per-asset daily limit the minister sets (`setClerkDailyLimit`; default 0 = blocked). The limit is a per-UTC-day window (`block.timestamp / 1 days`): the clerk's spent-today counter resets at 00:00 UTC, so a clerk can spend up to the limit each calendar day.
-- **In-house yield.** The minister can `supplyToPool` / `withdrawFromPool` against the lending pool, with per-office share accounting so one office can never redeem another office's shares.
+## Stake-backed lending pool
 
-Idle government stablecoins earn the pool's supply rate. The supply side is a free market: any address (citizen or not) may supply and withdraw, and there is no cap on the ministry share of the pool. The one inherent constraint is that funds earning the borrow spread are withdrawable only up to the pool's available liquidity — a large, fast withdrawal raises utilization and pushes the borrow rate up. That is left to the market: the kinked rate is self-correcting (a spike pulls in suppliers and pushes borrowers to repay), and a ministry that needs guaranteed short-term liquidity simply keeps an operating-cash buffer outside the pool by choice.
+`USDCLendingPoolApp` lets anyone supply stablecoins and lets currently eligible citizens borrow against active LLM stake above their required retained floor. Stake liens raise that floor, so borrowed-against stake cannot be unstaked or slashed. Anyone may call `repayFor(personId, amount)`, allowing debt repayment after the borrower's wallet is revoked or migrated.
+
+Debt accounting uses per-person scaled debt under one global RAY (`1e27`) borrow index. Interest compounds
+deterministically through that index instead of being accrued independently per borrower. `currentDebtOf(personId)`
+previews index growth through the current timestamp; `totalBorrows()` and `borrowIndex()` intentionally return stored
+checkpoint values until `accrueInterest()` or another state-changing pool operation updates them.
+
+The pool resolves these modules live from the kernel:
+
+- `LendingRiskParameterPolicy`: max LTV, liquidation threshold, liquidation bonus, reserve factor, and per-person borrow cap
+- `KinkedInterestRatePolicy`: utilization-based borrow and supply rates
+- `LLM_USDC_PRICE_ORACLE_POLICY`: the collateral price source
+
+The pool checkpoints the borrow rate and reserve factor governing each elapsed interval. A direct USDC donation,
+utilization change, or governed policy replacement affects a new checkpoint; it does not retroactively apply the
+new configuration to time already elapsed. The constructor therefore takes six arguments and does not pin an
+interest-policy address.
+
+Both launch manifests use 30% LTV, a 40% liquidation threshold, a 15% liquidation bonus, a 15% reserve factor, a
+1,000,000 USDC total borrow cap, and a fixed 1 LLM = 2 USDC oracle. Production additionally caps debt at 100,000
+USDC per person; the demo leaves that cap unlimited to simplify testing. The fixed value cannot be manipulated
+through a market feed, but it can become economically wrong as market conditions change. This is an explicitly
+accepted launch risk. Governance can replace the oracle policy after review without redeploying the pool.
+
+`LendingRiskParameterPolicy` rejects a configuration where
+`liquidationThreshold * (1 + liquidationBonus) > 100%`. This ensures a liquidation performed exactly at the
+threshold cannot require more collateral, including bonus, than the position's full quoted collateral value.
+
+When a person's first lien is created, `StakeLienRegistry` snapshots the current citizenship retained-stake floor.
+That value remains fixed until the lien reaches zero, then is cleared. A later citizenship-policy increase therefore
+does not retroactively make the old position impossible to liquidate. The ordinary protected stake floor still
+applies if it is higher, and protected-floor updates cannot raise the effective required floor above active stake.
+
+Liquidation moves seized collateral to the liquidator as active stake. `absorbBadDebt(personId)` first computes the
+smallest asset repayment that actually reduces the borrower's scaled debt at the current index, applies the
+liquidation bonus and oracle conversion with the same conservative rounding as liquidation, and rejects the
+write-off while the available surplus stake can cover that seizure. The protected/retained floor is not available
+to a liquidator and is therefore not treated as recoverable collateral. Once surplus stake cannot fund that minimum
+effective liquidation, absorption clears the residual scaled debt: protocol reserves absorb loss first, and any
+remaining deficit lowers LP share value until a governed treasury transfer restores the pool.
+
+Protocol reserves accrue from borrow interest and remain locked in the pool as first-loss capital. There is no reserve-withdrawal entrypoint. A future withdrawal would require a new bounded governance action and separate review.
+
+## Ministry treasury
+
+`MinistryTreasury` is a shared ERC20 treasury keyed by office ID.
+
+- Funding is gated to `MINISTRY_TREASURY_FUNDING_AUTHORITY` (both manifests wire `DecisionApp`).
+  `fund(officeId, asset, from, amount)` pulls tokens only after the source has authorized the exact Congress decision
+  and approved the treasury.
+- The office admin may spend the office's balance.
+- Clerks are limited by a minister-configured per-asset UTC-day allowance; zero blocks clerk spending.
+- Clerk spend accounting uses full-width values and resets by UTC day bucket.
+- The minister may supply stablecoin balances to the lending pool and withdraw them.
+- Idle balances are isolated by office ID. Pool shares are isolated by both office ID and lending-pool address.
+- `poolSharesOf(officeId)` and the ordinary supply/withdraw functions use the current kernel-governed pool.
+- After a pool replacement, `poolSharesAt(officeId, oldPool)` and
+  `withdrawFromPoolAt(officeId, oldPool, amount)` let the office recover its own remaining old-pool shares without
+  mixing them with another office or the replacement pool.
+
+Pool withdrawals remain limited by available pool liquidity. An office that needs guaranteed short-term liquidity must retain an operating-cash buffer outside the pool.
 
 ## Deployment
 
-The demo script (`scripts/DeployDemo.s.sol`) deploys and wires the full stack end-to-end: the stake-lien registry, the launch oracle (1 LLM = 2 USDC), the kinked interest and risk-parameter policies, the lending pool (as its own stake-lien and liquidation authority), and the `MinistryTreasury` (with `DecisionApp` set as its funding authority). Congress can fund a ministry end-to-end via a `FundMinistry` decision. The production script (`scripts/Deploy.s.sol`) still deploys only the core governance set.
+Both `scripts/Deploy.s.sol` and `scripts/DeployDemo.s.sol` deploy the lending pool, launch oracle, risk/interest
+policies, stake-lien registry, `MinistryTreasury`, and `DecisionApp`. Production requires an explicit deployed
+six-decimal `USDC_TOKEN`; Sepolia deploys `MockUSDC`.
 
-## Remaining work
+## Deferred production work
 
-- **Uniswap V4 TWAP oracle** — build when the pair has liquidity: long TWAP window, spot-vs-TWAP deviation circuit-breaker that pauses borrows (never liquidations), staleness bounds, and a manipulation-cost analysis before raising LTV above 25%.
-- **Optional** — Dutch-auction liquidation if fixed-bonus liquidations stall; partial lien release (deliberately deferred — full-surplus lock keeps positions maximally over-collateralized, which suits illiquid collateral).
-
-The lending supply side is intentionally an open free market: anyone may supply/withdraw, and there is no ministry-share cap — utilization and rates are market-driven, with the kinked rate as the self-correcting shock absorber.
+- later replace the fixed oracle with a reviewed market oracle, including TWAP window, staleness, spot-vs-TWAP deviation handling, and manipulation-cost analysis
+- consider auction liquidation only if fixed-bonus liquidation proves insufficient
+- perform independent economic and invariant review, plus a final mainnet-fork deployment rehearsal, before launch

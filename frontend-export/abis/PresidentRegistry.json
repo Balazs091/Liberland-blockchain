@@ -1,1 +1,426 @@
-{"abi":[{"type":"constructor","inputs":[{"name":"kernelAddress","type":"address","internalType":"address"}],"stateMutability":"nonpayable"},{"type":"function","name":"currentMandateHash","inputs":[],"outputs":[{"name":"mandateHash","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},{"type":"function","name":"currentPresident","inputs":[],"outputs":[{"name":"president","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"currentPresidentPersonId","inputs":[],"outputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},{"type":"function","name":"isPresidentInTerm","inputs":[],"outputs":[{"name":"inTerm","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"kernel","inputs":[],"outputs":[{"name":"kernelAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"setPresident","inputs":[{"name":"president","type":"address","internalType":"address"},{"name":"personId","type":"bytes32","internalType":"bytes32"},{"name":"mandateHash","type":"bytes32","internalType":"bytes32"},{"name":"startTime","type":"uint64","internalType":"uint64"},{"name":"endTime","type":"uint64","internalType":"uint64"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"setVicePresident","inputs":[{"name":"slot","type":"uint8","internalType":"uint8"},{"name":"vp","type":"address","internalType":"address"},{"name":"vpPersonId","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"termEnd","inputs":[],"outputs":[{"name":"endTime","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"function","name":"termStart","inputs":[],"outputs":[{"name":"startTime","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"function","name":"vacatePresident","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"vicePresident","inputs":[{"name":"slot","type":"uint8","internalType":"uint8"}],"outputs":[{"name":"vp","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"vicePresidentPersonId","inputs":[{"name":"slot","type":"uint8","internalType":"uint8"}],"outputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},{"type":"event","name":"PresidentUpdated","inputs":[{"name":"previousPresident","type":"address","indexed":true,"internalType":"address"},{"name":"newPresident","type":"address","indexed":true,"internalType":"address"},{"name":"newPresidentPersonId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"mandateHash","type":"bytes32","indexed":false,"internalType":"bytes32"},{"name":"termStart","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"termEnd","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"updatedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"updatedBy","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"event","name":"PresidentVacated","inputs":[{"name":"previousPresident","type":"address","indexed":true,"internalType":"address"},{"name":"vacatedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"vacatedBy","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"event","name":"VicePresidentUpdated","inputs":[{"name":"slot","type":"uint8","indexed":true,"internalType":"uint8"},{"name":"previousVicePresident","type":"address","indexed":true,"internalType":"address"},{"name":"newVicePresident","type":"address","indexed":true,"internalType":"address"},{"name":"newVicePresidentPersonId","type":"bytes32","indexed":false,"internalType":"bytes32"},{"name":"updatedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"updatedBy","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"error","name":"InvalidModuleAddress","inputs":[{"name":"moduleId","type":"bytes32","internalType":"bytes32"},{"name":"moduleAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidPresident","inputs":[{"name":"president","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidPresidentPersonId","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"InvalidPresidentTerm","inputs":[{"name":"termStart","type":"uint64","internalType":"uint64"},{"name":"termEnd","type":"uint64","internalType":"uint64"}]},{"type":"error","name":"InvalidVicePresident","inputs":[{"name":"vicePresident","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidVicePresidentPersonId","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"InvalidVicePresidentSlot","inputs":[{"name":"slot","type":"uint8","internalType":"uint8"}]},{"type":"error","name":"UnauthorizedPresidentRegistryCaller","inputs":[{"name":"caller","type":"address","internalType":"address"}]}]}
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "kernelAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "currentMandateHash",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "mandateHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "currentPresident",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "president",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "currentPresidentPersonId",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isPresidentInTerm",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "inTerm",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "kernel",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "kernelAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "setPresident",
+    "inputs": [
+      {
+        "name": "president",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "mandateHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "startTime",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "endTime",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setVicePresident",
+    "inputs": [
+      {
+        "name": "slot",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "vp",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "vpPersonId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "termEnd",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "endTime",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "termStart",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "startTime",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "vacatePresident",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vicePresident",
+    "inputs": [
+      {
+        "name": "slot",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "vp",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "vicePresidentPersonId",
+    "inputs": [
+      {
+        "name": "slot",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "PresidentUpdated",
+    "inputs": [
+      {
+        "name": "previousPresident",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newPresident",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newPresidentPersonId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "mandateHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "termStart",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "termEnd",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "updatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "updatedBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PresidentVacated",
+    "inputs": [
+      {
+        "name": "previousPresident",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "vacatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "vacatedBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "VicePresidentUpdated",
+    "inputs": [
+      {
+        "name": "slot",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "uint8"
+      },
+      {
+        "name": "previousVicePresident",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newVicePresident",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newVicePresidentPersonId",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "updatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "updatedBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "InvalidModuleAddress",
+    "inputs": [
+      {
+        "name": "moduleId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "moduleAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidPresident",
+    "inputs": [
+      {
+        "name": "president",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidPresidentPersonId",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidPresidentTerm",
+    "inputs": [
+      {
+        "name": "termStart",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "termEnd",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidVicePresident",
+    "inputs": [
+      {
+        "name": "vicePresident",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidVicePresidentPersonId",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidVicePresidentSlot",
+    "inputs": [
+      {
+        "name": "slot",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedPresidentRegistryCaller",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  }
+]}

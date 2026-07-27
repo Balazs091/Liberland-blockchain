@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {Test} from "forge-std/Test.sol";
 
 import {DecisionApp} from "../../contracts/apps/DecisionApp.sol";
+import {LLMStakingVault} from "../../contracts/apps/LLMStakingVault.sol";
 import {MinistryTreasury} from "../../contracts/apps/MinistryTreasury.sol";
 import {ConstitutionKernel} from "../../contracts/core/ConstitutionKernel.sol";
 import {IDecisionApp} from "../../contracts/interfaces/IDecisionApp.sol";
@@ -20,9 +21,9 @@ import {ElectionTypes} from "../../contracts/types/ElectionTypes.sol";
 import {IdentityTypes} from "../../contracts/types/IdentityTypes.sol";
 import {OfficeTypes} from "../../contracts/types/OfficeTypes.sol";
 
-/// @title Milestone9DecisionsTest
+/// @title DecisionsTest
 /// @notice Covers bounded Congress and ministry decisions for ERC20 movement, clerk decisions, and LLM staking.
-contract Milestone9DecisionsTest is Test {
+contract DecisionsTest is Test {
     bytes32 internal constant FINANCE_OFFICE_ID = keccak256("office.ministry-finance");
     bytes32 internal constant RECIPIENT_PERSON_ID = bytes32(uint256(100));
 
@@ -45,6 +46,7 @@ contract Milestone9DecisionsTest is Test {
     OfficeRegistry internal officeRegistry;
     StakeRegistry internal stakeRegistry;
     LLMToken internal llmToken;
+    LLMStakingVault internal stakingVault;
     MockUSDC internal usdc;
     DecisionApp internal decisionApp;
 
@@ -60,20 +62,21 @@ contract Milestone9DecisionsTest is Test {
         officeRegistry = new OfficeRegistry(address(kernel));
         stakeRegistry = new StakeRegistry(address(kernel));
         llmToken = new LLMToken();
+        stakingVault =
+            new LLMStakingVault(address(kernel), address(identityRegistry), address(stakeRegistry), address(llmToken));
         usdc = new MockUSDC();
         decisionApp = new DecisionApp(
             address(congressCandidateRegistry),
             address(identityRegistry),
             address(officeRegistry),
-            address(stakeRegistry),
-            address(llmToken)
+            address(stakingVault)
         );
 
         kernel.bootstrapSetModule(KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY_AUTHORITY, address(congressAuthority));
         kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, address(identityAuthority));
         kernel.bootstrapSetModule(KernelModuleIds.OFFICE_REGISTRY_AUTHORITY, address(officeAuthority));
         kernel.bootstrapSetModule(KernelModuleIds.STAKE_REGISTRY_AUTHORITY, address(stakeAuthority));
-        kernel.bootstrapSetModule(KernelModuleIds.STAKE_DEPOSIT_AUTHORITY, address(decisionApp));
+        kernel.bootstrapSetModule(KernelModuleIds.LLM_STAKING_VAULT, address(stakingVault));
         kernel.bootstrapSetModule(KernelModuleIds.DECISION_APP, address(decisionApp));
 
         _registerIdentity(RECIPIENT_PERSON_ID, TREASURY_RECIPIENT);
@@ -112,6 +115,8 @@ contract Milestone9DecisionsTest is Test {
 
         vm.prank(CONGRESS_SOURCE);
         usdc.approve(address(decisionApp), amount);
+        vm.prank(CONGRESS_SOURCE);
+        decisionApp.authorizeCongressDecisionSource(decisionId);
 
         decisionApp.executeCongressDecision(decisionId);
 
@@ -119,6 +124,39 @@ contract Milestone9DecisionsTest is Test {
         DecisionTypes.DecisionRecord memory executed = decisionApp.getDecision(decisionId);
         assertEq(uint256(executed.status), uint256(DecisionTypes.DecisionStatus.Executed));
         assertEq(executed.executedBy, address(this));
+    }
+
+    function test_CongressDecision_SourceCanRevokeExactDecisionBeforeExecution() public {
+        bytes32 decisionId = keccak256("decision.congress.revoked-source");
+        uint256 amount = 100_000e6;
+        usdc.mint(CONGRESS_SOURCE, amount);
+
+        vm.prank(CONGRESS_MEMBER_ONE);
+        decisionApp.createCongressTokenTransferDecision(
+            decisionId,
+            CONGRESS_SOURCE,
+            address(usdc),
+            MINISTER_OF_FINANCE,
+            amount,
+            keccak256("revoked-source"),
+            "ipfs://revoked-source"
+        );
+        vm.prank(CONGRESS_MEMBER_TWO);
+        decisionApp.supportCongressDecision(decisionId);
+
+        vm.startPrank(CONGRESS_SOURCE);
+        usdc.approve(address(decisionApp), amount);
+        decisionApp.authorizeCongressDecisionSource(decisionId);
+        decisionApp.revokeCongressDecisionSource(decisionId);
+        vm.stopPrank();
+
+        assertFalse(decisionApp.isCongressDecisionSourceAuthorized(decisionId));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IDecisionApp.CongressDecisionSourceNotAuthorized.selector, decisionId, CONGRESS_SOURCE
+            )
+        );
+        decisionApp.executeCongressDecision(decisionId);
     }
 
     function test_CongressDecision_FundsMinistryTreasuryAfterMajoritySupport() public {
@@ -159,6 +197,8 @@ contract Milestone9DecisionsTest is Test {
         // Funding source approves the ministry treasury directly (it pulls in a single transfer on execution).
         vm.prank(CONGRESS_SOURCE);
         usdc.approve(address(ministryTreasury), amount);
+        vm.prank(CONGRESS_SOURCE);
+        decisionApp.authorizeCongressDecisionSource(decisionId);
 
         decisionApp.executeCongressDecision(decisionId);
 
@@ -378,7 +418,8 @@ contract Milestone9DecisionsTest is Test {
         decisionApp.executeMinistryDecision(decisionId);
 
         assertEq(stakeRegistry.activeStakeOf(RECIPIENT_PERSON_ID), amount);
-        assertEq(llmToken.balanceOf(address(decisionApp)), amount);
+        assertEq(llmToken.balanceOf(address(decisionApp)), 0);
+        assertEq(llmToken.balanceOf(address(stakingVault)), amount);
         assertEq(llmToken.balanceOf(MINISTER_OF_FINANCE), 0);
     }
 
@@ -388,9 +429,11 @@ contract Milestone9DecisionsTest is Test {
             nominationStart: nominationStart,
             votingStart: nominationStart + 1,
             votingEnd: nominationStart + 2,
+            votingPowerSnapshotBlock: uint48(block.number),
             seatCount: 3,
             runnerUpCount: 1,
             maxCandidateCount: 4,
+            policy: address(decisionApp),
             policyReference: keccak256(abi.encode("decision.test.policy", cycleId))
         });
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IKernelModule} from "./IKernelModule.sol";
 import {IdentityTypes} from "../types/IdentityTypes.sol";
@@ -44,6 +44,11 @@ interface IIdentityRegistry is IKernelModule {
         uint64 unlinkedAt,
         address indexed updatedBy
     );
+
+    event ElectorateSourceRevisionAdvanced(
+        bytes32 indexed personId, uint256 personRevision, uint256 totalMutationCount
+    );
+    event ElectorateSynchronizationDeferred(bytes32 indexed personId, address indexed electorateRegistry);
 
     /// @notice Returns the stored identity record for a person identifier.
     /// @param personId The canonical person identifier.
@@ -96,10 +101,24 @@ interface IIdentityRegistry is IKernelModule {
     /// @return personId The stored person identifier.
     function identityIdAt(uint256 index) external view returns (bytes32 personId);
 
+    /// @notice Returns the electorate-relevant identity revision for one person.
+    /// @param personId The canonical person identifier.
+    /// @return revision The number of electorate-relevant identity mutations recorded for the person.
+    function electorateRevisionOf(bytes32 personId) external view returns (uint256 revision);
+
+    /// @notice Returns the aggregate number of electorate-relevant identity mutations.
+    /// @return count The source mutation count mirrored by a ready electorate registry.
+    function electorateMutationCount() external view returns (uint256 count);
+
     /// @notice Returns the number of active wallet links currently attached to a person identifier.
     /// @param personId The canonical person identifier.
     /// @return count The number of active wallet links.
     function activeWalletCountOf(bytes32 personId) external view returns (uint256 count);
+
+    /// @notice Returns the one active wallet currently linked to a person.
+    /// @param personId The canonical person identifier.
+    /// @return wallet The active wallet, or zero when the person has none.
+    function activeWalletOf(bytes32 personId) external view returns (address wallet);
 
     /// @notice Returns true when a wallet has an active link to a person identifier.
     /// @param wallet The wallet to query.

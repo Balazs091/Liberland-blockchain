@@ -1,1 +1,1244 @@
-{"abi":[{"type":"constructor","inputs":[{"name":"executiveRegistryAddress","type":"address","internalType":"address"},{"name":"congressCandidateRegistryAddress","type":"address","internalType":"address"},{"name":"citizenEligibilityPolicyAddress","type":"address","internalType":"address"},{"name":"financeOfficeId","type":"bytes32","internalType":"bytes32"},{"name":"officeRegistryAddress","type":"address","internalType":"address"}],"stateMutability":"nonpayable"},{"type":"function","name":"appointMinister","inputs":[{"name":"ministry","type":"uint8","internalType":"enum ExecutiveTypes.MinistryKind"},{"name":"minister","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"appointPrimeMinister","inputs":[{"name":"candidate","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"appointmentVoteCount","inputs":[{"name":"candidate","type":"address","internalType":"address"}],"outputs":[{"name":"voteCount","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"canAppointPrimeMinister","inputs":[{"name":"candidate","type":"address","internalType":"address"}],"outputs":[{"name":"appointable","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"canDismissMinister","inputs":[{"name":"ministry","type":"uint8","internalType":"enum ExecutiveTypes.MinistryKind"}],"outputs":[{"name":"dismissable","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"canRemovePrimeMinister","inputs":[],"outputs":[{"name":"removable","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"citizenEligibilityPolicy","inputs":[],"outputs":[{"name":"policyAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"congressCandidateRegistry","inputs":[],"outputs":[{"name":"registryAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"dismissMinister","inputs":[{"name":"ministry","type":"uint8","internalType":"enum ExecutiveTypes.MinistryKind"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"dismissalVoteCount","inputs":[{"name":"ministry","type":"uint8","internalType":"enum ExecutiveTypes.MinistryKind"}],"outputs":[{"name":"voteCount","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"executiveRegistry","inputs":[],"outputs":[{"name":"registryAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"getAppointmentBallot","inputs":[{"name":"voter","type":"address","internalType":"address"}],"outputs":[{"name":"candidate","type":"address","internalType":"address"},{"name":"congressCycleId","type":"uint256","internalType":"uint256"},{"name":"appointmentNonce","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"function","name":"getDismissalBallot","inputs":[{"name":"ministry","type":"uint8","internalType":"enum ExecutiveTypes.MinistryKind"},{"name":"voter","type":"address","internalType":"address"}],"outputs":[{"name":"targetMinister","type":"address","internalType":"address"},{"name":"congressCycleId","type":"uint256","internalType":"uint256"},{"name":"dismissalNonce","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"function","name":"getMinister","inputs":[{"name":"ministry","type":"uint8","internalType":"enum ExecutiveTypes.MinistryKind"}],"outputs":[{"name":"record","type":"tuple","internalType":"struct ExecutiveTypes.MinisterRecord","components":[{"name":"minister","type":"address","internalType":"address"},{"name":"personId","type":"bytes32","internalType":"bytes32"},{"name":"ministry","type":"uint8","internalType":"enum ExecutiveTypes.MinistryKind"},{"name":"termStart","type":"uint64","internalType":"uint64"},{"name":"termEnd","type":"uint64","internalType":"uint64"},{"name":"active","type":"bool","internalType":"bool"}]}],"stateMutability":"view"},{"type":"function","name":"getPrimeMinister","inputs":[],"outputs":[{"name":"record","type":"tuple","internalType":"struct ExecutiveTypes.PrimeMinisterRecord","components":[{"name":"primeMinister","type":"address","internalType":"address"},{"name":"personId","type":"bytes32","internalType":"bytes32"},{"name":"termStart","type":"uint64","internalType":"uint64"},{"name":"termEnd","type":"uint64","internalType":"uint64"},{"name":"appointmentSupport","type":"uint32","internalType":"uint32"},{"name":"active","type":"bool","internalType":"bool"}]}],"stateMutability":"view"},{"type":"function","name":"getRemovalBallot","inputs":[{"name":"voter","type":"address","internalType":"address"}],"outputs":[{"name":"targetPrimeMinister","type":"address","internalType":"address"},{"name":"congressCycleId","type":"uint256","internalType":"uint256"},{"name":"removalNonce","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"function","name":"identityRegistry","inputs":[],"outputs":[{"name":"registryAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"isMinisterInTerm","inputs":[{"name":"ministry","type":"uint8","internalType":"enum ExecutiveTypes.MinistryKind"}],"outputs":[{"name":"inTerm","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"isPrimeMinisterInTerm","inputs":[],"outputs":[{"name":"inTerm","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"kernel","inputs":[],"outputs":[{"name":"kernelAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"ministerTerm","inputs":[],"outputs":[{"name":"termSeconds","type":"uint64","internalType":"uint64"}],"stateMutability":"pure"},{"type":"function","name":"ministryOfficeId","inputs":[{"name":"ministry","type":"uint8","internalType":"enum ExecutiveTypes.MinistryKind"}],"outputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},{"type":"function","name":"officeRegistry","inputs":[],"outputs":[{"name":"registryAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"primeMinister","inputs":[],"outputs":[{"name":"primeMinisterAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"primeMinisterAppointmentSupport","inputs":[],"outputs":[{"name":"appointmentSupport","type":"uint32","internalType":"uint32"}],"stateMutability":"view"},{"type":"function","name":"primeMinisterTerm","inputs":[],"outputs":[{"name":"termSeconds","type":"uint64","internalType":"uint64"}],"stateMutability":"pure"},{"type":"function","name":"removalVoteCount","inputs":[],"outputs":[{"name":"voteCount","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"removePrimeMinister","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"resignMinister","inputs":[{"name":"ministry","type":"uint8","internalType":"enum ExecutiveTypes.MinistryKind"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"resignPrimeMinister","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"retireExpiredMinister","inputs":[{"name":"ministry","type":"uint8","internalType":"enum ExecutiveTypes.MinistryKind"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"voteForPrimeMinister","inputs":[{"name":"candidate","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"voteToDismissMinister","inputs":[{"name":"ministry","type":"uint8","internalType":"enum ExecutiveTypes.MinistryKind"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"voteToRemovePrimeMinister","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"event","name":"MinisterAppointed","inputs":[{"name":"ministry","type":"uint8","indexed":true,"internalType":"enum ExecutiveTypes.MinistryKind"},{"name":"minister","type":"address","indexed":true,"internalType":"address"},{"name":"ministerPersonId","type":"bytes32","indexed":false,"internalType":"bytes32"},{"name":"appointedBy","type":"address","indexed":false,"internalType":"address"},{"name":"termStart","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"termEnd","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"appointedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"MinisterDismissalVoteCast","inputs":[{"name":"ministry","type":"uint8","indexed":true,"internalType":"enum ExecutiveTypes.MinistryKind"},{"name":"voter","type":"address","indexed":true,"internalType":"address"},{"name":"minister","type":"address","indexed":true,"internalType":"address"},{"name":"congressCycleId","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"dismissalNonce","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"castAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"MinisterDismissed","inputs":[{"name":"ministry","type":"uint8","indexed":true,"internalType":"enum ExecutiveTypes.MinistryKind"},{"name":"minister","type":"address","indexed":true,"internalType":"address"},{"name":"dismissalVotes","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"occupiedSeatCount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"dismissedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"MinisterResigned","inputs":[{"name":"ministry","type":"uint8","indexed":true,"internalType":"enum ExecutiveTypes.MinistryKind"},{"name":"minister","type":"address","indexed":true,"internalType":"address"},{"name":"resignedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"MinisterTermRetired","inputs":[{"name":"ministry","type":"uint8","indexed":true,"internalType":"enum ExecutiveTypes.MinistryKind"},{"name":"minister","type":"address","indexed":true,"internalType":"address"},{"name":"retiredAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"retiredBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"PrimeMinisterAppointed","inputs":[{"name":"primeMinister","type":"address","indexed":true,"internalType":"address"},{"name":"primeMinisterPersonId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"voteCount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"occupiedSeatCount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"termStart","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"termEnd","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"appointedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"PrimeMinisterRemovalVoteCast","inputs":[{"name":"voter","type":"address","indexed":true,"internalType":"address"},{"name":"primeMinister","type":"address","indexed":true,"internalType":"address"},{"name":"congressCycleId","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"removalNonce","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"castAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"PrimeMinisterRemoved","inputs":[{"name":"primeMinister","type":"address","indexed":true,"internalType":"address"},{"name":"removalVotes","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"appointmentSupport","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"removedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"PrimeMinisterResigned","inputs":[{"name":"primeMinister","type":"address","indexed":true,"internalType":"address"},{"name":"resignedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"PrimeMinisterVoteCast","inputs":[{"name":"voter","type":"address","indexed":true,"internalType":"address"},{"name":"candidate","type":"address","indexed":true,"internalType":"address"},{"name":"congressCycleId","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"appointmentNonce","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"castAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"error","name":"AppointmentMajorityNotReached","inputs":[{"name":"candidate","type":"address","internalType":"address"},{"name":"voteCount","type":"uint256","internalType":"uint256"},{"name":"occupiedSeatCount","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"CandidateNotInGoodStanding","inputs":[{"name":"candidate","type":"address","internalType":"address"}]},{"type":"error","name":"DismissalMajorityNotReached","inputs":[{"name":"ministry","type":"uint8","internalType":"enum ExecutiveTypes.MinistryKind"},{"name":"voteCount","type":"uint256","internalType":"uint256"},{"name":"occupiedSeatCount","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"InvalidCitizenEligibilityPolicy","inputs":[{"name":"policyAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidCongressCandidateRegistry","inputs":[{"name":"registryAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidExecutiveRegistry","inputs":[{"name":"registryAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidIdentityRegistry","inputs":[{"name":"registryAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidMinisterCandidate","inputs":[{"name":"minister","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidMinistry","inputs":[{"name":"ministry","type":"uint8","internalType":"enum ExecutiveTypes.MinistryKind"}]},{"type":"error","name":"InvalidOfficeRegistry","inputs":[{"name":"registryAddress","type":"address","internalType":"address"}]},{"type":"error","name":"KernelMismatch","inputs":[{"name":"expectedKernel","type":"address","internalType":"address"},{"name":"actualKernel","type":"address","internalType":"address"}]},{"type":"error","name":"MinisterAlreadyServing","inputs":[{"name":"minister","type":"address","internalType":"address"}]},{"type":"error","name":"MinisterNotInTerm","inputs":[{"name":"ministry","type":"uint8","internalType":"enum ExecutiveTypes.MinistryKind"}]},{"type":"error","name":"MinisterSlotOccupied","inputs":[{"name":"ministry","type":"uint8","internalType":"enum ExecutiveTypes.MinistryKind"},{"name":"minister","type":"address","internalType":"address"}]},{"type":"error","name":"MinisterStillInTerm","inputs":[{"name":"ministry","type":"uint8","internalType":"enum ExecutiveTypes.MinistryKind"}]},{"type":"error","name":"NoPrimeMinisterInTerm","inputs":[]},{"type":"error","name":"NotCongressMember","inputs":[{"name":"caller","type":"address","internalType":"address"}]},{"type":"error","name":"NotMinister","inputs":[{"name":"ministry","type":"uint8","internalType":"enum ExecutiveTypes.MinistryKind"},{"name":"caller","type":"address","internalType":"address"}]},{"type":"error","name":"NotPrimeMinister","inputs":[{"name":"caller","type":"address","internalType":"address"}]},{"type":"error","name":"PrimeMinisterAlreadyInTerm","inputs":[{"name":"primeMinister","type":"address","internalType":"address"}]},{"type":"error","name":"RemovalThresholdNotReached","inputs":[{"name":"removalVotes","type":"uint256","internalType":"uint256"},{"name":"appointmentSupport","type":"uint256","internalType":"uint256"}]}]}
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "executiveRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "congressCandidateRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "citizenEligibilityPolicyAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "financeOfficeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "officeRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "appointMinister",
+    "inputs": [
+      {
+        "name": "ministry",
+        "type": "uint8",
+        "internalType": "enum ExecutiveTypes.MinistryKind"
+      },
+      {
+        "name": "minister",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "appointPrimeMinister",
+    "inputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "appointmentVoteCount",
+    "inputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "voteCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "canAppointPrimeMinister",
+    "inputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "appointable",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "canDismissMinister",
+    "inputs": [
+      {
+        "name": "ministry",
+        "type": "uint8",
+        "internalType": "enum ExecutiveTypes.MinistryKind"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "dismissable",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "canRemovePrimeMinister",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "removable",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "citizenEligibilityPolicy",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "policyAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "congressCandidateRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "dismissMinister",
+    "inputs": [
+      {
+        "name": "ministry",
+        "type": "uint8",
+        "internalType": "enum ExecutiveTypes.MinistryKind"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "dismissalVoteCount",
+    "inputs": [
+      {
+        "name": "ministry",
+        "type": "uint8",
+        "internalType": "enum ExecutiveTypes.MinistryKind"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "voteCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "executiveRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getAppointmentBallot",
+    "inputs": [
+      {
+        "name": "voter",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "congressCycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "appointmentNonce",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getDismissalBallot",
+    "inputs": [
+      {
+        "name": "ministry",
+        "type": "uint8",
+        "internalType": "enum ExecutiveTypes.MinistryKind"
+      },
+      {
+        "name": "voter",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "targetMinister",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "congressCycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "dismissalNonce",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getMinister",
+    "inputs": [
+      {
+        "name": "ministry",
+        "type": "uint8",
+        "internalType": "enum ExecutiveTypes.MinistryKind"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "record",
+        "type": "tuple",
+        "internalType": "struct ExecutiveTypes.MinisterRecord",
+        "components": [
+          {
+            "name": "minister",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "personId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "ministry",
+            "type": "uint8",
+            "internalType": "enum ExecutiveTypes.MinistryKind"
+          },
+          {
+            "name": "termStart",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "termEnd",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "active",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getPrimeMinister",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "record",
+        "type": "tuple",
+        "internalType": "struct ExecutiveTypes.PrimeMinisterRecord",
+        "components": [
+          {
+            "name": "primeMinister",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "personId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "termStart",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "termEnd",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "appointmentSupport",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "active",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getRemovalBallot",
+    "inputs": [
+      {
+        "name": "voter",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "targetPrimeMinister",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "congressCycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "removalNonce",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "identityRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isMinisterInTerm",
+    "inputs": [
+      {
+        "name": "ministry",
+        "type": "uint8",
+        "internalType": "enum ExecutiveTypes.MinistryKind"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "inTerm",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isPrimeMinisterInTerm",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "inTerm",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "kernel",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "kernelAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "ministerTerm",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "termSeconds",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "ministryOfficeId",
+    "inputs": [
+      {
+        "name": "ministry",
+        "type": "uint8",
+        "internalType": "enum ExecutiveTypes.MinistryKind"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "officeRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "primeMinister",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "primeMinisterAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "primeMinisterAppointmentSupport",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "appointmentSupport",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "primeMinisterTerm",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "termSeconds",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "removalVoteCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "voteCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "removePrimeMinister",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "resignMinister",
+    "inputs": [
+      {
+        "name": "ministry",
+        "type": "uint8",
+        "internalType": "enum ExecutiveTypes.MinistryKind"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "resignPrimeMinister",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "retireExpiredMinister",
+    "inputs": [
+      {
+        "name": "ministry",
+        "type": "uint8",
+        "internalType": "enum ExecutiveTypes.MinistryKind"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "voteForPrimeMinister",
+    "inputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "voteToDismissMinister",
+    "inputs": [
+      {
+        "name": "ministry",
+        "type": "uint8",
+        "internalType": "enum ExecutiveTypes.MinistryKind"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "voteToRemovePrimeMinister",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "MinisterAppointed",
+    "inputs": [
+      {
+        "name": "ministry",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "enum ExecutiveTypes.MinistryKind"
+      },
+      {
+        "name": "minister",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "ministerPersonId",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "appointedBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "termStart",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "termEnd",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "appointedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MinisterDismissalVoteCast",
+    "inputs": [
+      {
+        "name": "ministry",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "enum ExecutiveTypes.MinistryKind"
+      },
+      {
+        "name": "voter",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "minister",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "congressCycleId",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "dismissalNonce",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "castAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MinisterDismissed",
+    "inputs": [
+      {
+        "name": "ministry",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "enum ExecutiveTypes.MinistryKind"
+      },
+      {
+        "name": "minister",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "dismissalVotes",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "occupiedSeatCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "dismissedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MinisterResigned",
+    "inputs": [
+      {
+        "name": "ministry",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "enum ExecutiveTypes.MinistryKind"
+      },
+      {
+        "name": "minister",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "resignedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MinisterTermRetired",
+    "inputs": [
+      {
+        "name": "ministry",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "enum ExecutiveTypes.MinistryKind"
+      },
+      {
+        "name": "minister",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "retiredAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "retiredBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PrimeMinisterAppointed",
+    "inputs": [
+      {
+        "name": "primeMinister",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "primeMinisterPersonId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "voteCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "occupiedSeatCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "termStart",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "termEnd",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "appointedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PrimeMinisterRemovalVoteCast",
+    "inputs": [
+      {
+        "name": "voter",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "primeMinister",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "congressCycleId",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "removalNonce",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "castAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PrimeMinisterRemoved",
+    "inputs": [
+      {
+        "name": "primeMinister",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "removalVotes",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "appointmentSupport",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "removedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PrimeMinisterResigned",
+    "inputs": [
+      {
+        "name": "primeMinister",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "resignedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PrimeMinisterVoteCast",
+    "inputs": [
+      {
+        "name": "voter",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "candidate",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "congressCycleId",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "appointmentNonce",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "castAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "AppointmentMajorityNotReached",
+    "inputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "voteCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "occupiedSeatCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CandidateNotInGoodStanding",
+    "inputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "DismissalMajorityNotReached",
+    "inputs": [
+      {
+        "name": "ministry",
+        "type": "uint8",
+        "internalType": "enum ExecutiveTypes.MinistryKind"
+      },
+      {
+        "name": "voteCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "occupiedSeatCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidCitizenEligibilityPolicy",
+    "inputs": [
+      {
+        "name": "policyAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidCongressCandidateRegistry",
+    "inputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidExecutiveRegistry",
+    "inputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidIdentityRegistry",
+    "inputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidMinisterCandidate",
+    "inputs": [
+      {
+        "name": "minister",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidMinistry",
+    "inputs": [
+      {
+        "name": "ministry",
+        "type": "uint8",
+        "internalType": "enum ExecutiveTypes.MinistryKind"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidOfficeRegistry",
+    "inputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "KernelMismatch",
+    "inputs": [
+      {
+        "name": "expectedKernel",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "actualKernel",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "MinisterAlreadyServing",
+    "inputs": [
+      {
+        "name": "minister",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "MinisterNotInTerm",
+    "inputs": [
+      {
+        "name": "ministry",
+        "type": "uint8",
+        "internalType": "enum ExecutiveTypes.MinistryKind"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "MinisterSlotOccupied",
+    "inputs": [
+      {
+        "name": "ministry",
+        "type": "uint8",
+        "internalType": "enum ExecutiveTypes.MinistryKind"
+      },
+      {
+        "name": "minister",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "MinisterStillInTerm",
+    "inputs": [
+      {
+        "name": "ministry",
+        "type": "uint8",
+        "internalType": "enum ExecutiveTypes.MinistryKind"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NoPrimeMinisterInTerm",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotCongressMember",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotMinister",
+    "inputs": [
+      {
+        "name": "ministry",
+        "type": "uint8",
+        "internalType": "enum ExecutiveTypes.MinistryKind"
+      },
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotPrimeMinister",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "PrimeMinisterAlreadyInTerm",
+    "inputs": [
+      {
+        "name": "primeMinister",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "RemovalThresholdNotReached",
+    "inputs": [
+      {
+        "name": "removalVotes",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "appointmentSupport",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  }
+]}

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IActionTimelock} from "../interfaces/IActionTimelock.sol";
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
@@ -15,7 +15,6 @@ contract GovernanceRouter is IGovernanceRouter {
     error InvalidOrigin(GovernanceTypes.ActionOrigin origin);
     error InvalidOriginAuthority(address authority);
     error NotBootstrapAuthority(address caller);
-    error UnauthorizedDisbursementOrigin(GovernanceTypes.ActionOrigin origin);
 
     event BootstrapAuthorityDisabled(address indexed disabledBy);
 
@@ -65,15 +64,6 @@ contract GovernanceRouter is IGovernanceRouter {
     function routeAction(GovernanceTypes.ActionRequest calldata request) external returns (bytes32 actionId) {
         _requireAuthorizedOrigin(request.origin, msg.sender);
 
-        // Defense-in-depth (L2): treasury disbursements may only be routed by the Office origin
-        // (OfficeExecutor), the sole legitimate builder of the disbursement payload today.
-        if (
-            request.actionType == GovernanceTypes.ActionType.TreasuryDisbursement
-                && request.origin != GovernanceTypes.ActionOrigin.Office
-        ) {
-            revert UnauthorizedDisbursementOrigin(request.origin);
-        }
-
         if (!isActionTypeSupported(request.actionType)) {
             revert UnsupportedActionType(request.actionType);
         }
@@ -92,6 +82,13 @@ contract GovernanceRouter is IGovernanceRouter {
     function cancelAction(bytes32 actionId) external {
         IActionTimelock actionTimelock = IActionTimelock(timelock());
         GovernanceTypes.ActionRecord memory actionRecord = actionTimelock.getAction(actionId);
+        if (
+            actionRecord.actionType == GovernanceTypes.ActionType.ModulePointerUpdate
+                && actionRecord.targetModule == KernelModuleIds.SENATE_APP
+                && msg.sender == _originAuthority(GovernanceTypes.ActionOrigin.Senate)
+        ) {
+            revert SelfReplacementCancellationForbidden(actionId, actionRecord.targetModule);
+        }
         GovernanceTypes.ActionOrigin cancellationOrigin = _resolveCancellationOrigin(actionRecord.origin, msg.sender);
 
         emit GovernanceActionCancellationRouted(actionId, cancellationOrigin, msg.sender);

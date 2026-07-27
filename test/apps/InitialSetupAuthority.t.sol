@@ -1,16 +1,19 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {Test} from "forge-std/Test.sol";
 
 import {InitialSetupAuthority} from "../../contracts/apps/InitialSetupAuthority.sol";
+import {LLMStakingVault} from "../../contracts/apps/LLMStakingVault.sol";
 import {ConstitutionKernel} from "../../contracts/core/ConstitutionKernel.sol";
 import {KernelModuleIds} from "../../contracts/libraries/KernelModuleIds.sol";
+import {LLMToken} from "../../contracts/mocks/LLMToken.sol";
 import {CandidateEligibilityPolicy} from "../../contracts/policies/CandidateEligibilityPolicy.sol";
 import {CitizenEligibilityPolicy} from "../../contracts/policies/CitizenEligibilityPolicy.sol";
 import {CongressElectionPolicy} from "../../contracts/policies/CongressElectionPolicy.sol";
 import {VotingPowerPolicy} from "../../contracts/policies/VotingPowerPolicy.sol";
 import {CongressCandidateRegistry} from "../../contracts/registries/CongressCandidateRegistry.sol";
+import {ElectorateRegistry} from "../../contracts/registries/ElectorateRegistry.sol";
 import {IdentityRegistry} from "../../contracts/registries/IdentityRegistry.sol";
 import {OfficeRegistry} from "../../contracts/registries/OfficeRegistry.sol";
 import {SenateSeatRegistry} from "../../contracts/registries/SenateSeatRegistry.sol";
@@ -40,6 +43,8 @@ contract InitialSetupAuthorityTest is Test {
     ConstitutionKernel internal kernel;
     IdentityRegistry internal identityRegistry;
     StakeRegistry internal stakeRegistry;
+    LLMStakingVault internal stakingVault;
+    LLMToken internal llmToken;
     CongressCandidateRegistry internal congressCandidateRegistry;
     SenateSeatRegistry internal senateSeatRegistry;
     OfficeRegistry internal officeRegistry;
@@ -49,14 +54,23 @@ contract InitialSetupAuthorityTest is Test {
         kernel = new ConstitutionKernel(address(this));
         identityRegistry = new IdentityRegistry(address(kernel));
         stakeRegistry = new StakeRegistry(address(kernel));
+        llmToken = new LLMToken();
+        stakingVault =
+            new LLMStakingVault(address(kernel), address(identityRegistry), address(stakeRegistry), address(llmToken));
         congressCandidateRegistry = new CongressCandidateRegistry(address(kernel));
         senateSeatRegistry = new SenateSeatRegistry(address(kernel));
         officeRegistry = new OfficeRegistry(address(kernel));
 
         CitizenEligibilityPolicy citizenEligibilityPolicy =
             new CitizenEligibilityPolicy(address(identityRegistry), address(stakeRegistry), MINIMUM_CITIZEN_STAKE);
-        VotingPowerPolicy votingPowerPolicy =
-            new VotingPowerPolicy(address(identityRegistry), address(stakeRegistry), address(citizenEligibilityPolicy));
+        ElectorateRegistry electorateRegistry =
+            new ElectorateRegistry(address(kernel), address(identityRegistry), address(stakeRegistry));
+        VotingPowerPolicy votingPowerPolicy = new VotingPowerPolicy(
+            address(identityRegistry),
+            address(stakeRegistry),
+            address(citizenEligibilityPolicy),
+            address(electorateRegistry)
+        );
         CandidateEligibilityPolicy candidateEligibilityPolicy = new CandidateEligibilityPolicy(
             address(identityRegistry),
             address(stakeRegistry),
@@ -80,6 +94,7 @@ contract InitialSetupAuthorityTest is Test {
             address(this),
             address(identityRegistry),
             address(stakeRegistry),
+            address(stakingVault),
             address(congressCandidateRegistry),
             address(congressElectionPolicy),
             address(senateSeatRegistry),
@@ -87,6 +102,7 @@ contract InitialSetupAuthorityTest is Test {
         );
 
         _wireSetupAuthority();
+        llmToken.mint(address(stakingVault), 100_000);
     }
 
     function test_SetupAuthority_SeedsGovernanceAndCanBeSealed() public {
@@ -129,9 +145,11 @@ contract InitialSetupAuthorityTest is Test {
                 nominationStart: uint64(block.timestamp),
                 votingStart: uint64(block.timestamp + 1),
                 votingEnd: uint64(block.timestamp + 2),
+                votingPowerSnapshotBlock: uint48(block.number),
                 seatCount: SEAT_COUNT,
                 runnerUpCount: RUNNER_UP_COUNT,
                 maxCandidateCount: MAX_CANDIDATE_COUNT,
+                policy: address(setupAuthority),
                 policyReference: keccak256("unfinalized-cycle")
             })
         );
@@ -142,6 +160,41 @@ contract InitialSetupAuthorityTest is Test {
 
         vm.expectRevert(InitialSetupAuthority.InvalidSetupInput.selector);
         setupAuthority.seedCongressTerm(members);
+    }
+
+    function test_SeedCongressContinuityTerm_InstallsIncumbentsAndCreatesLiveCycle() public {
+        _configureCitizen(PERSON_ONE_ID, WALLET_ONE, 10_000);
+        _configureCitizen(PERSON_TWO_ID, WALLET_TWO, 12_000);
+
+        address[] memory members = new address[](2);
+        members[0] = WALLET_ONE;
+        members[1] = WALLET_TWO;
+        uint64 continuityEnd = uint64(block.timestamp + 3 days);
+
+        (uint256 officeTermCycleId, uint256 continuityCycleId) =
+            setupAuthority.seedCongressContinuityTerm(members, continuityEnd);
+
+        ElectionTypes.CongressCycleRecord memory cycle = congressCandidateRegistry.getCycle(continuityCycleId);
+        assertEq(officeTermCycleId, 1);
+        assertEq(continuityCycleId, 2);
+        assertEq(congressCandidateRegistry.getCurrentOfficeTerm().occupiedSeatCount, 2);
+        assertEq(uint256(cycle.status), uint256(ElectionTypes.ElectionStatus.CandidateRegistration));
+        assertEq(cycle.nominationStart, block.timestamp);
+        assertEq(cycle.votingStart, block.timestamp + 1 days);
+        assertEq(cycle.votingEnd, continuityEnd);
+        assertEq(cycle.candidateCount, 2);
+    }
+
+    function test_SeedCongressContinuityTerm_RejectsCycleLongerThanPolicyCadence() public {
+        _configureCitizen(PERSON_ONE_ID, WALLET_ONE, 10_000);
+        _configureCitizen(PERSON_TWO_ID, WALLET_TWO, 12_000);
+
+        address[] memory members = new address[](2);
+        members[0] = WALLET_ONE;
+        members[1] = WALLET_TWO;
+
+        vm.expectRevert(InitialSetupAuthority.InvalidSetupInput.selector);
+        setupAuthority.seedCongressContinuityTerm(members, uint64(block.timestamp + 3 days + 1));
     }
 
     function _configureCitizen(bytes32 personId, address wallet, uint256 activeStake) private {
@@ -165,6 +218,7 @@ contract InitialSetupAuthorityTest is Test {
         kernel.bootstrapSetModule(KernelModuleIds.INITIAL_SETUP_AUTHORITY, address(setupAuthority));
         kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, address(setupAuthority));
         kernel.bootstrapSetModule(KernelModuleIds.STAKE_REGISTRY_AUTHORITY, address(setupAuthority));
+        kernel.bootstrapSetModule(KernelModuleIds.LLM_STAKING_VAULT, address(stakingVault));
         kernel.bootstrapSetModule(KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY_AUTHORITY, address(setupAuthority));
         kernel.bootstrapSetModule(KernelModuleIds.SENATE_SEAT_REGISTRY_AUTHORITY, address(setupAuthority));
         kernel.bootstrapSetModule(KernelModuleIds.OFFICE_REGISTRY_AUTHORITY, address(setupAuthority));

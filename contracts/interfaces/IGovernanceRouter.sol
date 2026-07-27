@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
 
@@ -7,6 +7,7 @@ import {GovernanceTypes} from "../types/GovernanceTypes.sol";
 /// @notice Interface for validating governance-origin actions before timelock queuing.
 interface IGovernanceRouter {
     error InvalidTargetModule(bytes32 targetModule);
+    error SelfReplacementCancellationForbidden(bytes32 actionId, bytes32 targetModule);
     error UnauthorizedGovernanceOrigin(address caller);
     error UnsupportedActionType(GovernanceTypes.ActionType actionType);
 

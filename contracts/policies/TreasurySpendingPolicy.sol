@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {ITreasurySpendingPolicy} from "../interfaces/ITreasurySpendingPolicy.sol";
 import {OfficeTypes} from "../types/OfficeTypes.sol";
@@ -12,6 +12,7 @@ import {TreasuryTypes} from "../types/TreasuryTypes.sol";
 contract TreasurySpendingPolicy is ITreasurySpendingPolicy {
     error DuplicateSpendingAsset(address asset);
     error InvalidFinanceOffice(bytes32 officeId);
+    error LlmAssetNotAllowed(address asset);
     error InvalidSpendingAsset(address asset);
     error InvalidSpendingAssetSet(uint256 assetCount);
     error InvalidSpendingLimit(uint256 operationsLimit, uint256 salaryLimit);
@@ -20,19 +21,24 @@ contract TreasurySpendingPolicy is ITreasurySpendingPolicy {
     uint64 internal constant SENSITIVE_QUEUE_DELAY = 1 days;
 
     bytes32 private immutable _financeOfficeId;
+    address private immutable _llmAsset;
 
     mapping(address asset => AssetSpendingLimit assetLimit) private _assetLimits;
     address[] private _allowedAssets;
 
-    constructor(bytes32 financeOfficeId_, AssetSpendingLimit[] memory assetLimits_) {
+    constructor(bytes32 financeOfficeId_, address llmAsset_, AssetSpendingLimit[] memory assetLimits_) {
         if (financeOfficeId_ == bytes32(0)) {
             revert InvalidFinanceOffice(financeOfficeId_);
+        }
+        if (llmAsset_ == address(0)) {
+            revert LlmAssetNotAllowed(llmAsset_);
         }
         if (assetLimits_.length == 0) {
             revert InvalidSpendingAssetSet(assetLimits_.length);
         }
 
         _financeOfficeId = financeOfficeId_;
+        _llmAsset = llmAsset_;
 
         for (uint256 index = 0; index < assetLimits_.length; index++) {
             AssetSpendingLimit memory assetLimit = assetLimits_[index];
@@ -49,11 +55,20 @@ contract TreasurySpendingPolicy is ITreasurySpendingPolicy {
             _assetLimits[assetLimit.asset] = assetLimit;
             _allowedAssets.push(assetLimit.asset);
         }
+
+        if (_assetLimits[llmAsset_].asset == address(0)) {
+            revert LlmAssetNotAllowed(llmAsset_);
+        }
     }
 
     /// @inheritdoc ITreasurySpendingPolicy
     function financeOfficeId() external view returns (bytes32 officeId) {
         return _financeOfficeId;
+    }
+
+    /// @inheritdoc ITreasurySpendingPolicy
+    function llmAsset() external view returns (address asset) {
+        return _llmAsset;
     }
 
     /// @inheritdoc ITreasurySpendingPolicy
@@ -87,6 +102,9 @@ contract TreasurySpendingPolicy is ITreasurySpendingPolicy {
         }
 
         if (officeRole == OfficeTypes.OfficeRole.Admin) {
+            if (disbursementType == TreasuryTypes.DisbursementType.ContributionReward) {
+                return asset == _llmAsset;
+            }
             return disbursementType == TreasuryTypes.DisbursementType.Operations
                 || disbursementType == TreasuryTypes.DisbursementType.Salary
                 || disbursementType == TreasuryTypes.DisbursementType.Grant
@@ -157,6 +175,7 @@ contract TreasurySpendingPolicy is ITreasurySpendingPolicy {
 
         if (
             disbursementType == TreasuryTypes.DisbursementType.Grant
+                || disbursementType == TreasuryTypes.DisbursementType.ContributionReward
                 || disbursementType == TreasuryTypes.DisbursementType.CapitalExpenditure
         ) {
             return SENSITIVE_QUEUE_DELAY;

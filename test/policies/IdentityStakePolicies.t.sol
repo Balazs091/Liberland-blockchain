@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {Test} from "forge-std/Test.sol";
 
 import {ConstitutionKernel} from "../../contracts/core/ConstitutionKernel.sol";
 import {ICitizenEligibilityPolicy} from "../../contracts/interfaces/ICitizenEligibilityPolicy.sol";
+import {IElectorateRegistry} from "../../contracts/interfaces/IElectorateRegistry.sol";
 import {IIdentityRegistry} from "../../contracts/interfaces/IIdentityRegistry.sol";
 import {IStakeRegistry} from "../../contracts/interfaces/IStakeRegistry.sol";
 import {IUnstakingPolicy} from "../../contracts/interfaces/IUnstakingPolicy.sol";
@@ -14,14 +15,23 @@ import {MockModule} from "../../contracts/mocks/MockModule.sol";
 import {CitizenEligibilityPolicy} from "../../contracts/policies/CitizenEligibilityPolicy.sol";
 import {UnstakingPolicy} from "../../contracts/policies/UnstakingPolicy.sol";
 import {VotingPowerPolicy} from "../../contracts/policies/VotingPowerPolicy.sol";
+import {ElectorateRegistry} from "../../contracts/registries/ElectorateRegistry.sol";
 import {IdentityRegistry} from "../../contracts/registries/IdentityRegistry.sol";
 import {StakeRegistry} from "../../contracts/registries/StakeRegistry.sol";
 import {IdentityTypes} from "../../contracts/types/IdentityTypes.sol";
 import {StakeTypes} from "../../contracts/types/StakeTypes.sol";
 
-/// @title Milestone2IdentityStakeTest
-/// @notice Covers Milestone 2 identity, stake, discrete unstaking, and welfare-based rights.
-contract Milestone2IdentityStakeTest is Test {
+contract GasBombElectorate {
+    fallback() external {
+        assembly ("memory-safe") {
+            invalid()
+        }
+    }
+}
+
+/// @title IdentityStakePoliciesTest
+/// @notice Covers identity, stake, discrete unstaking, and welfare-based rights.
+contract IdentityStakePoliciesTest is Test {
     uint256 internal constant MINIMUM_CITIZEN_STAKE = 5_000;
     uint64 internal constant WELFARE_PERIOD = 30 days;
     uint16 internal constant ANNUAL_UNSTAKE_RATE_BPS = 1_000;
@@ -31,6 +41,7 @@ contract Milestone2IdentityStakeTest is Test {
 
     address internal constant WALLET = address(0xA11CE);
     address internal constant WALLET_TWO = address(0xB0B);
+    address internal constant WALLET_NEW = address(0xCAFE);
 
     event IdentityRecordUpdated(
         bytes32 indexed personId,
@@ -79,6 +90,7 @@ contract Milestone2IdentityStakeTest is Test {
     CitizenEligibilityPolicy internal citizenEligibilityPolicy;
     VotingPowerPolicy internal votingPowerPolicy;
     UnstakingPolicy internal unstakingPolicy;
+    ElectorateRegistry internal electorateRegistry;
 
     function setUp() public {
         kernel = new ConstitutionKernel(address(this));
@@ -88,27 +100,75 @@ contract Milestone2IdentityStakeTest is Test {
 
         kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, address(identityAuthority));
         kernel.bootstrapSetModule(KernelModuleIds.STAKE_REGISTRY_AUTHORITY, address(stakeAuthority));
+        kernel.bootstrapSetModule(KernelModuleIds.LLM_STAKING_VAULT, address(stakeAuthority));
 
         identityRegistry = new IdentityRegistry(address(kernel));
         stakeRegistry = new StakeRegistry(address(kernel));
 
         citizenEligibilityPolicy =
             new CitizenEligibilityPolicy(address(identityRegistry), address(stakeRegistry), MINIMUM_CITIZEN_STAKE);
-        votingPowerPolicy =
-            new VotingPowerPolicy(address(identityRegistry), address(stakeRegistry), address(citizenEligibilityPolicy));
         unstakingPolicy = new UnstakingPolicy(address(stakeRegistry), WELFARE_PERIOD, ANNUAL_UNSTAKE_RATE_BPS);
+        electorateRegistry = new ElectorateRegistry(address(kernel), address(identityRegistry), address(stakeRegistry));
+        votingPowerPolicy = new VotingPowerPolicy(
+            address(identityRegistry),
+            address(stakeRegistry),
+            address(citizenEligibilityPolicy),
+            address(electorateRegistry)
+        );
 
         kernel.bootstrapSetModule(KernelModuleIds.UNSTAKING_POLICY, address(unstakingPolicy));
+        kernel.bootstrapSetModule(KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY, address(citizenEligibilityPolicy));
+        kernel.bootstrapSetModule(KernelModuleIds.VOTING_POWER_POLICY, address(votingPowerPolicy));
+        kernel.bootstrapSetModule(KernelModuleIds.ELECTORATE_REGISTRY, address(electorateRegistry));
     }
 
-    function test_Milestone2InterfacesExposeSelectors() public pure {
+    function test_InterfacesExposeSelectors() public pure {
         assertTrue(IIdentityRegistry.getIdentityRecord.selector != bytes4(0));
         assertTrue(IIdentityRegistry.setIdentityRecord.selector != bytes4(0));
         assertTrue(IStakeRegistry.unstake.selector != bytes4(0));
         assertTrue(IStakeRegistry.isInWelfare.selector != bytes4(0));
         assertTrue(ICitizenEligibilityPolicy.isCitizenInGoodStanding.selector != bytes4(0));
         assertTrue(IVotingPowerPolicy.votingPower.selector != bytes4(0));
+        assertTrue(IVotingPowerPolicy.electorateRegistry.selector != bytes4(0));
         assertTrue(IUnstakingPolicy.canUnstake.selector != bytes4(0));
+    }
+
+    function test_FactWritesSurviveGasBombElectorateAndExposeMissedSynchronization() public {
+        _registerCitizen(PERSON_ID, WALLET, MINIMUM_CITIZEN_STAKE);
+        assertTrue(electorateRegistry.isReady());
+
+        uint256 identityMutationsBefore = identityRegistry.electorateMutationCount();
+        uint256 stakeMutationsBefore = stakeRegistry.electorateMutationCount();
+        GasBombElectorate gasBomb = new GasBombElectorate();
+        kernel.bootstrapSetModule(KernelModuleIds.ELECTORATE_REGISTRY, address(gasBomb));
+
+        IdentityTypes.IdentityRecordInput memory suspendedInput = _defaultIdentityInput();
+        suspendedInput.finalSuspension = true;
+        _setIdentityRecord(PERSON_ID, suspendedInput);
+        _increaseStake(PERSON_ID, 1_000);
+
+        assertTrue(identityRegistry.getIdentityRecord(PERSON_ID).finalSuspension);
+        assertEq(stakeRegistry.activeStakeOf(PERSON_ID), MINIMUM_CITIZEN_STAKE + 1_000);
+        assertEq(identityRegistry.electorateMutationCount(), identityMutationsBefore + 1);
+        assertEq(stakeRegistry.electorateMutationCount(), stakeMutationsBefore + 1);
+        assertFalse(electorateRegistry.isReady());
+
+        kernel.bootstrapSetModule(KernelModuleIds.ELECTORATE_REGISTRY, address(electorateRegistry));
+        electorateRegistry.syncPerson(PERSON_ID);
+
+        assertTrue(electorateRegistry.isReady());
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IElectorateRegistry.ElectorateCurrentEpochUnavailable.selector,
+                uint48(block.number - 1),
+                uint48(block.number),
+                uint64(1)
+            )
+        );
+        electorateRegistry.snapshotAtCurrentEpoch(uint48(block.number - 1));
+        (uint256 citizenCount, uint256 votingPower) = electorateRegistry.snapshot();
+        assertEq(citizenCount, 0);
+        assertEq(votingPower, 0);
     }
 
     function test_UnstakingPolicy_ExposesConfiguredDefaults() public view {
@@ -220,6 +280,7 @@ contract Milestone2IdentityStakeTest is Test {
         assertEq(identityRegistry.activeWalletCountOf(PERSON_ID), 1);
         assertTrue(identityRegistry.hasActiveWalletLink(WALLET_TWO));
         assertFalse(identityRegistry.hasActiveWalletLink(WALLET));
+        assertEq(identityRegistry.activeWalletOf(PERSON_ID), WALLET_TWO);
     }
 
     function test_StakeRegistry_RequiresAuthorizedModule() public {
@@ -232,6 +293,65 @@ contract Milestone2IdentityStakeTest is Test {
 
         assertTrue(citizenEligibilityPolicy.isCitizenInGoodStanding(WALLET));
         assertEq(votingPowerPolicy.votingPower(WALLET), MINIMUM_CITIZEN_STAKE);
+    }
+
+    function test_VotingPowerSnapshot_DoesNotFollowTransferredStake() public {
+        _registerCitizen(PERSON_ID, WALLET, 9_000);
+        _registerCitizen(PERSON_TWO_ID, WALLET_TWO, 5_000);
+        uint48 snapshotBlock = uint48(block.number);
+
+        vm.roll(block.number + 1);
+        vm.prank(address(stakeAuthority));
+        stakeRegistry.transferActiveStake(PERSON_ID, PERSON_TWO_ID, 3_000);
+
+        assertEq(votingPowerPolicy.votingPower(WALLET), 6_000);
+        assertEq(votingPowerPolicy.votingPower(WALLET_TWO), 8_000);
+        assertEq(votingPowerPolicy.votingPowerAt(WALLET, snapshotBlock), 9_000);
+        assertEq(votingPowerPolicy.votingPowerAt(WALLET_TWO, snapshotBlock), 5_000);
+    }
+
+    function test_VotingPowerSnapshot_RejectsCitizenAddedAfterSnapshot() public {
+        IdentityTypes.IdentityRecordInput memory input = _defaultIdentityInput();
+        input.citizenshipStatus = IdentityTypes.CitizenshipStatus.EResident;
+        _setIdentityRecord(PERSON_ID, input);
+        _setWalletLink(PERSON_ID, WALLET, IdentityTypes.WalletLinkStatus.Active);
+        _increaseStake(PERSON_ID, 9_000);
+
+        uint48 snapshotBlock = uint48(block.number);
+        assertFalse(electorateRegistry.wasEligibleAt(PERSON_ID, snapshotBlock));
+
+        vm.roll(block.number + 1);
+        input.citizenshipStatus = IdentityTypes.CitizenshipStatus.Citizen;
+        _setIdentityRecord(PERSON_ID, input);
+
+        assertTrue(citizenEligibilityPolicy.isCitizenInGoodStanding(WALLET));
+        assertEq(votingPowerPolicy.votingPower(WALLET), 9_000);
+        assertEq(votingPowerPolicy.votingPowerAt(WALLET, snapshotBlock), 0);
+    }
+
+    function test_VotingPowerSnapshot_CurrentCitizenshipLossDisqualifiesHistoricalVoter() public {
+        _registerCitizen(PERSON_ID, WALLET, 9_000);
+        uint48 snapshotBlock = uint48(block.number);
+
+        vm.roll(block.number + 1);
+        IdentityTypes.IdentityRecordInput memory input = _defaultIdentityInput();
+        input.citizenshipStatus = IdentityTypes.CitizenshipStatus.Revoked;
+        _setIdentityRecord(PERSON_ID, input);
+
+        assertTrue(electorateRegistry.wasEligibleAt(PERSON_ID, snapshotBlock));
+        assertEq(votingPowerPolicy.votingPowerAt(WALLET, snapshotBlock), 0);
+    }
+
+    function test_VotingPowerSnapshot_FollowsPersonAcrossWalletMigration() public {
+        _registerCitizen(PERSON_ID, WALLET, 9_000);
+        uint48 snapshotBlock = uint48(block.number);
+
+        vm.roll(block.number + 1);
+        _setWalletLink(PERSON_ID, WALLET, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(PERSON_ID, WALLET_NEW, IdentityTypes.WalletLinkStatus.Active);
+
+        assertEq(votingPowerPolicy.votingPowerAt(WALLET, snapshotBlock), 0);
+        assertEq(votingPowerPolicy.votingPowerAt(WALLET_NEW, snapshotBlock), 9_000);
     }
 
     function test_CitizenEligibility_ReturnsFalseForFinalSuspension() public {
@@ -289,7 +409,7 @@ contract Milestone2IdentityStakeTest is Test {
         assertEq(secondRelease, unstakingPolicy.unstakePortion(7_240));
     }
 
-    /// @notice M12 (no lien): a non-borrower can exit down to their own protected floor.
+    /// @notice A non-borrower can exit down to their own protected floor.
     function test_Unstake_RespectsProtectedFloorForNonBorrower() public {
         _registerCitizen(PERSON_ID, WALLET, 9_000);
         _setProtectedStakeFloor(PERSON_ID, 8_950);

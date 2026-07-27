@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IKernelModule} from "./IKernelModule.sol";
 import {OfficeTypes} from "../types/OfficeTypes.sol";
@@ -11,6 +11,7 @@ interface IOfficeRegistry is IKernelModule {
     error InvalidOfficeId(bytes32 officeId);
     error InvalidOfficeKind(OfficeTypes.OfficeKind kind);
     error InvalidOfficeMember(address member);
+    error InvalidOfficeAdminAuthorizationEnd(uint64 authorizationEndsAt, uint64 currentTime);
     error OfficeAlreadyRegistered(bytes32 officeId);
     error OfficeNotFound(bytes32 officeId);
     error UnauthorizedOfficeRegistryCaller(address caller);
@@ -28,8 +29,13 @@ interface IOfficeRegistry is IKernelModule {
         bytes32 indexed officeId,
         address indexed previousAdmin,
         address indexed newAdmin,
+        uint64 authorizationEndsAt,
         uint64 transferredAt,
         address transferredBy
+    );
+
+    event OfficeClerksInvalidated(
+        bytes32 indexed officeId, uint64 indexed clerkEpoch, uint64 invalidatedAt, address indexed invalidatedBy
     );
 
     event OfficeClerkStatusUpdated(
@@ -52,9 +58,21 @@ interface IOfficeRegistry is IKernelModule {
     function officeIdAt(uint256 index) external view returns (bytes32 officeId);
     function roleOf(bytes32 officeId, address account) external view returns (OfficeTypes.OfficeRole role);
     function isOfficeAdmin(bytes32 officeId, address account) external view returns (bool isAdmin);
+    /// @notice Checks the current admin appointment without requiring the office itself to be active.
+    function isOfficeAdminAppointment(bytes32 officeId, address account) external view returns (bool isAdmin);
     function isOfficeClerk(bytes32 officeId, address account) external view returns (bool isClerk);
     function registerOffice(bytes32 officeId, OfficeTypes.OfficeKind kind, string calldata name, address admin) external;
     function transferOfficeAdmin(bytes32 officeId, address newAdmin) external;
+    /// @notice Transfers an office admin role that automatically expires at `authorizationEndsAt`.
+    /// @dev Used by CabinetApp so operational ministry authority cannot outlive the ministerial term.
+    function transferOfficeAdminForTerm(
+        bytes32 officeId,
+        address newAdmin,
+        bytes32 adminPersonId,
+        uint64 authorizationEndsAt
+    ) external;
+    /// @notice Removes the current admin and invalidates every clerk appointment for the office.
+    function revokeOfficeAdmin(bytes32 officeId) external;
     function setClerkStatus(bytes32 officeId, address clerk, bool active) external;
     function renameOffice(bytes32 officeId, string calldata newName) external;
     function setOfficeActive(bytes32 officeId, bool active) external;

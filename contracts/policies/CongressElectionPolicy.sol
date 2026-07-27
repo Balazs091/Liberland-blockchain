@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {ICandidateEligibilityPolicy} from "../interfaces/ICandidateEligibilityPolicy.sol";
 import {ICongressElectionPolicy} from "../interfaces/ICongressElectionPolicy.sol";
@@ -159,19 +159,23 @@ contract CongressElectionPolicy is ICongressElectionPolicy {
     }
 
     /// @inheritdoc ICongressElectionPolicy
+    function maxNegativeAllocationAt(address wallet, uint48 blockNumber) external view returns (uint256 amount) {
+        return _votingPowerPolicy.votingPowerAt(wallet, blockNumber) / NEGATIVE_ALLOCATION_DIVISOR;
+    }
+
+    /// @inheritdoc ICongressElectionPolicy
     function isEligibleCandidate(address wallet) external view returns (bool eligible) {
-        if (!_candidateEligibilityPolicy.isEligibleCandidate(wallet)) {
+        ICandidateEligibilityPolicy candidatePolicy = _candidateEligibilityPolicy;
+        if (!candidatePolicy.isEligibleCandidate(wallet)) {
             return false;
         }
 
-        bytes32 personId =
-            IIdentityRegistry(_candidateEligibilityPolicy.identityRegistry()).resolveWalletToPersonId(wallet);
+        bytes32 personId = IIdentityRegistry(candidatePolicy.identityRegistry()).resolveWalletToPersonId(wallet);
         if (personId == bytes32(0)) {
             return false;
         }
 
-        return IStakeRegistry(_candidateEligibilityPolicy.stakeRegistry()).activeStakeOf(personId)
-            >= _candidateBondRequirement;
+        return IStakeRegistry(candidatePolicy.stakeRegistry()).activeStakeOf(personId) >= _candidateBondRequirement;
     }
 
     /// @inheritdoc ICongressElectionPolicy
@@ -182,5 +186,10 @@ contract CongressElectionPolicy is ICongressElectionPolicy {
     /// @inheritdoc ICongressElectionPolicy
     function votingWeight(address wallet) external view returns (uint256 weight) {
         return _votingPowerPolicy.votingPower(wallet);
+    }
+
+    /// @inheritdoc ICongressElectionPolicy
+    function votingWeightAt(address wallet, uint48 blockNumber) external view returns (uint256 weight) {
+        return _votingPowerPolicy.votingPowerAt(wallet, blockNumber);
     }
 }

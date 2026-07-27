@@ -1,1 +1,104 @@
-{"abi":[{"type":"constructor","inputs":[{"name":"assetAddress","type":"address","internalType":"address"},{"name":"assetUnitsPerLlm_","type":"uint256","internalType":"uint256"}],"stateMutability":"nonpayable"},{"type":"function","name":"asset","inputs":[],"outputs":[{"name":"assetAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"assetUnitsPerLlm","inputs":[],"outputs":[{"name":"amount","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"quoteAssetToLlm","inputs":[{"name":"assetAmount","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"llmStakeAmount","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"quoteLlmToAsset","inputs":[{"name":"llmStakeAmount","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"assetAmount","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"error","name":"InvalidAsset","inputs":[{"name":"assetAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidPrice","inputs":[{"name":"assetUnitsPerLlm","type":"uint256","internalType":"uint256"}]}]}
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "assetAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "assetUnitsPerLlm_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "asset",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "assetAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "assetUnitsPerLlm",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "quoteAssetToLlm",
+    "inputs": [
+      {
+        "name": "assetAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "llmStakeAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "quoteLlmToAsset",
+    "inputs": [
+      {
+        "name": "llmStakeAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "assetAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "InvalidAsset",
+    "inputs": [
+      {
+        "name": "assetAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidPrice",
+    "inputs": [
+      {
+        "name": "assetUnitsPerLlm",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  }
+]}

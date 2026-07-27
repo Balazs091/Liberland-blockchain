@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IKernelModule} from "./IKernelModule.sol";
 import {ReferendumTypes} from "../types/ReferendumTypes.sol";
@@ -16,6 +16,9 @@ interface IReferendumRegistry is IKernelModule {
     error InvalidProposerReference(bytes32 proposerReference);
     error InvalidReferendumClass(ReferendumTypes.ReferendumClass referendumClass);
     error InvalidReferendumId(bytes32 referendumId);
+    error InvalidReferendumPolicy(address policy);
+    error InvalidVotingPowerPolicy(address policy);
+    error InvalidVotingPowerSnapshotBlock(uint48 snapshotBlock, uint256 currentBlock);
     error InvalidBudgetPayload(bytes32 budgetId);
     error InvalidResultSnapshot(bytes32 referendumId, uint256 turnout, uint256 expectedTurnout);
     error InvalidTextHash(bytes32 textHash);
@@ -47,6 +50,14 @@ interface IReferendumRegistry is IKernelModule {
         uint256 electorateHeadcountSnapshot,
         uint256 electorateVotingPowerSnapshot,
         address createdBy
+    );
+
+    event ReferendumRulesSnapshotted(
+        bytes32 indexed referendumId,
+        uint48 indexed votingPowerSnapshotBlock,
+        address indexed referendumPolicy,
+        address votingPowerPolicy,
+        address snapshottedBy
     );
 
     event ReferendumVoteRecorded(

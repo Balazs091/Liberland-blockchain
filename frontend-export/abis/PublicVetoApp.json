@@ -1,1 +1,504 @@
-{"abi":[{"type":"constructor","inputs":[{"name":"legislationRegistryAddress","type":"address","internalType":"address"},{"name":"citizenEligibilityPolicyAddress","type":"address","internalType":"address"},{"name":"repealThreshold_","type":"uint256","internalType":"uint256"}],"stateMutability":"nonpayable"},{"type":"function","name":"castPublicVeto","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"citizenEligibilityPolicy","inputs":[],"outputs":[{"name":"policyAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"currentPublicVetoSupportCount","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"count","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"eligibleCitizenCount","inputs":[],"outputs":[{"name":"count","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"getPublicVetoRecord","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"record","type":"tuple","internalType":"struct VetoTypes.PublicVetoRecord","components":[{"name":"vetoId","type":"bytes32","internalType":"bytes32"},{"name":"measureId","type":"bytes32","internalType":"bytes32"},{"name":"supportCount","type":"uint256","internalType":"uint256"},{"name":"createdAt","type":"uint64","internalType":"uint64"},{"name":"repealedAt","type":"uint64","internalType":"uint64"},{"name":"repealed","type":"bool","internalType":"bool"}]}],"stateMutability":"view"},{"type":"function","name":"hasActivePublicVeto","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"},{"name":"personId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"active","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"identityRegistry","inputs":[],"outputs":[{"name":"registryAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"legislationRegistry","inputs":[],"outputs":[{"name":"registryAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"previewVetoId","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"vetoId","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},{"type":"function","name":"remainingRepealSupport","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"remaining","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"removePublicVeto","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"repealThreshold","inputs":[],"outputs":[{"name":"threshold","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"event","name":"PublicVetoCast","inputs":[{"name":"measureId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"vetoId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"personId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"voter","type":"address","indexed":false,"internalType":"address"},{"name":"supportCount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"castAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"PublicVetoRemoved","inputs":[{"name":"measureId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"vetoId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"personId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"voter","type":"address","indexed":false,"internalType":"address"},{"name":"supportCount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"removedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"PublicVetoThresholdReached","inputs":[{"name":"measureId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"vetoId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"supportCount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"triggeredBy","type":"address","indexed":true,"internalType":"address"},{"name":"repealedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"error","name":"InvalidPolicy","inputs":[{"name":"policyAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidRegistry","inputs":[{"name":"registryAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidRepealThreshold","inputs":[{"name":"threshold","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"MeasureNotVetoEligible","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"NotEligiblePublicVetoer","inputs":[{"name":"voter","type":"address","internalType":"address"}]},{"type":"error","name":"PublicVetoAlreadyCast","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"},{"name":"personId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"PublicVetoNotFound","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"},{"name":"personId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"UnknownPersonReference","inputs":[{"name":"wallet","type":"address","internalType":"address"}]}]}
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "legislationRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "citizenEligibilityPolicyAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "repealThreshold_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "castPublicVeto",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "citizenEligibilityPolicy",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "policyAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "currentPublicVetoSupportCount",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "count",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "eligibleCitizenCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "count",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getPublicVetoRecord",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "record",
+        "type": "tuple",
+        "internalType": "struct VetoTypes.PublicVetoRecord",
+        "components": [
+          {
+            "name": "vetoId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "measureId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "supportCount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "createdAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "repealedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "repealed",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "hasActivePublicVeto",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "active",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "identityRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "legislationRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewVetoId",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "vetoId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "remainingRepealSupport",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "remaining",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "removePublicVeto",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "repealThreshold",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "threshold",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "PublicVetoCast",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "vetoId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "voter",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "supportCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "castAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PublicVetoEligibilityExpired",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "vetoId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "supportCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "expiredAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PublicVetoRemoved",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "vetoId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "voter",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "supportCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "removedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PublicVetoThresholdReached",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "vetoId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "supportCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "triggeredBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "repealedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "InvalidPolicy",
+    "inputs": [
+      {
+        "name": "policyAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidRegistry",
+    "inputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidRepealThreshold",
+    "inputs": [
+      {
+        "name": "threshold",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "MeasureNotVetoEligible",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotEligiblePublicVetoer",
+    "inputs": [
+      {
+        "name": "voter",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "PublicVetoAlreadyCast",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "PublicVetoNotFound",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnknownPersonReference",
+    "inputs": [
+      {
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  }
+]}

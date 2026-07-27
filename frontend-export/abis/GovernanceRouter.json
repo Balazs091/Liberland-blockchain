@@ -1,1 +1,463 @@
-{"abi":[{"type":"constructor","inputs":[{"name":"kernelAddress","type":"address","internalType":"address"},{"name":"bootstrapAuthority_","type":"address","internalType":"address"}],"stateMutability":"nonpayable"},{"type":"function","name":"bootstrapAuthority","inputs":[],"outputs":[{"name":"authority","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"cancelAction","inputs":[{"name":"actionId","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"configureOriginAuthority","inputs":[{"name":"origin","type":"uint8","internalType":"enum GovernanceTypes.ActionOrigin"},{"name":"authority","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"disableBootstrapAuthority","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"isActionTypeSupported","inputs":[{"name":"actionType","type":"uint8","internalType":"enum GovernanceTypes.ActionType"}],"outputs":[{"name":"supported","type":"bool","internalType":"bool"}],"stateMutability":"pure"},{"type":"function","name":"kernel","inputs":[],"outputs":[{"name":"kernelAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"originAuthority","inputs":[{"name":"origin","type":"uint8","internalType":"enum GovernanceTypes.ActionOrigin"}],"outputs":[{"name":"authority","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"previewActionId","inputs":[{"name":"request","type":"tuple","internalType":"struct GovernanceTypes.ActionRequest","components":[{"name":"actionType","type":"uint8","internalType":"enum GovernanceTypes.ActionType"},{"name":"origin","type":"uint8","internalType":"enum GovernanceTypes.ActionOrigin"},{"name":"originReference","type":"bytes32","internalType":"bytes32"},{"name":"policyReference","type":"bytes32","internalType":"bytes32"},{"name":"targetModule","type":"bytes32","internalType":"bytes32"},{"name":"payload","type":"bytes","internalType":"bytes"},{"name":"requestedExecutionTime","type":"uint64","internalType":"uint64"},{"name":"expiresAt","type":"uint64","internalType":"uint64"}]}],"outputs":[{"name":"actionId","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},{"type":"function","name":"routeAction","inputs":[{"name":"request","type":"tuple","internalType":"struct GovernanceTypes.ActionRequest","components":[{"name":"actionType","type":"uint8","internalType":"enum GovernanceTypes.ActionType"},{"name":"origin","type":"uint8","internalType":"enum GovernanceTypes.ActionOrigin"},{"name":"originReference","type":"bytes32","internalType":"bytes32"},{"name":"policyReference","type":"bytes32","internalType":"bytes32"},{"name":"targetModule","type":"bytes32","internalType":"bytes32"},{"name":"payload","type":"bytes","internalType":"bytes"},{"name":"requestedExecutionTime","type":"uint64","internalType":"uint64"},{"name":"expiresAt","type":"uint64","internalType":"uint64"}]}],"outputs":[{"name":"actionId","type":"bytes32","internalType":"bytes32"}],"stateMutability":"nonpayable"},{"type":"function","name":"timelock","inputs":[],"outputs":[{"name":"timelockAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"event","name":"BootstrapAuthorityDisabled","inputs":[{"name":"disabledBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"GovernanceActionCancellationRouted","inputs":[{"name":"actionId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"origin","type":"uint8","indexed":true,"internalType":"enum GovernanceTypes.ActionOrigin"},{"name":"canceledBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"GovernanceActionRouted","inputs":[{"name":"actionId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"actionType","type":"uint8","indexed":true,"internalType":"enum GovernanceTypes.ActionType"},{"name":"origin","type":"uint8","indexed":true,"internalType":"enum GovernanceTypes.ActionOrigin"},{"name":"targetModule","type":"bytes32","indexed":false,"internalType":"bytes32"}],"anonymous":false},{"type":"event","name":"OriginAuthorityConfigured","inputs":[{"name":"origin","type":"uint8","indexed":true,"internalType":"enum GovernanceTypes.ActionOrigin"},{"name":"previousAuthority","type":"address","indexed":true,"internalType":"address"},{"name":"authority","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"error","name":"BootstrapAlreadyDisabled","inputs":[]},{"type":"error","name":"InvalidBootstrapAuthority","inputs":[{"name":"bootstrapAuthority_","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidModuleAddress","inputs":[{"name":"moduleId","type":"bytes32","internalType":"bytes32"},{"name":"moduleAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidOrigin","inputs":[{"name":"origin","type":"uint8","internalType":"enum GovernanceTypes.ActionOrigin"}]},{"type":"error","name":"InvalidOriginAuthority","inputs":[{"name":"authority","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidTargetModule","inputs":[{"name":"targetModule","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"NotBootstrapAuthority","inputs":[{"name":"caller","type":"address","internalType":"address"}]},{"type":"error","name":"UnauthorizedDisbursementOrigin","inputs":[{"name":"origin","type":"uint8","internalType":"enum GovernanceTypes.ActionOrigin"}]},{"type":"error","name":"UnauthorizedGovernanceOrigin","inputs":[{"name":"caller","type":"address","internalType":"address"}]},{"type":"error","name":"UnsupportedActionType","inputs":[{"name":"actionType","type":"uint8","internalType":"enum GovernanceTypes.ActionType"}]}]}
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "kernelAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "bootstrapAuthority_",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "bootstrapAuthority",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "authority",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "cancelAction",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "configureOriginAuthority",
+    "inputs": [
+      {
+        "name": "origin",
+        "type": "uint8",
+        "internalType": "enum GovernanceTypes.ActionOrigin"
+      },
+      {
+        "name": "authority",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "disableBootstrapAuthority",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "isActionTypeSupported",
+    "inputs": [
+      {
+        "name": "actionType",
+        "type": "uint8",
+        "internalType": "enum GovernanceTypes.ActionType"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "supported",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "kernel",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "kernelAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "originAuthority",
+    "inputs": [
+      {
+        "name": "origin",
+        "type": "uint8",
+        "internalType": "enum GovernanceTypes.ActionOrigin"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "authority",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewActionId",
+    "inputs": [
+      {
+        "name": "request",
+        "type": "tuple",
+        "internalType": "struct GovernanceTypes.ActionRequest",
+        "components": [
+          {
+            "name": "actionType",
+            "type": "uint8",
+            "internalType": "enum GovernanceTypes.ActionType"
+          },
+          {
+            "name": "origin",
+            "type": "uint8",
+            "internalType": "enum GovernanceTypes.ActionOrigin"
+          },
+          {
+            "name": "originReference",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "policyReference",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "targetModule",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "payload",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "requestedExecutionTime",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "expiresAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "routeAction",
+    "inputs": [
+      {
+        "name": "request",
+        "type": "tuple",
+        "internalType": "struct GovernanceTypes.ActionRequest",
+        "components": [
+          {
+            "name": "actionType",
+            "type": "uint8",
+            "internalType": "enum GovernanceTypes.ActionType"
+          },
+          {
+            "name": "origin",
+            "type": "uint8",
+            "internalType": "enum GovernanceTypes.ActionOrigin"
+          },
+          {
+            "name": "originReference",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "policyReference",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "targetModule",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "payload",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "requestedExecutionTime",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "expiresAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "timelock",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "timelockAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "BootstrapAuthorityDisabled",
+    "inputs": [
+      {
+        "name": "disabledBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "GovernanceActionCancellationRouted",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "origin",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "enum GovernanceTypes.ActionOrigin"
+      },
+      {
+        "name": "canceledBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "GovernanceActionRouted",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "actionType",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "enum GovernanceTypes.ActionType"
+      },
+      {
+        "name": "origin",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "enum GovernanceTypes.ActionOrigin"
+      },
+      {
+        "name": "targetModule",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OriginAuthorityConfigured",
+    "inputs": [
+      {
+        "name": "origin",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "enum GovernanceTypes.ActionOrigin"
+      },
+      {
+        "name": "previousAuthority",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "authority",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "BootstrapAlreadyDisabled",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidBootstrapAuthority",
+    "inputs": [
+      {
+        "name": "bootstrapAuthority_",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidModuleAddress",
+    "inputs": [
+      {
+        "name": "moduleId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "moduleAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidOrigin",
+    "inputs": [
+      {
+        "name": "origin",
+        "type": "uint8",
+        "internalType": "enum GovernanceTypes.ActionOrigin"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidOriginAuthority",
+    "inputs": [
+      {
+        "name": "authority",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidTargetModule",
+    "inputs": [
+      {
+        "name": "targetModule",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotBootstrapAuthority",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SelfReplacementCancellationForbidden",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "targetModule",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedGovernanceOrigin",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnsupportedActionType",
+    "inputs": [
+      {
+        "name": "actionType",
+        "type": "uint8",
+        "internalType": "enum GovernanceTypes.ActionType"
+      }
+    ]
+  }
+]}

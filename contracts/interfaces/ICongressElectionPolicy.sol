@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 /// @title ICongressElectionPolicy
 /// @notice Policy interface for Congress election eligibility, weighting, and bounded cycle configuration.
@@ -59,6 +59,12 @@ interface ICongressElectionPolicy {
     /// @return weight The configured ballot weight.
     function votingWeight(address wallet) external view returns (uint256 weight);
 
+    /// @notice Returns Congress ballot weight for a complete historical electorate snapshot.
+    /// @param wallet The wallet to evaluate.
+    /// @param blockNumber The electorate and stake checkpoint block.
+    /// @return weight The historical ballot weight.
+    function votingWeightAt(address wallet, uint48 blockNumber) external view returns (uint256 weight);
+
     /// @notice Returns the maximum number of positively allocated candidates permitted in a ballot.
     /// @return count The maximum number of positive ballot targets.
     function maxPositiveCandidates() external view returns (uint32 count);
@@ -67,4 +73,10 @@ interface ICongressElectionPolicy {
     /// @param wallet The wallet to evaluate.
     /// @return amount The maximum absolute negative allocation permitted.
     function maxNegativeAllocation(address wallet) external view returns (uint256 amount);
+
+    /// @notice Returns the maximum negative allocation for a complete historical electorate snapshot.
+    /// @param wallet The wallet to evaluate.
+    /// @param blockNumber The electorate and stake checkpoint block.
+    /// @return amount The maximum absolute negative allocation permitted.
+    function maxNegativeAllocationAt(address wallet, uint48 blockNumber) external view returns (uint256 amount);
 }

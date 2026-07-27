@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IActionTimelock} from "../interfaces/IActionTimelock.sol";
 import {IBudgetEnvelopeRegistry} from "../interfaces/IBudgetEnvelopeRegistry.sol";
@@ -152,6 +152,22 @@ contract ActionTimelock is IActionTimelock {
 
     /// @inheritdoc IActionTimelock
     function executeAction(bytes32 actionId) external {
+        _executeQueuedAction(actionId);
+    }
+
+    /// @inheritdoc IActionTimelock
+    function executeActions(bytes32[] calldata actionIds) external {
+        uint256 actionCount = actionIds.length;
+        if (actionCount == 0) {
+            revert InvalidActionBatchLength(actionCount);
+        }
+
+        for (uint256 index = 0; index < actionCount; ++index) {
+            _executeQueuedAction(actionIds[index]);
+        }
+    }
+
+    function _executeQueuedAction(bytes32 actionId) private {
         GovernanceTypes.ActionRecord storage actionRecord = _actions[actionId];
         if (actionRecord.actionId == bytes32(0)) {
             revert ActionNotFound(actionId);
@@ -228,7 +244,8 @@ contract ActionTimelock is IActionTimelock {
 
         return _deriveState(actionRecord) == GovernanceTypes.ActionState.Queued
             && block.timestamp >= actionRecord.earliestExecutionTime && !_hasPendingSenateCancellation(actionId)
-            && !_hasActiveSenateSuspension(actionId) && !_isUnderConstitutionalReview(actionId);
+            && !_hasActiveSenateSuspension(actionId) && !_isUnderConstitutionalReview(actionId)
+            && _isQueuedTargetCurrent(actionRecord);
     }
 
     /// @inheritdoc IActionTimelock
@@ -554,6 +571,26 @@ contract ActionTimelock is IActionTimelock {
         }
     }
 
+    function _isQueuedTargetCurrent(GovernanceTypes.ActionRecord storage actionRecord)
+        private
+        view
+        returns (bool current)
+    {
+        if (actionRecord.actionType == GovernanceTypes.ActionType.ModuleRegistration) {
+            try _kernel.getModuleRecord(actionRecord.targetModule) returns (GovernanceTypes.ModuleRecord memory) {
+                return false;
+            } catch {
+                return true;
+            }
+        }
+
+        try _kernel.getModule(actionRecord.targetModule) returns (address moduleAddress) {
+            return moduleAddress == actionRecord.targetModuleAddress;
+        } catch {
+            return false;
+        }
+    }
+
     function _requireNoPendingSenateCancellation(bytes32 actionId) private view {
         (bool pending, uint64 deadline) = _senateCancellationPending(actionId);
         if (pending) {
@@ -566,6 +603,10 @@ contract ActionTimelock is IActionTimelock {
     }
 
     function _senateCancellationPending(bytes32 actionId) private view returns (bool pending, uint64 deadline) {
+        if (_isExactModulePointerUpdate(actionId, KernelModuleIds.SENATE_APP)) {
+            return (false, 0);
+        }
+
         address senateAppAddress = address(0);
         try _kernel.getModule(KernelModuleIds.SENATE_APP) returns (address moduleAddress) {
             senateAppAddress = moduleAddress;
@@ -573,11 +614,17 @@ contract ActionTimelock is IActionTimelock {
             return (false, 0);
         }
 
-        SenateTypes.ActionCancellationRecord memory cancellationRecord =
-            ISenateApp(senateAppAddress).getActionCancellationRecord(actionId);
-        deadline = cancellationRecord.deadline;
-        pending =
-            cancellationRecord.exists && !cancellationRecord.finalized && deadline != 0 && block.timestamp >= deadline;
+        // Optional negative-power hooks fail open when a future audited Senate module intentionally changes its
+        // interface. Otherwise that replacement could brick every queued action, including its own replacement.
+        try ISenateApp(senateAppAddress).getActionCancellationRecord(actionId) returns (
+            SenateTypes.ActionCancellationRecord memory cancellationRecord
+        ) {
+            deadline = cancellationRecord.deadline;
+            pending = cancellationRecord.exists && !cancellationRecord.finalized && deadline != 0
+                && block.timestamp >= deadline;
+        } catch {
+            return (false, 0);
+        }
     }
 
     function _requireNoActiveSenateSuspension(bytes32 actionId) private view {
@@ -592,6 +639,10 @@ contract ActionTimelock is IActionTimelock {
     }
 
     function _senateSuspensionActive(bytes32 actionId) private view returns (bool active, uint64 suspendedUntil) {
+        if (_actions[actionId].actionType != GovernanceTypes.ActionType.TreasuryDisbursement) {
+            return (false, 0);
+        }
+
         address senateAppAddress = address(0);
         try _kernel.getModule(KernelModuleIds.SENATE_APP) returns (address moduleAddress) {
             senateAppAddress = moduleAddress;
@@ -599,11 +650,15 @@ contract ActionTimelock is IActionTimelock {
             return (false, 0);
         }
 
-        SenateTypes.DisbursementSuspension memory suspension =
-            ISenateApp(senateAppAddress).getDisbursementSuspension(actionId);
-        suspendedUntil = suspension.suspendedUntil;
-        // Auto-lapses once suspendedUntil passes: no un-suspend call is required for execution to resume.
-        active = suspension.exists && block.timestamp < suspendedUntil;
+        try ISenateApp(senateAppAddress).getDisbursementSuspension(actionId) returns (
+            SenateTypes.DisbursementSuspension memory suspension
+        ) {
+            suspendedUntil = suspension.suspendedUntil;
+            // Auto-lapses once suspendedUntil passes: no un-suspend call is required for execution to resume.
+            active = suspension.exists && block.timestamp < suspendedUntil;
+        } catch {
+            return (false, 0);
+        }
     }
 
     function _requireNotUnderConstitutionalReview(bytes32 actionId) private view {
@@ -613,11 +668,15 @@ contract ActionTimelock is IActionTimelock {
     }
 
     function _isUnderConstitutionalReview(bytes32 actionId) private view returns (bool paused) {
+        if (_isExactModulePointerUpdate(actionId, KernelModuleIds.CONSTITUTIONAL_REVIEW)) {
+            return false;
+        }
+
         // Optional judiciary hook: a court module registered under CONSTITUTIONAL_REVIEW can pause execution of a
         // queued action pending review. Fail-open (not paused) when no such module is registered or the call fails,
         // so the deliberately un-repointable core timelock is never bricked by an absent or broken review module — a
         // future constitutional court is a pure add-on registered via an ordinary module-registration referendum.
-        address reviewAddress;
+        address reviewAddress = address(0);
         try _kernel.getModule(KernelModuleIds.CONSTITUTIONAL_REVIEW) returns (address moduleAddress) {
             reviewAddress = moduleAddress;
         } catch {
@@ -629,6 +688,12 @@ contract ActionTimelock is IActionTimelock {
         } catch {
             return false;
         }
+    }
+
+    function _isExactModulePointerUpdate(bytes32 actionId, bytes32 targetModule) private view returns (bool exact) {
+        GovernanceTypes.ActionRecord storage actionRecord = _actions[actionId];
+        return actionRecord.actionType == GovernanceTypes.ActionType.ModulePointerUpdate
+            && actionRecord.targetModule == targetModule;
     }
 
     function _requireUnregisteredTargetModule(bytes32 moduleId) private view {

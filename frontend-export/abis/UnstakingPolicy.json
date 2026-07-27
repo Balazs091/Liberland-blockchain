@@ -1,1 +1,184 @@
-{"abi":[{"type":"constructor","inputs":[{"name":"stakeRegistryAddress","type":"address","internalType":"address"},{"name":"welfarePeriodSeconds","type":"uint64","internalType":"uint64"},{"name":"annualUnstakeRateBps_","type":"uint16","internalType":"uint16"}],"stateMutability":"nonpayable"},{"type":"function","name":"YEAR","inputs":[],"outputs":[{"name":"","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"function","name":"annualUnstakeRateBps","inputs":[],"outputs":[{"name":"rateBps","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"canUnstake","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"allowed","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"isInWelfare","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"inWelfare","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"previewWelfareUntil","inputs":[{"name":"startTimestamp","type":"uint64","internalType":"uint64"}],"outputs":[{"name":"welfareUntil","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"function","name":"stakeRegistry","inputs":[],"outputs":[{"name":"registryAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"unstakePortion","inputs":[{"name":"activeStake","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"portion","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"welfarePeriod","inputs":[],"outputs":[{"name":"durationSeconds","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"error","name":"InvalidRegistry","inputs":[{"name":"registryAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidUnstakeRate","inputs":[{"name":"annualUnstakeRateBps","type":"uint16","internalType":"uint16"}]},{"type":"error","name":"InvalidWelfarePeriod","inputs":[{"name":"welfarePeriodSeconds","type":"uint64","internalType":"uint64"}]}]}
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "stakeRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "welfarePeriodSeconds",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "annualUnstakeRateBps_",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "YEAR",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "annualUnstakeRateBps",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "rateBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "canUnstake",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "allowed",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isInWelfare",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "inWelfare",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "previewWelfareUntil",
+    "inputs": [
+      {
+        "name": "startTimestamp",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "welfareUntil",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "stakeRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "unstakePortion",
+    "inputs": [
+      {
+        "name": "activeStake",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "portion",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "welfarePeriod",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "durationSeconds",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "InvalidRegistry",
+    "inputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidUnstakeRate",
+    "inputs": [
+      {
+        "name": "annualUnstakeRateBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidWelfarePeriod",
+    "inputs": [
+      {
+        "name": "welfarePeriodSeconds",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  }
+]}

@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {Test} from "forge-std/Test.sol";
 
 import {USDCLendingPoolApp} from "../../contracts/apps/USDCLendingPoolApp.sol";
 import {ConstitutionKernel} from "../../contracts/core/ConstitutionKernel.sol";
 import {IIdentityRegistry} from "../../contracts/interfaces/IIdentityRegistry.sol";
+import {IInterestRatePolicy} from "../../contracts/interfaces/IInterestRatePolicy.sol";
 import {IStakeLienRegistry} from "../../contracts/interfaces/IStakeLienRegistry.sol";
 import {IStakeRegistry} from "../../contracts/interfaces/IStakeRegistry.sol";
 import {IUSDCLendingPoolApp} from "../../contracts/interfaces/IUSDCLendingPoolApp.sol";
@@ -23,9 +24,39 @@ import {StakeRegistry} from "../../contracts/registries/StakeRegistry.sol";
 import {IdentityTypes} from "../../contracts/types/IdentityTypes.sol";
 import {LendingTypes} from "../../contracts/types/LendingTypes.sol";
 
-/// @title Milestone8LlmBackedUSDCTest
+contract ConstantInterestRatePolicy is IInterestRatePolicy {
+    uint256 private constant RAY = 1e27;
+    uint256 private constant BPS = 10_000;
+
+    uint256 private immutable _ratePerSecondRay;
+
+    constructor(uint256 ratePerSecondRay_) {
+        _ratePerSecondRay = ratePerSecondRay_;
+    }
+
+    /// @inheritdoc IInterestRatePolicy
+    function ray() external pure returns (uint256 ray_) {
+        return RAY;
+    }
+
+    /// @inheritdoc IInterestRatePolicy
+    function borrowRatePerSecond(uint256) external view returns (uint256 rateRay) {
+        return _ratePerSecondRay;
+    }
+
+    /// @inheritdoc IInterestRatePolicy
+    function supplyRatePerSecond(uint256 utilizationRay, uint16 reserveFactorBps)
+        external
+        view
+        returns (uint256 rateRay)
+    {
+        return (_ratePerSecondRay * utilizationRay / RAY) * (BPS - reserveFactorBps) / BPS;
+    }
+}
+
+/// @title LlmBackedUSDCTest
 /// @notice Covers USDC lending backed by already-staked LLM above the 5,000 retained floor.
-contract Milestone8LlmBackedUSDCTest is Test {
+contract LlmBackedUSDCTest is Test {
     uint256 internal constant ONE_LLM = 1e18;
     uint256 internal constant MINIMUM_RETAINED_STAKE = 5_000 * ONE_LLM;
     uint256 internal constant USDC_UNIT = 1_000_000;
@@ -71,17 +102,16 @@ contract Milestone8LlmBackedUSDCTest is Test {
         unstakingPolicy = new UnstakingPolicy(address(stakeRegistry), WELFARE_PERIOD, ANNUAL_UNSTAKE_RATE_BPS);
         usdc = new MockUSDC();
         oraclePolicy = new FixedLlmUsdcPriceOraclePolicy(address(usdc), USDC_UNIT);
-        interestRatePolicy = new KinkedInterestRatePolicy(200, 800, 10_000, 8e26);
-        // Same parameters the pool previously hardcoded: 25% LTV, 35% threshold, 10% bonus, 15% reserve factor,
-        // plus an unlimited (0) per-person borrow cap.
-        riskParameterPolicy = new LendingRiskParameterPolicy(2_500, 3_500, 1_000, 1_500, 0);
+        interestRatePolicy = new KinkedInterestRatePolicy(500, 800, 10_000, 8e26);
+        // Launch risk model: 30% LTV, 40% threshold, 15% bonus, 15% reserve factor, plus an unlimited (0)
+        // per-person borrow cap for this isolated pool fixture.
+        riskParameterPolicy = new LendingRiskParameterPolicy(3_000, 4_000, 1_500, 1_500, 0);
         lendingPool = new USDCLendingPoolApp(
             address(kernel),
             address(usdc),
             address(identityRegistry),
             address(stakeRegistry),
             address(stakeLienRegistry),
-            address(interestRatePolicy),
             BORROW_CAP
         );
 
@@ -114,6 +144,7 @@ contract Milestone8LlmBackedUSDCTest is Test {
         moduleAddresses[11] = address(citizenEligibilityPolicy);
 
         kernel.bootstrapSetModules(moduleIds, moduleAddresses);
+        kernel.bootstrapSetModule(KernelModuleIds.LLM_STAKING_VAULT, address(stakeAuthority));
         kernel.bootstrapSetModule(KernelModuleIds.USDC_LENDING_POOL_APP, address(lendingPool));
         kernel.bootstrapSetModule(KernelModuleIds.UNSTAKING_POLICY, address(unstakingPolicy));
 
@@ -122,16 +153,18 @@ contract Milestone8LlmBackedUSDCTest is Test {
         _fundAndDeposit(LP, 10_000 * USDC_UNIT);
     }
 
-    function test_Milestone8InterfacesExposeSelectors() public pure {
+    function test_InterfacesExposeSelectors() public pure {
         assertTrue(IStakeLienRegistry.increaseLien.selector != bytes4(0));
+        assertTrue(IStakeLienRegistry.retainedStakeFloorOf.selector != bytes4(0));
         assertTrue(IStakeRegistry.requiredActiveStakeFloorOf.selector != bytes4(0));
         assertTrue(IStakeRegistry.transferActiveStake.selector != bytes4(0));
         assertTrue(IUSDCLendingPoolApp.borrow.selector != bytes4(0));
         assertTrue(IUSDCLendingPoolApp.liquidate.selector != bytes4(0));
+        assertTrue(IUSDCLendingPoolApp.repayFor.selector != bytes4(0));
     }
 
     function test_BorrowUsesOnlyStakeAboveRetainedFiveThousandAndLocksSurplus() public {
-        assertEq(lendingPool.maxBorrowable(BORROWER_PERSON_ID), 1_250 * USDC_UNIT);
+        assertEq(lendingPool.maxBorrowable(BORROWER_PERSON_ID), 1_500 * USDC_UNIT);
 
         vm.startPrank(BORROWER);
         lendingPool.borrow(1_000 * USDC_UNIT);
@@ -149,41 +182,76 @@ contract Milestone8LlmBackedUSDCTest is Test {
         stakeRegistry.unstake(BORROWER_PERSON_ID);
     }
 
+    function test_ActiveLendingLienCannotBeBypassedBySlashing() public {
+        vm.prank(BORROWER);
+        lendingPool.borrow(1_000 * USDC_UNIT);
+
+        vm.prank(address(stakeAuthority));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IStakeRegistry.ProtectedStakeFloorBreached.selector,
+                BORROWER_PERSON_ID,
+                10_000 * ONE_LLM - 1,
+                10_000 * ONE_LLM
+            )
+        );
+        stakeRegistry.slashStake(BORROWER_PERSON_ID, 1);
+    }
+
+    function test_BorrowRequiresCurrentCitizenEligibility() public {
+        IdentityTypes.IdentityRecordInput memory input = _defaultIdentityInput();
+        input.citizenshipStatus = IdentityTypes.CitizenshipStatus.Revoked;
+        vm.prank(address(identityAuthority));
+        identityRegistry.setIdentityRecord(BORROWER_PERSON_ID, input);
+
+        vm.prank(BORROWER);
+        vm.expectRevert(abi.encodeWithSelector(IUSDCLendingPoolApp.BorrowerNotEligible.selector, BORROWER_PERSON_ID));
+        lendingPool.borrow(100 * USDC_UNIT);
+    }
+
     function test_RiskParameterPolicy_RejectsEconomicallyInvalidBounds() public {
         vm.expectRevert(abi.encodeWithSelector(LendingRiskParameterPolicy.InvalidMaxLtv.selector, uint16(0)));
-        new LendingRiskParameterPolicy(0, 3_500, 1_000, 1_500, 0);
+        new LendingRiskParameterPolicy(0, 4_000, 1_500, 1_500, 0);
 
         // Threshold must sit strictly above max LTV so a fresh max-LTV borrow is not already liquidatable.
         vm.expectRevert(
             abi.encodeWithSelector(
-                LendingRiskParameterPolicy.InvalidLiquidationThreshold.selector, uint16(3_500), uint16(3_500)
+                LendingRiskParameterPolicy.InvalidLiquidationThreshold.selector, uint16(4_000), uint16(4_000)
             )
         );
-        new LendingRiskParameterPolicy(3_500, 3_500, 1_000, 1_500, 0);
+        new LendingRiskParameterPolicy(4_000, 4_000, 1_500, 1_500, 0);
 
         // Threshold above the 90% ceiling leaves no headroom for seizure plus bonus.
         vm.expectRevert(
             abi.encodeWithSelector(
-                LendingRiskParameterPolicy.InvalidLiquidationThreshold.selector, uint16(2_500), uint16(9_500)
+                LendingRiskParameterPolicy.InvalidLiquidationThreshold.selector, uint16(3_000), uint16(9_500)
             )
         );
-        new LendingRiskParameterPolicy(2_500, 9_500, 1_000, 1_500, 0);
+        new LendingRiskParameterPolicy(3_000, 9_500, 1_500, 1_500, 0);
 
         vm.expectRevert(
             abi.encodeWithSelector(LendingRiskParameterPolicy.InvalidLiquidationBonus.selector, uint16(2_500))
         );
-        new LendingRiskParameterPolicy(2_500, 3_500, 2_500, 1_500, 0);
+        new LendingRiskParameterPolicy(3_000, 4_000, 2_500, 1_500, 0);
 
         vm.expectRevert(abi.encodeWithSelector(LendingRiskParameterPolicy.InvalidReserveFactor.selector, uint16(6_000)));
-        new LendingRiskParameterPolicy(2_500, 3_500, 1_000, 6_000, 0);
+        new LendingRiskParameterPolicy(3_000, 4_000, 1_500, 6_000, 0);
+
+        // Threshold and bonus must also be safe together: a threshold-sized debt cannot seize over 100% collateral.
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LendingRiskParameterPolicy.UnsafeLiquidationParameters.selector, uint16(9_000), uint16(2_000)
+            )
+        );
+        new LendingRiskParameterPolicy(8_000, 9_000, 2_000, 1_500, 0);
     }
 
     function test_GovernanceRepointOfRiskPolicyRetunesLivePool() public {
-        // 25% LTV policy in setUp: 5,000 LLM surplus at 1 USDC/LLM caps borrowing at 1,250 USDC.
-        assertEq(lendingPool.maxBorrowable(BORROWER_PERSON_ID), 1_250 * USDC_UNIT);
+        // 30% LTV policy in setUp: 5,000 LLM surplus at 1 USDC/LLM caps borrowing at 1,500 USDC.
+        assertEq(lendingPool.maxBorrowable(BORROWER_PERSON_ID), 1_500 * USDC_UNIT);
 
         // Governance deploys a 50% LTV policy and repoints the module; the change takes effect live on the pool.
-        LendingRiskParameterPolicy loosenedPolicy = new LendingRiskParameterPolicy(5_000, 6_000, 1_000, 1_500, 0);
+        LendingRiskParameterPolicy loosenedPolicy = new LendingRiskParameterPolicy(5_000, 6_000, 1_500, 1_500, 0);
         kernel.bootstrapSetModule(KernelModuleIds.LENDING_RISK_PARAMETER_POLICY, address(loosenedPolicy));
 
         assertEq(lendingPool.maxBorrowable(BORROWER_PERSON_ID), 2_500 * USDC_UNIT);
@@ -194,12 +262,12 @@ contract Milestone8LlmBackedUSDCTest is Test {
     }
 
     function test_PerPersonBorrowCapLimitsASingleBorrower() public {
-        // Governance repoints to a policy with an 800 USDC per-person cap (25% LTV otherwise unchanged).
+        // Governance repoints to a policy with an 800 USDC per-person cap (30% LTV otherwise unchanged).
         LendingRiskParameterPolicy cappedPolicy =
-            new LendingRiskParameterPolicy(2_500, 3_500, 1_000, 1_500, 800 * USDC_UNIT);
+            new LendingRiskParameterPolicy(3_000, 4_000, 1_500, 1_500, 800 * USDC_UNIT);
         kernel.bootstrapSetModule(KernelModuleIds.LENDING_RISK_PARAMETER_POLICY, address(cappedPolicy));
 
-        // Collateral would allow 1,250 USDC, but the per-person cap clamps borrowable to 800.
+        // Collateral would allow 1,500 USDC, but the per-person cap clamps borrowable to 800.
         assertEq(lendingPool.maxBorrowable(BORROWER_PERSON_ID), 800 * USDC_UNIT);
 
         vm.expectRevert(
@@ -224,26 +292,26 @@ contract Milestone8LlmBackedUSDCTest is Test {
         kernel.bootstrapSetModule(KernelModuleIds.LLM_USDC_PRICE_ORACLE_POLICY, address(repricedOracle));
 
         assertEq(lendingPool.priceOraclePolicy(), address(repricedOracle));
-        // 5,000 LLM surplus now values at 10,000 USDC, so 25% LTV allows 2,500 USDC — read live from the new oracle.
-        assertEq(lendingPool.maxBorrowable(BORROWER_PERSON_ID), 2_500 * USDC_UNIT);
+        // 5,000 LLM surplus now values at 10,000 USDC, so 30% LTV allows 3,000 USDC — read live from the new oracle.
+        assertEq(lendingPool.maxBorrowable(BORROWER_PERSON_ID), 3_000 * USDC_UNIT);
     }
 
     function test_HigherProtectedFloorReducesBorrowCollateral() public {
         vm.prank(address(stakeAuthority));
         stakeRegistry.setProtectedStakeFloor(BORROWER_PERSON_ID, 8_000 * ONE_LLM);
 
-        assertEq(lendingPool.maxBorrowable(BORROWER_PERSON_ID), 500 * USDC_UNIT);
+        assertEq(lendingPool.maxBorrowable(BORROWER_PERSON_ID), 600 * USDC_UNIT);
 
         vm.expectRevert(
             abi.encodeWithSelector(
-                IUSDCLendingPoolApp.BorrowWouldBreachLtv.selector, BORROWER_PERSON_ID, 501 * USDC_UNIT, 500 * USDC_UNIT
+                IUSDCLendingPoolApp.BorrowWouldBreachLtv.selector, BORROWER_PERSON_ID, 601 * USDC_UNIT, 600 * USDC_UNIT
             )
         );
         vm.prank(BORROWER);
-        lendingPool.borrow(501 * USDC_UNIT);
+        lendingPool.borrow(601 * USDC_UNIT);
 
         vm.prank(BORROWER);
-        lendingPool.borrow(500 * USDC_UNIT);
+        lendingPool.borrow(600 * USDC_UNIT);
 
         assertEq(stakeLienRegistry.lienedStakeOf(BORROWER_PERSON_ID), 2_000 * ONE_LLM);
         assertEq(stakeRegistry.requiredActiveStakeFloorOf(BORROWER_PERSON_ID), 10_000 * ONE_LLM);
@@ -274,8 +342,45 @@ contract Milestone8LlmBackedUSDCTest is Test {
         assertEq(stakeRegistry.welfareUntilOf(BORROWER_PERSON_ID), welfareUntil);
     }
 
-    /// @notice M12: a person with no lien exits down to their own protected floor, ignoring the retained minimum.
-    function test_M12_NonBorrowerCanUnstakeBelowRetainedFloor() public {
+    function test_FullRepaymentCannotBeBrickedByAccrualRounding() public {
+        vm.prank(BORROWER);
+        lendingPool.borrow(10 * USDC_UNIT);
+
+        for (uint256 i; i < 6; ++i) {
+            skip(12);
+            lendingPool.accrueInterest();
+        }
+
+        uint256 debt = lendingPool.currentDebtOf(BORROWER_PERSON_ID);
+        usdc.mint(BORROWER, debt);
+        vm.startPrank(BORROWER);
+        usdc.approve(address(lendingPool), debt);
+        lendingPool.repay(debt);
+        vm.stopPrank();
+
+        assertEq(lendingPool.currentDebtOf(BORROWER_PERSON_ID), 0);
+        assertEq(lendingPool.totalBorrows(), 0);
+    }
+
+    function test_RepayForAllowsDebtRepaymentAfterBorrowerWalletRevocation() public {
+        vm.prank(BORROWER);
+        lendingPool.borrow(1_000 * USDC_UNIT);
+
+        vm.prank(address(identityAuthority));
+        identityRegistry.setWalletLink(BORROWER_PERSON_ID, BORROWER, IdentityTypes.WalletLinkStatus.Revoked);
+
+        usdc.mint(LIQUIDATOR, 1_000 * USDC_UNIT);
+        vm.startPrank(LIQUIDATOR);
+        usdc.approve(address(lendingPool), 1_000 * USDC_UNIT);
+        lendingPool.repayFor(BORROWER_PERSON_ID, 1_000 * USDC_UNIT);
+        vm.stopPrank();
+
+        assertEq(lendingPool.currentDebtOf(BORROWER_PERSON_ID), 0);
+        assertEq(stakeLienRegistry.lienedStakeOf(BORROWER_PERSON_ID), 0);
+    }
+
+    /// @notice A person with no lien exits down to their own protected floor, ignoring the retained minimum.
+    function test_NonBorrowerCanUnstakeBelowRetainedFloor() public {
         // Drop the borrower's protected floor to zero while they hold no lien.
         vm.prank(address(stakeAuthority));
         stakeRegistry.setProtectedStakeFloor(BORROWER_PERSON_ID, 0);
@@ -333,7 +438,8 @@ contract Milestone8LlmBackedUSDCTest is Test {
         vm.prank(BORROWER);
         lendingPool.borrow(1_250 * USDC_UNIT);
 
-        skip(20 * 365 days);
+        FixedLlmUsdcPriceOraclePolicy lowerPriceOracle = new FixedLlmUsdcPriceOraclePolicy(address(usdc), USDC_UNIT / 2);
+        kernel.bootstrapSetModule(KernelModuleIds.LLM_USDC_PRICE_ORACLE_POLICY, address(lowerPriceOracle));
         assertLt(lendingPool.healthFactorOf(BORROWER_PERSON_ID), lendingPool.HEALTH_FACTOR_SCALE());
 
         uint256 borrowerDebt = lendingPool.currentDebtOf(BORROWER_PERSON_ID);
@@ -380,11 +486,11 @@ contract Milestone8LlmBackedUSDCTest is Test {
         vm.prank(BORROWER);
         lendingPool.borrow(1_250 * USDC_UNIT);
 
-        // LLM/USDC price crashes to 0.11 USDC per LLM; governance repoints the manual oracle to the new price.
-        FixedLlmUsdcPriceOraclePolicy crashedOracle = new FixedLlmUsdcPriceOraclePolicy(address(usdc), 110_000);
+        // LLM/USDC price crashes to 0.115 USDC per LLM; governance repoints the manual oracle to the new price.
+        FixedLlmUsdcPriceOraclePolicy crashedOracle = new FixedLlmUsdcPriceOraclePolicy(address(usdc), 115_000);
         kernel.bootstrapSetModule(KernelModuleIds.LLM_USDC_PRICE_ORACLE_POLICY, address(crashedOracle));
 
-        // A liquidator seizes all 5,000 LLM of surplus by repaying 500 USDC (500 * 1.1 bonus = 550 USDC = 5,000 LLM).
+        // A liquidator seizes all 5,000 LLM of surplus by repaying 500 USDC (500 * 1.15 bonus = 575 USDC).
         usdc.mint(LIQUIDATOR, 500 * USDC_UNIT);
         vm.startPrank(LIQUIDATOR);
         usdc.approve(address(lendingPool), 500 * USDC_UNIT);
@@ -415,24 +521,108 @@ contract Milestone8LlmBackedUSDCTest is Test {
         assertEq(lendingPool.totalManagedAssets(), managedBefore);
     }
 
-    function test_AbsorbBadDebt_RevertsWhenRemainingStakeStillCoversDebt() public {
+    function test_AbsorbBadDebt_DoesNotCountUntouchableCitizenshipFloorAsRecoverable() public {
         vm.prank(BORROWER);
-        lendingPool.borrow(1_000 * USDC_UNIT);
+        lendingPool.borrow(1_250 * USDC_UNIT);
 
-        // Governance raises the borrower's protected floor to their full stake, zeroing seizable surplus even though
-        // the stake is ample. Bad-debt write-off must be refused (the position is recoverable, not insolvent).
+        FixedLlmUsdcPriceOraclePolicy crashedOracle = new FixedLlmUsdcPriceOraclePolicy(address(usdc), 250_000);
+        kernel.bootstrapSetModule(KernelModuleIds.LLM_USDC_PRICE_ORACLE_POLICY, address(crashedOracle));
+
+        // Rounding the 15% bonus up makes this exact repayment seize all 5,000 LLM of surplus.
+        uint256 liquidationRepayment = 1_086_956_521;
+        usdc.mint(LIQUIDATOR, liquidationRepayment);
+        vm.startPrank(LIQUIDATOR);
+        usdc.approve(address(lendingPool), liquidationRepayment);
+        (, uint256 seizedStake) = lendingPool.liquidate(BORROWER_PERSON_ID, liquidationRepayment);
+        vm.stopPrank();
+
+        assertEq(seizedStake, 5_000 * ONE_LLM);
+        assertEq(stakeRegistry.activeStakeOf(BORROWER_PERSON_ID), MINIMUM_RETAINED_STAKE);
+        assertEq(stakeLienRegistry.lienedStakeOf(BORROWER_PERSON_ID), 0);
+
+        uint256 residualDebt = lendingPool.currentDebtOf(BORROWER_PERSON_ID);
+        assertEq(residualDebt, 163_043_479);
+
+        // The retained citizenship floor cannot be seized, so it must not block clearing the residual debt.
+        (uint256 writtenOff,,) = lendingPool.absorbBadDebt(BORROWER_PERSON_ID);
+        assertEq(writtenOff, residualDebt);
+        assertEq(lendingPool.currentDebtOf(BORROWER_PERSON_ID), 0);
+    }
+
+    function test_AbsorbBadDebt_UsesSmallestEffectiveScaledDebtRepayment() public {
+        uint256 seizableStake = 4e12;
         vm.prank(address(stakeAuthority));
-        stakeRegistry.setProtectedStakeFloor(BORROWER_PERSON_ID, 10_000 * ONE_LLM);
+        stakeRegistry.setProtectedStakeFloor(BORROWER_PERSON_ID, 10_000 * ONE_LLM - seizableStake);
 
+        vm.prank(BORROWER);
+        lendingPool.borrow(1);
+
+        skip(1);
+        lendingPool.accrueInterest();
+        assertEq(lendingPool.currentDebtOf(BORROWER_PERSON_ID), 2);
+
+        FixedLlmUsdcPriceOraclePolicy lowerPriceOracle = new FixedLlmUsdcPriceOraclePolicy(address(usdc), USDC_UNIT / 2);
+        kernel.bootstrapSetModule(KernelModuleIds.LLM_USDC_PRICE_ORACLE_POLICY, address(lowerPriceOracle));
+
+        vm.prank(LIQUIDATOR);
+        vm.expectRevert(abi.encodeWithSelector(IUSDCLendingPoolApp.InvalidAmount.selector, 0));
+        lendingPool.liquidate(BORROWER_PERSON_ID, 1);
+
+        vm.prank(LIQUIDATOR);
         vm.expectRevert(
             abi.encodeWithSelector(
-                IUSDCLendingPoolApp.PositionRecoverable.selector,
-                BORROWER_PERSON_ID,
-                3_500 * USDC_UNIT, // 10,000 LLM at 1 USDC/LLM * 35% liquidation threshold
-                1_000 * USDC_UNIT
+                IUSDCLendingPoolApp.InsufficientLiquidationCollateral.selector, BORROWER_PERSON_ID, seizableStake, 6e12
             )
         );
-        lendingPool.absorbBadDebt(BORROWER_PERSON_ID);
+        lendingPool.liquidate(BORROWER_PERSON_ID, 2);
+
+        (uint256 writtenOff,,) = lendingPool.absorbBadDebt(BORROWER_PERSON_ID);
+        assertEq(writtenOff, 2);
+        assertEq(lendingPool.currentDebtOf(BORROWER_PERSON_ID), 0);
+    }
+
+    function test_ProtectedFloorCannotExceedActiveStakeNetOfLien() public {
+        vm.prank(BORROWER);
+        lendingPool.borrow(1_250 * USDC_UNIT);
+
+        uint256 activeStake = stakeRegistry.activeStakeOf(BORROWER_PERSON_ID);
+        uint256 newProtectedFloor = activeStake - 1;
+        uint256 requiredFloor = newProtectedFloor + stakeLienRegistry.lienedStakeOf(BORROWER_PERSON_ID);
+        vm.prank(address(stakeAuthority));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IStakeRegistry.ProtectedStakeFloorBreached.selector, BORROWER_PERSON_ID, activeStake, requiredFloor
+            )
+        );
+        stakeRegistry.setProtectedStakeFloor(BORROWER_PERSON_ID, newProtectedFloor);
+
+        assertEq(stakeRegistry.protectedStakeFloorOf(BORROWER_PERSON_ID), MINIMUM_RETAINED_STAKE);
+    }
+
+    function test_CitizenshipFloorIncreaseDoesNotFreezeExistingLiquidation() public {
+        vm.prank(BORROWER);
+        lendingPool.borrow(1_250 * USDC_UNIT);
+
+        assertEq(stakeLienRegistry.retainedStakeFloorOf(BORROWER_PERSON_ID), MINIMUM_RETAINED_STAKE);
+        CitizenEligibilityPolicy higherCitizenshipFloor =
+            new CitizenEligibilityPolicy(address(identityRegistry), address(stakeRegistry), 9_000 * ONE_LLM);
+        kernel.bootstrapSetModule(KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY, address(higherCitizenshipFloor));
+        assertEq(stakeLienRegistry.minimumRetainedStake(), 9_000 * ONE_LLM);
+        assertEq(stakeLienRegistry.retainedStakeFloorOf(BORROWER_PERSON_ID), MINIMUM_RETAINED_STAKE);
+
+        FixedLlmUsdcPriceOraclePolicy lowerPriceOracle = new FixedLlmUsdcPriceOraclePolicy(address(usdc), USDC_UNIT / 2);
+        kernel.bootstrapSetModule(KernelModuleIds.LLM_USDC_PRICE_ORACLE_POLICY, address(lowerPriceOracle));
+
+        uint256 debt = lendingPool.currentDebtOf(BORROWER_PERSON_ID);
+        usdc.mint(LIQUIDATOR, debt);
+        vm.startPrank(LIQUIDATOR);
+        usdc.approve(address(lendingPool), debt);
+        lendingPool.liquidate(BORROWER_PERSON_ID, debt);
+        vm.stopPrank();
+
+        assertEq(lendingPool.currentDebtOf(BORROWER_PERSON_ID), 0);
+        assertEq(stakeLienRegistry.lienedStakeOf(BORROWER_PERSON_ID), 0);
+        assertEq(stakeLienRegistry.retainedStakeFloorOf(BORROWER_PERSON_ID), 9_000 * ONE_LLM);
     }
 
     function test_PriceOracleMustPriceThePoolsUsdc() public {
@@ -460,6 +650,65 @@ contract Milestone8LlmBackedUSDCTest is Test {
         identityRegistry.setWalletLink(BORROWER_PERSON_ID, secondBorrowerWallet, IdentityTypes.WalletLinkStatus.Active);
     }
 
+    function test_FixedRateAccrualIsIndependentOfCheckpointFrequency() public {
+        ConstantInterestRatePolicy constantRatePolicy = new ConstantInterestRatePolicy(uint256(1e27) / 365 days);
+        kernel.bootstrapSetModule(KernelModuleIds.USDC_INTEREST_RATE_POLICY, address(constantRatePolicy));
+
+        vm.prank(BORROWER);
+        lendingPool.borrow(1_000 * USDC_UNIT);
+
+        uint256 snapshotId = vm.snapshotState();
+        skip(365 days);
+        lendingPool.accrueInterest();
+        uint256 singleCheckpointDebt = lendingPool.currentDebtOf(BORROWER_PERSON_ID);
+        uint256 singleCheckpointBorrows = lendingPool.totalBorrows();
+        uint256 singleCheckpointReserves = lendingPool.totalReserves();
+        uint256 singleCheckpointIndex = lendingPool.borrowIndex();
+
+        assertTrue(vm.revertToState(snapshotId));
+        for (uint256 i; i < 365; ++i) {
+            skip(1 days);
+            lendingPool.accrueInterest();
+        }
+
+        assertEq(lendingPool.currentDebtOf(BORROWER_PERSON_ID), singleCheckpointDebt);
+        assertEq(lendingPool.totalBorrows(), singleCheckpointBorrows);
+        assertEq(lendingPool.totalReserves(), singleCheckpointReserves);
+        assertEq(lendingPool.borrowIndex(), singleCheckpointIndex);
+    }
+
+    function test_DonatedCashCannotRepriceTheElapsedInterestInterval() public {
+        vm.prank(BORROWER);
+        lendingPool.borrow(1_000 * USDC_UNIT);
+
+        skip(365 days);
+        uint256 debtAtCachedRate = lendingPool.currentDebtOf(BORROWER_PERSON_ID);
+
+        usdc.mint(address(lendingPool), 1_000_000 * USDC_UNIT);
+        lendingPool.accrueInterest();
+
+        assertEq(lendingPool.currentDebtOf(BORROWER_PERSON_ID), debtAtCachedRate);
+    }
+
+    function test_NewInterestPolicyCannotRepriceTheElapsedInterestInterval() public {
+        ConstantInterestRatePolicy initialRatePolicy = new ConstantInterestRatePolicy(uint256(1e27) / (20 * 365 days));
+        ConstantInterestRatePolicy replacementRatePolicy = new ConstantInterestRatePolicy(uint256(1e27) / 365 days);
+        kernel.bootstrapSetModule(KernelModuleIds.USDC_INTEREST_RATE_POLICY, address(initialRatePolicy));
+
+        vm.prank(BORROWER);
+        lendingPool.borrow(1_000 * USDC_UNIT);
+
+        skip(365 days);
+        uint256 debtAtInitialRate = lendingPool.currentDebtOf(BORROWER_PERSON_ID);
+
+        kernel.bootstrapSetModule(KernelModuleIds.USDC_INTEREST_RATE_POLICY, address(replacementRatePolicy));
+        lendingPool.accrueInterest();
+        assertEq(lendingPool.currentDebtOf(BORROWER_PERSON_ID), debtAtInitialRate);
+
+        skip(1 days);
+        assertGt(lendingPool.currentDebtOf(BORROWER_PERSON_ID), debtAtInitialRate);
+    }
+
     function test_InterestAccrualPaysLendersAndProtocolReserves() public {
         vm.prank(BORROWER);
         lendingPool.borrow(1_250 * USDC_UNIT);
@@ -476,7 +725,7 @@ contract Milestone8LlmBackedUSDCTest is Test {
         assertGt(preview.supplyRatePerSecondRay, 0);
     }
 
-    function test_ProtocolReservesCanOnlyBeClaimedToTreasury() public {
+    function test_ProtocolReservesRemainFirstLossCapital() public {
         vm.prank(BORROWER);
         lendingPool.borrow(1_250 * USDC_UNIT);
 
@@ -484,12 +733,9 @@ contract Milestone8LlmBackedUSDCTest is Test {
         lendingPool.accrueInterest();
 
         uint256 reserves = lendingPool.totalReserves();
-        uint256 treasuryBalanceBefore = usdc.balanceOf(address(treasury));
-
-        lendingPool.claimProtocolReserves(reserves);
-
-        assertEq(usdc.balanceOf(address(treasury)), treasuryBalanceBefore + reserves);
-        assertEq(lendingPool.totalReserves(), 0);
+        assertGt(reserves, 0);
+        assertEq(lendingPool.totalReserves(), reserves);
+        assertEq(lendingPool.availableLiquidity(), usdc.balanceOf(address(lendingPool)) - reserves);
     }
 
     function _fundAndDeposit(address liquidityProvider, uint256 amount) internal {

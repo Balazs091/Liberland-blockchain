@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
 
@@ -30,6 +30,9 @@ interface IConstitutionKernel {
     /// @param moduleId The module identifier.
     /// @return moduleRecord The stored module record.
     function getModuleRecord(bytes32 moduleId) external view returns (GovernanceTypes.ModuleRecord memory moduleRecord);
+
+    /// @notice Returns the protocol security class assigned to a module identifier.
+    function moduleClass(bytes32 moduleId) external pure returns (GovernanceTypes.ModuleClass class);
 
     /// @notice Returns true when an account is one of the active registered modules.
     /// @param account The account to check.

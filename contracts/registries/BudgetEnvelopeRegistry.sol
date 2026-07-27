@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IBudgetEnvelopeRegistry} from "../interfaces/IBudgetEnvelopeRegistry.sol";
 import {KernelModule} from "../base/KernelModule.sol";
@@ -70,6 +70,16 @@ contract BudgetEnvelopeRegistry is IBudgetEnvelopeRegistry, KernelModule {
     /// @inheritdoc IBudgetEnvelopeRegistry
     function hasCommittedRequest(bytes32 requestId) external view returns (bool committed) {
         return _budgetCommitments[requestId].active;
+    }
+
+    /// @inheritdoc IBudgetEnvelopeRegistry
+    function getBudgetCommitment(bytes32 requestId)
+        external
+        view
+        returns (bytes32 budgetId, uint256 amount, bool active)
+    {
+        BudgetCommitment storage commitment = _budgetCommitments[requestId];
+        return (commitment.budgetId, commitment.amount, commitment.active);
     }
 
     /// @inheritdoc IBudgetEnvelopeRegistry

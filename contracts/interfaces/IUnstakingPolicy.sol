@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 /// @title IUnstakingPolicy
 /// @notice Policy interface for the discrete 30-day unstaking model and welfare effect.

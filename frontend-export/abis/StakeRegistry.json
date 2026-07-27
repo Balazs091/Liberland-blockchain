@@ -1,1 +1,858 @@
-{"abi":[{"type":"constructor","inputs":[{"name":"kernelAddress","type":"address","internalType":"address"}],"stateMutability":"nonpayable"},{"type":"function","name":"activeStakeOf","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"amount","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"getStakeRecord","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"record","type":"tuple","internalType":"struct StakeTypes.StakeRecord","components":[{"name":"personId","type":"bytes32","internalType":"bytes32"},{"name":"activeStake","type":"uint256","internalType":"uint256"},{"name":"protectedStakeFloor","type":"uint256","internalType":"uint256"},{"name":"totalSlashed","type":"uint256","internalType":"uint256"},{"name":"totalRecovered","type":"uint256","internalType":"uint256"},{"name":"totalUnstaked","type":"uint256","internalType":"uint256"},{"name":"welfareUntil","type":"uint64","internalType":"uint64"},{"name":"lastUnstakeAt","type":"uint64","internalType":"uint64"},{"name":"updatedAt","type":"uint64","internalType":"uint64"}]}],"stateMutability":"view"},{"type":"function","name":"increaseStake","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"},{"name":"amount","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"isInWelfare","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"inWelfare","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"kernel","inputs":[],"outputs":[{"name":"kernelAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"protectedStakeFloorOf","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"amount","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"recoverStake","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"},{"name":"amount","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"requiredActiveStakeFloorOf","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"amount","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"setProtectedStakeFloor","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"},{"name":"newProtectedFloor","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"slashStake","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"},{"name":"amount","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"transferActiveStake","inputs":[{"name":"fromPersonId","type":"bytes32","internalType":"bytes32"},{"name":"toPersonId","type":"bytes32","internalType":"bytes32"},{"name":"amount","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"unstake","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"releasedAmount","type":"uint256","internalType":"uint256"},{"name":"welfareUntil","type":"uint64","internalType":"uint64"}],"stateMutability":"nonpayable"},{"type":"function","name":"welfareUntilOf","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"welfareUntil","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"event","name":"ActiveStakeTransferred","inputs":[{"name":"fromPersonId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"toPersonId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"amount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"fromActiveStake","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"toActiveStake","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"updatedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"updatedBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"ProtectedStakeFloorUpdated","inputs":[{"name":"personId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"previousProtectedFloor","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"newProtectedFloor","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"updatedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"updatedBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"StakeIncreased","inputs":[{"name":"personId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"amount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"newActiveStake","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"updatedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"updatedBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"StakeRecovered","inputs":[{"name":"personId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"amount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"newActiveStake","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"totalRecovered","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"updatedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"updatedBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"StakeSlashed","inputs":[{"name":"personId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"amount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"newActiveStake","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"totalSlashed","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"updatedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"updatedBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"UnstakeExecuted","inputs":[{"name":"personId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"releasedAmount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"remainingActiveStake","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"welfareUntil","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"timestamp","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"caller","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"error","name":"InWelfarePeriod","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"},{"name":"welfareUntil","type":"uint64","internalType":"uint64"}]},{"type":"error","name":"InsufficientActiveStake","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"},{"name":"availableStake","type":"uint256","internalType":"uint256"},{"name":"requiredStake","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"InsufficientSlashableStake","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"},{"name":"slashableStake","type":"uint256","internalType":"uint256"},{"name":"requestedSlash","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"InvalidModuleAddress","inputs":[{"name":"moduleId","type":"bytes32","internalType":"bytes32"},{"name":"moduleAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidPersonId","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"InvalidStakeAmount","inputs":[{"name":"amount","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"InvalidStakeTransfer","inputs":[{"name":"fromPersonId","type":"bytes32","internalType":"bytes32"},{"name":"toPersonId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"NothingToUnstake","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"ProtectedStakeFloorBreached","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"},{"name":"remainingStake","type":"uint256","internalType":"uint256"},{"name":"protectedFloor","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"StakeLienRegistryUnavailable","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"UnauthorizedStakeRegistryCaller","inputs":[{"name":"caller","type":"address","internalType":"address"}]}]}
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "kernelAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "activeStakeAt",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "blockNumber",
+        "type": "uint48",
+        "internalType": "uint48"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "activeStakeOf",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "electorateMutationCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "count",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "electorateRevisionOf",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "revision",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getStakeRecord",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "record",
+        "type": "tuple",
+        "internalType": "struct StakeTypes.StakeRecord",
+        "components": [
+          {
+            "name": "personId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "activeStake",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "protectedStakeFloor",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "totalSlashed",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "totalRecovered",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "totalUnstaked",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "welfareUntil",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "lastUnstakeAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "updatedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "increaseStake",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "isInWelfare",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "inWelfare",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "kernel",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "kernelAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "protectedStakeFloorOf",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "recoverStake",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "requiredActiveStakeFloorOf",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "setProtectedStakeFloor",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "newProtectedFloor",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "slashStake",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "totalActiveStake",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "transferActiveStake",
+    "inputs": [
+      {
+        "name": "fromPersonId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "toPersonId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "unstake",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "releasedAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "welfareUntil",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "welfareUntilOf",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "welfareUntil",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "ActiveStakeTransferred",
+    "inputs": [
+      {
+        "name": "fromPersonId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "toPersonId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "fromActiveStake",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "toActiveStake",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "updatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "updatedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ElectorateSourceRevisionAdvanced",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "personRevision",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalMutationCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ElectorateSynchronizationDeferred",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "electorateRegistry",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ProtectedStakeFloorUpdated",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "previousProtectedFloor",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "newProtectedFloor",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "updatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "updatedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "StakeIncreased",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "newActiveStake",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "updatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "updatedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "StakeRecovered",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "newActiveStake",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalRecovered",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "updatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "updatedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "StakeSlashed",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "newActiveStake",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "totalSlashed",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "updatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "updatedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "UnstakeExecuted",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "releasedAmount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "remainingActiveStake",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "welfareUntil",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "timestamp",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "caller",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "CheckpointUnorderedInsertion",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InWelfarePeriod",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "welfareUntil",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InsufficientActiveStake",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "availableStake",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "requiredStake",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InsufficientSlashableStake",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "slashableStake",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "requestedSlash",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidModuleAddress",
+    "inputs": [
+      {
+        "name": "moduleId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "moduleAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidPersonId",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidStakeAmount",
+    "inputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidStakeTransfer",
+    "inputs": [
+      {
+        "name": "fromPersonId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "toPersonId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NothingToUnstake",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ProtectedStakeFloorBreached",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "remainingStake",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "protectedFloor",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SafeCastOverflowedUintDowncast",
+    "inputs": [
+      {
+        "name": "bits",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "StakeLienRegistryUnavailable",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedStakeRegistryCaller",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  }
+]}

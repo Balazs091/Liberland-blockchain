@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -55,13 +55,15 @@ contract MockReferendumAppForTreasury {
     }
 }
 
-/// @title Milestone6TreasuryAndOfficesTest
+/// @title TreasuryAndOfficesTest
 /// @notice Covers v1 office administration, budget approval, delayed payouts, and Senate-vetoable treasury execution.
-contract Milestone6TreasuryAndOfficesTest is Test {
+contract TreasuryAndOfficesTest is Test {
     uint256 internal constant MINIMUM_CITIZEN_STAKE = 5_000;
     uint32 internal constant SENATE_CANCELLATION_THRESHOLD = 2;
     uint64 internal constant DISBURSEMENT_SUSPENSION_PERIOD = 30 days;
     uint256 internal constant ONE_USDC = 1e6;
+    uint256 internal constant ONE_LLM = 1e18;
+    uint256 internal constant CONTRIBUTION_REWARD_AMOUNT = 1_250 * ONE_LLM;
     uint256 internal constant FINANCE_CLERK_OPERATIONS_LIMIT = 3_000 * ONE_USDC;
     uint256 internal constant FINANCE_CLERK_SALARY_LIMIT = 2_000 * ONE_USDC;
 
@@ -71,6 +73,7 @@ contract Milestone6TreasuryAndOfficesTest is Test {
     bytes32 internal constant COMPANY_REGISTRY_OFFICE_ID = keccak256("office.company-registry");
     bytes32 internal constant OPERATIONS_BUDGET_ID = keccak256("budget.operations");
     bytes32 internal constant VETO_BUDGET_ID = keccak256("budget.veto");
+    bytes32 internal constant CONTRIBUTION_REWARD_BUDGET_ID = keccak256("budget.contribution-rewards");
     bytes32 internal constant PAYOUT_REQUEST_ID = keccak256("payout.operations");
     bytes32 internal constant VETO_PAYOUT_REQUEST_ID = keccak256("payout.veto");
 
@@ -103,6 +106,7 @@ contract Milestone6TreasuryAndOfficesTest is Test {
     MockReferendumAppForTreasury internal mockReferendumApp;
     SenateApp internal senateApp;
     TreasuryVault internal treasuryVault;
+    LLMToken internal llm;
     MockUSDC internal usdc;
     BudgetEnvelopeRegistry internal budgetEnvelopeRegistry;
     OfficeRegistry internal officeRegistry;
@@ -132,7 +136,7 @@ contract Milestone6TreasuryAndOfficesTest is Test {
         usdc.mint(address(treasuryVault), 10_000 * ONE_USDC);
     }
 
-    function test_Milestone6InterfacesExposeSelectors() public pure {
+    function test_InterfacesExposeSelectors() public pure {
         assertTrue(IBudgetEnvelopeRegistry.recordBudgetApproval.selector != bytes4(0));
         assertTrue(IConstitutionKernel.governanceUpdateModule.selector != bytes4(0));
         assertTrue(IOfficeExecutor.requestBudgetApproval.selector != bytes4(0));
@@ -142,6 +146,19 @@ contract Milestone6TreasuryAndOfficesTest is Test {
         assertTrue(ISenateApp.supportActionCancellation.selector != bytes4(0));
         assertTrue(ITreasuryVault.receiveTokenDeposit.selector != bytes4(0));
         assertTrue(ITreasurySpendingPolicy.isPayoutAllowed.selector != bytes4(0));
+    }
+
+    function test_TreasurySpendingPolicy_RejectsZeroLlmAsset() public {
+        ITreasurySpendingPolicy.AssetSpendingLimit[] memory assetLimits =
+            new ITreasurySpendingPolicy.AssetSpendingLimit[](1);
+        assetLimits[0] = ITreasurySpendingPolicy.AssetSpendingLimit({
+            asset: address(usdc),
+            clerkOperationsLimit: FINANCE_CLERK_OPERATIONS_LIMIT,
+            clerkSalaryLimit: FINANCE_CLERK_SALARY_LIMIT
+        });
+
+        vm.expectRevert(abi.encodeWithSelector(TreasurySpendingPolicy.LlmAssetNotAllowed.selector, address(0)));
+        new TreasurySpendingPolicy(FINANCE_OFFICE_ID, address(0), assetLimits);
     }
 
     function test_TreasuryVault_ReceivesTokenDepositsThroughExplicitEntrypoint() public {
@@ -158,6 +175,81 @@ contract Milestone6TreasuryAndOfficesTest is Test {
         vm.deal(address(this), 1 ether);
         (bool accepted,) = address(treasuryVault).call{value: 1 ether}("");
         assertFalse(accepted);
+    }
+
+    function test_ContributionReward_UsesEvidenceBackedLlmBudgetAndFinanceAdmin() public {
+        llm.mint(address(this), CONTRIBUTION_REWARD_AMOUNT);
+        llm.approve(address(treasuryVault), CONTRIBUTION_REWARD_AMOUNT);
+        treasuryVault.receiveTokenDeposit(
+            address(llm), CONTRIBUTION_REWARD_AMOUNT, keccak256("llm.contribution-reward-reserve")
+        );
+        _approveContributionRewardBudget(CONTRIBUTION_REWARD_BUDGET_ID, CONTRIBUTION_REWARD_AMOUNT);
+
+        vm.prank(MINISTER_OF_FINANCE);
+        officeExecutor.assignClerk(FINANCE_OFFICE_ID, FINANCE_CLERK);
+
+        assertEq(treasurySpendingPolicy.llmAsset(), address(llm));
+        assertFalse(
+            treasurySpendingPolicy.isPayoutAllowed(
+                FINANCE_OFFICE_ID,
+                OfficeTypes.OfficeRole.Admin,
+                TreasuryTypes.DisbursementType.ContributionReward,
+                address(usdc),
+                CONTRIBUTION_REWARD_AMOUNT
+            )
+        );
+
+        bytes32 requestId = keccak256("payout.contribution-reward");
+        vm.prank(FINANCE_CLERK);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IOfficeExecutor.UnauthorizedOfficeAction.selector,
+                FINANCE_CLERK,
+                FINANCE_OFFICE_ID,
+                OfficeTypes.OfficeActionClass.ProposePayout
+            )
+        );
+        officeExecutor.proposePayout(
+            FINANCE_OFFICE_ID,
+            _contributionRewardInput(requestId, keccak256("verified-contribution"), "ipfs://contribution-evidence")
+        );
+
+        vm.prank(MINISTER_OF_FINANCE);
+        vm.expectRevert(abi.encodeWithSelector(IOfficeExecutor.ContributionRewardEvidenceRequired.selector, requestId));
+        officeExecutor.proposePayout(
+            FINANCE_OFFICE_ID, _contributionRewardInput(requestId, bytes32(0), "ipfs://contribution-evidence")
+        );
+
+        vm.prank(MINISTER_OF_FINANCE);
+        vm.expectRevert(abi.encodeWithSelector(IOfficeExecutor.ContributionRewardEvidenceRequired.selector, requestId));
+        officeExecutor.proposePayout(
+            FINANCE_OFFICE_ID, _contributionRewardInput(requestId, keccak256("verified-contribution"), "")
+        );
+
+        vm.prank(MINISTER_OF_FINANCE);
+        officeExecutor.proposePayout(
+            FINANCE_OFFICE_ID,
+            _contributionRewardInput(requestId, keccak256("verified-contribution"), "ipfs://contribution-evidence")
+        );
+
+        TreasuryTypes.DisbursementRequest memory request = payoutQueue.getDisbursementRequest(requestId);
+        assertEq(request.routeAfter, uint64(block.timestamp + 1 days));
+        assertEq(request.noteHash, keccak256("verified-contribution"));
+        assertEq(request.noteURI, "ipfs://contribution-evidence");
+
+        vm.warp(request.routeAfter);
+        vm.prank(MINISTER_OF_FINANCE);
+        bytes32 actionId = officeExecutor.routePayout(FINANCE_OFFICE_ID, requestId);
+        _warpToActionDeadline(actionId);
+        timelock.executeAction(actionId);
+        payoutQueue.syncPayoutState(requestId);
+
+        assertEq(llm.balanceOf(TREASURY_RECIPIENT), CONTRIBUTION_REWARD_AMOUNT);
+        assertEq(llm.balanceOf(address(treasuryVault)), 0);
+        assertEq(
+            uint256(payoutQueue.getDisbursementRequest(requestId).state),
+            uint256(TreasuryTypes.DisbursementState.Executed)
+        );
     }
 
     function test_ProposePayout_RejectsAssetOutsideAllowlist() public {
@@ -280,7 +372,9 @@ contract Milestone6TreasuryAndOfficesTest is Test {
     }
 
     function test_ReferendumBudgetApproval_IsExecutableThroughTimelock() public {
-        bytes32 actionId = _queueBudgetApprovalFromReferendum(OPERATIONS_BUDGET_ID, 8_000 * ONE_USDC);
+        bytes32 actionId = _queueBudgetApprovalFromReferendum(
+            OPERATIONS_BUDGET_ID, TreasuryTypes.DisbursementType.Operations, address(usdc), 8_000 * ONE_USDC
+        );
 
         assertEq(uint256(timelock.getActionState(actionId)), uint256(GovernanceTypes.ActionState.Queued));
         assertFalse(budgetEnvelopeRegistry.budgetExists(OPERATIONS_BUDGET_ID));
@@ -301,7 +395,9 @@ contract Milestone6TreasuryAndOfficesTest is Test {
     }
 
     function test_SenateCanVetoQueuedBudgetApproval() public {
-        bytes32 actionId = _queueBudgetApprovalFromReferendum(VETO_BUDGET_ID, 4_000 * ONE_USDC);
+        bytes32 actionId = _queueBudgetApprovalFromReferendum(
+            VETO_BUDGET_ID, TreasuryTypes.DisbursementType.Operations, address(usdc), 4_000 * ONE_USDC
+        );
 
         vm.prank(SENATOR_ONE);
         senateApp.supportActionCancellation(actionId, 0);
@@ -370,6 +466,69 @@ contract Milestone6TreasuryAndOfficesTest is Test {
         assertEq(budgetEnvelopeRegistry.availableAmount(OPERATIONS_BUDGET_ID), 9_000 * ONE_USDC);
     }
 
+    function test_ExecutedPayoutCanSyncAfterTreasuryVaultReplacement() public {
+        vm.prank(MINISTER_OF_FINANCE);
+        officeExecutor.assignClerk(FINANCE_OFFICE_ID, FINANCE_CLERK);
+
+        _approveBudget(OPERATIONS_BUDGET_ID, 10_000 * ONE_USDC);
+
+        vm.prank(FINANCE_CLERK);
+        officeExecutor.proposePayout(
+            FINANCE_OFFICE_ID,
+            TreasuryTypes.DisbursementRequestInput({
+                requestId: PAYOUT_REQUEST_ID,
+                budgetId: OPERATIONS_BUDGET_ID,
+                officeId: FINANCE_OFFICE_ID,
+                disbursementType: TreasuryTypes.DisbursementType.Operations,
+                asset: address(usdc),
+                recipient: TREASURY_RECIPIENT,
+                amount: 1_000 * ONE_USDC,
+                policyReference: bytes32(0),
+                noteHash: keccak256("vault-replacement"),
+                noteURI: "ipfs://vault-replacement"
+            })
+        );
+
+        TreasuryTypes.DisbursementRequest memory request = payoutQueue.getDisbursementRequest(PAYOUT_REQUEST_ID);
+        vm.warp(request.routeAfter);
+
+        vm.prank(FINANCE_CLERK);
+        bytes32 payoutActionId = officeExecutor.routePayout(FINANCE_OFFICE_ID, PAYOUT_REQUEST_ID);
+        _warpToActionDeadline(payoutActionId);
+        timelock.executeAction(payoutActionId);
+
+        TreasuryVault replacementVault = new TreasuryVault(address(kernel));
+        bytes32 replacementActionId = mockReferendumApp.routeAction(
+            GovernanceTypes.ActionRequest({
+                actionType: GovernanceTypes.ActionType.ModulePointerUpdate,
+                origin: GovernanceTypes.ActionOrigin.Referendum,
+                originReference: keccak256("replace.treasury-vault"),
+                policyReference: bytes32(0),
+                targetModule: KernelModuleIds.TREASURY_VAULT,
+                payload: abi.encode(GovernanceTypes.ModuleUpdatePayload({newModuleAddress: address(replacementVault)})),
+                requestedExecutionTime: 0,
+                expiresAt: 0
+            })
+        );
+        _warpToActionDeadline(replacementActionId);
+        timelock.executeAction(replacementActionId);
+
+        assertEq(kernel.getModule(KernelModuleIds.TREASURY_VAULT), address(replacementVault));
+        assertTrue(treasuryVault.isDisbursementExecuted(PAYOUT_REQUEST_ID));
+        assertFalse(replacementVault.isDisbursementExecuted(PAYOUT_REQUEST_ID));
+
+        payoutQueue.syncPayoutState(PAYOUT_REQUEST_ID);
+
+        TreasuryTypes.BudgetEnvelope memory budgetEnvelope =
+            budgetEnvelopeRegistry.getBudgetEnvelope(OPERATIONS_BUDGET_ID);
+        assertEq(
+            uint256(payoutQueue.getDisbursementRequest(PAYOUT_REQUEST_ID).state),
+            uint256(TreasuryTypes.DisbursementState.Executed)
+        );
+        assertEq(budgetEnvelope.committedAmount, 0);
+        assertEq(budgetEnvelope.spentAmount, 1_000 * ONE_USDC);
+    }
+
     function test_SenateCanVetoQueuedPayoutAndReleaseBudgetCommitment() public {
         vm.prank(MINISTER_OF_FINANCE);
         officeExecutor.assignClerk(FINANCE_OFFICE_ID, FINANCE_CLERK);
@@ -418,6 +577,48 @@ contract Milestone6TreasuryAndOfficesTest is Test {
         assertEq(usdc.balanceOf(address(treasuryVault)), 10_000 * ONE_USDC);
     }
 
+    function test_FinanceOfficeCanCancelRoutedPayoutAndReleaseBudgetCommitment() public {
+        vm.prank(MINISTER_OF_FINANCE);
+        officeExecutor.assignClerk(FINANCE_OFFICE_ID, FINANCE_CLERK);
+
+        _approveBudget(OPERATIONS_BUDGET_ID, 5_000 * ONE_USDC);
+
+        vm.prank(FINANCE_CLERK);
+        officeExecutor.proposePayout(
+            FINANCE_OFFICE_ID,
+            TreasuryTypes.DisbursementRequestInput({
+                requestId: PAYOUT_REQUEST_ID,
+                budgetId: OPERATIONS_BUDGET_ID,
+                officeId: FINANCE_OFFICE_ID,
+                disbursementType: TreasuryTypes.DisbursementType.Operations,
+                asset: address(usdc),
+                recipient: TREASURY_RECIPIENT,
+                amount: 1_000 * ONE_USDC,
+                policyReference: bytes32(0),
+                noteHash: keccak256("office-canceled"),
+                noteURI: "ipfs://office-canceled"
+            })
+        );
+
+        TreasuryTypes.DisbursementRequest memory request = payoutQueue.getDisbursementRequest(PAYOUT_REQUEST_ID);
+        vm.warp(request.routeAfter);
+        vm.prank(FINANCE_CLERK);
+        bytes32 actionId = officeExecutor.routePayout(FINANCE_OFFICE_ID, PAYOUT_REQUEST_ID);
+
+        assertEq(budgetEnvelopeRegistry.getBudgetEnvelope(OPERATIONS_BUDGET_ID).committedAmount, 1_000 * ONE_USDC);
+
+        vm.prank(FINANCE_CLERK);
+        officeExecutor.cancelPayout(FINANCE_OFFICE_ID, PAYOUT_REQUEST_ID);
+
+        assertEq(uint256(timelock.getActionState(actionId)), uint256(GovernanceTypes.ActionState.Canceled));
+        assertEq(
+            uint256(payoutQueue.getDisbursementRequest(PAYOUT_REQUEST_ID).state),
+            uint256(TreasuryTypes.DisbursementState.Canceled)
+        );
+        assertEq(budgetEnvelopeRegistry.getBudgetEnvelope(OPERATIONS_BUDGET_ID).committedAmount, 0);
+        assertEq(usdc.balanceOf(TREASURY_RECIPIENT), 0);
+    }
+
     function test_NonFinanceOfficeCannotProposeTreasuryPayout() public {
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -449,8 +650,8 @@ contract Milestone6TreasuryAndOfficesTest is Test {
         kernel = new ConstitutionKernel(address(this));
         timelock = new ActionTimelock(address(kernel), _defaultDelayConfig());
         router = new GovernanceRouter(address(kernel), address(this));
-        identityAuthority = new MockModule(keccak256("milestone6.identity-authority"));
-        stakeAuthority = new MockModule(keccak256("milestone6.stake-authority"));
+        identityAuthority = new MockModule(keccak256("test.treasury.identity-authority"));
+        stakeAuthority = new MockModule(keccak256("test.treasury.stake-authority"));
 
         kernel.bootstrapSetModule(KernelModuleIds.GOVERNANCE_ROUTER, address(router));
         kernel.bootstrapSetModule(KernelModuleIds.ACTION_TIMELOCK, address(timelock));
@@ -475,19 +676,23 @@ contract Milestone6TreasuryAndOfficesTest is Test {
             address(mockReferendumApp)
         );
 
+        llm = new LLMToken();
         usdc = new MockUSDC();
         treasuryVault = new TreasuryVault(address(kernel));
         budgetEnvelopeRegistry = new BudgetEnvelopeRegistry(address(kernel));
         officeRegistry = new OfficeRegistry(address(kernel));
         officePermissionPolicy = new OfficePermissionPolicy();
         ITreasurySpendingPolicy.AssetSpendingLimit[] memory assetLimits =
-            new ITreasurySpendingPolicy.AssetSpendingLimit[](1);
+            new ITreasurySpendingPolicy.AssetSpendingLimit[](2);
         assetLimits[0] = ITreasurySpendingPolicy.AssetSpendingLimit({
+            asset: address(llm), clerkOperationsLimit: 3_000 * ONE_LLM, clerkSalaryLimit: 2_000 * ONE_LLM
+        });
+        assetLimits[1] = ITreasurySpendingPolicy.AssetSpendingLimit({
             asset: address(usdc),
             clerkOperationsLimit: FINANCE_CLERK_OPERATIONS_LIMIT,
             clerkSalaryLimit: FINANCE_CLERK_SALARY_LIMIT
         });
-        treasurySpendingPolicy = new TreasurySpendingPolicy(FINANCE_OFFICE_ID, assetLimits);
+        treasurySpendingPolicy = new TreasurySpendingPolicy(FINANCE_OFFICE_ID, address(llm), assetLimits);
         payoutQueue = new PayoutQueue(address(kernel), address(budgetEnvelopeRegistry));
         officeExecutor = new OfficeExecutor(
             address(officeRegistry),
@@ -500,6 +705,7 @@ contract Milestone6TreasuryAndOfficesTest is Test {
 
         kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, address(identityAuthority));
         kernel.bootstrapSetModule(KernelModuleIds.STAKE_REGISTRY_AUTHORITY, address(stakeAuthority));
+        kernel.bootstrapSetModule(KernelModuleIds.LLM_STAKING_VAULT, address(stakeAuthority));
         kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY, address(identityRegistry));
         kernel.bootstrapSetModule(KernelModuleIds.LEGISLATION_REGISTRY, address(legislationRegistry));
         kernel.bootstrapSetModule(KernelModuleIds.STAKE_REGISTRY, address(stakeRegistry));
@@ -581,25 +787,23 @@ contract Milestone6TreasuryAndOfficesTest is Test {
         senateApp.bootstrapAssignSeat(1, SENATOR_TWO);
     }
 
-    function _queueBudgetApprovalFromReferendum(bytes32 budgetId, uint256 allocatedAmount)
-        private
-        returns (bytes32 actionId)
-    {
+    function _queueBudgetApprovalFromReferendum(
+        bytes32 budgetId,
+        TreasuryTypes.DisbursementType disbursementType,
+        address asset,
+        uint256 allocatedAmount
+    ) private returns (bytes32 actionId) {
         GovernanceTypes.TreasuryBudgetApprovalPayload memory payload =
             GovernanceTypes.TreasuryBudgetApprovalPayload({
                 budgetId: budgetId,
                 officeId: FINANCE_OFFICE_ID,
-                disbursementType: TreasuryTypes.DisbursementType.Operations,
-                asset: address(usdc),
+                disbursementType: disbursementType,
+                asset: asset,
                 allocatedAmount: allocatedAmount,
                 startsAt: uint64(block.timestamp),
                 endsAt: uint64(block.timestamp + 30 days),
                 policyReference: treasurySpendingPolicy.computePolicyReference(
-                    FINANCE_OFFICE_ID,
-                    OfficeTypes.OfficeRole.Admin,
-                    TreasuryTypes.DisbursementType.Operations,
-                    address(usdc),
-                    allocatedAmount
+                    FINANCE_OFFICE_ID, OfficeTypes.OfficeRole.Admin, disbursementType, asset, allocatedAmount
                 )
             });
 
@@ -618,9 +822,38 @@ contract Milestone6TreasuryAndOfficesTest is Test {
     }
 
     function _approveBudget(bytes32 budgetId, uint256 allocatedAmount) private {
-        bytes32 actionId = _queueBudgetApprovalFromReferendum(budgetId, allocatedAmount);
+        bytes32 actionId = _queueBudgetApprovalFromReferendum(
+            budgetId, TreasuryTypes.DisbursementType.Operations, address(usdc), allocatedAmount
+        );
         _warpToActionDeadline(actionId);
         timelock.executeAction(actionId);
+    }
+
+    function _approveContributionRewardBudget(bytes32 budgetId, uint256 allocatedAmount) private {
+        bytes32 actionId = _queueBudgetApprovalFromReferendum(
+            budgetId, TreasuryTypes.DisbursementType.ContributionReward, address(llm), allocatedAmount
+        );
+        _warpToActionDeadline(actionId);
+        timelock.executeAction(actionId);
+    }
+
+    function _contributionRewardInput(bytes32 requestId, bytes32 noteHash, string memory noteURI)
+        private
+        view
+        returns (TreasuryTypes.DisbursementRequestInput memory input)
+    {
+        input = TreasuryTypes.DisbursementRequestInput({
+            requestId: requestId,
+            budgetId: CONTRIBUTION_REWARD_BUDGET_ID,
+            officeId: FINANCE_OFFICE_ID,
+            disbursementType: TreasuryTypes.DisbursementType.ContributionReward,
+            asset: address(llm),
+            recipient: TREASURY_RECIPIENT,
+            amount: CONTRIBUTION_REWARD_AMOUNT,
+            policyReference: bytes32(0),
+            noteHash: noteHash,
+            noteURI: noteURI
+        });
     }
 
     function _finalizeActionCancellationAtDeadline(bytes32 actionId) private {

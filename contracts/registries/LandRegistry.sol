@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {ILandRegistry} from "../interfaces/ILandRegistry.sol";
 import {KernelModule} from "../base/KernelModule.sol";
@@ -152,7 +152,7 @@ contract LandRegistry is ILandRegistry, KernelModule {
         if (_activeTitleOfParcel[parcelId] != bytes32(0) || documentHash == bytes32(0)) {
             revert InvalidParcelPayload(parcelId);
         }
-        // L4: a parcel with an open accepted dispute — or an unreleased active encumbrance — cannot be retired
+        // A parcel with an open accepted dispute — or an unreleased active encumbrance — cannot be retired
         // until those are cleared, so no encumbrance is ever left dangling against a retired parcel.
         if (_activeDisputeCounts[parcelId] != 0 || _activeEncumbranceCounts[parcelId] != 0) {
             revert ParcelTransferLocked(parcelId);
@@ -230,7 +230,7 @@ contract LandRegistry is ILandRegistry, KernelModule {
             revert ParcelTransferLocked(parcelId);
         }
 
-        // L4: retire the title record and release the parcel's active-title slot so the parcel can later be
+        // Retire the title record and release the parcel's active-title slot so the parcel can later be
         // retired or re-titled.
         titleRecord.active = false;
         titleRecord.documentHash = documentHash;

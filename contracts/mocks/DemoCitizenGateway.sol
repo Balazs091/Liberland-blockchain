@@ -1,20 +1,28 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
+import {IdentityApp} from "../apps/IdentityApp.sol";
 import {IDemoCitizenGateway} from "../interfaces/IDemoCitizenGateway.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
+import {ILLMStakingVault} from "../interfaces/ILLMStakingVault.sol";
 import {IStakeRegistry} from "../interfaces/IStakeRegistry.sol";
 import {IUnstakingPolicy} from "../interfaces/IUnstakingPolicy.sol";
 import {IdentityTypes} from "../types/IdentityTypes.sol";
 
 /// @title DemoCitizenGateway
-/// @notice Demo-only authority and user gateway for self-registration plus merit staking and unstaking.
-contract DemoCitizenGateway is IDemoCitizenGateway {
-    IIdentityRegistry public immutable identityRegistry;
+/// @notice Demo-only standing identity authority and user gateway for self-registration plus merit staking and
+///         unstaking. Inheriting the regular IdentityApp keeps office workflows and demo onboarding behind one
+///         canonical identity-registry writer.
+contract DemoCitizenGateway is IdentityApp, IDemoCitizenGateway {
+    using SafeERC20 for IERC20;
+
+    IIdentityRegistry private immutable _demoIdentityRegistry;
     IStakeRegistry public immutable stakeRegistry;
     IUnstakingPolicy public immutable unstakingPolicy;
+    ILLMStakingVault public immutable stakingVault;
     IERC20 private immutable _meritToken;
 
     address private _registrar;
@@ -22,16 +30,21 @@ contract DemoCitizenGateway is IDemoCitizenGateway {
     constructor(
         address identityRegistryAddress,
         address stakeRegistryAddress,
+        address stakingVaultAddress,
         address unstakingPolicyAddress,
         address meritTokenAddress,
-        address registrar_
-    ) {
+        address registrar_,
+        address officeRegistryAddress,
+        bytes32 identityOfficeId,
+        uint64 migrationDelaySeconds
+    ) IdentityApp(identityRegistryAddress, officeRegistryAddress, identityOfficeId, migrationDelaySeconds) {
         if (registrar_ == address(0)) {
             revert InvalidRegistrar(registrar_);
         }
 
-        identityRegistry = IIdentityRegistry(identityRegistryAddress);
+        _demoIdentityRegistry = IIdentityRegistry(identityRegistryAddress);
         stakeRegistry = IStakeRegistry(stakeRegistryAddress);
+        stakingVault = ILLMStakingVault(stakingVaultAddress);
         unstakingPolicy = IUnstakingPolicy(unstakingPolicyAddress);
         _meritToken = IERC20(meritTokenAddress);
         _registrar = registrar_;
@@ -54,12 +67,12 @@ contract DemoCitizenGateway is IDemoCitizenGateway {
 
     /// @inheritdoc IDemoCitizenGateway
     function registerSelf(bytes32 metadataHash, string calldata metadataURI) external returns (bytes32 personId) {
-        if (identityRegistry.resolveWalletToPersonId(msg.sender) != bytes32(0)) {
+        if (_demoIdentityRegistry.resolveWalletToPersonId(msg.sender) != bytes32(0)) {
             revert AlreadyRegistered(msg.sender);
         }
 
         personId = personIdFor(msg.sender);
-        identityRegistry.setIdentityRecord(
+        _demoIdentityRegistry.setIdentityRecord(
             personId,
             IdentityTypes.IdentityRecordInput({
                 metadataHash: metadataHash,
@@ -71,7 +84,7 @@ contract DemoCitizenGateway is IDemoCitizenGateway {
                 finalSuspension: false
             })
         );
-        identityRegistry.setWalletLink(personId, msg.sender, IdentityTypes.WalletLinkStatus.Active);
+        _demoIdentityRegistry.setWalletLink(personId, msg.sender, IdentityTypes.WalletLinkStatus.Active);
 
         emit DemoRegistrationSubmitted(msg.sender, personId, metadataHash, metadataURI, uint64(block.timestamp));
     }
@@ -80,13 +93,13 @@ contract DemoCitizenGateway is IDemoCitizenGateway {
     function confirmCitizenship(address wallet, bool approved, bool adult) external {
         _requireRegistrar(msg.sender);
 
-        bytes32 personId = identityRegistry.resolveWalletToPersonId(wallet);
+        bytes32 personId = _demoIdentityRegistry.resolveWalletToPersonId(wallet);
         if (personId == bytes32(0)) {
             revert NotRegistered(wallet);
         }
 
-        IdentityTypes.IdentityRecord memory existingRecord = identityRegistry.getIdentityRecord(personId);
-        identityRegistry.setIdentityRecord(
+        IdentityTypes.IdentityRecord memory existingRecord = _demoIdentityRegistry.getIdentityRecord(personId);
+        _demoIdentityRegistry.setIdentityRecord(
             personId,
             IdentityTypes.IdentityRecordInput({
                 metadataHash: existingRecord.metadataHash,
@@ -126,10 +139,9 @@ contract DemoCitizenGateway is IDemoCitizenGateway {
         }
 
         bytes32 personId = _requireRegisteredWallet(msg.sender);
-        bool transferred = _meritToken.transferFrom(msg.sender, address(this), amount);
-        require(transferred, "demo stake transfer failed");
-
-        stakeRegistry.increaseStake(personId, amount);
+        _meritToken.safeTransferFrom(msg.sender, address(this), amount);
+        _meritToken.forceApprove(address(stakingVault), amount);
+        stakingVault.stakeFor(personId, amount);
 
         emit DemoMeritsStaked(
             msg.sender, personId, amount, stakeRegistry.activeStakeOf(personId), uint64(block.timestamp)
@@ -141,10 +153,7 @@ contract DemoCitizenGateway is IDemoCitizenGateway {
         bytes32 personId = _requireRegisteredWallet(msg.sender);
 
         uint64 welfareUntil;
-        (releasedAmount, welfareUntil) = stakeRegistry.unstake(personId);
-
-        bool transferred = _meritToken.transfer(msg.sender, releasedAmount);
-        require(transferred, "demo unstake transfer failed");
+        (releasedAmount, welfareUntil) = stakingVault.unstakeFor(msg.sender);
 
         emit DemoUnstakeExecuted(
             msg.sender,
@@ -157,12 +166,12 @@ contract DemoCitizenGateway is IDemoCitizenGateway {
     }
 
     function _requireRegisteredWallet(address wallet) private view returns (bytes32 personId) {
-        personId = identityRegistry.resolveWalletToPersonId(wallet);
+        personId = _demoIdentityRegistry.resolveWalletToPersonId(wallet);
         if (personId == bytes32(0)) {
             revert NotRegistered(wallet);
         }
 
-        IdentityTypes.WalletLink memory walletLink = identityRegistry.getWalletLink(wallet);
+        IdentityTypes.WalletLink memory walletLink = _demoIdentityRegistry.getWalletLink(wallet);
         if (walletLink.status != IdentityTypes.WalletLinkStatus.Active) {
             revert NotRegistered(wallet);
         }

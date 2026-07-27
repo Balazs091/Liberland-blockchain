@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IKernelModule} from "./IKernelModule.sol";
 
@@ -19,9 +19,18 @@ interface IStakeLienRegistry is IKernelModule {
         bytes32 indexed personId, uint256 amount, uint256 newLienedStake, uint64 updatedAt, address indexed updatedBy
     );
 
-    /// @notice Returns the minimum active stake that cannot be pledged for lending.
-    /// @return amount The retained active-stake floor.
+    event RetainedStakeFloorUpdated(
+        bytes32 indexed personId, uint256 previousRetainedFloor, uint256 newRetainedFloor, uint64 updatedAt
+    );
+
+    /// @notice Returns the current policy minimum that cannot be pledged by a new lending position.
+    /// @return amount The current retained active-stake floor.
     function minimumRetainedStake() external view returns (uint256 amount);
+
+    /// @notice Returns the floor snapshotted for an active lien, or the current policy minimum when no lien exists.
+    /// @param personId The canonical person identifier.
+    /// @return amount The retained floor governing this person's current or next lending position.
+    function retainedStakeFloorOf(bytes32 personId) external view returns (uint256 amount);
 
     /// @notice Returns the active stake amount currently locked by lending liens.
     /// @param personId The canonical person identifier.

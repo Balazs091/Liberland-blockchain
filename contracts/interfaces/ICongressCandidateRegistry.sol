@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IKernelModule} from "./IKernelModule.sol";
 import {ElectionTypes} from "../types/ElectionTypes.sol";
@@ -18,6 +18,8 @@ interface ICongressCandidateRegistry is IKernelModule {
     error InvalidCandidate(address candidate);
     error InvalidCandidateCount(uint256 candidateCount, uint256 maxCandidateCount);
     error InvalidCycleId(uint256 cycleId);
+    error InvalidCyclePolicy(address policy);
+    error InvalidCycleSnapshotBlock(uint48 snapshotBlock, uint256 currentBlock);
     error InvalidFinalizationShape(uint256 rankedCandidateCount, uint256 rankedVoteCount);
     error InvalidNegativeAllocation(uint256 negativeAllocationTotal, uint256 maxNegativeAllocation);
     error InvalidOutcomeCount(uint32 electedCount, uint32 runnerUpCount, uint256 candidateCount);
@@ -35,6 +37,7 @@ interface ICongressCandidateRegistry is IKernelModule {
     error InvalidVotingWeight(address voter, uint256 weight);
     error InvalidVotingWindow(uint64 nominationStart, uint64 votingStart, uint64 votingEnd);
     error NotActiveCongressMember(address wallet);
+    error NotActiveCongressPerson(bytes32 personId);
     error UnauthorizedCongressCandidateRegistryCaller(address caller);
     error UnexpectedCycleId(uint256 expectedCycleId, uint256 providedCycleId);
     error VoteNotFound(uint256 cycleId, address voter);
@@ -44,9 +47,11 @@ interface ICongressCandidateRegistry is IKernelModule {
         uint64 nominationStart,
         uint64 votingStart,
         uint64 votingEnd,
+        uint48 votingPowerSnapshotBlock,
         uint32 seatCount,
         uint32 runnerUpCount,
         uint32 maxCandidateCount,
+        address policy,
         bytes32 policyReference,
         address indexed createdBy
     );
@@ -92,20 +97,6 @@ interface ICongressCandidateRegistry is IKernelModule {
         uint256 ballotWeight,
         uint64 clearedAt,
         address indexed clearedBy
-    );
-
-    event CongressStandingBallotUpdated(
-        address indexed voter,
-        uint256 ballotWeight,
-        uint256 positiveAllocationTotal,
-        uint256 negativeAllocationTotal,
-        uint32 allocationCount,
-        uint64 updatedAt,
-        address indexed updatedBy
-    );
-
-    event CongressStandingBallotCleared(
-        address indexed voter, uint256 ballotWeight, uint64 clearedAt, address indexed clearedBy
     );
 
     event CongressCandidateRanked(
@@ -157,9 +148,11 @@ interface ICongressCandidateRegistry is IKernelModule {
     /// @return record The stored cycle record, or an empty record if unset.
     function getCycle(uint256 cycleId) external view returns (ElectionTypes.CongressCycleRecord memory record);
 
-    /// @notice Returns the stored candidate record for a wallet within a cycle.
+    /// @notice Returns the stored candidate record for a canonical candidate address or wallet alias within a cycle.
+    /// @dev A stored canonical address selects its durable record; any other active or formerly linked wallet
+    ///      resolves to the person's original cycle candidacy.
     /// @param cycleId The cycle identifier to query.
-    /// @param candidate The candidate wallet to query.
+    /// @param candidate The original or currently active candidate wallet to query.
     /// @return record The stored candidate record, or an empty record if unset.
     function getCandidate(uint256 cycleId, address candidate)
         external
@@ -187,25 +180,6 @@ interface ICongressCandidateRegistry is IKernelModule {
     /// @param index The allocation index to query.
     /// @return allocation The stored signed ballot allocation.
     function getBallotAllocationAt(uint256 cycleId, address voter, uint256 index)
-        external
-        view
-        returns (ElectionTypes.BallotAllocation memory allocation);
-
-    /// @notice Returns the persistent standing ballot receipt for a voter.
-    /// @param voter The voter wallet to query.
-    /// @return receipt The standing ballot receipt, or an empty receipt if unset.
-    function getStandingBallotReceipt(address voter) external view returns (ElectionTypes.BallotReceipt memory receipt);
-
-    /// @notice Returns the number of persistent standing ballot allocations for a voter.
-    /// @param voter The voter wallet to query.
-    /// @return count The number of standing allocations stored.
-    function getStandingBallotAllocationCount(address voter) external view returns (uint256 count);
-
-    /// @notice Returns a persistent standing ballot allocation for a voter.
-    /// @param voter The voter wallet to query.
-    /// @param index The allocation index to query.
-    /// @return allocation The stored standing allocation.
-    function getStandingBallotAllocationAt(address voter, uint256 index)
         external
         view
         returns (ElectionTypes.BallotAllocation memory allocation);
@@ -287,28 +261,17 @@ interface ICongressCandidateRegistry is IKernelModule {
 
     /// @notice Withdraws an active candidate from a cycle before voting begins.
     /// @param cycleId The cycle identifier to update.
-    /// @param candidate The candidate wallet to withdraw.
+    /// @param candidate The original or currently active candidate wallet to withdraw.
     function withdrawCandidate(uint256 cycleId, address candidate) external;
 
     /// @notice Stores or replaces a voter's full signed ballot in a cycle.
-    /// @param cycleId The cycle identifier to update.
-    /// @param voterPersonId The canonical person identifier the standing ballot is bound to (one ballot per person,
-    ///        so wallet rotation cannot leave a stale ballot behind to double-vote).
-    /// @param voter The voting wallet.
-    /// @param candidates The candidate wallets referenced by the ballot.
+    /// @param ballotInput The cycle, person, wallet, snapshot weight, and policy limits for the ballot.
+    /// @param candidates Candidate wallet references; migrated current wallets resolve to the original candidacy.
     /// @param allocations The signed ballot allocations to apply.
-    /// @param ballotWeight The voting power backing the ballot.
-    /// @param maxPositiveCandidates The positive-allocation cap enforced by policy.
-    /// @param maxNegativeAllocation The maximum total absolute negative allocation allowed by policy.
     function recordBallot(
-        uint256 cycleId,
-        bytes32 voterPersonId,
-        address voter,
+        ElectionTypes.CongressBallotInput calldata ballotInput,
         address[] calldata candidates,
-        int256[] calldata allocations,
-        uint256 ballotWeight,
-        uint32 maxPositiveCandidates,
-        uint256 maxNegativeAllocation
+        int256[] calldata allocations
     ) external;
 
     /// @notice Clears a voter's full signed ballot from a cycle.
@@ -332,8 +295,14 @@ interface ICongressCandidateRegistry is IKernelModule {
         external
         returns (uint32 seatIndex, address replacementCandidate);
 
-    /// @notice Removes a voter's persisted standing ballot and its contribution to the open cycle tallies.
-    /// @param cycleId The open cycle whose candidate tallies should be synced after removal.
-    /// @param voter The voter whose standing ballot is dropped.
-    function dropStandingBallot(uint256 cycleId, address voter) external;
+    /// @notice Vacates a person's occupied Congress seat and optionally fills it from a caller-selected runner-up.
+    /// @dev Used when the seated person has no active wallet; the registry authority remains the sole caller.
+    /// @param vacatingPersonId The canonical person identifier leaving office.
+    /// @param hasReplacement Whether a runner-up should be promoted into the vacated seat.
+    /// @param runnerUpIndex The runner-up index to promote when hasReplacement is true; must be >= nextRunnerUpIndex.
+    /// @return seatIndex The vacated seat index.
+    /// @return replacementCandidate The runner-up promoted into the seat, or zero if the seat is left vacant.
+    function vacateAndFillSeatForPerson(bytes32 vacatingPersonId, bool hasReplacement, uint256 runnerUpIndex)
+        external
+        returns (uint32 seatIndex, address replacementCandidate);
 }

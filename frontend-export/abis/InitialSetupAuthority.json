@@ -1,1 +1,699 @@
-{"abi":[{"type":"constructor","inputs":[{"name":"owner_","type":"address","internalType":"address"},{"name":"identityRegistryAddress","type":"address","internalType":"address"},{"name":"stakeRegistryAddress","type":"address","internalType":"address"},{"name":"congressCandidateRegistryAddress","type":"address","internalType":"address"},{"name":"congressElectionPolicyAddress","type":"address","internalType":"address"},{"name":"senateSeatRegistryAddress","type":"address","internalType":"address"},{"name":"officeRegistryAddress","type":"address","internalType":"address"}],"stateMutability":"nonpayable"},{"type":"function","name":"assertReadyForBootstrapDisable","inputs":[{"name":"minimumIdentityCount","type":"uint256","internalType":"uint256"},{"name":"minimumSenateSeats","type":"uint32","internalType":"uint32"},{"name":"minimumCongressSeats","type":"uint32","internalType":"uint32"},{"name":"requiredOfficeIds","type":"bytes32[]","internalType":"bytes32[]"}],"outputs":[],"stateMutability":"view"},{"type":"function","name":"assignSenateSeat","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"},{"name":"holder","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"configureCitizen","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"},{"name":"wallet","type":"address","internalType":"address"},{"name":"recordInput","type":"tuple","internalType":"struct IdentityTypes.IdentityRecordInput","components":[{"name":"metadataHash","type":"bytes32","internalType":"bytes32"},{"name":"metadataURI","type":"string","internalType":"string"},{"name":"verificationStatus","type":"uint8","internalType":"enum IdentityTypes.VerificationStatus"},{"name":"citizenshipStatus","type":"uint8","internalType":"enum IdentityTypes.CitizenshipStatus"},{"name":"ageClass","type":"uint8","internalType":"enum IdentityTypes.AgeClass"},{"name":"correctionFlag","type":"bool","internalType":"bool"},{"name":"finalSuspension","type":"bool","internalType":"bool"}]},{"name":"activeStakeToAdd","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"congressCandidateRegistry","inputs":[],"outputs":[{"name":"","type":"address","internalType":"contract ICongressCandidateRegistry"}],"stateMutability":"view"},{"type":"function","name":"congressElectionPolicy","inputs":[],"outputs":[{"name":"","type":"address","internalType":"contract ICongressElectionPolicy"}],"stateMutability":"view"},{"type":"function","name":"createOffice","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"},{"name":"kind","type":"uint8","internalType":"enum OfficeTypes.OfficeKind"},{"name":"name","type":"string","internalType":"string"},{"name":"admin","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"identityRegistry","inputs":[],"outputs":[{"name":"","type":"address","internalType":"contract IIdentityRegistry"}],"stateMutability":"view"},{"type":"function","name":"increaseStake","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"},{"name":"amount","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"isSealed","inputs":[],"outputs":[{"name":"","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"officeRegistry","inputs":[],"outputs":[{"name":"","type":"address","internalType":"contract IOfficeRegistry"}],"stateMutability":"view"},{"type":"function","name":"owner","inputs":[],"outputs":[{"name":"","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"renameOffice","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"},{"name":"newName","type":"string","internalType":"string"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"seal","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"seedCongressTerm","inputs":[{"name":"members","type":"address[]","internalType":"address[]"}],"outputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"}],"stateMutability":"nonpayable"},{"type":"function","name":"senateSeatRegistry","inputs":[],"outputs":[{"name":"","type":"address","internalType":"contract ISenateSeatRegistry"}],"stateMutability":"view"},{"type":"function","name":"setOfficeActive","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"},{"name":"active","type":"bool","internalType":"bool"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"setOfficeClerk","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"},{"name":"clerk","type":"address","internalType":"address"},{"name":"active","type":"bool","internalType":"bool"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"setProtectedStakeFloor","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"},{"name":"protectedFloor","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"stakeRegistry","inputs":[],"outputs":[{"name":"","type":"address","internalType":"contract IStakeRegistry"}],"stateMutability":"view"},{"type":"function","name":"transferOfficeAdmin","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"},{"name":"newAdmin","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"event","name":"SetupAuthoritySealed","inputs":[{"name":"sealedBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"SetupCitizenConfigured","inputs":[{"name":"personId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"wallet","type":"address","indexed":true,"internalType":"address"},{"name":"activeStake","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"configuredBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"SetupCongressTermSeeded","inputs":[{"name":"cycleId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"electedCount","type":"uint32","indexed":false,"internalType":"uint32"},{"name":"runnerUpCount","type":"uint32","indexed":false,"internalType":"uint32"},{"name":"seededBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"SetupOfficeConfigured","inputs":[{"name":"officeId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"admin","type":"address","indexed":true,"internalType":"address"},{"name":"configuredBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"SetupSenateSeatAssigned","inputs":[{"name":"seatIndex","type":"uint32","indexed":true,"internalType":"uint32"},{"name":"holder","type":"address","indexed":true,"internalType":"address"},{"name":"assignedBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"error","name":"InvalidSetupAddress","inputs":[{"name":"account","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidSetupInput","inputs":[]},{"type":"error","name":"NotSetupOwner","inputs":[{"name":"caller","type":"address","internalType":"address"}]},{"type":"error","name":"SetupAuthorityAlreadySealed","inputs":[]},{"type":"error","name":"SetupReadinessCheckFailed","inputs":[{"name":"checkId","type":"bytes32","internalType":"bytes32"}]}]}
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "owner_",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "identityRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "stakeRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "stakingVaultAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "congressCandidateRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "congressElectionPolicyAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "senateSeatRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "officeRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "assertReadyForBootstrapDisable",
+    "inputs": [
+      {
+        "name": "minimumIdentityCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "minimumSenateSeats",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "minimumCongressSeats",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "requiredOfficeIds",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "assignSenateSeat",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "holder",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "configureCitizen",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "recordInput",
+        "type": "tuple",
+        "internalType": "struct IdentityTypes.IdentityRecordInput",
+        "components": [
+          {
+            "name": "metadataHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "metadataURI",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "verificationStatus",
+            "type": "uint8",
+            "internalType": "enum IdentityTypes.VerificationStatus"
+          },
+          {
+            "name": "citizenshipStatus",
+            "type": "uint8",
+            "internalType": "enum IdentityTypes.CitizenshipStatus"
+          },
+          {
+            "name": "ageClass",
+            "type": "uint8",
+            "internalType": "enum IdentityTypes.AgeClass"
+          },
+          {
+            "name": "correctionFlag",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "finalSuspension",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      },
+      {
+        "name": "activeStakeToAdd",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "congressCandidateRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract ICongressCandidateRegistry"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "congressElectionPolicy",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract ICongressElectionPolicy"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "createOffice",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "kind",
+        "type": "uint8",
+        "internalType": "enum OfficeTypes.OfficeKind"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "admin",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "identityRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IIdentityRegistry"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "increaseStake",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "isSealed",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "officeRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IOfficeRegistry"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "owner",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "renameOffice",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "newName",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "seal",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "seedCongressContinuityTerm",
+    "inputs": [
+      {
+        "name": "members",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "continuityCycleEnd",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "officeTermCycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "continuityCycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "seedCongressTerm",
+    "inputs": [
+      {
+        "name": "members",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "senateSeatRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract ISenateSeatRegistry"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "setOfficeActive",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "active",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setOfficeClerk",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "clerk",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "active",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setProtectedStakeFloor",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "protectedFloor",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "stakeRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IStakeRegistry"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "stakingVault",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract ILLMStakingVault"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "transferOfficeAdmin",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "newAdmin",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "SetupAuthoritySealed",
+    "inputs": [
+      {
+        "name": "sealedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SetupCitizenConfigured",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "wallet",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "activeStake",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "configuredBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SetupCongressContinuityCycleSeeded",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "nominationStart",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "votingStart",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "votingEnd",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "incumbentCount",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "seededBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SetupCongressTermSeeded",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "electedCount",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "runnerUpCount",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "seededBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SetupOfficeConfigured",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "admin",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "configuredBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SetupSenateSeatAssigned",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "holder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "assignedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "InvalidSetupAddress",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidSetupInput",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotSetupOwner",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SafeCastOverflowedUintDowncast",
+    "inputs": [
+      {
+        "name": "bits",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SetupAuthorityAlreadySealed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SetupReadinessCheckFailed",
+    "inputs": [
+      {
+        "name": "checkId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  }
+]}

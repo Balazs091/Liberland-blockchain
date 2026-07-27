@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {KernelModule} from "../base/KernelModule.sol";
+import {IBudgetEnvelopeRegistry} from "../interfaces/IBudgetEnvelopeRegistry.sol";
 import {ITreasuryVault} from "../interfaces/ITreasuryVault.sol";
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
+import {TreasuryTypes} from "../types/TreasuryTypes.sol";
 
 /// @title TreasuryVault
 /// @notice Minimal ERC20 treasury vault executed only through the governance timelock.
@@ -68,6 +70,18 @@ contract TreasuryVault is ITreasuryVault, KernelModule {
             revert InvalidDisbursementRequest(payload.requestId);
         }
 
+        IBudgetEnvelopeRegistry budgetRegistry =
+            IBudgetEnvelopeRegistry(_kernel.getModule(KernelModuleIds.BUDGET_ENVELOPE_REGISTRY));
+        (bytes32 committedBudgetId, uint256 committedAmount, bool activeCommitment) =
+            budgetRegistry.getBudgetCommitment(payload.requestId);
+        TreasuryTypes.BudgetEnvelope memory envelope = budgetRegistry.getBudgetEnvelope(payload.budgetId);
+        if (
+            !activeCommitment || committedBudgetId != payload.budgetId || committedAmount != payload.amount
+                || envelope.asset != payload.asset
+        ) {
+            revert InvalidDisbursementRequest(payload.requestId);
+        }
+
         IERC20 token = IERC20(payload.asset);
         uint256 balance = token.balanceOf(address(this));
         if (balance < payload.amount) {
@@ -86,6 +100,11 @@ contract TreasuryVault is ITreasuryVault, KernelModule {
             msg.sender
         );
 
+        uint256 recipientBalanceBefore = token.balanceOf(payload.recipient);
         token.safeTransfer(payload.recipient, payload.amount);
+        uint256 receivedAmount = token.balanceOf(payload.recipient) - recipientBalanceBefore;
+        if (receivedAmount != payload.amount) {
+            revert UnexpectedDisbursementAmount(payload.amount, receivedAmount);
+        }
     }
 }

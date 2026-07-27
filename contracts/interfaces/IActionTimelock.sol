@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
+import {IKernelModule} from "./IKernelModule.sol";
 
 /// @title IActionTimelock
 /// @notice Interface for the privileged governance action queue and execution lifecycle.
-interface IActionTimelock {
+interface IActionTimelock is IKernelModule {
     error ActionAlreadyQueued(bytes32 actionId);
     error ActionAlreadyFinalized(bytes32 actionId, GovernanceTypes.ActionState state);
     error ActionExpired(bytes32 actionId, uint64 expiresAt);
@@ -16,6 +17,7 @@ interface IActionTimelock {
     error ActionNotExpired(bytes32 actionId, uint64 expiresAt);
     error ActionNotReady(bytes32 actionId, uint64 earliestExecutionTime);
     error InvalidActionExpiry(bytes32 actionId, uint64 expiresAt, uint64 earliestExecutionTime);
+    error InvalidActionBatchLength(uint256 actionCount);
     error InvalidActionPayload(bytes32 actionId);
     error InvalidDelayConfig(GovernanceTypes.TimelockDelayConfig config);
     error QueuedTargetModuleChanged(
@@ -61,6 +63,12 @@ interface IActionTimelock {
     /// @notice Executes a previously queued governance action.
     /// @param actionId The deterministic action identifier.
     function executeAction(bytes32 actionId) external;
+
+    /// @notice Atomically executes multiple independently approved queued actions.
+    /// @dev Every action retains its own delay, expiry, veto, target-pinning, and single-execution checks. If any
+    ///      action fails, the entire transaction reverts, which permits safe coordinated app/authority migrations.
+    /// @param actionIds The deterministic action identifiers to execute in order.
+    function executeActions(bytes32[] calldata actionIds) external;
 
     /// @notice Records expiration for a queued action whose execution window has elapsed.
     /// @param actionId The deterministic action identifier.

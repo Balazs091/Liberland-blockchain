@@ -1,1 +1,203 @@
-{"abi":[{"type":"constructor","inputs":[{"name":"maxLtvBps_","type":"uint16","internalType":"uint16"},{"name":"liquidationThresholdBps_","type":"uint16","internalType":"uint16"},{"name":"liquidationBonusBps_","type":"uint16","internalType":"uint16"},{"name":"reserveFactorBps_","type":"uint16","internalType":"uint16"},{"name":"maxDebtPerPerson_","type":"uint256","internalType":"uint256"}],"stateMutability":"nonpayable"},{"type":"function","name":"liquidationBonusBps","inputs":[],"outputs":[{"name":"bps","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"liquidationThresholdBps","inputs":[],"outputs":[{"name":"bps","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"maxDebtPerPerson","inputs":[],"outputs":[{"name":"amount","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"maxLtvBps","inputs":[],"outputs":[{"name":"bps","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"reserveFactorBps","inputs":[],"outputs":[{"name":"bps","type":"uint16","internalType":"uint16"}],"stateMutability":"view"},{"type":"function","name":"riskParameters","inputs":[],"outputs":[{"name":"parameters","type":"tuple","internalType":"struct ILendingRiskParameterPolicy.RiskParameters","components":[{"name":"maxLtvBps","type":"uint16","internalType":"uint16"},{"name":"liquidationThresholdBps","type":"uint16","internalType":"uint16"},{"name":"liquidationBonusBps","type":"uint16","internalType":"uint16"},{"name":"reserveFactorBps","type":"uint16","internalType":"uint16"},{"name":"maxDebtPerPerson","type":"uint256","internalType":"uint256"}]}],"stateMutability":"view"},{"type":"error","name":"InvalidLiquidationBonus","inputs":[{"name":"liquidationBonusBps","type":"uint16","internalType":"uint16"}]},{"type":"error","name":"InvalidLiquidationThreshold","inputs":[{"name":"maxLtvBps","type":"uint16","internalType":"uint16"},{"name":"liquidationThresholdBps","type":"uint16","internalType":"uint16"}]},{"type":"error","name":"InvalidMaxLtv","inputs":[{"name":"maxLtvBps","type":"uint16","internalType":"uint16"}]},{"type":"error","name":"InvalidReserveFactor","inputs":[{"name":"reserveFactorBps","type":"uint16","internalType":"uint16"}]}],"bytecode":{"object":"0x608060405234801561000f575f5ffd5b506040516103d63803806103d683398101604081905261002e9161019e565b8461ffff165f0361005d5760405163af10222560e01b815261ffff861660048201526024015b60405180910390fd5b8461ffff168461ffff16111580610079575061232861ffff8516115b156100a55760405163044c4bd760e31b815261ffff808716600483015285166024820152604401610054565b6107d061ffff841611156100d257604051631b897ee160e21b815261ffff84166004820152602401610054565b61138861ffff831611156100ff5760405163070d7c2160e11b815261ffff83166004820152602401610054565b6040805160a08101825261ffff96871680825295871660208201819052948716918101829052929095166060830181905260809092018190525f805463ffffffff1916909417620100009093029290921763ffffffff60201b191664010000000090940261ffff60301b19169390931766010000000000009093029290921790556001556101f8565b805161ffff81168114610199575f5ffd5b919050565b5f5f5f5f5f60a086880312156101b2575f5ffd5b6101bb86610188565b94506101c960208701610188565b93506101d760408701610188565b92506101e560608701610188565b9150608086015190509295509295909350565b6101d1806102055f395ff3fe608060405234801561000f575f5ffd5b5060043610610060575f3560e01c806319970d8e1461006457806358a414941461008b578063afb102ae1461009c578063c87bed701461016a578063e48647311461017f578063ea7f52d114610190575b5f5ffd5b5f54640100000000900461ffff165b60405161ffff90911681526020015b60405180910390f35b600154604051908152602001610082565b6101196040805160a0810182525f80825260208201819052918101829052606081018290526080810191909152506040805160a0810182525f5461ffff8082168352620100008204811660208401526401000000008204811693830193909352660100000000000090049091166060820152600154608082015290565b60405161008291905f60a08201905061ffff835116825261ffff602084015116602083015261ffff604084015116604083015261ffff60608401511660608301526080830151608083015292915050565b5f546601000000000000900461ffff16610073565b5f5462010000900461ffff16610073565b5f5461ffff1661007356fea26469706673582212208c88e8cca62e5322329454052562a79acac04015672e832d5661f866b0a2e18d64736f6c63430008230033","sourceMap":"930:3538:18:-:0;;;2149:1290;;;;;;;;;;;;;;;;;;;;;;;;;;;;:::i;:::-;2355:10;:15;;2369:1;2355:15;2351:78;;2393:25;;-1:-1:-1;;;2393:25:18;;879:6:64;867:19;;2393:25:18;;;849:38:64;822:18;;2393:25:18;;;;;;;;2351:78;2694:10;2666:38;;:24;:38;;;;:98;;;-1:-1:-1;1276:5:18;2708:56;;;;2666:98;2662:201;;;2787:65;;-1:-1:-1;;;2787:65:18;;1098:6:64;1086:19;;;2787:65:18;;;1068:38:64;1142:19;;1122:18;;;1115:47;1041:18;;2787:65:18;898:270:64;2662:201:18;1340:5;2876:48;;;;2872:131;;;2947:45;;-1:-1:-1;;;2947:45:18;;879:6:64;867:19;;2947:45:18;;;849:38:64;822:18;;2947:45:18;705:188:64;2872:131:18;1401:5;3016:42;;;;3012:119;;;3081:39;;-1:-1:-1;;;3081:39:18;;879:6:64;867:19;;3081:39:18;;;849:38:64;822:18;;3081:39:18;705:188:64;3012:119:18;3155:277;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;-1:-1:-1;3141:291:18;;-1:-1:-1;;3141:291:18;;;;;;;;;;;;-1:-1:-1;;;;3141:291:18;;;;;-1:-1:-1;;;;3141:291:18;;;;;;;;;;;;;;;-1:-1:-1;3141:291:18;930:3538;;14:163:64;92:13;;145:6;134:18;;124:29;;114:57;;167:1;164;157:12;114:57;14:163;;;:::o;182:518::-;284:6;292;300;308;316;369:3;357:9;348:7;344:23;340:33;337:53;;;386:1;383;376:12;337:53;409:39;438:9;409:39;:::i;:::-;399:49;;467:48;511:2;500:9;496:18;467:48;:::i;:::-;457:58;;534:48;578:2;567:9;563:18;534:48;:::i;:::-;524:58;;601:48;645:2;634:9;630:18;601:48;:::i;:::-;591:58;;689:3;678:9;674:19;668:26;658:36;;182:518;;;;;;;;:::o;898:270::-;930:3538:18;;;;;;","linkReferences":{}},"deployedBytecode":{"object":"0x608060405234801561000f575f5ffd5b5060043610610060575f3560e01c806319970d8e1461006457806358a414941461008b578063afb102ae1461009c578063c87bed701461016a578063e48647311461017f578063ea7f52d114610190575b5f5ffd5b5f54640100000000900461ffff165b60405161ffff90911681526020015b60405180910390f35b600154604051908152602001610082565b6101196040805160a0810182525f80825260208201819052918101829052606081018290526080810191909152506040805160a0810182525f5461ffff8082168352620100008204811660208401526401000000008204811693830193909352660100000000000090049091166060820152600154608082015290565b60405161008291905f60a08201905061ffff835116825261ffff602084015116602083015261ffff604084015116604083015261ffff60608401511660608301526080830151608083015292915050565b5f546601000000000000900461ffff16610073565b5f5462010000900461ffff16610073565b5f5461ffff1661007356fea26469706673582212208c88e8cca62e5322329454052562a79acac04015672e832d5661f866b0a2e18d64736f6c63430008230033","sourceMap":"930:3538:18:-:0;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;4003:121;4057:10;4086:31;;;;;;4003:121;;;188:6:64;176:19;;;158:38;;146:2;131:18;4003:121:18;;;;;;;;4347:119;4431:28;;4347:119;;353:25:64;;;341:2;326:18;4347:119:18;207:177:64;3493:118:18;;-1:-1:-1;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;3586:18:18;;;;;;;;3593:11;3586:18;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;3493:118;;;;;;;545:4:64;587:3;576:9;572:19;564:27;;637:6;628;622:13;618:26;607:9;600:45;713:6;705:4;697:6;693:17;687:24;683:37;676:4;665:9;661:20;654:67;789:6;781:4;773:6;769:17;763:24;759:37;752:4;741:9;737:20;730:67;865:6;857:4;849:6;845:17;839:24;835:37;828:4;817:9;813:20;806:67;929:4;921:6;917:17;911:24;904:4;893:9;889:20;882:54;389:553;;;;;4178:115:18;4229:10;4258:28;;;;;;4178:115;;3820:129;3878:10;3907:35;;;;;;3820:129;;3665:101;3709:10;3738:21;;;3665:101;","linkReferences":{}},"methodIdentifiers":{"liquidationBonusBps()":"19970d8e","liquidationThresholdBps()":"e4864731","maxDebtPerPerson()":"58a41494","maxLtvBps()":"ea7f52d1","reserveFactorBps()":"c87bed70","riskParameters()":"afb102ae"},"rawMetadata":"{\"compiler\":{\"version\":\"0.8.35+commit.47b9dedd\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"maxLtvBps_\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"liquidationThresholdBps_\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"liquidationBonusBps_\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"reserveFactorBps_\",\"type\":\"uint16\"},{\"internalType\":\"uint256\",\"name\":\"maxDebtPerPerson_\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"liquidationBonusBps\",\"type\":\"uint16\"}],\"name\":\"InvalidLiquidationBonus\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"maxLtvBps\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"liquidationThresholdBps\",\"type\":\"uint16\"}],\"name\":\"InvalidLiquidationThreshold\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"maxLtvBps\",\"type\":\"uint16\"}],\"name\":\"InvalidMaxLtv\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint16\",\"name\":\"reserveFactorBps\",\"type\":\"uint16\"}],\"name\":\"InvalidReserveFactor\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"liquidationBonusBps\",\"outputs\":[{\"internalType\":\"uint16\",\"name\":\"bps\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"liquidationThresholdBps\",\"outputs\":[{\"internalType\":\"uint16\",\"name\":\"bps\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"maxDebtPerPerson\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"maxLtvBps\",\"outputs\":[{\"internalType\":\"uint16\",\"name\":\"bps\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"reserveFactorBps\",\"outputs\":[{\"internalType\":\"uint16\",\"name\":\"bps\",\"type\":\"uint16\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"riskParameters\",\"outputs\":[{\"components\":[{\"internalType\":\"uint16\",\"name\":\"maxLtvBps\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"liquidationThresholdBps\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"liquidationBonusBps\",\"type\":\"uint16\"},{\"internalType\":\"uint16\",\"name\":\"reserveFactorBps\",\"type\":\"uint16\"},{\"internalType\":\"uint256\",\"name\":\"maxDebtPerPerson\",\"type\":\"uint256\"}],\"internalType\":\"struct ILendingRiskParameterPolicy.RiskParameters\",\"name\":\"parameters\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"details\":\"Parameters are fixed at deployment; governance retunes them by deploying a new policy and repointing the      `policy.lending-risk-parameter` module through a module-governance referendum (constitutional double      threshold, per the module-governance rules). Because the pool reads these live, a repoint takes effect on      the next interaction \\u2014 including making existing positions liquidatable if the threshold is lowered \\u2014 so      changes must go through the timelock's review window. The constructor enforces hard bounds so that no      configured (or repointed) policy can set economically nonsensical values.\",\"kind\":\"dev\",\"methods\":{\"constructor\":{\"params\":{\"liquidationBonusBps_\":\"Liquidation bonus, in basis points.\",\"liquidationThresholdBps_\":\"Liquidation threshold, in basis points; must exceed max LTV.\",\"maxDebtPerPerson_\":\"Per-person borrow ceiling in the borrow asset's smallest units; 0 means unlimited.\",\"maxLtvBps_\":\"Maximum borrow-time loan-to-value, in basis points.\",\"reserveFactorBps_\":\"Protocol reserve factor, in basis points.\"}},\"liquidationBonusBps()\":{\"returns\":{\"bps\":\"The liquidation bonus.\"}},\"liquidationThresholdBps()\":{\"returns\":{\"bps\":\"The liquidation threshold.\"}},\"maxDebtPerPerson()\":{\"returns\":{\"amount\":\"The per-person debt cap.\"}},\"maxLtvBps()\":{\"returns\":{\"bps\":\"The max LTV.\"}},\"reserveFactorBps()\":{\"returns\":{\"bps\":\"The reserve factor.\"}},\"riskParameters()\":{\"returns\":{\"parameters\":\"The current risk parameters.\"}}},\"stateVariables\":{\"MAX_LIQUIDATION_THRESHOLD_BPS\":{\"details\":\"Ceilings leave headroom below full utilization/collateral so liquidation seizure plus bonus stays      solvent and reserves can never starve suppliers.\"}},\"title\":\"LendingRiskParameterPolicy\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"liquidationBonusBps()\":{\"notice\":\"Returns the liquidation bonus, in basis points.\"},\"liquidationThresholdBps()\":{\"notice\":\"Returns the liquidation threshold, in basis points.\"},\"maxDebtPerPerson()\":{\"notice\":\"Returns the per-person borrow ceiling in the borrow asset's smallest units (0 = unlimited).\"},\"maxLtvBps()\":{\"notice\":\"Returns the maximum borrow-time loan-to-value, in basis points.\"},\"reserveFactorBps()\":{\"notice\":\"Returns the protocol reserve factor, in basis points.\"},\"riskParameters()\":{\"notice\":\"Returns all lending risk parameters in one read.\"}},\"notice\":\"Immutable, invariant-checked risk parameters for the stake-backed lending pool.\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/policies/LendingRiskParameterPolicy.sol\":\"LendingRiskParameterPolicy\"},\"evmVersion\":\"osaka\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":true,\"runs\":200},\"remappings\":[\":@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/\",\":forge-std/=lib/forge-std/src/\"]},\"sources\":{\"contracts/interfaces/ILendingRiskParameterPolicy.sol\":{\"keccak256\":\"0x996f80b2ca18f3c6516d3bcb8fdbb74470deaed6fb6b56ec699db741443b76b1\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://f4bda4ceb09adca8dbf80ef5cba034ecf2e637c0459381ab2c01cd5b87ba36d9\",\"dweb:/ipfs/QmPz7zhBuoddo9appLLGrSgZSN1waedqe4AKkKUUiY2zJV\"]},\"contracts/policies/LendingRiskParameterPolicy.sol\":{\"keccak256\":\"0xcf9c9cdeb18b96361d28cbb3d3d65923c1f2fec71db27c431c5fdb2da393e1be\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://9d7deecc40be5c75205b0aa646ff4aa966519bad738e9c31dae7b13db2b547b2\",\"dweb:/ipfs/QmSPEzmJmJ8HXR8HHstrqE1XcbnUo4DWgk51nGzApxE33p\"]}},\"version\":1}","metadata":{"compiler":{"version":"0.8.35+commit.47b9dedd"},"language":"Solidity","output":{"abi":[{"inputs":[{"internalType":"uint16","name":"maxLtvBps_","type":"uint16"},{"internalType":"uint16","name":"liquidationThresholdBps_","type":"uint16"},{"internalType":"uint16","name":"liquidationBonusBps_","type":"uint16"},{"internalType":"uint16","name":"reserveFactorBps_","type":"uint16"},{"internalType":"uint256","name":"maxDebtPerPerson_","type":"uint256"}],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[{"internalType":"uint16","name":"liquidationBonusBps","type":"uint16"}],"type":"error","name":"InvalidLiquidationBonus"},{"inputs":[{"internalType":"uint16","name":"maxLtvBps","type":"uint16"},{"internalType":"uint16","name":"liquidationThresholdBps","type":"uint16"}],"type":"error","name":"InvalidLiquidationThreshold"},{"inputs":[{"internalType":"uint16","name":"maxLtvBps","type":"uint16"}],"type":"error","name":"InvalidMaxLtv"},{"inputs":[{"internalType":"uint16","name":"reserveFactorBps","type":"uint16"}],"type":"error","name":"InvalidReserveFactor"},{"inputs":[],"stateMutability":"view","type":"function","name":"liquidationBonusBps","outputs":[{"internalType":"uint16","name":"bps","type":"uint16"}]},{"inputs":[],"stateMutability":"view","type":"function","name":"liquidationThresholdBps","outputs":[{"internalType":"uint16","name":"bps","type":"uint16"}]},{"inputs":[],"stateMutability":"view","type":"function","name":"maxDebtPerPerson","outputs":[{"internalType":"uint256","name":"amount","type":"uint256"}]},{"inputs":[],"stateMutability":"view","type":"function","name":"maxLtvBps","outputs":[{"internalType":"uint16","name":"bps","type":"uint16"}]},{"inputs":[],"stateMutability":"view","type":"function","name":"reserveFactorBps","outputs":[{"internalType":"uint16","name":"bps","type":"uint16"}]},{"inputs":[],"stateMutability":"view","type":"function","name":"riskParameters","outputs":[{"internalType":"struct ILendingRiskParameterPolicy.RiskParameters","name":"parameters","type":"tuple","components":[{"internalType":"uint16","name":"maxLtvBps","type":"uint16"},{"internalType":"uint16","name":"liquidationThresholdBps","type":"uint16"},{"internalType":"uint16","name":"liquidationBonusBps","type":"uint16"},{"internalType":"uint16","name":"reserveFactorBps","type":"uint16"},{"internalType":"uint256","name":"maxDebtPerPerson","type":"uint256"}]}]}],"devdoc":{"kind":"dev","methods":{"constructor":{"params":{"liquidationBonusBps_":"Liquidation bonus, in basis points.","liquidationThresholdBps_":"Liquidation threshold, in basis points; must exceed max LTV.","maxDebtPerPerson_":"Per-person borrow ceiling in the borrow asset's smallest units; 0 means unlimited.","maxLtvBps_":"Maximum borrow-time loan-to-value, in basis points.","reserveFactorBps_":"Protocol reserve factor, in basis points."}},"liquidationBonusBps()":{"returns":{"bps":"The liquidation bonus."}},"liquidationThresholdBps()":{"returns":{"bps":"The liquidation threshold."}},"maxDebtPerPerson()":{"returns":{"amount":"The per-person debt cap."}},"maxLtvBps()":{"returns":{"bps":"The max LTV."}},"reserveFactorBps()":{"returns":{"bps":"The reserve factor."}},"riskParameters()":{"returns":{"parameters":"The current risk parameters."}}},"version":1},"userdoc":{"kind":"user","methods":{"liquidationBonusBps()":{"notice":"Returns the liquidation bonus, in basis points."},"liquidationThresholdBps()":{"notice":"Returns the liquidation threshold, in basis points."},"maxDebtPerPerson()":{"notice":"Returns the per-person borrow ceiling in the borrow asset's smallest units (0 = unlimited)."},"maxLtvBps()":{"notice":"Returns the maximum borrow-time loan-to-value, in basis points."},"reserveFactorBps()":{"notice":"Returns the protocol reserve factor, in basis points."},"riskParameters()":{"notice":"Returns all lending risk parameters in one read."}},"version":1}},"settings":{"remappings":["@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/","forge-std/=lib/forge-std/src/"],"optimizer":{"enabled":true,"runs":200},"metadata":{"bytecodeHash":"ipfs"},"compilationTarget":{"contracts/policies/LendingRiskParameterPolicy.sol":"LendingRiskParameterPolicy"},"evmVersion":"osaka","libraries":{}},"sources":{"contracts/interfaces/ILendingRiskParameterPolicy.sol":{"keccak256":"0x996f80b2ca18f3c6516d3bcb8fdbb74470deaed6fb6b56ec699db741443b76b1","urls":["bzz-raw://f4bda4ceb09adca8dbf80ef5cba034ecf2e637c0459381ab2c01cd5b87ba36d9","dweb:/ipfs/QmPz7zhBuoddo9appLLGrSgZSN1waedqe4AKkKUUiY2zJV"],"license":"MIT"},"contracts/policies/LendingRiskParameterPolicy.sol":{"keccak256":"0xcf9c9cdeb18b96361d28cbb3d3d65923c1f2fec71db27c431c5fdb2da393e1be","urls":["bzz-raw://9d7deecc40be5c75205b0aa646ff4aa966519bad738e9c31dae7b13db2b547b2","dweb:/ipfs/QmSPEzmJmJ8HXR8HHstrqE1XcbnUo4DWgk51nGzApxE33p"],"license":"MIT"}},"version":1},"id":18}
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "maxLtvBps_",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "liquidationThresholdBps_",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "liquidationBonusBps_",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "reserveFactorBps_",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "maxDebtPerPerson_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "liquidationBonusBps",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "bps",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "liquidationThresholdBps",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "bps",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "maxDebtPerPerson",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "maxLtvBps",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "bps",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "reserveFactorBps",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "bps",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "riskParameters",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "parameters",
+        "type": "tuple",
+        "internalType": "struct ILendingRiskParameterPolicy.RiskParameters",
+        "components": [
+          {
+            "name": "maxLtvBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "liquidationThresholdBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "liquidationBonusBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "reserveFactorBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "maxDebtPerPerson",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "InvalidLiquidationBonus",
+    "inputs": [
+      {
+        "name": "liquidationBonusBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidLiquidationThreshold",
+    "inputs": [
+      {
+        "name": "maxLtvBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "liquidationThresholdBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidMaxLtv",
+    "inputs": [
+      {
+        "name": "maxLtvBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidReserveFactor",
+    "inputs": [
+      {
+        "name": "reserveFactorBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnsafeLiquidationParameters",
+    "inputs": [
+      {
+        "name": "liquidationThresholdBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "liquidationBonusBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ]
+  }
+]}

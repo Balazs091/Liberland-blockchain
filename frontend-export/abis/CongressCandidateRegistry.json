@@ -1,1 +1,1922 @@
-{"abi":[{"type":"constructor","inputs":[{"name":"kernelAddress","type":"address","internalType":"address"}],"stateMutability":"nonpayable"},{"type":"function","name":"clearBallot","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"voter","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"createCycle","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"cycleInput","type":"tuple","internalType":"struct ElectionTypes.CongressCycleInput","components":[{"name":"nominationStart","type":"uint64","internalType":"uint64"},{"name":"votingStart","type":"uint64","internalType":"uint64"},{"name":"votingEnd","type":"uint64","internalType":"uint64"},{"name":"seatCount","type":"uint32","internalType":"uint32"},{"name":"runnerUpCount","type":"uint32","internalType":"uint32"},{"name":"maxCandidateCount","type":"uint32","internalType":"uint32"},{"name":"policyReference","type":"bytes32","internalType":"bytes32"}]}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"currentCongressMembers","inputs":[],"outputs":[{"name":"members","type":"address[]","internalType":"address[]"}],"stateMutability":"view"},{"type":"function","name":"cycleExists","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"exists","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"dropStandingBallot","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"voter","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"finalizeCycle","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"finalizationInput","type":"tuple","internalType":"struct ElectionTypes.CongressFinalizationInput","components":[{"name":"rankedCandidates","type":"address[]","internalType":"address[]"},{"name":"rankedVoteTotals","type":"int256[]","internalType":"int256[]"},{"name":"electedCount","type":"uint32","internalType":"uint32"},{"name":"runnerUpCount","type":"uint32","internalType":"uint32"}]}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"getBallotAllocationAt","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"voter","type":"address","internalType":"address"},{"name":"index","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"allocation","type":"tuple","internalType":"struct ElectionTypes.BallotAllocation","components":[{"name":"candidate","type":"address","internalType":"address"},{"name":"amount","type":"int256","internalType":"int256"}]}],"stateMutability":"view"},{"type":"function","name":"getBallotAllocationCount","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"voter","type":"address","internalType":"address"}],"outputs":[{"name":"count","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"getBallotReceipt","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"voter","type":"address","internalType":"address"}],"outputs":[{"name":"receipt","type":"tuple","internalType":"struct ElectionTypes.BallotReceipt","components":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"voter","type":"address","internalType":"address"},{"name":"ballotWeight","type":"uint256","internalType":"uint256"},{"name":"positiveAllocationTotal","type":"uint256","internalType":"uint256"},{"name":"negativeAllocationTotal","type":"uint256","internalType":"uint256"},{"name":"allocationCount","type":"uint32","internalType":"uint32"},{"name":"updatedAt","type":"uint64","internalType":"uint64"}]}],"stateMutability":"view"},{"type":"function","name":"getCandidate","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"candidate","type":"address","internalType":"address"}],"outputs":[{"name":"record","type":"tuple","internalType":"struct ElectionTypes.CongressCandidateRecord","components":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"candidate","type":"address","internalType":"address"},{"name":"personId","type":"bytes32","internalType":"bytes32"},{"name":"status","type":"uint8","internalType":"enum ElectionTypes.CandidateStatus"},{"name":"applicationHash","type":"bytes32","internalType":"bytes32"},{"name":"applicationURI","type":"string","internalType":"string"},{"name":"appliedAt","type":"uint64","internalType":"uint64"},{"name":"updatedAt","type":"uint64","internalType":"uint64"},{"name":"voteTotal","type":"int256","internalType":"int256"},{"name":"rank","type":"uint32","internalType":"uint32"}]}],"stateMutability":"view"},{"type":"function","name":"getCurrentOfficeTerm","inputs":[],"outputs":[{"name":"term","type":"tuple","internalType":"struct ElectionTypes.CongressOfficeTerm","components":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"seatCount","type":"uint32","internalType":"uint32"},{"name":"occupiedSeatCount","type":"uint32","internalType":"uint32"},{"name":"runnerUpCount","type":"uint32","internalType":"uint32"},{"name":"nextRunnerUpIndex","type":"uint32","internalType":"uint32"},{"name":"activatedAt","type":"uint64","internalType":"uint64"},{"name":"updatedAt","type":"uint64","internalType":"uint64"}]}],"stateMutability":"view"},{"type":"function","name":"getCycle","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"record","type":"tuple","internalType":"struct ElectionTypes.CongressCycleRecord","components":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"status","type":"uint8","internalType":"enum ElectionTypes.ElectionStatus"},{"name":"nominationStart","type":"uint64","internalType":"uint64"},{"name":"votingStart","type":"uint64","internalType":"uint64"},{"name":"votingEnd","type":"uint64","internalType":"uint64"},{"name":"finalizedAt","type":"uint64","internalType":"uint64"},{"name":"seatCount","type":"uint32","internalType":"uint32"},{"name":"runnerUpCount","type":"uint32","internalType":"uint32"},{"name":"maxCandidateCount","type":"uint32","internalType":"uint32"},{"name":"candidateCount","type":"uint32","internalType":"uint32"},{"name":"electedCount","type":"uint32","internalType":"uint32"},{"name":"runnerUpSlotCount","type":"uint32","internalType":"uint32"},{"name":"policyReference","type":"bytes32","internalType":"bytes32"}]}],"stateMutability":"view"},{"type":"function","name":"getCycleCandidateAt","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"index","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"candidate","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"getCycleCandidateCount","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"count","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"getElectedCandidateAt","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"index","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"candidate","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"getElectedCandidateCount","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"count","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"getRunnerUpAt","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"index","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"candidate","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"getRunnerUpCount","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"count","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"getSeatRecord","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"}],"outputs":[{"name":"seatRecord","type":"tuple","internalType":"struct ElectionTypes.CongressSeatRecord","components":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"holder","type":"address","internalType":"address"},{"name":"seatIndex","type":"uint32","internalType":"uint32"},{"name":"sourceRank","type":"uint32","internalType":"uint32"},{"name":"filledFromRunnerUp","type":"bool","internalType":"bool"},{"name":"assignedAt","type":"uint64","internalType":"uint64"},{"name":"vacatedAt","type":"uint64","internalType":"uint64"}]}],"stateMutability":"view"},{"type":"function","name":"getStandingBallotAllocationAt","inputs":[{"name":"voter","type":"address","internalType":"address"},{"name":"index","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"allocation","type":"tuple","internalType":"struct ElectionTypes.BallotAllocation","components":[{"name":"candidate","type":"address","internalType":"address"},{"name":"amount","type":"int256","internalType":"int256"}]}],"stateMutability":"view"},{"type":"function","name":"getStandingBallotAllocationCount","inputs":[{"name":"voter","type":"address","internalType":"address"}],"outputs":[{"name":"count","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"getStandingBallotReceipt","inputs":[{"name":"voter","type":"address","internalType":"address"}],"outputs":[{"name":"receipt","type":"tuple","internalType":"struct ElectionTypes.BallotReceipt","components":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"voter","type":"address","internalType":"address"},{"name":"ballotWeight","type":"uint256","internalType":"uint256"},{"name":"positiveAllocationTotal","type":"uint256","internalType":"uint256"},{"name":"negativeAllocationTotal","type":"uint256","internalType":"uint256"},{"name":"allocationCount","type":"uint32","internalType":"uint32"},{"name":"updatedAt","type":"uint64","internalType":"uint64"}]}],"stateMutability":"view"},{"type":"function","name":"isActiveCongressMember","inputs":[{"name":"wallet","type":"address","internalType":"address"}],"outputs":[{"name":"active","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"kernel","inputs":[],"outputs":[{"name":"kernelAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"latestCycleId","inputs":[],"outputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"recordBallot","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"voterPersonId","type":"bytes32","internalType":"bytes32"},{"name":"voter","type":"address","internalType":"address"},{"name":"candidates","type":"address[]","internalType":"address[]"},{"name":"allocations","type":"int256[]","internalType":"int256[]"},{"name":"ballotWeight","type":"uint256","internalType":"uint256"},{"name":"maxPositiveCandidates","type":"uint32","internalType":"uint32"},{"name":"maxNegativeAllocation","type":"uint256","internalType":"uint256"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"registerCandidate","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"candidate","type":"address","internalType":"address"},{"name":"personId","type":"bytes32","internalType":"bytes32"},{"name":"applicationHash","type":"bytes32","internalType":"bytes32"},{"name":"applicationURI","type":"string","internalType":"string"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"vacateAndFillSeat","inputs":[{"name":"vacatingMember","type":"address","internalType":"address"},{"name":"hasReplacement","type":"bool","internalType":"bool"},{"name":"runnerUpIndex","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"},{"name":"replacementCandidate","type":"address","internalType":"address"}],"stateMutability":"nonpayable"},{"type":"function","name":"withdrawCandidate","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"candidate","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"event","name":"CongressBallotAllocationRecorded","inputs":[{"name":"cycleId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"voter","type":"address","indexed":true,"internalType":"address"},{"name":"candidate","type":"address","indexed":true,"internalType":"address"},{"name":"allocation","type":"int256","indexed":false,"internalType":"int256"},{"name":"candidateVoteTotal","type":"int256","indexed":false,"internalType":"int256"},{"name":"updatedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"recordedBy","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"event","name":"CongressBallotCleared","inputs":[{"name":"cycleId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"voter","type":"address","indexed":true,"internalType":"address"},{"name":"ballotWeight","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"clearedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"clearedBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"CongressBallotRecorded","inputs":[{"name":"cycleId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"voter","type":"address","indexed":true,"internalType":"address"},{"name":"ballotWeight","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"positiveAllocationTotal","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"negativeAllocationTotal","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"allocationCount","type":"uint32","indexed":false,"internalType":"uint32"},{"name":"updatedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"recordedBy","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"event","name":"CongressCandidateRanked","inputs":[{"name":"cycleId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"candidate","type":"address","indexed":true,"internalType":"address"},{"name":"status","type":"uint8","indexed":false,"internalType":"enum ElectionTypes.CandidateStatus"},{"name":"rank","type":"uint32","indexed":false,"internalType":"uint32"},{"name":"voteTotal","type":"int256","indexed":false,"internalType":"int256"},{"name":"updatedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"updatedBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"CongressCandidateRegistered","inputs":[{"name":"cycleId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"candidate","type":"address","indexed":true,"internalType":"address"},{"name":"personId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"applicationHash","type":"bytes32","indexed":false,"internalType":"bytes32"},{"name":"applicationURI","type":"string","indexed":false,"internalType":"string"},{"name":"appliedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"registeredBy","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"event","name":"CongressCandidateWithdrawn","inputs":[{"name":"cycleId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"candidate","type":"address","indexed":true,"internalType":"address"},{"name":"withdrawnAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"withdrawnBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"CongressElectionCycleCreated","inputs":[{"name":"cycleId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"nominationStart","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"votingStart","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"votingEnd","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"seatCount","type":"uint32","indexed":false,"internalType":"uint32"},{"name":"runnerUpCount","type":"uint32","indexed":false,"internalType":"uint32"},{"name":"maxCandidateCount","type":"uint32","indexed":false,"internalType":"uint32"},{"name":"policyReference","type":"bytes32","indexed":false,"internalType":"bytes32"},{"name":"createdBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"CongressElectionCycleFinalized","inputs":[{"name":"cycleId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"electedCount","type":"uint32","indexed":false,"internalType":"uint32"},{"name":"runnerUpCount","type":"uint32","indexed":false,"internalType":"uint32"},{"name":"finalizedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"finalizedBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"CongressSeatAssigned","inputs":[{"name":"cycleId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"seatIndex","type":"uint32","indexed":true,"internalType":"uint32"},{"name":"holder","type":"address","indexed":true,"internalType":"address"},{"name":"sourceRank","type":"uint32","indexed":false,"internalType":"uint32"},{"name":"filledFromRunnerUp","type":"bool","indexed":false,"internalType":"bool"},{"name":"assignedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"assignedBy","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"event","name":"CongressSeatLeftVacant","inputs":[{"name":"cycleId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"seatIndex","type":"uint32","indexed":true,"internalType":"uint32"},{"name":"vacatedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"handledBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"CongressSeatVacated","inputs":[{"name":"cycleId","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"seatIndex","type":"uint32","indexed":true,"internalType":"uint32"},{"name":"previousHolder","type":"address","indexed":true,"internalType":"address"},{"name":"vacatedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"vacatedBy","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"event","name":"CongressStandingBallotCleared","inputs":[{"name":"voter","type":"address","indexed":true,"internalType":"address"},{"name":"ballotWeight","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"clearedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"clearedBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"CongressStandingBallotUpdated","inputs":[{"name":"voter","type":"address","indexed":true,"internalType":"address"},{"name":"ballotWeight","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"positiveAllocationTotal","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"negativeAllocationTotal","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"allocationCount","type":"uint32","indexed":false,"internalType":"uint32"},{"name":"updatedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"updatedBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"error","name":"CandidateAlreadyExists","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"candidate","type":"address","internalType":"address"}]},{"type":"error","name":"CandidateAlreadySeated","inputs":[{"name":"candidate","type":"address","internalType":"address"}]},{"type":"error","name":"CandidateNotActive","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"candidate","type":"address","internalType":"address"}]},{"type":"error","name":"CandidateNotFound","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"candidate","type":"address","internalType":"address"}]},{"type":"error","name":"DuplicateBallotCandidate","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"voter","type":"address","internalType":"address"},{"name":"candidate","type":"address","internalType":"address"}]},{"type":"error","name":"ElectionCycleAlreadyExists","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"ElectionCycleAlreadyFinalized","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"ElectionCycleNotFound","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"InvalidApplicationHash","inputs":[{"name":"applicationHash","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"InvalidCandidate","inputs":[{"name":"candidate","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidCandidateCount","inputs":[{"name":"candidateCount","type":"uint256","internalType":"uint256"},{"name":"maxCandidateCount","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"InvalidCycleId","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"InvalidFinalizationShape","inputs":[{"name":"rankedCandidateCount","type":"uint256","internalType":"uint256"},{"name":"rankedVoteCount","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"InvalidModuleAddress","inputs":[{"name":"moduleId","type":"bytes32","internalType":"bytes32"},{"name":"moduleAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidNegativeAllocation","inputs":[{"name":"negativeAllocationTotal","type":"uint256","internalType":"uint256"},{"name":"maxNegativeAllocation","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"InvalidOutcomeCount","inputs":[{"name":"electedCount","type":"uint32","internalType":"uint32"},{"name":"runnerUpCount","type":"uint32","internalType":"uint32"},{"name":"candidateCount","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"InvalidPersonId","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"InvalidPolicyReference","inputs":[{"name":"policyReference","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"InvalidPositiveCandidateCount","inputs":[{"name":"positiveCandidateCount","type":"uint256","internalType":"uint256"},{"name":"maxPositiveCandidates","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"InvalidRunnerUpCount","inputs":[{"name":"runnerUpCount","type":"uint32","internalType":"uint32"}]},{"type":"error","name":"InvalidRunnerUpIndex","inputs":[{"name":"runnerUpIndex","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"InvalidSeatCount","inputs":[{"name":"seatCount","type":"uint32","internalType":"uint32"}]},{"type":"error","name":"InvalidSignedAllocation","inputs":[{"name":"candidate","type":"address","internalType":"address"},{"name":"allocation","type":"int256","internalType":"int256"}]},{"type":"error","name":"InvalidTotalAllocation","inputs":[{"name":"totalAllocation","type":"uint256","internalType":"uint256"},{"name":"ballotWeight","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"InvalidVoteSnapshot","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"candidate","type":"address","internalType":"address"},{"name":"providedVoteTotal","type":"int256","internalType":"int256"},{"name":"expectedVoteTotal","type":"int256","internalType":"int256"}]},{"type":"error","name":"InvalidVoter","inputs":[{"name":"voter","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidVotingWeight","inputs":[{"name":"voter","type":"address","internalType":"address"},{"name":"weight","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"InvalidVotingWindow","inputs":[{"name":"nominationStart","type":"uint64","internalType":"uint64"},{"name":"votingStart","type":"uint64","internalType":"uint64"},{"name":"votingEnd","type":"uint64","internalType":"uint64"}]},{"type":"error","name":"NotActiveCongressMember","inputs":[{"name":"wallet","type":"address","internalType":"address"}]},{"type":"error","name":"UnauthorizedCongressCandidateRegistryCaller","inputs":[{"name":"caller","type":"address","internalType":"address"}]},{"type":"error","name":"UnexpectedCycleId","inputs":[{"name":"expectedCycleId","type":"uint256","internalType":"uint256"},{"name":"providedCycleId","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"VoteNotFound","inputs":[{"name":"cycleId","type":"uint256","internalType":"uint256"},{"name":"voter","type":"address","internalType":"address"}]}]}
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "kernelAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "clearBallot",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "voter",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "createCycle",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "cycleInput",
+        "type": "tuple",
+        "internalType": "struct ElectionTypes.CongressCycleInput",
+        "components": [
+          {
+            "name": "nominationStart",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "votingStart",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "votingEnd",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "votingPowerSnapshotBlock",
+            "type": "uint48",
+            "internalType": "uint48"
+          },
+          {
+            "name": "seatCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "runnerUpCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "maxCandidateCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "policy",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "policyReference",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "currentCongressMembers",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "members",
+        "type": "address[]",
+        "internalType": "address[]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "cycleExists",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "exists",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "finalizeCycle",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "finalizationInput",
+        "type": "tuple",
+        "internalType": "struct ElectionTypes.CongressFinalizationInput",
+        "components": [
+          {
+            "name": "rankedCandidates",
+            "type": "address[]",
+            "internalType": "address[]"
+          },
+          {
+            "name": "rankedVoteTotals",
+            "type": "int256[]",
+            "internalType": "int256[]"
+          },
+          {
+            "name": "electedCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "runnerUpCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getBallotAllocationAt",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "voter",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "index",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "allocation",
+        "type": "tuple",
+        "internalType": "struct ElectionTypes.BallotAllocation",
+        "components": [
+          {
+            "name": "candidate",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "amount",
+            "type": "int256",
+            "internalType": "int256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getBallotAllocationCount",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "voter",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "count",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getBallotReceipt",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "voter",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "receipt",
+        "type": "tuple",
+        "internalType": "struct ElectionTypes.BallotReceipt",
+        "components": [
+          {
+            "name": "cycleId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "voter",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "ballotWeight",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "positiveAllocationTotal",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "negativeAllocationTotal",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "allocationCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "updatedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCandidate",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "record",
+        "type": "tuple",
+        "internalType": "struct ElectionTypes.CongressCandidateRecord",
+        "components": [
+          {
+            "name": "cycleId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "candidate",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "personId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "status",
+            "type": "uint8",
+            "internalType": "enum ElectionTypes.CandidateStatus"
+          },
+          {
+            "name": "applicationHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "applicationURI",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "appliedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "updatedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "voteTotal",
+            "type": "int256",
+            "internalType": "int256"
+          },
+          {
+            "name": "rank",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCurrentOfficeTerm",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "term",
+        "type": "tuple",
+        "internalType": "struct ElectionTypes.CongressOfficeTerm",
+        "components": [
+          {
+            "name": "cycleId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "seatCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "occupiedSeatCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "runnerUpCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "nextRunnerUpIndex",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "activatedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "updatedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCycle",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "record",
+        "type": "tuple",
+        "internalType": "struct ElectionTypes.CongressCycleRecord",
+        "components": [
+          {
+            "name": "cycleId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "status",
+            "type": "uint8",
+            "internalType": "enum ElectionTypes.ElectionStatus"
+          },
+          {
+            "name": "nominationStart",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "votingStart",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "votingEnd",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "finalizedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "votingPowerSnapshotBlock",
+            "type": "uint48",
+            "internalType": "uint48"
+          },
+          {
+            "name": "seatCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "runnerUpCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "maxCandidateCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "candidateCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "electedCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "runnerUpSlotCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "policy",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "policyReference",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCycleCandidateAt",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "index",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCycleCandidateCount",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "count",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getElectedCandidateAt",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "index",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getElectedCandidateCount",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "count",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getRunnerUpAt",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "index",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getRunnerUpCount",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "count",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getSeatRecord",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "seatRecord",
+        "type": "tuple",
+        "internalType": "struct ElectionTypes.CongressSeatRecord",
+        "components": [
+          {
+            "name": "cycleId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "holder",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "holderPersonId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "seatIndex",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "sourceRank",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "filledFromRunnerUp",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "assignedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "vacatedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isActiveCongressMember",
+    "inputs": [
+      {
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "active",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "kernel",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "kernelAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "latestCycleId",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "recordBallot",
+    "inputs": [
+      {
+        "name": "ballotInput",
+        "type": "tuple",
+        "internalType": "struct ElectionTypes.CongressBallotInput",
+        "components": [
+          {
+            "name": "cycleId",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "voterPersonId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "voter",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "ballotWeight",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "maxPositiveCandidates",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "maxNegativeAllocation",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      },
+      {
+        "name": "candidates",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "allocations",
+        "type": "int256[]",
+        "internalType": "int256[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "registerCandidate",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "applicationHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "applicationURI",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vacateAndFillSeat",
+    "inputs": [
+      {
+        "name": "vacatingMember",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "hasReplacement",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "runnerUpIndex",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "replacementCandidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vacateAndFillSeatForPerson",
+    "inputs": [
+      {
+        "name": "vacatingPersonId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "hasReplacement",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "runnerUpIndex",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "replacementCandidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "withdrawCandidate",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "CongressBallotAllocationRecorded",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "voter",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "candidate",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "allocation",
+        "type": "int256",
+        "indexed": false,
+        "internalType": "int256"
+      },
+      {
+        "name": "candidateVoteTotal",
+        "type": "int256",
+        "indexed": false,
+        "internalType": "int256"
+      },
+      {
+        "name": "updatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "recordedBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CongressBallotCleared",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "voter",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "ballotWeight",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "clearedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "clearedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CongressBallotRecorded",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "voter",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "ballotWeight",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "positiveAllocationTotal",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "negativeAllocationTotal",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "allocationCount",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "updatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "recordedBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CongressCandidateRanked",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "candidate",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "status",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum ElectionTypes.CandidateStatus"
+      },
+      {
+        "name": "rank",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "voteTotal",
+        "type": "int256",
+        "indexed": false,
+        "internalType": "int256"
+      },
+      {
+        "name": "updatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "updatedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CongressCandidateRegistered",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "candidate",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "applicationHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "applicationURI",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "appliedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "registeredBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CongressCandidateWithdrawn",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "candidate",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "withdrawnAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "withdrawnBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CongressElectionCycleCreated",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "nominationStart",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "votingStart",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "votingEnd",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "votingPowerSnapshotBlock",
+        "type": "uint48",
+        "indexed": false,
+        "internalType": "uint48"
+      },
+      {
+        "name": "seatCount",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "runnerUpCount",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "maxCandidateCount",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "policy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "policyReference",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "createdBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CongressElectionCycleFinalized",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "electedCount",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "runnerUpCount",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "finalizedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "finalizedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CongressSeatAssigned",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "holder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "sourceRank",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "filledFromRunnerUp",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      },
+      {
+        "name": "assignedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "assignedBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CongressSeatLeftVacant",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "vacatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "handledBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CongressSeatVacated",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "previousHolder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "vacatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "vacatedBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "CandidateAlreadyExists",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CandidateAlreadySeated",
+    "inputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CandidateNotActive",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CandidateNotFound",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "DuplicateBallotCandidate",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "voter",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ElectionCycleAlreadyExists",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ElectionCycleAlreadyFinalized",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ElectionCycleNotFound",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidApplicationHash",
+    "inputs": [
+      {
+        "name": "applicationHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidCandidate",
+    "inputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidCandidateCount",
+    "inputs": [
+      {
+        "name": "candidateCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxCandidateCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidCycleId",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidCyclePolicy",
+    "inputs": [
+      {
+        "name": "policy",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidCycleSnapshotBlock",
+    "inputs": [
+      {
+        "name": "snapshotBlock",
+        "type": "uint48",
+        "internalType": "uint48"
+      },
+      {
+        "name": "currentBlock",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidFinalizationShape",
+    "inputs": [
+      {
+        "name": "rankedCandidateCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "rankedVoteCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidModuleAddress",
+    "inputs": [
+      {
+        "name": "moduleId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "moduleAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidNegativeAllocation",
+    "inputs": [
+      {
+        "name": "negativeAllocationTotal",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxNegativeAllocation",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidOutcomeCount",
+    "inputs": [
+      {
+        "name": "electedCount",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "runnerUpCount",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "candidateCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidPersonId",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidPolicyReference",
+    "inputs": [
+      {
+        "name": "policyReference",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidPositiveCandidateCount",
+    "inputs": [
+      {
+        "name": "positiveCandidateCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxPositiveCandidates",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidRunnerUpCount",
+    "inputs": [
+      {
+        "name": "runnerUpCount",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidRunnerUpIndex",
+    "inputs": [
+      {
+        "name": "runnerUpIndex",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidSeatCount",
+    "inputs": [
+      {
+        "name": "seatCount",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidSignedAllocation",
+    "inputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "allocation",
+        "type": "int256",
+        "internalType": "int256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidTotalAllocation",
+    "inputs": [
+      {
+        "name": "totalAllocation",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "ballotWeight",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidVoteSnapshot",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "providedVoteTotal",
+        "type": "int256",
+        "internalType": "int256"
+      },
+      {
+        "name": "expectedVoteTotal",
+        "type": "int256",
+        "internalType": "int256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidVoter",
+    "inputs": [
+      {
+        "name": "voter",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidVotingWeight",
+    "inputs": [
+      {
+        "name": "voter",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "weight",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidVotingWindow",
+    "inputs": [
+      {
+        "name": "nominationStart",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "votingStart",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "votingEnd",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotActiveCongressMember",
+    "inputs": [
+      {
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotActiveCongressPerson",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedCongressCandidateRegistryCaller",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnexpectedCycleId",
+    "inputs": [
+      {
+        "name": "expectedCycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "providedCycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "VoteNotFound",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "voter",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  }
+]}

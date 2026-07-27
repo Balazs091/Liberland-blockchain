@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IStakeRegistry} from "../interfaces/IStakeRegistry.sol";
 import {IUnstakingPolicy} from "../interfaces/IUnstakingPolicy.sol";

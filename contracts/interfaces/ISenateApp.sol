@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {SenateTypes} from "../types/SenateTypes.sol";
 
@@ -15,8 +15,10 @@ interface ISenateApp {
     error SenateSupportAlreadyActive(bytes32 processId, uint32 seatIndex);
     error SenateSupportNotActive(bytes32 processId, uint32 seatIndex);
     error SenateSupportNotReached(bytes32 processId, uint256 supportCount, uint256 presidentProxySupportCount);
+    error SenateSeatRecipientNotCitizen(address wallet, bytes32 personId);
     error DisbursementAlreadySuspended(bytes32 actionId, uint64 suspendedUntil);
     error DisbursementSuspensionNotRenewable(bytes32 actionId, uint64 suspendedUntil);
+    error InvalidDisbursementSuspensionReason(bytes32 reasonHash);
     error InvalidPolicy(address policyAddress);
     error InvalidPresidentRegistry(address registryAddress);
     error InvalidRegistry(address registryAddress);
@@ -165,6 +167,7 @@ interface ISenateApp {
 
     event SenateDisbursementSuspended(
         bytes32 indexed actionId,
+        bytes32 indexed reasonHash,
         uint64 suspendedUntil,
         uint256 supportCount,
         uint256 presidentProxySupportCount,
@@ -174,6 +177,7 @@ interface ISenateApp {
 
     event SenateDisbursementSuspensionRenewed(
         bytes32 indexed actionId,
+        bytes32 indexed reasonHash,
         uint64 suspendedUntil,
         uint32 renewalCount,
         address indexed renewedBy,
@@ -411,9 +415,13 @@ interface ISenateApp {
 
     /// @notice Applies a temporary, auto-lapsing suspension to a queued treasury disbursement once support is reached.
     /// @param actionId The queued treasury disbursement action identifier.
-    function suspendDisbursement(bytes32 actionId) external;
+    /// @param supportingSeatIndex A current supporting seat whose holder publishes the reason.
+    /// @param reasonHash Hash of the published, reasoned Senate objection supporting the suspension.
+    function suspendDisbursement(bytes32 actionId, uint32 supportingSeatIndex, bytes32 reasonHash) external;
 
     /// @notice Extends an active disbursement suspension before it lapses, under the same Senate authority.
     /// @param actionId The queued treasury disbursement action identifier.
-    function renewDisbursementSuspension(bytes32 actionId) external;
+    /// @param supportingSeatIndex A current supporting seat whose holder publishes the renewal reason.
+    /// @param reasonHash Hash of the published, reasoned Senate decision supporting the renewal.
+    function renewDisbursementSuspension(bytes32 actionId, uint32 supportingSeatIndex, bytes32 reasonHash) external;
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -14,8 +14,8 @@ import {ElectionTypes} from "../../contracts/types/ElectionTypes.sol";
 import {IdentityTypes} from "../../contracts/types/IdentityTypes.sol";
 
 /// @title RegistryAuthorityFallbackTest
-/// @notice L7: an unregistered primary registry authority must not brick the setup-authority fallback.
-/// @notice E1: exercises the narrow getCitizenshipSummary accessor added for the electorate snapshot.
+/// @notice An unregistered primary registry authority must not brick the setup-authority fallback.
+/// @notice Exercises the narrow getCitizenshipSummary accessor used for the electorate snapshot.
 contract RegistryAuthorityFallbackTest is Test {
     ConstitutionKernel internal kernel;
     IdentityRegistry internal identityRegistry;
@@ -31,41 +31,43 @@ contract RegistryAuthorityFallbackTest is Test {
         congressCandidateRegistry = new CongressCandidateRegistry(address(kernel));
 
         // Register ONLY the one-time setup authority. The three primary registry authorities are left
-        // unregistered so getModule reverts for them, exercising the try/catch fallback fixed in L7. Bootstrap
+        // unregistered so getModule reverts for them, exercising the try/catch fallback. Bootstrap
         // stays active because the setup authority is a genesis-only convenience whose fallback is intentionally
-        // scoped to the live bootstrap phase (M-5).
+        // scoped to the live bootstrap phase.
         kernel.bootstrapSetModule(KernelModuleIds.INITIAL_SETUP_AUTHORITY, address(this));
     }
 
-    function test_L7_IdentityRegistryFallbackWorksWhenPrimaryUnregistered() public {
+    function test_IdentityRegistryFallbackWorksWhenPrimaryUnregistered() public {
         identityRegistry.setIdentityRecord(PERSON_ID, _identityInput(false));
         assertTrue(identityRegistry.identityExists(PERSON_ID));
     }
 
-    function test_L7_StakeRegistryFallbackWorksWhenPrimaryUnregistered() public {
+    function test_StakeIncreaseNeverUsesSetupFallbackWithoutVault() public {
+        vm.expectRevert(abi.encodeWithSelector(IStakeRegistry.UnauthorizedStakeRegistryCaller.selector, address(this)));
         stakeRegistry.increaseStake(PERSON_ID, 5_000);
-        assertEq(stakeRegistry.activeStakeOf(PERSON_ID), 5_000);
     }
 
-    function test_L7_CongressCandidateRegistryFallbackWorksWhenPrimaryUnregistered() public {
+    function test_CongressCandidateRegistryFallbackWorksWhenPrimaryUnregistered() public {
         congressCandidateRegistry.createCycle(
             1,
             ElectionTypes.CongressCycleInput({
                 nominationStart: uint64(block.timestamp + 1),
                 votingStart: uint64(block.timestamp + 2 days),
                 votingEnd: uint64(block.timestamp + 4 days),
+                votingPowerSnapshotBlock: uint48(block.number),
                 seatCount: 2,
                 runnerUpCount: 2,
                 maxCandidateCount: 8,
+                policy: address(congressCandidateRegistry),
                 policyReference: keccak256("policy")
             })
         );
         assertEq(congressCandidateRegistry.getCycle(1).cycleId, 1);
     }
 
-    /// @notice M-5: once genesis bootstrap is disabled, the setup-authority fallback is inert, so a lingering
+    /// @notice Once genesis bootstrap is disabled, the setup-authority fallback is inert, so a lingering
     ///         setup-authority module can never be a standing backdoor into high-value registry writes.
-    function test_M5_SetupAuthorityFallbackDiesAfterBootstrapDisabled() public {
+    function test_SetupAuthorityFallbackDiesAfterBootstrapDisabled() public {
         kernel.disableBootstrapAuthority();
 
         vm.expectRevert(abi.encodeWithSelector(IStakeRegistry.UnauthorizedStakeRegistryCaller.selector, address(this)));
@@ -77,7 +79,7 @@ contract RegistryAuthorityFallbackTest is Test {
         identityRegistry.setIdentityRecord(PERSON_ID, _identityInput(false));
     }
 
-    function test_E1_GetCitizenshipSummaryReturnsStatusFields() public {
+    function test_GetCitizenshipSummaryReturnsStatusFields() public {
         identityRegistry.setIdentityRecord(PERSON_ID, _identityInput(true));
 
         (

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IKernelModule} from "./IKernelModule.sol";
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
@@ -12,6 +12,7 @@ interface IPayoutQueue is IKernelModule {
     error PayoutRequestAlreadyExists(bytes32 requestId);
     error PayoutRequestAlreadyFinalized(bytes32 requestId, TreasuryTypes.DisbursementState state);
     error PayoutRequestAlreadyQueued(bytes32 requestId, bytes32 actionId);
+    error PayoutActionNotCanceled(bytes32 requestId, bytes32 actionId, GovernanceTypes.ActionState actionState);
     error PayoutRequestNotQueued(bytes32 requestId);
     error PayoutRequestNotReady(bytes32 requestId, uint64 routeAfter);
     error UnauthorizedPayoutQueueCaller(address caller);
@@ -52,6 +53,8 @@ interface IPayoutQueue is IKernelModule {
         external
         returns (GovernanceTypes.TreasuryDisbursementPayload memory payload);
     function confirmRouted(bytes32 requestId, bytes32 actionId) external;
+    /// @notice Cancels a proposed payout, or records a routed payout after its timelock action was canceled.
+    /// @param requestId The payout request identifier.
     function cancelPayout(bytes32 requestId) external;
     function syncPayoutState(bytes32 requestId) external returns (TreasuryTypes.DisbursementState state);
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 /// @title StakeTypes
 /// @notice Shared structs for political stake, discrete unstaking, and welfare state.

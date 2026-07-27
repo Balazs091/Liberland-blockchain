@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -9,6 +9,7 @@ import {ICongressCandidateRegistry} from "../interfaces/ICongressCandidateRegist
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
 import {IDecisionApp} from "../interfaces/IDecisionApp.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
+import {ILLMStakingVault} from "../interfaces/ILLMStakingVault.sol";
 import {IMinistryTreasury} from "../interfaces/IMinistryTreasury.sol";
 import {IOfficeRegistry} from "../interfaces/IOfficeRegistry.sol";
 import {IStakeRegistry} from "../interfaces/IStakeRegistry.sol";
@@ -30,21 +31,21 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
     IOfficeRegistry private immutable _officeRegistry;
     IStakeRegistry private immutable _stakeRegistry;
     IERC20 private immutable _llmToken;
+    ILLMStakingVault private immutable _stakingVault;
 
     mapping(bytes32 decisionId => DecisionTypes.DecisionRecord decisionRecord) private _decisionRecords;
     mapping(bytes32 decisionId => mapping(address member => bool supported)) private _congressSupports;
+    mapping(bytes32 decisionId => bool authorized) private _congressSourceAuthorizations;
 
     /// @param congressCandidateRegistryAddress The Congress registry used for active-member checks.
     /// @param identityRegistryAddress The identity registry used for stake-recipient validation.
     /// @param officeRegistryAddress The office registry used for ministry role checks and clerk decisions.
-    /// @param stakeRegistryAddress The stake registry updated by LLM transfer-and-stake decisions.
-    /// @param llmTokenAddress The LLM token pulled for transfer-and-stake decisions.
+    /// @param stakingVaultAddress The canonical LLM vault used by transfer-and-stake decisions.
     constructor(
         address congressCandidateRegistryAddress,
         address identityRegistryAddress,
         address officeRegistryAddress,
-        address stakeRegistryAddress,
-        address llmTokenAddress
+        address stakingVaultAddress
     ) {
         if (congressCandidateRegistryAddress == address(0) || congressCandidateRegistryAddress.code.length == 0) {
             revert InvalidRegistry(congressCandidateRegistryAddress);
@@ -55,12 +56,13 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
         if (officeRegistryAddress == address(0) || officeRegistryAddress.code.length == 0) {
             revert InvalidRegistry(officeRegistryAddress);
         }
-        if (stakeRegistryAddress == address(0) || stakeRegistryAddress.code.length == 0) {
-            revert InvalidRegistry(stakeRegistryAddress);
+        if (stakingVaultAddress == address(0) || stakingVaultAddress.code.length == 0) {
+            revert InvalidRegistry(stakingVaultAddress);
         }
-        if (llmTokenAddress == address(0) || llmTokenAddress.code.length == 0) {
-            revert InvalidToken(llmTokenAddress);
-        }
+
+        ILLMStakingVault stakingVault_ = ILLMStakingVault(stakingVaultAddress);
+        address stakeRegistryAddress = stakingVault_.stakeRegistry();
+        address llmTokenAddress = stakingVault_.token();
 
         ICongressCandidateRegistry congressCandidateRegistry_ =
             ICongressCandidateRegistry(congressCandidateRegistryAddress);
@@ -78,6 +80,7 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
         _officeRegistry = IOfficeRegistry(officeRegistryAddress);
         _stakeRegistry = IStakeRegistry(stakeRegistryAddress);
         _llmToken = IERC20(llmTokenAddress);
+        _stakingVault = stakingVault_;
     }
 
     /// @inheritdoc IDecisionApp
@@ -106,8 +109,44 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
     }
 
     /// @inheritdoc IDecisionApp
+    function stakingVault() external view returns (address vaultAddress) {
+        return address(_stakingVault);
+    }
+
+    /// @inheritdoc IDecisionApp
     function getDecision(bytes32 decisionId) external view returns (DecisionTypes.DecisionRecord memory record) {
         return _decisionRecords[decisionId];
+    }
+
+    /// @inheritdoc IDecisionApp
+    function isCongressDecisionSourceAuthorized(bytes32 decisionId) external view returns (bool authorized) {
+        return _congressSourceAuthorizations[decisionId];
+    }
+
+    /// @inheritdoc IDecisionApp
+    function authorizeCongressDecisionSource(bytes32 decisionId) external {
+        DecisionTypes.DecisionRecord storage record = _requirePreparedDecision(decisionId);
+        if (record.scope != DecisionTypes.DecisionScope.Congress || record.source == address(0)) {
+            revert InvalidDecisionAction(record.action);
+        }
+        _requireCongressDecisionTerm(record);
+        if (msg.sender != record.source) {
+            revert CongressDecisionSourceNotAuthorized(decisionId, msg.sender);
+        }
+
+        _congressSourceAuthorizations[decisionId] = true;
+        emit CongressDecisionSourceAuthorizationUpdated(decisionId, msg.sender, true, uint64(block.timestamp));
+    }
+
+    /// @inheritdoc IDecisionApp
+    function revokeCongressDecisionSource(bytes32 decisionId) external {
+        DecisionTypes.DecisionRecord storage record = _requirePreparedDecision(decisionId);
+        if (record.scope != DecisionTypes.DecisionScope.Congress || msg.sender != record.source) {
+            revert CongressDecisionSourceNotAuthorized(decisionId, msg.sender);
+        }
+
+        _congressSourceAuthorizations[decisionId] = false;
+        emit CongressDecisionSourceAuthorizationUpdated(decisionId, msg.sender, false, uint64(block.timestamp));
     }
 
     /// @inheritdoc IDecisionApp
@@ -153,6 +192,11 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
         record.metadataURI = metadataURI;
         record.supportRequired = supportRequired;
         record.preparedAt = preparedAt;
+
+        if (source == msg.sender) {
+            _congressSourceAuthorizations[decisionId] = true;
+            emit CongressDecisionSourceAuthorizationUpdated(decisionId, source, true, preparedAt);
+        }
 
         _emitCongressDecisionPrepared(decisionId);
 
@@ -234,6 +278,11 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
         record.supportRequired = supportRequired;
         record.preparedAt = preparedAt;
 
+        if (source == msg.sender) {
+            _congressSourceAuthorizations[decisionId] = true;
+            emit CongressDecisionSourceAuthorizationUpdated(decisionId, source, true, preparedAt);
+        }
+
         emit CongressFundMinistryDecisionPrepared(
             decisionId, officeId, msg.sender, token, amount, supportRequired, metadataHash, preparedAt
         );
@@ -287,6 +336,13 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
                 && action != DecisionTypes.DecisionAction.FundMinistry
         ) {
             revert InvalidDecisionAction(action);
+        }
+        if (
+            (action == DecisionTypes.DecisionAction.ERC20Transfer
+                    || action == DecisionTypes.DecisionAction.FundMinistry)
+                && !_congressSourceAuthorizations[decisionId]
+        ) {
+            revert CongressDecisionSourceNotAuthorized(decisionId, record.source);
         }
 
         // Effects before interactions: finalize status before any external call so a reentrant/hook-bearing
@@ -416,7 +472,8 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
             IERC20(record.token).safeTransferFrom(record.source, record.recipient, record.amount);
         } else if (record.action == DecisionTypes.DecisionAction.LLMTransferAndStake) {
             _llmToken.safeTransferFrom(record.source, address(this), record.amount);
-            _stakeRegistry.increaseStake(record.recipientPersonId, record.amount);
+            _llmToken.forceApprove(address(_stakingVault), record.amount);
+            _stakingVault.stakeFor(record.recipientPersonId, record.amount);
         } else if (record.action == DecisionTypes.DecisionAction.ClerkStatus) {
             _officeRegistry.setClerkStatus(record.officeId, record.clerk, record.clerkActive);
         } else {
@@ -613,7 +670,10 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
         // FundMinistry decision that can never execute. getModule reverts if the treasury or the funding-authority
         // module is unregistered; then require this app is that authority (fund() enforces the same at execution).
         IConstitutionKernel kernel = IConstitutionKernel(_congressCandidateRegistry.kernel());
-        kernel.getModule(KernelModuleIds.MINISTRY_TREASURY);
+        address ministryTreasury = kernel.getModule(KernelModuleIds.MINISTRY_TREASURY);
+        if (ministryTreasury.code.length == 0) {
+            revert InvalidRegistry(ministryTreasury);
+        }
         address fundingAuthority = kernel.getModule(KernelModuleIds.MINISTRY_TREASURY_FUNDING_AUTHORITY);
         if (fundingAuthority != address(this)) {
             revert MinistryFundingAuthorityMismatch(address(this), fundingAuthority);

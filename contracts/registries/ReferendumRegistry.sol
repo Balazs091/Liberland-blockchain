@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IReferendumRegistry} from "../interfaces/IReferendumRegistry.sol";
 import {KernelModule} from "../base/KernelModule.sol";
@@ -173,6 +173,15 @@ contract ReferendumRegistry is IReferendumRegistry, KernelModule {
         if (referendumInput.startTime >= referendumInput.endTime) {
             revert InvalidVotingWindow(referendumInput.startTime, referendumInput.endTime);
         }
+        if (referendumInput.referendumPolicy == address(0) || referendumInput.referendumPolicy.code.length == 0) {
+            revert InvalidReferendumPolicy(referendumInput.referendumPolicy);
+        }
+        if (referendumInput.votingPowerPolicy == address(0) || referendumInput.votingPowerPolicy.code.length == 0) {
+            revert InvalidVotingPowerPolicy(referendumInput.votingPowerPolicy);
+        }
+        if (referendumInput.votingPowerSnapshotBlock > block.number) {
+            revert InvalidVotingPowerSnapshotBlock(referendumInput.votingPowerSnapshotBlock, block.number);
+        }
         if (
             referendumInput.referendumClass == ReferendumTypes.ReferendumClass.ConstitutionalAmendment
                 || referendumInput.requiresSupermajority
@@ -208,6 +217,9 @@ contract ReferendumRegistry is IReferendumRegistry, KernelModule {
             proposerReference: referendumInput.proposerReference,
             startTime: referendumInput.startTime,
             endTime: referendumInput.endTime,
+            votingPowerSnapshotBlock: referendumInput.votingPowerSnapshotBlock,
+            referendumPolicy: referendumInput.referendumPolicy,
+            votingPowerPolicy: referendumInput.votingPowerPolicy,
             electorateHeadcountSnapshot: referendumInput.electorateHeadcountSnapshot,
             electorateVotingPowerSnapshot: referendumInput.electorateVotingPowerSnapshot,
             requiresSupermajority: referendumInput.requiresSupermajority,
@@ -238,6 +250,13 @@ contract ReferendumRegistry is IReferendumRegistry, KernelModule {
             referendumInput.adoptionDelay,
             referendumInput.electorateHeadcountSnapshot,
             referendumInput.electorateVotingPowerSnapshot,
+            msg.sender
+        );
+        emit ReferendumRulesSnapshotted(
+            referendumId,
+            referendumInput.votingPowerSnapshotBlock,
+            referendumInput.referendumPolicy,
+            referendumInput.votingPowerPolicy,
             msg.sender
         );
     }
@@ -384,7 +403,6 @@ contract ReferendumRegistry is IReferendumRegistry, KernelModule {
                 || referendumInput.proposedModuleAddress.code.length == 0
                 || referendumInput.legislationTextHash != bytes32(0)
                 || referendumInput.legislationTier != LegislationTypes.LegislationTier.Undefined
-                || referendumInput.targetModule == KernelModuleIds.CONGRESS_ELECTION_POLICY
         ) {
             revert InvalidProposedModule(referendumInput.targetModule, referendumInput.proposedModuleAddress);
         }

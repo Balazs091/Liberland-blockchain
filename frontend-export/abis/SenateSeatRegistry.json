@@ -1,1 +1,650 @@
-{"abi":[{"type":"constructor","inputs":[{"name":"kernelAddress","type":"address","internalType":"address"}],"stateMutability":"nonpayable"},{"type":"function","name":"activeSeatCount","inputs":[{"name":"wallet","type":"address","internalType":"address"}],"outputs":[{"name":"count","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"assignSeat","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"},{"name":"holder","type":"address","internalType":"address"},{"name":"holderPersonId","type":"bytes32","internalType":"bytes32"},{"name":"filledBySuccession","type":"bool","internalType":"bool"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"clearSuccessor","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"getSeatRecord","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"}],"outputs":[{"name":"seatRecord","type":"tuple","internalType":"struct SenateTypes.SenateSeatRecord","components":[{"name":"seatIndex","type":"uint32","internalType":"uint32"},{"name":"holder","type":"address","internalType":"address"},{"name":"holderPersonId","type":"bytes32","internalType":"bytes32"},{"name":"nominatedSuccessor","type":"address","internalType":"address"},{"name":"nominatedSuccessorPersonId","type":"bytes32","internalType":"bytes32"},{"name":"transferCount","type":"uint32","internalType":"uint32"},{"name":"occupancyNonce","type":"uint64","internalType":"uint64"},{"name":"assignedAt","type":"uint64","internalType":"uint64"},{"name":"vacatedAt","type":"uint64","internalType":"uint64"},{"name":"successorNominatedAt","type":"uint64","internalType":"uint64"},{"name":"vacant","type":"bool","internalType":"bool"}]}],"stateMutability":"view"},{"type":"function","name":"isActiveSeatHolder","inputs":[{"name":"wallet","type":"address","internalType":"address"}],"outputs":[{"name":"active","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"kernel","inputs":[],"outputs":[{"name":"kernelAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"nominateSuccessor","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"},{"name":"nominee","type":"address","internalType":"address"},{"name":"nomineePersonId","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"occupiedSeatCount","inputs":[],"outputs":[{"name":"count","type":"uint32","internalType":"uint32"}],"stateMutability":"view"},{"type":"function","name":"totalSeats","inputs":[],"outputs":[{"name":"count","type":"uint32","internalType":"uint32"}],"stateMutability":"pure"},{"type":"function","name":"transferSeat","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"},{"name":"newHolder","type":"address","internalType":"address"},{"name":"newHolderPersonId","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"vacateSeat","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"event","name":"SenateSeatAssigned","inputs":[{"name":"seatIndex","type":"uint32","indexed":true,"internalType":"uint32"},{"name":"holder","type":"address","indexed":true,"internalType":"address"},{"name":"holderPersonId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"filledBySuccession","type":"bool","indexed":false,"internalType":"bool"},{"name":"transferCount","type":"uint32","indexed":false,"internalType":"uint32"},{"name":"occupancyNonce","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"assignedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"assignedBy","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"event","name":"SenateSeatTransferred","inputs":[{"name":"seatIndex","type":"uint32","indexed":true,"internalType":"uint32"},{"name":"previousHolder","type":"address","indexed":true,"internalType":"address"},{"name":"newHolder","type":"address","indexed":true,"internalType":"address"},{"name":"newHolderPersonId","type":"bytes32","indexed":false,"internalType":"bytes32"},{"name":"transferCount","type":"uint32","indexed":false,"internalType":"uint32"},{"name":"occupancyNonce","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"transferredAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"transferredBy","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"event","name":"SenateSeatVacated","inputs":[{"name":"seatIndex","type":"uint32","indexed":true,"internalType":"uint32"},{"name":"previousHolder","type":"address","indexed":true,"internalType":"address"},{"name":"previousHolderPersonId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"occupancyNonce","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"vacatedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"vacatedBy","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"event","name":"SenateSuccessorCleared","inputs":[{"name":"seatIndex","type":"uint32","indexed":true,"internalType":"uint32"},{"name":"previousNominee","type":"address","indexed":true,"internalType":"address"},{"name":"clearedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"clearedBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"SenateSuccessorNominated","inputs":[{"name":"seatIndex","type":"uint32","indexed":true,"internalType":"uint32"},{"name":"holder","type":"address","indexed":true,"internalType":"address"},{"name":"nominee","type":"address","indexed":true,"internalType":"address"},{"name":"nomineePersonId","type":"bytes32","indexed":false,"internalType":"bytes32"},{"name":"nominatedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"nominatedBy","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"error","name":"InvalidModuleAddress","inputs":[{"name":"moduleId","type":"bytes32","internalType":"bytes32"},{"name":"moduleAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidPersonId","inputs":[{"name":"personId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"InvalidSeatHolder","inputs":[{"name":"holder","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidSeatIndex","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"}]},{"type":"error","name":"InvalidSuccessor","inputs":[{"name":"nominee","type":"address","internalType":"address"}]},{"type":"error","name":"SeatAlreadyOccupied","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"},{"name":"currentHolder","type":"address","internalType":"address"}]},{"type":"error","name":"SeatAlreadyVacant","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"}]},{"type":"error","name":"UnauthorizedSenateSeatRegistryCaller","inputs":[{"name":"caller","type":"address","internalType":"address"}]}]}
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "kernelAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "activeSeatCount",
+    "inputs": [
+      {
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "count",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "activeSeatHolderPersonId",
+    "inputs": [
+      {
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "assignSeat",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "holder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "holderPersonId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "filledBySuccession",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "clearSuccessor",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getSeatRecord",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "seatRecord",
+        "type": "tuple",
+        "internalType": "struct SenateTypes.SenateSeatRecord",
+        "components": [
+          {
+            "name": "seatIndex",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "holder",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "holderPersonId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "nominatedSuccessor",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "nominatedSuccessorPersonId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "transferCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "occupancyNonce",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "assignedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "vacatedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "successorNominatedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "vacant",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isActiveSeatHolder",
+    "inputs": [
+      {
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "active",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isActiveSeatHolderPerson",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "active",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "kernel",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "kernelAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "nominateSuccessor",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "nominee",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "nomineePersonId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "occupiedSeatCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "count",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "totalSeats",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "count",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "transferSeat",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "newHolder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "newHolderPersonId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vacateSeat",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "SenateSeatAssigned",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "holder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "holderPersonId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "filledBySuccession",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      },
+      {
+        "name": "transferCount",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "occupancyNonce",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "assignedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "assignedBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateSeatTransferred",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "previousHolder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newHolder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newHolderPersonId",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "transferCount",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "occupancyNonce",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "transferredAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "transferredBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateSeatVacated",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "previousHolder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "previousHolderPersonId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "occupancyNonce",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "vacatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "vacatedBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateSuccessorCleared",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "previousNominee",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "clearedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "clearedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateSuccessorNominated",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "holder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "nominee",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "nomineePersonId",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "nominatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "nominatedBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "InvalidModuleAddress",
+    "inputs": [
+      {
+        "name": "moduleId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "moduleAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidPersonId",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidSeatHolder",
+    "inputs": [
+      {
+        "name": "holder",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidSeatIndex",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidSuccessor",
+    "inputs": [
+      {
+        "name": "nominee",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SeatAlreadyOccupied",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "currentHolder",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SeatAlreadyVacant",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SeatHolderPersonMismatch",
+    "inputs": [
+      {
+        "name": "holder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "currentPersonId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "suppliedPersonId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedSenateSeatRegistryCaller",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  }
+]}

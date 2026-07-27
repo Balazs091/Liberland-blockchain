@@ -1,1 +1,772 @@
-{"abi":[{"type":"constructor","inputs":[{"name":"kernelAddress","type":"address","internalType":"address"}],"stateMutability":"nonpayable"},{"type":"function","name":"getClerkRecord","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"},{"name":"clerk","type":"address","internalType":"address"}],"outputs":[{"name":"membership","type":"tuple","internalType":"struct OfficeTypes.OfficeMembership","components":[{"name":"officeId","type":"bytes32","internalType":"bytes32"},{"name":"member","type":"address","internalType":"address"},{"name":"role","type":"uint8","internalType":"enum OfficeTypes.OfficeRole"},{"name":"active","type":"bool","internalType":"bool"},{"name":"grantedAt","type":"uint64","internalType":"uint64"},{"name":"revokedAt","type":"uint64","internalType":"uint64"}]}],"stateMutability":"view"},{"type":"function","name":"getOfficeRecord","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"officeRecord","type":"tuple","internalType":"struct OfficeTypes.OfficeRecord","components":[{"name":"officeId","type":"bytes32","internalType":"bytes32"},{"name":"name","type":"string","internalType":"string"},{"name":"admin","type":"address","internalType":"address"},{"name":"kind","type":"uint8","internalType":"enum OfficeTypes.OfficeKind"},{"name":"active","type":"bool","internalType":"bool"},{"name":"createdAt","type":"uint64","internalType":"uint64"},{"name":"lastUpdatedAt","type":"uint64","internalType":"uint64"}]}],"stateMutability":"view"},{"type":"function","name":"isOfficeAdmin","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"},{"name":"account","type":"address","internalType":"address"}],"outputs":[{"name":"isAdmin","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"isOfficeClerk","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"},{"name":"account","type":"address","internalType":"address"}],"outputs":[{"name":"isClerk","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"kernel","inputs":[],"outputs":[{"name":"kernelAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"officeExists","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"exists","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"officeIdAt","inputs":[{"name":"index","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},{"type":"function","name":"registerOffice","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"},{"name":"kind","type":"uint8","internalType":"enum OfficeTypes.OfficeKind"},{"name":"name","type":"string","internalType":"string"},{"name":"admin","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"renameOffice","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"},{"name":"newName","type":"string","internalType":"string"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"roleOf","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"},{"name":"account","type":"address","internalType":"address"}],"outputs":[{"name":"role","type":"uint8","internalType":"enum OfficeTypes.OfficeRole"}],"stateMutability":"view"},{"type":"function","name":"setClerkStatus","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"},{"name":"clerk","type":"address","internalType":"address"},{"name":"active","type":"bool","internalType":"bool"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"setOfficeActive","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"},{"name":"active","type":"bool","internalType":"bool"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"totalOfficeCount","inputs":[],"outputs":[{"name":"count","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"transferOfficeAdmin","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"},{"name":"newAdmin","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"event","name":"OfficeActiveStatusUpdated","inputs":[{"name":"officeId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"active","type":"bool","indexed":false,"internalType":"bool"},{"name":"updatedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"updatedBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"OfficeAdminTransferred","inputs":[{"name":"officeId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"previousAdmin","type":"address","indexed":true,"internalType":"address"},{"name":"newAdmin","type":"address","indexed":true,"internalType":"address"},{"name":"transferredAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"transferredBy","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"event","name":"OfficeClerkStatusUpdated","inputs":[{"name":"officeId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"clerk","type":"address","indexed":true,"internalType":"address"},{"name":"active","type":"bool","indexed":false,"internalType":"bool"},{"name":"updatedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"updatedBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"OfficeRegistered","inputs":[{"name":"officeId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"kind","type":"uint8","indexed":true,"internalType":"enum OfficeTypes.OfficeKind"},{"name":"admin","type":"address","indexed":true,"internalType":"address"},{"name":"name","type":"string","indexed":false,"internalType":"string"},{"name":"recordedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"recordedBy","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"event","name":"OfficeRenamed","inputs":[{"name":"officeId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"previousName","type":"string","indexed":false,"internalType":"string"},{"name":"newName","type":"string","indexed":false,"internalType":"string"},{"name":"updatedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"updatedBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"error","name":"InvalidModuleAddress","inputs":[{"name":"moduleId","type":"bytes32","internalType":"bytes32"},{"name":"moduleAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidOfficeAdmin","inputs":[{"name":"admin","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidOfficeId","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"InvalidOfficeKind","inputs":[{"name":"kind","type":"uint8","internalType":"enum OfficeTypes.OfficeKind"}]},{"type":"error","name":"InvalidOfficeMember","inputs":[{"name":"member","type":"address","internalType":"address"}]},{"type":"error","name":"OfficeAlreadyRegistered","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"OfficeNotFound","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"UnauthorizedOfficeRegistryCaller","inputs":[{"name":"caller","type":"address","internalType":"address"}]}]}
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "kernelAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getClerkRecord",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "clerk",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "membership",
+        "type": "tuple",
+        "internalType": "struct OfficeTypes.OfficeMembership",
+        "components": [
+          {
+            "name": "officeId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "member",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "role",
+            "type": "uint8",
+            "internalType": "enum OfficeTypes.OfficeRole"
+          },
+          {
+            "name": "active",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "grantedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "revokedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getOfficeRecord",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "officeRecord",
+        "type": "tuple",
+        "internalType": "struct OfficeTypes.OfficeRecord",
+        "components": [
+          {
+            "name": "officeId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "name",
+            "type": "string",
+            "internalType": "string"
+          },
+          {
+            "name": "admin",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "kind",
+            "type": "uint8",
+            "internalType": "enum OfficeTypes.OfficeKind"
+          },
+          {
+            "name": "active",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "createdAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "lastUpdatedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "adminAuthorizationEndsAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "adminPersonId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isOfficeAdmin",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "isAdmin",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isOfficeAdminAppointment",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "isAdmin",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isOfficeClerk",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "isClerk",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "kernel",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "kernelAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "officeExists",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "exists",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "officeIdAt",
+    "inputs": [
+      {
+        "name": "index",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "registerOffice",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "kind",
+        "type": "uint8",
+        "internalType": "enum OfficeTypes.OfficeKind"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "internalType": "string"
+      },
+      {
+        "name": "admin",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "renameOffice",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "newName",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "revokeOfficeAdmin",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "roleOf",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "role",
+        "type": "uint8",
+        "internalType": "enum OfficeTypes.OfficeRole"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "setClerkStatus",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "clerk",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "active",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setOfficeActive",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "active",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "totalOfficeCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "count",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "transferOfficeAdmin",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "newAdmin",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "transferOfficeAdminForTerm",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "newAdmin",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "adminPersonId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "authorizationEndsAt",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "OfficeActiveStatusUpdated",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "active",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      },
+      {
+        "name": "updatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "updatedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OfficeAdminTransferred",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "previousAdmin",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newAdmin",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "authorizationEndsAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "transferredAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "transferredBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OfficeClerkStatusUpdated",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "clerk",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "active",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      },
+      {
+        "name": "updatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "updatedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OfficeClerksInvalidated",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "clerkEpoch",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "invalidatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "invalidatedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OfficeRegistered",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "kind",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "enum OfficeTypes.OfficeKind"
+      },
+      {
+        "name": "admin",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "recordedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "recordedBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "OfficeRenamed",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "previousName",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "newName",
+        "type": "string",
+        "indexed": false,
+        "internalType": "string"
+      },
+      {
+        "name": "updatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "updatedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "InvalidModuleAddress",
+    "inputs": [
+      {
+        "name": "moduleId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "moduleAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidOfficeAdmin",
+    "inputs": [
+      {
+        "name": "admin",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidOfficeAdminAuthorizationEnd",
+    "inputs": [
+      {
+        "name": "authorizationEndsAt",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "currentTime",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidOfficeId",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidOfficeKind",
+    "inputs": [
+      {
+        "name": "kind",
+        "type": "uint8",
+        "internalType": "enum OfficeTypes.OfficeKind"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidOfficeMember",
+    "inputs": [
+      {
+        "name": "member",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "OfficeAlreadyRegistered",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "OfficeNotFound",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedOfficeRegistryCaller",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  }
+]}

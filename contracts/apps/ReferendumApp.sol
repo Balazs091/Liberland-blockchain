@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -9,22 +9,21 @@ import {ICongressElectionPolicy} from "../interfaces/ICongressElectionPolicy.sol
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
 import {ITreasurySpendingPolicy} from "../interfaces/ITreasurySpendingPolicy.sol";
 import {IBudgetEnvelopeRegistry} from "../interfaces/IBudgetEnvelopeRegistry.sol";
-import {ICitizenEligibilityPolicy} from "../interfaces/ICitizenEligibilityPolicy.sol";
+import {IElectorateRegistry} from "../interfaces/IElectorateRegistry.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
 import {ILegislationRegistry} from "../interfaces/ILegislationRegistry.sol";
 import {IReferendumApp} from "../interfaces/IReferendumApp.sol";
 import {IReferendumPolicy} from "../interfaces/IReferendumPolicy.sol";
 import {IReferendumRegistry} from "../interfaces/IReferendumRegistry.sol";
 import {ISenateApp} from "../interfaces/ISenateApp.sol";
-import {IStakeRegistry} from "../interfaces/IStakeRegistry.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
-import {IdentityTypes} from "../types/IdentityTypes.sol";
 import {IVotingPowerPolicy} from "../interfaces/IVotingPowerPolicy.sol";
 import {LegislationTypes} from "../types/LegislationTypes.sol";
 import {ReferendumTypes} from "../types/ReferendumTypes.sol";
 import {SenateTypes} from "../types/SenateTypes.sol";
 import {TreasuryTypes} from "../types/TreasuryTypes.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /// @title ReferendumApp
 /// @notice User-facing application for bounded referendum proposal, voting, veto, and finalization flows.
@@ -36,10 +35,8 @@ contract ReferendumApp is IReferendumApp {
 
     IIdentityRegistry private immutable _identityRegistry;
     ILegislationRegistry private immutable _legislationRegistry;
-    IReferendumPolicy private immutable _referendumPolicy;
     IReferendumRegistry private immutable _referendumRegistry;
     IGovernanceRouter private immutable _governanceRouter;
-    IVotingPowerPolicy private immutable _votingPowerPolicy;
 
     /// @param identityRegistryAddress The identity registry used to resolve citizen proposer references.
     /// @param legislationRegistryAddress The legislation registry used for successful enactment records.
@@ -77,9 +74,7 @@ contract ReferendumApp is IReferendumApp {
         _identityRegistry = IIdentityRegistry(identityRegistryAddress);
         _legislationRegistry = ILegislationRegistry(legislationRegistryAddress);
         _referendumRegistry = IReferendumRegistry(referendumRegistryAddress);
-        _referendumPolicy = IReferendumPolicy(referendumPolicyAddress);
         _governanceRouter = IGovernanceRouter(governanceRouterAddress);
-        _votingPowerPolicy = IVotingPowerPolicy(votingPowerPolicyAddress);
     }
 
     /// @inheritdoc IReferendumApp
@@ -99,7 +94,7 @@ contract ReferendumApp is IReferendumApp {
 
     /// @inheritdoc IReferendumApp
     function referendumPolicy() external view returns (address policyAddress) {
-        return address(_referendumPolicy);
+        return address(_currentReferendumPolicy());
     }
 
     /// @inheritdoc IReferendumApp
@@ -109,7 +104,7 @@ contract ReferendumApp is IReferendumApp {
 
     /// @inheritdoc IReferendumApp
     function votingPowerPolicy() external view returns (address policyAddress) {
-        return address(_votingPowerPolicy);
+        return address(_currentVotingPowerPolicy());
     }
 
     /// @inheritdoc IReferendumApp
@@ -257,10 +252,8 @@ contract ReferendumApp is IReferendumApp {
 
         // Receipts are person-keyed so a citizen cannot vote twice by rotating their active wallet mid-referendum.
         bytes32 personId = _identityRegistry.resolveWalletToPersonId(msg.sender);
-        ReferendumTypes.VoteReceipt memory existingReceipt = _referendumRegistry.getVoteReceipt(referendumId, personId);
-        uint256 weight = existingReceipt.option == ReferendumTypes.VoteOption.Undefined
-            ? _votingPowerPolicy.votingPower(msg.sender)
-            : existingReceipt.weight;
+        uint256 weight = IVotingPowerPolicy(referendumRecord.votingPowerPolicy)
+            .votingPowerAt(msg.sender, referendumRecord.votingPowerSnapshotBlock);
         if (weight == 0) {
             revert NoVotingPower(msg.sender);
         }
@@ -277,19 +270,20 @@ contract ReferendumApp is IReferendumApp {
         if (block.timestamp < referendumRecord.endTime) {
             revert ReferendumNotEnded(referendumId, referendumRecord.endTime, uint64(block.timestamp));
         }
-        _requireNoPendingSenateVeto(referendumId);
+        _requireNoPendingSenateVeto(referendumId, referendumRecord);
 
-        ReferendumTypes.PolicyOutcome memory outcome = _referendumPolicy.evaluateOutcome(
-            referendumRecord.referendumClass,
-            referendumRecord.proposalOrigin,
-            referendumRecord.forVotes,
-            referendumRecord.againstVotes,
-            referendumRecord.forVoterCount,
-            referendumRecord.againstVoterCount,
-            referendumRecord.electorateHeadcountSnapshot,
-            referendumRecord.electorateVotingPowerSnapshot,
-            referendumRecord.requiresSupermajority
-        );
+        ReferendumTypes.PolicyOutcome memory outcome = IReferendumPolicy(referendumRecord.referendumPolicy)
+            .evaluateOutcome(
+                referendumRecord.referendumClass,
+                referendumRecord.proposalOrigin,
+                referendumRecord.forVotes,
+                referendumRecord.againstVotes,
+                referendumRecord.forVoterCount,
+                referendumRecord.againstVoterCount,
+                referendumRecord.electorateHeadcountSnapshot,
+                referendumRecord.electorateVotingPowerSnapshot,
+                referendumRecord.requiresSupermajority
+            );
 
         bytes32 enactedMeasureId = bytes32(0);
         bytes32 enactmentActionId = bytes32(0);
@@ -321,6 +315,7 @@ contract ReferendumApp is IReferendumApp {
                 || referendumRecord.status != ReferendumTypes.ReferendumStatus.Active
                 || block.timestamp < referendumRecord.startTime
                 || referendumRecord.referendumClass == ReferendumTypes.ReferendumClass.ConstitutionalAmendment
+                || _isSenateSelfReplacement(referendumRecord)
         ) {
             revert InvalidReferendumCancellation(referendumId);
         }
@@ -335,11 +330,12 @@ contract ReferendumApp is IReferendumApp {
         ReferendumTypes.ReferendumClass referendumClass,
         ReferendumTypes.ProposalOrigin proposalOrigin
     ) private {
-        if (!_referendumPolicy.canCreateReferendum(referendumClass, proposalOrigin, msg.sender)) {
+        IReferendumPolicy referendumPolicy_ = _currentReferendumPolicy();
+        if (!referendumPolicy_.canCreateReferendum(referendumClass, proposalOrigin, msg.sender)) {
             revert InvalidProposerOrigin(msg.sender, proposalOrigin);
         }
 
-        _collectProposalFee(_referendumPolicy.proposalFee(proposalOrigin));
+        _collectProposalFee(referendumPolicy_.proposalFee(proposalOrigin));
     }
 
     function _createReferendum(
@@ -412,13 +408,13 @@ contract ReferendumApp is IReferendumApp {
         ReferendumTypes.ProposalOrigin proposalOrigin
     ) private view {
         uint64 minimumDuration = emergency
-            ? _referendumPolicy.emergencyVotingDuration()
-            : _referendumPolicy.minimumVotingDuration();
+            ? _currentReferendumPolicy().emergencyVotingDuration()
+            : _currentReferendumPolicy().minimumVotingDuration();
         if (startTime < block.timestamp || endTime <= startTime || endTime - startTime < minimumDuration) {
             revert InvalidVotingWindow(startTime, endTime, minimumDuration);
         }
-        if (adoptionDelay > _referendumPolicy.maximumAdoptionDelay()) {
-            revert InvalidAdoptionDelay(adoptionDelay, _referendumPolicy.maximumAdoptionDelay());
+        if (adoptionDelay > _currentReferendumPolicy().maximumAdoptionDelay()) {
+            revert InvalidAdoptionDelay(adoptionDelay, _currentReferendumPolicy().maximumAdoptionDelay());
         }
         if (emergency) {
             if (referendumClass == ReferendumTypes.ReferendumClass.ConstitutionalAmendment) {
@@ -432,9 +428,9 @@ contract ReferendumApp is IReferendumApp {
         }
         if (
             proposalOrigin == ReferendumTypes.ProposalOrigin.Citizen
-                && adoptionDelay != _referendumPolicy.standardAdoptionDelay()
+                && adoptionDelay != _currentReferendumPolicy().standardAdoptionDelay()
         ) {
-            revert InvalidAdoptionDelay(adoptionDelay, _referendumPolicy.standardAdoptionDelay());
+            revert InvalidAdoptionDelay(adoptionDelay, _currentReferendumPolicy().standardAdoptionDelay());
         }
     }
 
@@ -470,13 +466,12 @@ contract ReferendumApp is IReferendumApp {
         // Core execution modules (governance-router, action-timelock) are intentionally NOT repointable through a
         // referendum at any threshold: they are the trust root that enforces the timelock and origin routing, so
         // live-swapping either one would let a single passing proposal bypass every downstream safeguard it is meant
-        // to gate. Amending them therefore requires a fresh deployment and state migration rather than an in-band
-        // vote. Rule-defining registries/authorities/policies stay live-repointable but only clear the constitutional
-        // supermajority (see `_requiresGovernanceSupermajority`); ordinary app pointers use the standard quorum.
+        // to gate. Authorities, policies, state-bearing modules, and unclassified extension IDs require the
+        // constitutional supermajority; known application pointers use the ordinary threshold. The kernel cannot
+        // verify state continuity, so state-bearing replacements additionally require an audited migration plan.
         if (
             proposal.targetModule == bytes32(0) || proposal.newModuleAddress == address(0)
                 || proposal.newModuleAddress.code.length == 0 || _isCoreModule(proposal.targetModule)
-                || _isSpecializedModuleGovernanceTarget(proposal.targetModule)
         ) {
             revert InvalidModuleGovernanceProposal(
                 proposal.targetModule, proposal.newModuleAddress, proposal.registerNewModule
@@ -500,67 +495,27 @@ contract ReferendumApp is IReferendumApp {
 
         address treasuryVault =
             IConstitutionKernel(_governanceRouter.kernel()).getModule(KernelModuleIds.TREASURY_VAULT);
-        IERC20(_referendumPolicy.proposalFeeAsset()).safeTransferFrom(msg.sender, treasuryVault, requiredFee);
+        IERC20(_currentReferendumPolicy().proposalFeeAsset()).safeTransferFrom(msg.sender, treasuryVault, requiredFee);
     }
 
-    /// @dev O(n) over the whole identity set, so constitutional-tier referendum-creation gas is bounded by the
-    ///      electorate size (a full incremental aggregate is out of scope). Each identity is priced by a single
-    ///      `getCitizenshipSummary` read (no `metadataURI` string copy) plus one reused `activeStakeOf` read.
-    function _constitutionalElectorateSnapshot()
+    /// @dev O(1): registry mutation hooks maintain historical civic-roll checkpoints. A citizen-policy replacement
+    ///      starts a bounded permissionless rebuild; a new process must use a completed block in the current epoch.
+    function _electorateSnapshotAt(uint48 snapshotBlock)
         private
         view
         returns (uint256 citizenCount, uint256 electorateVotingPower)
     {
-        ICitizenEligibilityPolicy citizenEligibilityPolicy =
-            ICitizenEligibilityPolicy(_referendumPolicy.citizenEligibilityPolicy());
-        IStakeRegistry stakeRegistry = IStakeRegistry(citizenEligibilityPolicy.stakeRegistry());
-        uint256 minimumCitizenStake = citizenEligibilityPolicy.minimumCitizenStake();
-        uint256 identityCount = _identityRegistry.totalIdentityCount();
-
-        for (uint256 index = 0; index < identityCount; ++index) {
-            bytes32 personId = _identityRegistry.identityIdAt(index);
-            uint256 activeStake = stakeRegistry.activeStakeOf(personId);
-            if (!_isEligibleCitizenPerson(stakeRegistry, minimumCitizenStake, personId, activeStake)) {
-                continue;
-            }
-
-            citizenCount += 1;
-            electorateVotingPower += activeStake;
+        IElectorateRegistry electorateRegistry = IElectorateRegistry(
+            IConstitutionKernel(_governanceRouter.kernel()).getModule(KernelModuleIds.ELECTORATE_REGISTRY)
+        );
+        IVotingPowerPolicy votingPolicy = _currentVotingPowerPolicy();
+        address policyElectorateRegistry = votingPolicy.electorateRegistry();
+        if (policyElectorateRegistry != address(electorateRegistry)) {
+            revert VotingPowerElectorateMismatch(
+                address(votingPolicy), policyElectorateRegistry, address(electorateRegistry)
+            );
         }
-    }
-
-    function _isEligibleCitizenPerson(
-        IStakeRegistry stakeRegistry,
-        uint256 minimumCitizenStake,
-        bytes32 personId,
-        uint256 activeStake
-    ) private view returns (bool eligible) {
-        if (_identityRegistry.activeWalletCountOf(personId) == 0) {
-            return false;
-        }
-
-        (
-            IdentityTypes.VerificationStatus verificationStatus,
-            IdentityTypes.CitizenshipStatus citizenshipStatus,
-            IdentityTypes.AgeClass ageClass,
-            bool finalSuspension
-        ) = _identityRegistry.getCitizenshipSummary(personId);
-        // A non-existent identity reports an Undefined citizenship status, which fails the Citizen check below,
-        // so an explicit existence guard is unnecessary and the result matches the prior full-record path.
-        if (verificationStatus != IdentityTypes.VerificationStatus.Verified) {
-            return false;
-        }
-        if (citizenshipStatus != IdentityTypes.CitizenshipStatus.Citizen) {
-            return false;
-        }
-        if (ageClass != IdentityTypes.AgeClass.Adult || finalSuspension) {
-            return false;
-        }
-        if (activeStake < minimumCitizenStake) {
-            return false;
-        }
-
-        return !stakeRegistry.isInWelfare(personId);
+        return electorateRegistry.snapshotAtCurrentEpoch(snapshotBlock);
     }
 
     function _storeLegislationReferendumProposal(
@@ -570,10 +525,11 @@ contract ReferendumApp is IReferendumApp {
         ReferendumTypes.LegislationProposal calldata proposal,
         bytes32 proposerReference
     ) private {
-        uint256 electorateHeadcountSnapshot = 0;
-        uint256 electorateVotingPowerSnapshot = 0;
-        if (referendumClass == ReferendumTypes.ReferendumClass.ConstitutionalAmendment) {
-            (electorateHeadcountSnapshot, electorateVotingPowerSnapshot) = _constitutionalElectorateSnapshot();
+        uint48 votingPowerSnapshotBlock = _lastCompletedBlock();
+        (uint256 snapshotHeadcount, uint256 snapshotVotingPower) = _electorateSnapshotAt(votingPowerSnapshotBlock);
+        if (referendumClass != ReferendumTypes.ReferendumClass.ConstitutionalAmendment) {
+            snapshotHeadcount = 0;
+            snapshotVotingPower = 0;
         }
 
         ReferendumTypes.ReferendumRecordInput memory referendumInput = ReferendumTypes.ReferendumRecordInput({
@@ -591,8 +547,11 @@ contract ReferendumApp is IReferendumApp {
             startTime: proposal.startTime,
             endTime: proposal.endTime,
             adoptionDelay: proposal.adoptionDelay,
-            electorateHeadcountSnapshot: electorateHeadcountSnapshot,
-            electorateVotingPowerSnapshot: electorateVotingPowerSnapshot,
+            votingPowerSnapshotBlock: votingPowerSnapshotBlock,
+            referendumPolicy: address(_currentReferendumPolicy()),
+            votingPowerPolicy: address(_currentVotingPowerPolicy()),
+            electorateHeadcountSnapshot: snapshotHeadcount,
+            electorateVotingPowerSnapshot: snapshotVotingPower,
             requiresSupermajority: false
         });
 
@@ -605,27 +564,30 @@ contract ReferendumApp is IReferendumApp {
         ReferendumTypes.CongressElectionPolicyProposal calldata proposal,
         bytes32 proposerReference
     ) private {
-        ReferendumTypes.ReferendumRecordInput memory
-            referendumInput =
-            ReferendumTypes.ReferendumRecordInput({
-                referendumClass: ReferendumTypes.ReferendumClass.CongressElectionPolicy,
-                proposalOrigin: proposalOrigin,
-                proposalMetadataHash: proposal.proposalMetadataHash,
-                proposedMeasureId: proposal.proposalId,
-                amendsMeasureId: bytes32(0),
-                legislationTextHash: bytes32(0),
-                legislationTier: LegislationTypes.LegislationTier.Undefined,
-                targetModule: KernelModuleIds.CONGRESS_ELECTION_POLICY,
-                proposedModuleAddress: proposal.newPolicy,
-                registerNewModule: false,
-                proposerReference: proposerReference,
-                startTime: proposal.startTime,
-                endTime: proposal.endTime,
-                adoptionDelay: proposal.adoptionDelay,
-                electorateHeadcountSnapshot: 0,
-                electorateVotingPowerSnapshot: 0,
-                requiresSupermajority: false
-            });
+        uint48 votingPowerSnapshotBlock = _lastCompletedBlock();
+        _electorateSnapshotAt(votingPowerSnapshotBlock);
+        ReferendumTypes.ReferendumRecordInput memory referendumInput = ReferendumTypes.ReferendumRecordInput({
+            referendumClass: ReferendumTypes.ReferendumClass.CongressElectionPolicy,
+            proposalOrigin: proposalOrigin,
+            proposalMetadataHash: proposal.proposalMetadataHash,
+            proposedMeasureId: proposal.proposalId,
+            amendsMeasureId: bytes32(0),
+            legislationTextHash: bytes32(0),
+            legislationTier: LegislationTypes.LegislationTier.Undefined,
+            targetModule: KernelModuleIds.CONGRESS_ELECTION_POLICY,
+            proposedModuleAddress: proposal.newPolicy,
+            registerNewModule: false,
+            proposerReference: proposerReference,
+            startTime: proposal.startTime,
+            endTime: proposal.endTime,
+            adoptionDelay: proposal.adoptionDelay,
+            votingPowerSnapshotBlock: votingPowerSnapshotBlock,
+            referendumPolicy: address(_currentReferendumPolicy()),
+            votingPowerPolicy: address(_currentVotingPowerPolicy()),
+            electorateHeadcountSnapshot: 0,
+            electorateVotingPowerSnapshot: 0,
+            requiresSupermajority: false
+        });
 
         _referendumRegistry.createReferendum(referendumId, referendumInput);
     }
@@ -635,26 +597,30 @@ contract ReferendumApp is IReferendumApp {
         ReferendumTypes.BudgetApprovalProposal calldata proposal,
         bytes32 proposerReference
     ) private {
-        ReferendumTypes.ReferendumRecordInput memory referendumInput =
-            ReferendumTypes.ReferendumRecordInput({
-                referendumClass: ReferendumTypes.ReferendumClass.BudgetApproval,
-                proposalOrigin: ReferendumTypes.ProposalOrigin.Congress,
-                proposalMetadataHash: proposal.proposalMetadataHash,
-                proposedMeasureId: proposal.budgetId,
-                amendsMeasureId: bytes32(0),
-                legislationTextHash: proposal.budgetLawTextHash,
-                legislationTier: LegislationTypes.LegislationTier.Law,
-                targetModule: KernelModuleIds.BUDGET_ENVELOPE_REGISTRY,
-                proposedModuleAddress: address(0),
-                registerNewModule: false,
-                proposerReference: proposerReference,
-                startTime: proposal.startTime,
-                endTime: proposal.endTime,
-                adoptionDelay: proposal.adoptionDelay,
-                electorateHeadcountSnapshot: 0,
-                electorateVotingPowerSnapshot: 0,
-                requiresSupermajority: false
-            });
+        uint48 votingPowerSnapshotBlock = _lastCompletedBlock();
+        _electorateSnapshotAt(votingPowerSnapshotBlock);
+        ReferendumTypes.ReferendumRecordInput memory referendumInput = ReferendumTypes.ReferendumRecordInput({
+            referendumClass: ReferendumTypes.ReferendumClass.BudgetApproval,
+            proposalOrigin: ReferendumTypes.ProposalOrigin.Congress,
+            proposalMetadataHash: proposal.proposalMetadataHash,
+            proposedMeasureId: proposal.budgetId,
+            amendsMeasureId: bytes32(0),
+            legislationTextHash: proposal.budgetLawTextHash,
+            legislationTier: LegislationTypes.LegislationTier.Law,
+            targetModule: KernelModuleIds.BUDGET_ENVELOPE_REGISTRY,
+            proposedModuleAddress: address(0),
+            registerNewModule: false,
+            proposerReference: proposerReference,
+            startTime: proposal.startTime,
+            endTime: proposal.endTime,
+            adoptionDelay: proposal.adoptionDelay,
+            votingPowerSnapshotBlock: votingPowerSnapshotBlock,
+            referendumPolicy: address(_currentReferendumPolicy()),
+            votingPowerPolicy: address(_currentVotingPowerPolicy()),
+            electorateHeadcountSnapshot: 0,
+            electorateVotingPowerSnapshot: 0,
+            requiresSupermajority: false
+        });
 
         _referendumRegistry.createBudgetApprovalReferendum(referendumId, referendumInput, proposal.budget);
     }
@@ -668,10 +634,11 @@ contract ReferendumApp is IReferendumApp {
         // Repointing a rule-defining module (authority/policy/registry) must clear the constitutional
         // double-threshold, so it takes the same electorate snapshot amendments take at creation.
         bool requiresSupermajority = _requiresGovernanceSupermajority(proposal.targetModule);
-        uint256 electorateHeadcountSnapshot = 0;
-        uint256 electorateVotingPowerSnapshot = 0;
-        if (requiresSupermajority) {
-            (electorateHeadcountSnapshot, electorateVotingPowerSnapshot) = _constitutionalElectorateSnapshot();
+        uint48 votingPowerSnapshotBlock = _lastCompletedBlock();
+        (uint256 snapshotHeadcount, uint256 snapshotVotingPower) = _electorateSnapshotAt(votingPowerSnapshotBlock);
+        if (!requiresSupermajority) {
+            snapshotHeadcount = 0;
+            snapshotVotingPower = 0;
         }
 
         ReferendumTypes.ReferendumRecordInput memory referendumInput = ReferendumTypes.ReferendumRecordInput({
@@ -689,8 +656,11 @@ contract ReferendumApp is IReferendumApp {
             startTime: proposal.startTime,
             endTime: proposal.endTime,
             adoptionDelay: proposal.adoptionDelay,
-            electorateHeadcountSnapshot: electorateHeadcountSnapshot,
-            electorateVotingPowerSnapshot: electorateVotingPowerSnapshot,
+            votingPowerSnapshotBlock: votingPowerSnapshotBlock,
+            referendumPolicy: address(_currentReferendumPolicy()),
+            votingPowerPolicy: address(_currentVotingPowerPolicy()),
+            electorateHeadcountSnapshot: snapshotHeadcount,
+            electorateVotingPowerSnapshot: snapshotVotingPower,
             requiresSupermajority: requiresSupermajority
         });
 
@@ -933,12 +903,14 @@ contract ReferendumApp is IReferendumApp {
 
     function _policyReference(ReferendumTypes.ReferendumRecord memory referendumRecord)
         private
-        view
+        pure
         returns (bytes32 policyReference)
     {
         return keccak256(
             abi.encode(
-                address(_referendumPolicy),
+                referendumRecord.referendumPolicy,
+                referendumRecord.votingPowerPolicy,
+                referendumRecord.votingPowerSnapshotBlock,
                 referendumRecord.referendumClass,
                 referendumRecord.proposalOrigin,
                 referendumRecord.legislationTier,
@@ -976,7 +948,16 @@ contract ReferendumApp is IReferendumApp {
         }
     }
 
-    function _requireNoPendingSenateVeto(bytes32 referendumId) private view {
+    function _requireNoPendingSenateVeto(bytes32 referendumId, ReferendumTypes.ReferendumRecord memory referendumRecord)
+        private
+        view
+    {
+        // The Senate's negative power cannot make its own application pointer irrevocable. This check precedes the
+        // optional Senate hook so even an incompatible or malicious incumbent cannot fabricate a pending veto.
+        if (_isSenateSelfReplacement(referendumRecord)) {
+            return;
+        }
+
         address senateAppAddress = address(0);
         try IConstitutionKernel(_governanceRouter.kernel()).getModule(KernelModuleIds.SENATE_APP) returns (
             address moduleAddress
@@ -986,14 +967,28 @@ contract ReferendumApp is IReferendumApp {
             return;
         }
 
-        SenateTypes.ReferendumVetoRecord memory vetoRecord =
-            ISenateApp(senateAppAddress).getReferendumVetoRecord(referendumId);
-        if (
-            vetoRecord.exists && !vetoRecord.finalized && vetoRecord.deadline != 0
-                && block.timestamp >= vetoRecord.deadline
+        // This is an optional negative-power hook. A future audited Senate implementation may intentionally use a
+        // different interface; that must disable the hook, not brick referendum finalization and therefore module
+        // governance itself.
+        try ISenateApp(senateAppAddress).getReferendumVetoRecord(referendumId) returns (
+            SenateTypes.ReferendumVetoRecord memory vetoRecord
         ) {
-            revert SenateVetoPending(referendumId, vetoRecord.deadline);
-        }
+            if (
+                vetoRecord.exists && !vetoRecord.finalized && vetoRecord.deadline != 0
+                    && block.timestamp >= vetoRecord.deadline
+            ) {
+                revert SenateVetoPending(referendumId, vetoRecord.deadline);
+            }
+        } catch {}
+    }
+
+    function _isSenateSelfReplacement(ReferendumTypes.ReferendumRecord memory referendumRecord)
+        private
+        pure
+        returns (bool selfReplacement)
+    {
+        return referendumRecord.referendumClass == ReferendumTypes.ReferendumClass.ModuleGovernance
+            && referendumRecord.targetModule == KernelModuleIds.SENATE_APP;
     }
 
     function _validateProposedCongressElectionPolicy(address newPolicyAddress) private view {
@@ -1032,60 +1027,40 @@ contract ReferendumApp is IReferendumApp {
         return moduleId == KernelModuleIds.GOVERNANCE_ROUTER || moduleId == KernelModuleIds.ACTION_TIMELOCK;
     }
 
-    function _isSpecializedModuleGovernanceTarget(bytes32 moduleId) private pure returns (bool specializedTarget) {
-        return moduleId == KernelModuleIds.CONGRESS_ELECTION_POLICY;
+    function _currentReferendumPolicy() private view returns (IReferendumPolicy policy) {
+        return
+            IReferendumPolicy(
+                IConstitutionKernel(_governanceRouter.kernel()).getModule(KernelModuleIds.REFERENDUM_POLICY)
+            );
+    }
+
+    function _currentVotingPowerPolicy() private view returns (IVotingPowerPolicy policy) {
+        return IVotingPowerPolicy(
+            IConstitutionKernel(_governanceRouter.kernel()).getModule(KernelModuleIds.VOTING_POWER_POLICY)
+        );
+    }
+
+    /// @dev Using the last completed block makes the snapshot immune to later transactions in the creation block.
+    function _lastCompletedBlock() private view returns (uint48 snapshotBlock) {
+        return block.number == 0 ? 0 : SafeCast.toUint48(block.number - 1);
     }
 
     /// @notice Returns whether repointing a module must clear the constitutional-amendment double-threshold
     ///         (>=50% of the electorate by headcount AND >=65% of cast voting power) instead of the ordinary
     ///         module-governance quorum.
-    /// @dev Rule-defining modules are the authorities (`authority.*`), policies (`policy.*`), and registries
-    ///      (`registry.*`) enumerated below. Operational app pointers (`app.*`) and the value-holding treasury
-    ///      vault stay at the ordinary threshold and return false. Core `governance-router`/`action-timelock`
-    ///      are blocked upstream in `_validateModuleGovernanceProposal` and never reach here;
-    ///      `CONGRESS_ELECTION_POLICY` is routed through its own specialized class and is likewise omitted.
-    ///      ANY NEW rule-defining module id MUST be added to this list so its repoint keeps the supermajority.
+    /// @dev Policy, authority, state-bearing, and unclassified modules use the constitutional threshold. Known
+    ///      operational application pointers use the ordinary threshold. Core `governance-router` and
+    ///      `action-timelock` are blocked upstream in `_validateModuleGovernanceProposal` and never reach here. The dedicated
+    ///      Congress-election-policy referendum remains a lower-friction timing-only path; a full breaking policy
+    ///      replacement uses this constitutional module-governance path.
     /// @param moduleId The target module identifier being repointed or registered.
     /// @return requiresSupermajority Whether the repoint must clear the constitutional double-threshold.
-    function _requiresGovernanceSupermajority(bytes32 moduleId) private pure returns (bool requiresSupermajority) {
-        return
-        // Rule-defining and value-custody registries (`registry.*`), including the treasury vault: repointing
-        // it would strand treasury funds and break disbursements, so it warrants broad consensus.
-        moduleId == KernelModuleIds.TREASURY_VAULT || moduleId == KernelModuleIds.IDENTITY_REGISTRY
-            || moduleId == KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY
-            || moduleId == KernelModuleIds.LEGISLATION_REGISTRY || moduleId == KernelModuleIds.REFERENDUM_REGISTRY
-            || moduleId == KernelModuleIds.SENATE_SEAT_REGISTRY || moduleId == KernelModuleIds.STAKE_REGISTRY
-            || moduleId == KernelModuleIds.STAKE_LIEN_REGISTRY || moduleId == KernelModuleIds.LAND_REGISTRY
-            || moduleId == KernelModuleIds.COMPANY_REGISTRY || moduleId == KernelModuleIds.BUDGET_ENVELOPE_REGISTRY
-            || moduleId == KernelModuleIds.OFFICE_REGISTRY || moduleId == KernelModuleIds.PRESIDENT_REGISTRY
-            || moduleId == KernelModuleIds.EXECUTIVE_REGISTRY
-            // Rule-defining authorities (`authority.*`).
-            || moduleId == KernelModuleIds.BUDGET_ENVELOPE_ACCOUNTING_AUTHORITY
-            || moduleId == KernelModuleIds.BUDGET_ENVELOPE_REGISTRY_AUTHORITY
-            || moduleId == KernelModuleIds.COMPANY_REGISTRY_AUTHORITY
-            || moduleId == KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY_AUTHORITY
-            || moduleId == KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY
-            || moduleId == KernelModuleIds.INITIAL_SETUP_AUTHORITY
-            || moduleId == KernelModuleIds.LAND_REGISTRY_AUTHORITY
-            || moduleId == KernelModuleIds.LEGISLATION_REGISTRY_AUTHORITY
-            || moduleId == KernelModuleIds.LEGISLATION_REPEAL_AUTHORITY
-            || moduleId == KernelModuleIds.OFFICE_REGISTRY_AUTHORITY
-            || moduleId == KernelModuleIds.PRESIDENT_REGISTRY_AUTHORITY
-            || moduleId == KernelModuleIds.EXECUTIVE_REGISTRY_AUTHORITY
-            || moduleId == KernelModuleIds.REFERENDUM_REGISTRY_AUTHORITY
-            || moduleId == KernelModuleIds.SENATE_SEAT_REGISTRY_AUTHORITY
-            || moduleId == KernelModuleIds.STAKE_LIEN_REGISTRY_AUTHORITY
-            || moduleId == KernelModuleIds.STAKE_DEPOSIT_AUTHORITY
-            || moduleId == KernelModuleIds.STAKE_LIQUIDATION_AUTHORITY
-            || moduleId == KernelModuleIds.STAKE_REGISTRY_AUTHORITY
-            // Rule-defining policies (`policy.*`); CONGRESS_ELECTION_POLICY uses its specialized class.
-            || moduleId == KernelModuleIds.CANDIDATE_ELIGIBILITY_POLICY
-            || moduleId == KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY
-            || moduleId == KernelModuleIds.OFFICE_PERMISSION_POLICY || moduleId == KernelModuleIds.REFERENDUM_POLICY
-            || moduleId == KernelModuleIds.SENATE_POWERS_POLICY || moduleId == KernelModuleIds.TREASURY_SPENDING_POLICY
-            || moduleId == KernelModuleIds.VOTING_POWER_POLICY || moduleId == KernelModuleIds.UNSTAKING_POLICY
-            || moduleId == KernelModuleIds.LLM_USDC_PRICE_ORACLE_POLICY
-            || moduleId == KernelModuleIds.USDC_INTEREST_RATE_POLICY;
+    function _requiresGovernanceSupermajority(bytes32 moduleId) private view returns (bool requiresSupermajority) {
+        if (!_isActiveModule(moduleId)) {
+            return true;
+        }
+        GovernanceTypes.ModuleClass moduleClass = IConstitutionKernel(_governanceRouter.kernel()).moduleClass(moduleId);
+        return moduleClass != GovernanceTypes.ModuleClass.Application;
     }
 
     function _addressToReference(address account) private pure returns (bytes32 accountReference) {

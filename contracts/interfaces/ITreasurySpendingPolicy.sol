@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {OfficeTypes} from "../types/OfficeTypes.sol";
 import {TreasuryTypes} from "../types/TreasuryTypes.sol";
@@ -18,6 +18,10 @@ interface ITreasurySpendingPolicy {
     }
 
     function financeOfficeId() external view returns (bytes32 officeId);
+
+    /// @notice Returns the sole asset permitted for contribution-reward payouts.
+    /// @return asset The configured hard-capped LLM token.
+    function llmAsset() external view returns (address asset);
 
     /// @notice Returns whether an ERC20 asset is allowed for treasury spending.
     /// @param asset The ERC20 token address.

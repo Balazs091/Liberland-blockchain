@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {LendingTypes} from "../types/LendingTypes.sol";
 
@@ -8,13 +8,14 @@ import {LendingTypes} from "../types/LendingTypes.sol";
 interface IUSDCLendingPoolApp {
     error BorrowCapExceeded(uint256 requestedTotalBorrows, uint256 borrowCap);
     error BorrowExceedsPerPersonCap(bytes32 personId, uint256 requestedDebt, uint256 perPersonCap);
+    error BorrowerNotEligible(bytes32 personId);
     error BorrowWouldBreachLtv(bytes32 personId, uint256 requestedDebt, uint256 maxDebt);
     error InsufficientLiquidity(uint256 availableLiquidity, uint256 requestedAmount);
     error InsufficientLiquidationCollateral(bytes32 personId, uint256 seizableStake, uint256 requestedStake);
-    error InsufficientProtocolReserves(uint256 reserves, uint256 requestedAmount);
     error InsufficientShares(address owner, uint256 availableShares, uint256 requiredShares);
     error InvalidAmount(uint256 amount);
     error InvalidBorrowCap(uint256 borrowCap);
+    error InvalidBorrowerPersonId(bytes32 personId);
     error InvalidLiquidationTarget(bytes32 borrowerPersonId, bytes32 liquidatorPersonId);
     error InvalidReceiver(address receiver);
     error InvalidRegistry(address registryAddress);
@@ -22,7 +23,6 @@ interface IUSDCLendingPoolApp {
     error LiquidationNotAllowed(bytes32 personId, uint256 healthFactor);
     error NoDebt(bytes32 personId);
     error PositionNotBadDebt(bytes32 personId, uint256 seizableStake);
-    error PositionRecoverable(bytes32 personId, uint256 recoverableValue, uint256 debt);
     error UnexpectedAssetAmount(uint256 expectedAmount, uint256 actualAmount);
     error WalletNotActive(address wallet);
     error ZeroShares();
@@ -68,8 +68,6 @@ interface IUSDCLendingPoolApp {
         uint64 accruedAt
     );
 
-    event ProtocolReservesClaimed(address indexed receiver, uint256 amount, uint64 claimedAt);
-
     event BadDebtAbsorbed(
         address indexed caller,
         bytes32 indexed borrowerPersonId,
@@ -114,7 +112,7 @@ interface IUSDCLendingPoolApp {
     /// @return healthFactor The health factor, or max uint when no debt exists.
     function healthFactorOf(bytes32 personId) external view returns (uint256 healthFactor);
 
-    /// @notice Accrues interest into global and account indexes.
+    /// @notice Accrues interest into the global index used by all scaled account debt.
     function accrueInterest() external;
 
     /// @notice Deposits USDC into the lending pool and mints LP shares.
@@ -138,6 +136,12 @@ interface IUSDCLendingPoolApp {
     /// @return repaidAmount The actual amount repaid.
     function repay(uint256 amount) external returns (uint256 repaidAmount);
 
+    /// @notice Repays debt for a person identifier, including when their former wallet is no longer active.
+    /// @param personId The canonical borrower person identifier.
+    /// @param amount The maximum USDC amount to repay.
+    /// @return repaidAmount The actual amount repaid.
+    function repayFor(bytes32 personId, uint256 amount) external returns (uint256 repaidAmount);
+
     /// @notice Repays unsafe debt and receives seized active stake as active stake for the liquidator's person ID.
     /// @param borrowerPersonId The borrower person identifier to liquidate.
     /// @param repayAmount The maximum USDC debt amount to repay.
@@ -158,8 +162,4 @@ interface IUSDCLendingPoolApp {
     function absorbBadDebt(bytes32 borrowerPersonId)
         external
         returns (uint256 writtenOffDebt, uint256 coveredByReserves, uint256 supplierShortfall);
-
-    /// @notice Transfers accrued protocol reserves to the canonical treasury module.
-    /// @param amount The USDC reserve amount to transfer.
-    function claimProtocolReserves(uint256 amount) external;
 }

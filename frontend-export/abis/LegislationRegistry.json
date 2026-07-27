@@ -1,1 +1,461 @@
-{"abi":[{"type":"constructor","inputs":[{"name":"kernelAddress","type":"address","internalType":"address"}],"stateMutability":"nonpayable"},{"type":"function","name":"getLegislationRecord","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"record","type":"tuple","internalType":"struct LegislationTypes.LegislationRecord","components":[{"name":"measureId","type":"bytes32","internalType":"bytes32"},{"name":"tier","type":"uint8","internalType":"enum LegislationTypes.LegislationTier"},{"name":"textHash","type":"bytes32","internalType":"bytes32"},{"name":"proposerReference","type":"bytes32","internalType":"bytes32"},{"name":"enactedByReferendumId","type":"bytes32","internalType":"bytes32"},{"name":"amendsMeasureId","type":"bytes32","internalType":"bytes32"},{"name":"repealOrigin","type":"uint8","internalType":"enum LegislationTypes.RepealOrigin"},{"name":"repealReference","type":"bytes32","internalType":"bytes32"},{"name":"active","type":"bool","internalType":"bool"},{"name":"repealed","type":"bool","internalType":"bool"},{"name":"enactedAt","type":"uint64","internalType":"uint64"},{"name":"repealedAt","type":"uint64","internalType":"uint64"}]}],"stateMutability":"view"},{"type":"function","name":"kernel","inputs":[],"outputs":[{"name":"kernelAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"legislationExists","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"exists","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"recordEnactment","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"},{"name":"recordInput","type":"tuple","internalType":"struct LegislationTypes.LegislationRecordInput","components":[{"name":"tier","type":"uint8","internalType":"enum LegislationTypes.LegislationTier"},{"name":"textHash","type":"bytes32","internalType":"bytes32"},{"name":"proposerReference","type":"bytes32","internalType":"bytes32"},{"name":"enactedByReferendumId","type":"bytes32","internalType":"bytes32"},{"name":"amendsMeasureId","type":"bytes32","internalType":"bytes32"}]}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"recordRepeal","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"},{"name":"repealOrigin","type":"uint8","internalType":"enum LegislationTypes.RepealOrigin"},{"name":"repealReference","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"event","name":"LegislationEnacted","inputs":[{"name":"measureId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"enactedByReferendumId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"proposerReference","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"tier","type":"uint8","indexed":false,"internalType":"enum LegislationTypes.LegislationTier"},{"name":"textHash","type":"bytes32","indexed":false,"internalType":"bytes32"},{"name":"amendsMeasureId","type":"bytes32","indexed":false,"internalType":"bytes32"},{"name":"enactedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"enactedBy","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"event","name":"LegislationRepealed","inputs":[{"name":"measureId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"repealReference","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"repealOrigin","type":"uint8","indexed":true,"internalType":"enum LegislationTypes.RepealOrigin"},{"name":"repealedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"repealedBy","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"error","name":"InvalidEnactingReferendum","inputs":[{"name":"referendumId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"InvalidLegislationTier","inputs":[{"name":"tier","type":"uint8","internalType":"enum LegislationTypes.LegislationTier"}]},{"type":"error","name":"InvalidMeasureId","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"InvalidModuleAddress","inputs":[{"name":"moduleId","type":"bytes32","internalType":"bytes32"},{"name":"moduleAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidProposerReference","inputs":[{"name":"proposerReference","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"InvalidRepealOrigin","inputs":[{"name":"repealOrigin","type":"uint8","internalType":"enum LegislationTypes.RepealOrigin"}]},{"type":"error","name":"InvalidRepealReference","inputs":[{"name":"repealReference","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"InvalidTextHash","inputs":[{"name":"textHash","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"LegislationAlreadyExists","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"LegislationAlreadyRepealed","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"LegislationNotFound","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"RepealTierNotPermitted","inputs":[{"name":"repealOrigin","type":"uint8","internalType":"enum LegislationTypes.RepealOrigin"},{"name":"tier","type":"uint8","internalType":"enum LegislationTypes.LegislationTier"}]},{"type":"error","name":"UnauthorizedLegislationRegistryCaller","inputs":[{"name":"caller","type":"address","internalType":"address"}]},{"type":"error","name":"UnauthorizedLegislationRepealCaller","inputs":[{"name":"caller","type":"address","internalType":"address"}]},{"type":"error","name":"UnknownAmendmentTarget","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"}]}]}
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "kernelAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getLegislationRecord",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "record",
+        "type": "tuple",
+        "internalType": "struct LegislationTypes.LegislationRecord",
+        "components": [
+          {
+            "name": "measureId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "tier",
+            "type": "uint8",
+            "internalType": "enum LegislationTypes.LegislationTier"
+          },
+          {
+            "name": "textHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "proposerReference",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "enactedByReferendumId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "amendsMeasureId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "repealOrigin",
+            "type": "uint8",
+            "internalType": "enum LegislationTypes.RepealOrigin"
+          },
+          {
+            "name": "repealReference",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "active",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "repealed",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "enactedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "repealedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "kernel",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "kernelAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "legislationExists",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "exists",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "recordEnactment",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "recordInput",
+        "type": "tuple",
+        "internalType": "struct LegislationTypes.LegislationRecordInput",
+        "components": [
+          {
+            "name": "tier",
+            "type": "uint8",
+            "internalType": "enum LegislationTypes.LegislationTier"
+          },
+          {
+            "name": "textHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "proposerReference",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "enactedByReferendumId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "amendsMeasureId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "recordRepeal",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "repealOrigin",
+        "type": "uint8",
+        "internalType": "enum LegislationTypes.RepealOrigin"
+      },
+      {
+        "name": "repealReference",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "LegislationEnacted",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "enactedByReferendumId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "proposerReference",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "tier",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum LegislationTypes.LegislationTier"
+      },
+      {
+        "name": "textHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "amendsMeasureId",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "enactedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "enactedBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "LegislationRepealed",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "repealReference",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "repealOrigin",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "enum LegislationTypes.RepealOrigin"
+      },
+      {
+        "name": "repealedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "repealedBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "InvalidEnactingReferendum",
+    "inputs": [
+      {
+        "name": "referendumId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidLegislationTier",
+    "inputs": [
+      {
+        "name": "tier",
+        "type": "uint8",
+        "internalType": "enum LegislationTypes.LegislationTier"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidMeasureId",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidModuleAddress",
+    "inputs": [
+      {
+        "name": "moduleId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "moduleAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidProposerReference",
+    "inputs": [
+      {
+        "name": "proposerReference",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidRepealOrigin",
+    "inputs": [
+      {
+        "name": "repealOrigin",
+        "type": "uint8",
+        "internalType": "enum LegislationTypes.RepealOrigin"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidRepealReference",
+    "inputs": [
+      {
+        "name": "repealReference",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidTextHash",
+    "inputs": [
+      {
+        "name": "textHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "LegislationAlreadyExists",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "LegislationAlreadyRepealed",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "LegislationNotFound",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "RepealTierNotPermitted",
+    "inputs": [
+      {
+        "name": "repealOrigin",
+        "type": "uint8",
+        "internalType": "enum LegislationTypes.RepealOrigin"
+      },
+      {
+        "name": "tier",
+        "type": "uint8",
+        "internalType": "enum LegislationTypes.LegislationTier"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedLegislationRegistryCaller",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedLegislationRepealCaller",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnknownAmendmentTarget",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  }
+]}

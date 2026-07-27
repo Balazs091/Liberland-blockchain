@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -7,14 +7,17 @@ import {HeadOfStateApp} from "../../contracts/apps/HeadOfStateApp.sol";
 import {ConstitutionKernel} from "../../contracts/core/ConstitutionKernel.sol";
 import {IHeadOfStateApp} from "../../contracts/interfaces/IHeadOfStateApp.sol";
 import {IPresidentRegistry} from "../../contracts/interfaces/IPresidentRegistry.sol";
+import {ISenateSeatRegistry} from "../../contracts/interfaces/ISenateSeatRegistry.sol";
 import {KernelModuleIds} from "../../contracts/libraries/KernelModuleIds.sol";
+import {IdentityRegistry} from "../../contracts/registries/IdentityRegistry.sol";
 import {PresidentRegistry} from "../../contracts/registries/PresidentRegistry.sol";
 import {SenateSeatRegistry} from "../../contracts/registries/SenateSeatRegistry.sol";
+import {IdentityTypes} from "../../contracts/types/IdentityTypes.sol";
 
 /// @title HeadOfStateAppTest
 /// @notice Covers the Senate-elected Head of State: seat-based majority election, occupancy-nonce ballot binding,
 ///         term expiry by passage of time, Vice President appointment constraints, resignation succession, and the
-///         standing-authority fix that keeps elections runnable after genesis bootstrap is disabled (M6 freeze).
+///         standing authority that keeps elections runnable after genesis bootstrap is disabled.
 contract HeadOfStateAppTest is Test {
     uint64 internal constant PRESIDENT_TERM = 1825 days;
 
@@ -25,6 +28,7 @@ contract HeadOfStateAppTest is Test {
     address internal constant SENATOR_FIVE = address(0x5E5);
     address internal constant SENATOR_SIX = address(0x5E6);
     address internal constant OUTSIDER = address(0x0175);
+    address internal constant SENATOR_ONE_NEW = address(0x5E7);
 
     bytes32 internal constant PID_ONE = bytes32(uint256(1));
     bytes32 internal constant PID_TWO = bytes32(uint256(2));
@@ -36,20 +40,31 @@ contract HeadOfStateAppTest is Test {
     ConstitutionKernel internal kernel;
     PresidentRegistry internal presidentRegistry;
     SenateSeatRegistry internal senateSeatRegistry;
+    IdentityRegistry internal identityRegistry;
     HeadOfStateApp internal headOfStateApp;
 
     function setUp() public {
         kernel = new ConstitutionKernel(address(this));
         presidentRegistry = new PresidentRegistry(address(kernel));
         senateSeatRegistry = new SenateSeatRegistry(address(kernel));
+        identityRegistry = new IdentityRegistry(address(kernel));
         headOfStateApp = new HeadOfStateApp(address(presidentRegistry), address(senateSeatRegistry));
 
         kernel.bootstrapSetModule(KernelModuleIds.PRESIDENT_REGISTRY, address(presidentRegistry));
         kernel.bootstrapSetModule(KernelModuleIds.SENATE_SEAT_REGISTRY, address(senateSeatRegistry));
+        kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY, address(identityRegistry));
+        kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, address(this));
         kernel.bootstrapSetModule(KernelModuleIds.HEAD_OF_STATE_APP, address(headOfStateApp));
         kernel.bootstrapSetModule(KernelModuleIds.PRESIDENT_REGISTRY_AUTHORITY, address(headOfStateApp));
         // This test acts as the Senate-seat authority so it can seat, transfer, and vacate Senators directly.
         kernel.bootstrapSetModule(KernelModuleIds.SENATE_SEAT_REGISTRY_AUTHORITY, address(this));
+
+        _registerCitizen(PID_ONE, SENATOR_ONE);
+        _registerCitizen(PID_TWO, SENATOR_TWO);
+        _registerCitizen(PID_THREE, SENATOR_THREE);
+        _registerCitizen(PID_FOUR, SENATOR_FOUR);
+        _registerCitizen(PID_FIVE, SENATOR_FIVE);
+        _registerCitizen(PID_SIX, SENATOR_SIX);
 
         _assignSeat(0, SENATOR_ONE, PID_ONE);
         _assignSeat(1, SENATOR_TWO, PID_TWO);
@@ -76,6 +91,18 @@ contract HeadOfStateAppTest is Test {
         assertEq(headOfStateApp.presidentTerm(), PRESIDENT_TERM);
         assertEq(headOfStateApp.presidentTerm(), 5 * 365 days);
         assertEq(headOfStateApp.currentElectionCycle(), 1);
+        assertEq(senateSeatRegistry.activeSeatHolderPersonId(SENATOR_ONE), PID_ONE);
+    }
+
+    function test_SeatHolderReverseLookupTracksTransfersAndRejectsIdentityMismatch() public {
+        senateSeatRegistry.transferSeat(0, SENATOR_SIX, PID_SIX);
+        assertEq(senateSeatRegistry.activeSeatHolderPersonId(SENATOR_ONE), bytes32(0));
+        assertEq(senateSeatRegistry.activeSeatHolderPersonId(SENATOR_SIX), PID_SIX);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(ISenateSeatRegistry.SeatHolderPersonMismatch.selector, SENATOR_SIX, PID_SIX, PID_TWO)
+        );
+        senateSeatRegistry.assignSeat(5, SENATOR_SIX, PID_TWO, false);
     }
 
     function test_SenateElectsPresident_FailsBelowMajoritySucceedsAtMajority() public {
@@ -108,20 +135,23 @@ contract HeadOfStateAppTest is Test {
         assertEq(headOfStateApp.currentElectionCycle(), 2);
     }
 
-    function test_CannotElectWhilePresidentInTerm_ReelectsAfterTermEnds() public {
+    function test_CannotPreloadBallotsWhilePresidentInTerm_ReelectsAfterTermEnds() public {
         _electPresident(SENATOR_ONE);
         uint64 termEnd = presidentRegistry.termEnd();
 
-        // Fresh (cycle 2) ballots for a challenger cannot install a President while one is in term.
-        _vote(0, SENATOR_ONE, SENATOR_TWO);
-        _vote(1, SENATOR_TWO, SENATOR_TWO);
-        _vote(2, SENATOR_THREE, SENATOR_TWO);
+        // A future election cannot be decided years early while the sitting President remains in term.
+        vm.prank(SENATOR_ONE);
+        vm.expectRevert(abi.encodeWithSelector(IHeadOfStateApp.PresidentAlreadyInTerm.selector, SENATOR_ONE));
+        headOfStateApp.voteForPresident(0, SENATOR_TWO);
         vm.expectRevert(abi.encodeWithSelector(IHeadOfStateApp.PresidentAlreadyInTerm.selector, SENATOR_ONE));
         headOfStateApp.electPresident(SENATOR_TWO);
 
-        // The term ends purely by passage of time; then the pending majority elects the challenger.
+        // The term ends purely by passage of time; a fresh majority can then elect the challenger.
         vm.warp(termEnd);
         assertFalse(presidentRegistry.isPresidentInTerm());
+        _vote(0, SENATOR_ONE, SENATOR_TWO);
+        _vote(1, SENATOR_TWO, SENATOR_TWO);
+        _vote(2, SENATOR_THREE, SENATOR_TWO);
         assertTrue(headOfStateApp.canElectPresident(SENATOR_TWO));
         headOfStateApp.electPresident(SENATOR_TWO);
 
@@ -296,7 +326,7 @@ contract HeadOfStateAppTest is Test {
         kernel.disableBootstrapAuthority();
         assertEq(kernel.bootstrapAuthority(), address(0));
 
-        // The former bootstrap authority can no longer write the President registry directly (the M6 freeze),
+        // The former bootstrap authority can no longer write the President registry directly,
         // but the standing HeadOfStateApp authority remains the sole live writer.
         vm.expectRevert(
             abi.encodeWithSelector(IPresidentRegistry.UnauthorizedPresidentRegistryCaller.selector, address(this))
@@ -316,8 +346,43 @@ contract HeadOfStateAppTest is Test {
         assertTrue(presidentRegistry.isPresidentInTerm());
     }
 
+    function test_SenatorAndPresidentAuthorityFollowActiveWalletMigration() public {
+        _electPresident(SENATOR_ONE);
+
+        identityRegistry.setWalletLink(PID_ONE, SENATOR_ONE, IdentityTypes.WalletLinkStatus.Revoked);
+        identityRegistry.setWalletLink(PID_ONE, SENATOR_ONE_NEW, IdentityTypes.WalletLinkStatus.Active);
+
+        vm.prank(SENATOR_ONE);
+        vm.expectRevert(abi.encodeWithSelector(IHeadOfStateApp.NotPresident.selector, SENATOR_ONE));
+        headOfStateApp.appointVicePresident(0, SENATOR_TWO, PID_TWO);
+
+        vm.prank(SENATOR_ONE_NEW);
+        headOfStateApp.appointVicePresident(0, SENATOR_TWO, PID_TWO);
+        assertEq(presidentRegistry.vicePresident(0), SENATOR_TWO);
+
+        vm.prank(SENATOR_ONE_NEW);
+        headOfStateApp.resignPresident();
+        assertEq(presidentRegistry.currentPresident(), SENATOR_TWO);
+    }
+
     function _assignSeat(uint32 seatIndex, address holder, bytes32 personId) internal {
         senateSeatRegistry.assignSeat(seatIndex, holder, personId, false);
+    }
+
+    function _registerCitizen(bytes32 personId, address wallet) internal {
+        identityRegistry.setIdentityRecord(
+            personId,
+            IdentityTypes.IdentityRecordInput({
+                metadataHash: keccak256(abi.encode("senator", personId)),
+                metadataURI: "",
+                verificationStatus: IdentityTypes.VerificationStatus.Verified,
+                citizenshipStatus: IdentityTypes.CitizenshipStatus.Citizen,
+                ageClass: IdentityTypes.AgeClass.Adult,
+                correctionFlag: false,
+                finalSuspension: false
+            })
+        );
+        identityRegistry.setWalletLink(personId, wallet, IdentityTypes.WalletLinkStatus.Active);
     }
 
     function _vote(uint32 seatIndex, address holder, address candidate) internal {

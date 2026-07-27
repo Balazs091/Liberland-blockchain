@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 /// @title IHeadOfStateApp
 /// @notice User-facing application for the Senate-elected Head of State (Constitution Art VI §2). The Senate elects
@@ -101,7 +101,7 @@ interface IHeadOfStateApp {
     /// @return electable Whether the candidate can currently be elected President.
     function canElectPresident(address candidate) external view returns (bool electable);
 
-    /// @notice Casts or replaces this seat's ballot for a President candidate.
+    /// @notice Casts or replaces this seat's ballot while the presidency is vacant or its term has ended.
     /// @param seatIndex The seat index held by the caller.
     /// @param candidate The active seat-holder candidate to vote for.
     function voteForPresident(uint32 seatIndex, address candidate) external;

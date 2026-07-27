@@ -1,1 +1,421 @@
-{"abi":[{"type":"constructor","inputs":[{"name":"candidateEligibilityPolicyAddress","type":"address","internalType":"address"},{"name":"votingPowerPolicyAddress","type":"address","internalType":"address"},{"name":"seatCount_","type":"uint32","internalType":"uint32"},{"name":"runnerUpCount_","type":"uint32","internalType":"uint32"},{"name":"maxCandidateCount_","type":"uint32","internalType":"uint32"},{"name":"candidateBondRequirement_","type":"uint256","internalType":"uint256"},{"name":"minimumNominationDuration_","type":"uint64","internalType":"uint64"},{"name":"minimumVotingDuration_","type":"uint64","internalType":"uint64"},{"name":"maxScheduleLeadTime_","type":"uint64","internalType":"uint64"},{"name":"cycleDuration_","type":"uint64","internalType":"uint64"}],"stateMutability":"nonpayable"},{"type":"function","name":"candidateBondRequirement","inputs":[],"outputs":[{"name":"amount","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"candidateEligibilityPolicy","inputs":[],"outputs":[{"name":"policyAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"cycleDuration","inputs":[],"outputs":[{"name":"duration","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"function","name":"isEligibleCandidate","inputs":[{"name":"wallet","type":"address","internalType":"address"}],"outputs":[{"name":"eligible","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"isEligibleVoter","inputs":[{"name":"wallet","type":"address","internalType":"address"}],"outputs":[{"name":"eligible","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"maxCandidateCount","inputs":[],"outputs":[{"name":"count","type":"uint32","internalType":"uint32"}],"stateMutability":"view"},{"type":"function","name":"maxNegativeAllocation","inputs":[{"name":"wallet","type":"address","internalType":"address"}],"outputs":[{"name":"amount","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"maxPositiveCandidates","inputs":[],"outputs":[{"name":"count","type":"uint32","internalType":"uint32"}],"stateMutability":"view"},{"type":"function","name":"maxScheduleLeadTime","inputs":[],"outputs":[{"name":"duration","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"function","name":"minimumNominationDuration","inputs":[],"outputs":[{"name":"duration","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"function","name":"minimumVotingDuration","inputs":[],"outputs":[{"name":"duration","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"function","name":"runnerUpCount","inputs":[],"outputs":[{"name":"seats","type":"uint32","internalType":"uint32"}],"stateMutability":"view"},{"type":"function","name":"seatCount","inputs":[],"outputs":[{"name":"seats","type":"uint32","internalType":"uint32"}],"stateMutability":"view"},{"type":"function","name":"votingPowerPolicy","inputs":[],"outputs":[{"name":"policyAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"votingWeight","inputs":[{"name":"wallet","type":"address","internalType":"address"}],"outputs":[{"name":"weight","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"error","name":"InvalidCandidateBondRequirement","inputs":[{"name":"candidateBondRequirement","type":"uint256","internalType":"uint256"},{"name":"minimumCandidateStake","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"InvalidCandidateCount","inputs":[{"name":"seatCount","type":"uint32","internalType":"uint32"},{"name":"runnerUpCount","type":"uint32","internalType":"uint32"},{"name":"maxCandidateCount","type":"uint32","internalType":"uint32"}]},{"type":"error","name":"InvalidCycleDuration","inputs":[{"name":"cycleDuration","type":"uint64","internalType":"uint64"},{"name":"minimumNominationDuration","type":"uint64","internalType":"uint64"},{"name":"minimumVotingDuration","type":"uint64","internalType":"uint64"}]},{"type":"error","name":"InvalidDuration","inputs":[{"name":"duration","type":"uint64","internalType":"uint64"}]},{"type":"error","name":"InvalidPolicy","inputs":[{"name":"policyAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidScheduleLeadTime","inputs":[{"name":"maxScheduleLeadTime","type":"uint64","internalType":"uint64"},{"name":"minimumNominationDuration","type":"uint64","internalType":"uint64"}]}]}
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "candidateEligibilityPolicyAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "votingPowerPolicyAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "seatCount_",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "runnerUpCount_",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "maxCandidateCount_",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "candidateBondRequirement_",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "minimumNominationDuration_",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "minimumVotingDuration_",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "maxScheduleLeadTime_",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "cycleDuration_",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "candidateBondRequirement",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "candidateEligibilityPolicy",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "policyAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "cycleDuration",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "duration",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isEligibleCandidate",
+    "inputs": [
+      {
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "eligible",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isEligibleVoter",
+    "inputs": [
+      {
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "eligible",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "maxCandidateCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "count",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "maxNegativeAllocation",
+    "inputs": [
+      {
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "maxNegativeAllocationAt",
+    "inputs": [
+      {
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "blockNumber",
+        "type": "uint48",
+        "internalType": "uint48"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "maxPositiveCandidates",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "count",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "maxScheduleLeadTime",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "duration",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "minimumNominationDuration",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "duration",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "minimumVotingDuration",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "duration",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "runnerUpCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "seats",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "seatCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "seats",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "votingPowerPolicy",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "policyAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "votingWeight",
+    "inputs": [
+      {
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "weight",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "votingWeightAt",
+    "inputs": [
+      {
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "blockNumber",
+        "type": "uint48",
+        "internalType": "uint48"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "weight",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "InvalidCandidateBondRequirement",
+    "inputs": [
+      {
+        "name": "candidateBondRequirement",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "minimumCandidateStake",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidCandidateCount",
+    "inputs": [
+      {
+        "name": "seatCount",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "runnerUpCount",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "maxCandidateCount",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidCycleDuration",
+    "inputs": [
+      {
+        "name": "cycleDuration",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "minimumNominationDuration",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "minimumVotingDuration",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidDuration",
+    "inputs": [
+      {
+        "name": "duration",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidPolicy",
+    "inputs": [
+      {
+        "name": "policyAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidScheduleLeadTime",
+    "inputs": [
+      {
+        "name": "maxScheduleLeadTime",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "minimumNominationDuration",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  }
+]}

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -19,15 +19,16 @@ import {CandidateEligibilityPolicy} from "../../contracts/policies/CandidateElig
 import {CitizenEligibilityPolicy} from "../../contracts/policies/CitizenEligibilityPolicy.sol";
 import {CongressElectionPolicy} from "../../contracts/policies/CongressElectionPolicy.sol";
 import {VotingPowerPolicy} from "../../contracts/policies/VotingPowerPolicy.sol";
-import {IdentityRegistry} from "../../contracts/registries/IdentityRegistry.sol";
 import {CongressCandidateRegistry} from "../../contracts/registries/CongressCandidateRegistry.sol";
+import {ElectorateRegistry} from "../../contracts/registries/ElectorateRegistry.sol";
+import {IdentityRegistry} from "../../contracts/registries/IdentityRegistry.sol";
 import {StakeRegistry} from "../../contracts/registries/StakeRegistry.sol";
 import {ElectionTypes} from "../../contracts/types/ElectionTypes.sol";
 import {IdentityTypes} from "../../contracts/types/IdentityTypes.sol";
 
-/// @title Milestone4CongressElectionsTest
+/// @title CongressElectionsTest
 /// @notice Covers Congress election cycle scheduling, signed-ballot voting, and runner-up replacement.
-contract Milestone4CongressElectionsTest is Test {
+contract CongressElectionsTest is Test {
     uint256 internal constant MINIMUM_CITIZEN_STAKE = 5_000;
     uint256 internal constant MINIMUM_CANDIDATE_STAKE = 6_000;
     uint256 internal constant CANDIDATE_BOND_REQUIREMENT = 6_000;
@@ -45,6 +46,7 @@ contract Milestone4CongressElectionsTest is Test {
     bytes32 internal constant PERSON_FOUR_ID = bytes32(uint256(4));
     bytes32 internal constant PERSON_FIVE_ID = bytes32(uint256(5));
     bytes32 internal constant PERSON_SIX_ID = bytes32(uint256(6));
+    bytes32 internal constant PERSON_SEVEN_ID = bytes32(uint256(7));
 
     address internal constant WALLET_ONE = address(0xA11CE);
     address internal constant WALLET_TWO = address(0xB0B);
@@ -52,6 +54,9 @@ contract Milestone4CongressElectionsTest is Test {
     address internal constant WALLET_FOUR = address(0xD00D);
     address internal constant WALLET_FIVE = address(0xE111);
     address internal constant WALLET_SIX = address(0xF222);
+    address internal constant WALLET_ONE_NEW = address(0x9999);
+    address internal constant WALLET_TWO_NEW = address(0x8888);
+    address internal constant WALLET_SEVEN = address(0x7777);
 
     uint256 internal arbitraryExecutionCount;
 
@@ -63,6 +68,7 @@ contract Milestone4CongressElectionsTest is Test {
     CitizenEligibilityPolicy internal citizenEligibilityPolicy;
     CandidateEligibilityPolicy internal candidateEligibilityPolicy;
     VotingPowerPolicy internal votingPowerPolicy;
+    ElectorateRegistry internal electorateRegistry;
     CongressCandidateRegistry internal congressCandidateRegistry;
     CongressElectionPolicy internal congressElectionPolicy;
     CongressElectionApp internal congressElectionApp;
@@ -71,6 +77,7 @@ contract Milestone4CongressElectionsTest is Test {
         _deployFoundation();
         _deployCongressElectionSystem();
         _registerDefaultCitizens();
+        vm.roll(block.number + 1);
     }
 
     function _deployFoundation() internal {
@@ -81,6 +88,7 @@ contract Milestone4CongressElectionsTest is Test {
 
         kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, address(identityAuthority));
         kernel.bootstrapSetModule(KernelModuleIds.STAKE_REGISTRY_AUTHORITY, address(stakeAuthority));
+        kernel.bootstrapSetModule(KernelModuleIds.LLM_STAKING_VAULT, address(stakeAuthority));
 
         identityRegistry = new IdentityRegistry(address(kernel));
         stakeRegistry = new StakeRegistry(address(kernel));
@@ -92,8 +100,15 @@ contract Milestone4CongressElectionsTest is Test {
             address(citizenEligibilityPolicy),
             MINIMUM_CANDIDATE_STAKE
         );
-        votingPowerPolicy =
-            new VotingPowerPolicy(address(identityRegistry), address(stakeRegistry), address(citizenEligibilityPolicy));
+        electorateRegistry = new ElectorateRegistry(address(kernel), address(identityRegistry), address(stakeRegistry));
+        votingPowerPolicy = new VotingPowerPolicy(
+            address(identityRegistry),
+            address(stakeRegistry),
+            address(citizenEligibilityPolicy),
+            address(electorateRegistry)
+        );
+
+        kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY, address(identityRegistry));
     }
 
     function _deployCongressElectionSystem() internal {
@@ -118,6 +133,10 @@ contract Milestone4CongressElectionsTest is Test {
         );
 
         kernel.bootstrapSetModule(KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY_AUTHORITY, address(congressElectionApp));
+        kernel.bootstrapSetModule(KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY, address(citizenEligibilityPolicy));
+        kernel.bootstrapSetModule(KernelModuleIds.CANDIDATE_ELIGIBILITY_POLICY, address(candidateEligibilityPolicy));
+        kernel.bootstrapSetModule(KernelModuleIds.VOTING_POWER_POLICY, address(votingPowerPolicy));
+        kernel.bootstrapSetModule(KernelModuleIds.ELECTORATE_REGISTRY, address(electorateRegistry));
         kernel.bootstrapSetModule(KernelModuleIds.CONGRESS_ELECTION_POLICY, address(congressElectionPolicy));
     }
 
@@ -134,10 +153,11 @@ contract Milestone4CongressElectionsTest is Test {
         arbitraryExecutionCount += 1;
     }
 
-    function test_Milestone4InterfacesExposeSelectors() public pure {
+    function test_InterfacesExposeSelectors() public pure {
         assertTrue(ICandidateEligibilityPolicy.isEligibleCandidate.selector != bytes4(0));
         assertTrue(ICongressCandidateRegistry.createCycle.selector != bytes4(0));
         assertTrue(ICongressCandidateRegistry.recordBallot.selector != bytes4(0));
+        assertTrue(ICongressCandidateRegistry.vacateAndFillSeatForPerson.selector != bytes4(0));
         assertTrue(ICongressElectionPolicy.cycleDuration.selector != bytes4(0));
         assertTrue(ICongressElectionPolicy.votingWeight.selector != bytes4(0));
         assertTrue(ICongressElectionApp.createElectionCycle.selector != bytes4(0));
@@ -145,6 +165,7 @@ contract Milestone4CongressElectionsTest is Test {
         assertTrue(ICongressElectionApp.previewNextElectionWindow.selector != bytes4(0));
         assertTrue(ICongressElectionApp.castBallot.selector != bytes4(0));
         assertTrue(ICongressElectionApp.resignSeat.selector != bytes4(0));
+        assertTrue(ICongressElectionApp.recallUnrepresentedSeat.selector != bytes4(0));
         assertTrue(ICitizenEligibilityPolicy.isCitizenInGoodStanding.selector != bytes4(0));
         assertTrue(IIdentityRegistry.resolveWalletToPersonId.selector != bytes4(0));
         assertTrue(IStakeRegistry.activeStakeOf.selector != bytes4(0));
@@ -231,6 +252,84 @@ contract Milestone4CongressElectionsTest is Test {
         assertEq(cycleRecord.nominationStart, expectedNominationStart);
         assertEq(cycleRecord.votingStart, expectedVotingStart);
         assertEq(cycleRecord.votingEnd, expectedVotingEnd);
+        assertEq(cycleRecord.votingPowerSnapshotBlock, block.number - 1);
+        assertEq(cycleRecord.policy, address(congressElectionPolicy));
+    }
+
+    function test_ActiveElectionKeepsItsStartingPolicyAfterKernelReplacement() public {
+        (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycleRecord) = _createCycle();
+        CongressElectionPolicy replacementPolicy = new CongressElectionPolicy(
+            address(candidateEligibilityPolicy),
+            address(votingPowerPolicy),
+            1,
+            1,
+            2,
+            CANDIDATE_BOND_REQUIREMENT,
+            MINIMUM_NOMINATION_DURATION,
+            MINIMUM_VOTING_DURATION,
+            MAX_SCHEDULE_LEAD_TIME,
+            ELECTION_CYCLE_DURATION
+        );
+        kernel.bootstrapSetModule(KernelModuleIds.CONGRESS_ELECTION_POLICY, address(replacementPolicy));
+        ElectorateRegistry replacementElectorate =
+            new ElectorateRegistry(address(kernel), address(identityRegistry), address(stakeRegistry));
+        kernel.bootstrapSetModule(KernelModuleIds.ELECTORATE_REGISTRY, address(replacementElectorate));
+
+        vm.warp(cycleRecord.nominationStart);
+        _applyCandidate(cycleId, WALLET_ONE, "candidate-1");
+        _applyCandidate(cycleId, WALLET_TWO, "candidate-2");
+
+        vm.warp(cycleRecord.votingStart);
+        address[] memory candidates = new address[](2);
+        candidates[0] = WALLET_ONE;
+        candidates[1] = WALLET_TWO;
+        int256[] memory allocations = new int256[](2);
+        allocations[0] = 4_500;
+        allocations[1] = 4_500;
+        _castBallot(WALLET_ONE, cycleId, candidates, allocations);
+
+        assertEq(congressCandidateRegistry.getCycle(cycleId).policy, address(congressElectionPolicy));
+        assertEq(congressCandidateRegistry.getBallotReceipt(cycleId, WALLET_ONE).ballotWeight, 9_000);
+    }
+
+    function test_CreateCycleRejectsVotingPolicyBoundToPreviousElectorate() public {
+        ElectorateRegistry replacementElectorate =
+            new ElectorateRegistry(address(kernel), address(identityRegistry), address(stakeRegistry));
+        kernel.bootstrapSetModule(KernelModuleIds.ELECTORATE_REGISTRY, address(replacementElectorate));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICongressElectionApp.VotingPowerElectorateMismatch.selector,
+                address(votingPowerPolicy),
+                address(electorateRegistry),
+                address(replacementElectorate)
+            )
+        );
+        congressElectionApp.createNextElectionCycle();
+    }
+
+    function test_LateFinalizationPreservesUtcBoundaryAndFullCycleDuration() public {
+        (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycleRecord) = _createCycle();
+
+        vm.warp(cycleRecord.nominationStart);
+        _applyCandidate(cycleId, WALLET_ONE, "candidate-1");
+        _applyCandidate(cycleId, WALLET_TWO, "candidate-2");
+        _applyCandidate(cycleId, WALLET_THREE, "candidate-3");
+        _applyCandidate(cycleId, WALLET_FOUR, "candidate-4");
+
+        vm.warp(cycleRecord.votingEnd + 3 hours);
+        congressElectionApp.finalizeElection(cycleId);
+
+        ElectionTypes.CongressCycleRecord memory nextCycle = congressCandidateRegistry.getCycle(cycleId + 1);
+        uint64 currentTimestamp = uint64(block.timestamp);
+        uint64 expectedBoundary = currentTimestamp - currentTimestamp % 1 days + cycleRecord.votingEnd % 1 days;
+        if (expectedBoundary < currentTimestamp) {
+            expectedBoundary += 1 days;
+        }
+
+        assertEq(nextCycle.nominationStart, expectedBoundary);
+        assertEq(nextCycle.votingEnd, expectedBoundary + ELECTION_CYCLE_DURATION);
+        assertEq(nextCycle.votingEnd % 1 days, cycleRecord.votingEnd % 1 days);
     }
 
     function test_AutoRegisteredIncumbents_ReelectWhenNoOneActs() public {
@@ -331,10 +430,9 @@ contract Milestone4CongressElectionsTest is Test {
         assertEq(congressCandidateRegistry.getCandidate(cycleId, WALLET_FOUR).voteTotal, 2_000);
     }
 
-    /// @notice H-3: a person who migrates wallets mid-cycle cannot double-vote the same stake; the pre-migration
-    ///         standing ballot is dropped when the person re-votes from the new wallet.
+    /// @notice A person who migrates wallets mid-cycle cannot double-vote the same stake; the old cycle ballot is
+    ///         dropped when the person re-votes from the new wallet.
     function test_CastBallot_WalletMigrationCannotDoubleVote() public {
-        address newWallet = address(0x9999);
         (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycleRecord) = _createCycle();
 
         vm.warp(cycleRecord.nominationStart);
@@ -347,15 +445,224 @@ contract Milestone4CongressElectionsTest is Test {
 
         // Office-approved wallet migration: revoke WALLET_ONE, activate a fresh wallet for the SAME person.
         _setWalletLink(PERSON_ONE_ID, WALLET_ONE, IdentityTypes.WalletLinkStatus.Revoked);
-        _setWalletLink(PERSON_ONE_ID, newWallet, IdentityTypes.WalletLinkStatus.Active);
+        _setWalletLink(PERSON_ONE_ID, WALLET_ONE_NEW, IdentityTypes.WalletLinkStatus.Active);
 
         // Voting again from the new wallet must REPLACE the person's ballot, not stack a second 9,000.
-        _castBallot(newWallet, cycleId, _asAddressArray(WALLET_THREE), _asIntArray(int256(9_000)));
+        _castBallot(WALLET_ONE_NEW, cycleId, _asAddressArray(WALLET_THREE), _asIntArray(int256(9_000)));
         assertEq(congressCandidateRegistry.getCandidate(cycleId, WALLET_THREE).voteTotal, 9_000);
 
-        // The stale pre-migration standing ballot is gone.
-        assertEq(congressCandidateRegistry.getStandingBallotReceipt(WALLET_ONE).voter, address(0));
-        assertEq(congressCandidateRegistry.getStandingBallotReceipt(newWallet).ballotWeight, 9_000);
+        assertEq(congressCandidateRegistry.getBallotReceipt(cycleId, WALLET_ONE).voter, address(0));
+        assertEq(congressCandidateRegistry.getBallotReceipt(cycleId, WALLET_ONE_NEW).ballotWeight, 9_000);
+    }
+
+    function test_Candidacy_WalletMigrationCannotDuplicateAndCurrentWalletCanWithdraw() public {
+        (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycleRecord) = _createCycle();
+
+        vm.warp(cycleRecord.nominationStart);
+        _applyCandidate(cycleId, WALLET_ONE, "candidate-1");
+        _setWalletLink(PERSON_ONE_ID, WALLET_ONE, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(PERSON_ONE_ID, WALLET_ONE_NEW, IdentityTypes.WalletLinkStatus.Active);
+
+        ElectionTypes.CongressCandidateRecord memory migratedRecord =
+            congressCandidateRegistry.getCandidate(cycleId, WALLET_ONE_NEW);
+        assertEq(migratedRecord.candidate, WALLET_ONE);
+        assertEq(migratedRecord.personId, PERSON_ONE_ID);
+        assertEq(congressCandidateRegistry.getCycleCandidateCount(cycleId), 1);
+
+        vm.prank(WALLET_ONE_NEW);
+        vm.expectRevert(
+            abi.encodeWithSelector(ICongressCandidateRegistry.CandidateAlreadyExists.selector, cycleId, WALLET_ONE)
+        );
+        congressElectionApp.applyAsCandidate(cycleId, keccak256("duplicate"), "ipfs://duplicate");
+
+        vm.prank(WALLET_ONE);
+        vm.expectRevert(abi.encodeWithSelector(ICongressElectionApp.NotActiveCandidateWallet.selector, WALLET_ONE));
+        congressElectionApp.withdrawCandidacy(cycleId);
+
+        vm.prank(WALLET_ONE_NEW);
+        congressElectionApp.withdrawCandidacy(cycleId);
+
+        assertEq(congressCandidateRegistry.getCycleCandidateCount(cycleId), 0);
+        _assertCandidateStatus(cycleId, WALLET_ONE_NEW, ElectionTypes.CandidateStatus.Withdrawn);
+    }
+
+    function test_Candidacy_ReassignedHistoricalAddressCannotOverwriteCycleRecord() public {
+        (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycleRecord) = _createCycle();
+
+        vm.warp(cycleRecord.nominationStart);
+        _applyCandidate(cycleId, WALLET_ONE, "candidate-1");
+
+        _setWalletLink(PERSON_ONE_ID, WALLET_ONE, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(PERSON_ONE_ID, WALLET_ONE_NEW, IdentityTypes.WalletLinkStatus.Active);
+        _setWalletLink(PERSON_TWO_ID, WALLET_TWO, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(PERSON_TWO_ID, WALLET_ONE, IdentityTypes.WalletLinkStatus.Active);
+
+        vm.prank(WALLET_ONE);
+        vm.expectRevert(
+            abi.encodeWithSelector(ICongressCandidateRegistry.CandidateAlreadyExists.selector, cycleId, WALLET_ONE)
+        );
+        congressElectionApp.applyAsCandidate(cycleId, keccak256("reassigned-address"), "ipfs://reassigned-address");
+
+        ElectionTypes.CongressCandidateRecord memory originalRecord =
+            congressCandidateRegistry.getCandidate(cycleId, WALLET_ONE_NEW);
+        assertEq(originalRecord.candidate, WALLET_ONE);
+        assertEq(originalRecord.personId, PERSON_ONE_ID);
+        assertEq(uint8(originalRecord.status), uint8(ElectionTypes.CandidateStatus.Accepted));
+        assertEq(congressCandidateRegistry.getCycleCandidateCount(cycleId), 1);
+    }
+
+    function test_Candidacy_ReassignedHistoricalAddressWithdrawsCurrentPersonsRecord() public {
+        (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycleRecord) = _createCycle();
+
+        vm.warp(cycleRecord.nominationStart);
+        _applyCandidate(cycleId, WALLET_ONE, "candidate-1");
+        _applyCandidate(cycleId, WALLET_TWO, "candidate-2");
+
+        _setWalletLink(PERSON_ONE_ID, WALLET_ONE, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(PERSON_ONE_ID, WALLET_ONE_NEW, IdentityTypes.WalletLinkStatus.Active);
+        _setWalletLink(PERSON_TWO_ID, WALLET_TWO, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(PERSON_TWO_ID, WALLET_ONE, IdentityTypes.WalletLinkStatus.Active);
+
+        vm.prank(WALLET_ONE);
+        congressElectionApp.withdrawCandidacy(cycleId);
+
+        _assertCandidateStatus(cycleId, WALLET_TWO, ElectionTypes.CandidateStatus.Withdrawn);
+        _assertCandidateStatus(cycleId, WALLET_ONE_NEW, ElectionTypes.CandidateStatus.Accepted);
+        assertEq(congressCandidateRegistry.getCycleCandidateCount(cycleId), 1);
+    }
+
+    function test_Ballot_ReassignedHistoricalAddressRemainsCanonicalCandidateTarget() public {
+        (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycleRecord) = _createCycle();
+
+        vm.warp(cycleRecord.nominationStart);
+        _applyCandidate(cycleId, WALLET_ONE, "candidate-1");
+        _applyCandidate(cycleId, WALLET_TWO, "candidate-2");
+
+        _setWalletLink(PERSON_ONE_ID, WALLET_ONE, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(PERSON_ONE_ID, WALLET_ONE_NEW, IdentityTypes.WalletLinkStatus.Active);
+        _setWalletLink(PERSON_TWO_ID, WALLET_TWO, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(PERSON_TWO_ID, WALLET_ONE, IdentityTypes.WalletLinkStatus.Active);
+
+        vm.warp(cycleRecord.votingStart);
+        _castFullWeightBallot(WALLET_THREE, cycleId, WALLET_ONE);
+
+        assertEq(congressCandidateRegistry.getCandidate(cycleId, WALLET_TWO).voteTotal, 0);
+        assertEq(congressCandidateRegistry.getCandidate(cycleId, WALLET_ONE_NEW).voteTotal, 7_000);
+    }
+
+    function test_CandidateWalletMigration_PreservesBallotTargetAndFinalizationEligibility() public {
+        (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycleRecord) = _createCycle();
+
+        vm.warp(cycleRecord.nominationStart);
+        _applyCandidate(cycleId, WALLET_ONE, "candidate-1");
+        _applyCandidate(cycleId, WALLET_TWO, "candidate-2");
+        _setWalletLink(PERSON_ONE_ID, WALLET_ONE, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(PERSON_ONE_ID, WALLET_ONE_NEW, IdentityTypes.WalletLinkStatus.Active);
+
+        vm.warp(cycleRecord.votingStart);
+        _castFullWeightBallot(WALLET_THREE, cycleId, WALLET_ONE_NEW);
+        assertEq(congressCandidateRegistry.getCandidate(cycleId, WALLET_ONE).voteTotal, 7_000);
+        assertEq(congressCandidateRegistry.getCandidate(cycleId, WALLET_ONE_NEW).voteTotal, 7_000);
+
+        vm.prank(WALLET_FOUR);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICongressCandidateRegistry.DuplicateBallotCandidate.selector, cycleId, WALLET_FOUR, WALLET_ONE
+            )
+        );
+        congressElectionApp.castBallot(
+            cycleId, _asAddressArray(WALLET_ONE, WALLET_ONE_NEW), _asIntArray(int256(3_000), int256(3_500))
+        );
+        _castFullWeightBallot(WALLET_FOUR, cycleId, WALLET_TWO);
+
+        vm.warp(cycleRecord.votingEnd);
+        congressElectionApp.finalizeElection(cycleId);
+
+        _assertCandidateOutcome(cycleId, WALLET_ONE_NEW, ElectionTypes.CandidateStatus.Elected, 1, 7_000);
+        assertTrue(congressElectionApp.isCongressMember(WALLET_ONE_NEW));
+        assertFalse(congressElectionApp.isCongressMember(WALLET_ONE));
+    }
+
+    function test_CastBallot_RejectsPreStakedCitizenAddedAfterCycleSnapshot() public {
+        IdentityTypes.IdentityRecordInput memory input = _defaultIdentityInput();
+        input.citizenshipStatus = IdentityTypes.CitizenshipStatus.EResident;
+        _setIdentityRecord(PERSON_SEVEN_ID, input);
+        _setWalletLink(PERSON_SEVEN_ID, WALLET_SEVEN, IdentityTypes.WalletLinkStatus.Active);
+        _increaseStake(PERSON_SEVEN_ID, 7_000);
+
+        vm.roll(block.number + 1);
+        (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycleRecord) = _createCycle();
+        vm.warp(cycleRecord.nominationStart);
+        _applyCandidate(cycleId, WALLET_ONE, "candidate-1");
+
+        input.citizenshipStatus = IdentityTypes.CitizenshipStatus.Citizen;
+        _setIdentityRecord(PERSON_SEVEN_ID, input);
+        assertTrue(citizenEligibilityPolicy.isCitizenInGoodStanding(WALLET_SEVEN));
+
+        vm.warp(cycleRecord.votingStart);
+        vm.prank(WALLET_SEVEN);
+        vm.expectRevert(abi.encodeWithSelector(ICongressElectionApp.NoVotingPower.selector, WALLET_SEVEN));
+        congressElectionApp.castBallot(cycleId, _asAddressArray(WALLET_ONE), _asIntArray(int256(7_000)));
+    }
+
+    function test_CongressSeatAuthorityFollowsActiveWalletMigration() public {
+        (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycleRecord) = _createCycle();
+
+        vm.warp(cycleRecord.nominationStart);
+        _applyCandidate(cycleId, WALLET_ONE, "candidate-1");
+        _applyCandidate(cycleId, WALLET_TWO, "candidate-2");
+
+        vm.warp(cycleRecord.votingStart);
+        _castFullWeightBallot(WALLET_THREE, cycleId, WALLET_ONE);
+        _castFullWeightBallot(WALLET_FOUR, cycleId, WALLET_TWO);
+
+        vm.warp(cycleRecord.votingEnd);
+        congressElectionApp.finalizeElection(cycleId);
+        assertTrue(congressElectionApp.isCongressMember(WALLET_ONE));
+
+        _setWalletLink(PERSON_ONE_ID, WALLET_ONE, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(PERSON_ONE_ID, WALLET_ONE_NEW, IdentityTypes.WalletLinkStatus.Active);
+
+        assertFalse(congressElectionApp.isCongressMember(WALLET_ONE));
+        assertTrue(congressElectionApp.isCongressMember(WALLET_ONE_NEW));
+        address[] memory currentMembers = congressCandidateRegistry.currentCongressMembers();
+        assertEq(currentMembers[0], WALLET_ONE_NEW);
+
+        vm.prank(WALLET_ONE_NEW);
+        congressElectionApp.resignSeat();
+        assertFalse(congressElectionApp.isCongressMember(WALLET_ONE_NEW));
+    }
+
+    function test_CurrentCongressMembers_CompactsHolderWithoutActiveWallet() public {
+        _finalizeDefaultCongressTerm();
+
+        _setWalletLink(PERSON_ONE_ID, WALLET_ONE, IdentityTypes.WalletLinkStatus.Revoked);
+
+        address[] memory currentMembers = congressCandidateRegistry.currentCongressMembers();
+        assertEq(currentMembers.length, 1);
+        assertEq(currentMembers[0], WALLET_THREE);
+    }
+
+    function test_RecallUnrepresentedSeat_IsPermissionlessAndPersonKeyed() public {
+        uint256 cycleId = _finalizeDefaultCongressTerm();
+
+        vm.expectRevert(
+            abi.encodeWithSelector(ICongressElectionApp.CongressSeatStillRepresented.selector, uint32(0), WALLET_ONE)
+        );
+        congressElectionApp.recallUnrepresentedSeat(0);
+
+        _setWalletLink(PERSON_ONE_ID, WALLET_ONE, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(PERSON_SIX_ID, WALLET_SIX, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(PERSON_SIX_ID, WALLET_ONE, IdentityTypes.WalletLinkStatus.Active);
+
+        vm.prank(address(0xBEEF));
+        (uint32 seatIndex, address replacement) = congressElectionApp.recallUnrepresentedSeat(0);
+
+        assertEq(seatIndex, 0);
+        assertEq(replacement, WALLET_TWO);
+        assertFalse(congressElectionApp.isCongressMember(WALLET_ONE));
+        assertTrue(congressElectionApp.isCongressMember(WALLET_TWO));
+        _assertSeatHolder(0, cycleId, WALLET_TWO, 3, true);
     }
 
     function test_CastBallot_RejectsMinimumSignedAllocation() public {
@@ -373,7 +680,7 @@ contract Milestone4CongressElectionsTest is Test {
         _castBallot(WALLET_ONE, cycleId, _asAddressArray(WALLET_TWO), _asIntArray(type(int256).min));
     }
 
-    function test_StandingBallot_CarriesForwardUntilChanged() public {
+    function test_CycleBallot_DoesNotCarryIntoNextCycle() public {
         (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycleRecord) = _createCycle();
 
         vm.warp(cycleRecord.nominationStart);
@@ -392,7 +699,7 @@ contract Milestone4CongressElectionsTest is Test {
         assertEq(congressCandidateRegistry.getCycleCandidateCount(nextCycleId), 2);
         _assertCandidateStatus(nextCycleId, WALLET_ONE, ElectionTypes.CandidateStatus.Accepted);
         _assertCandidateStatus(nextCycleId, WALLET_TWO, ElectionTypes.CandidateStatus.Accepted);
-        assertEq(congressCandidateRegistry.getCandidate(nextCycleId, WALLET_ONE).voteTotal, 5_500);
+        assertEq(congressCandidateRegistry.getCandidate(nextCycleId, WALLET_ONE).voteTotal, 0);
         assertEq(congressCandidateRegistry.getCandidate(nextCycleId, WALLET_TWO).voteTotal, 0);
 
         vm.warp(nextCycle.votingStart);
@@ -442,6 +749,37 @@ contract Milestone4CongressElectionsTest is Test {
         assertEq(officeTerm.nextRunnerUpIndex, RUNNER_UP_COUNT);
     }
 
+    function test_ResignSeat_PromotesRunnerUpAtTheirCurrentWallet() public {
+        (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycleRecord) = _createCycle();
+
+        vm.warp(cycleRecord.nominationStart);
+        _applyCandidate(cycleId, WALLET_ONE, "candidate-1");
+        _applyCandidate(cycleId, WALLET_TWO, "candidate-2");
+        _applyCandidate(cycleId, WALLET_THREE, "candidate-3");
+
+        vm.warp(cycleRecord.votingStart);
+        _castFullWeightBallot(WALLET_THREE, cycleId, WALLET_ONE);
+        _castFullWeightBallot(WALLET_FOUR, cycleId, WALLET_THREE);
+        _castFullWeightBallot(WALLET_FIVE, cycleId, WALLET_TWO);
+
+        vm.warp(cycleRecord.votingEnd);
+        congressElectionApp.finalizeElection(cycleId);
+        _assertCandidateStatus(cycleId, WALLET_TWO, ElectionTypes.CandidateStatus.RunnerUp);
+
+        _setWalletLink(PERSON_TWO_ID, WALLET_TWO, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(PERSON_TWO_ID, WALLET_TWO_NEW, IdentityTypes.WalletLinkStatus.Active);
+
+        vm.prank(WALLET_ONE);
+        (uint32 seatIndex, address replacement) = congressElectionApp.resignSeat();
+
+        assertEq(seatIndex, 0);
+        assertEq(replacement, WALLET_TWO_NEW);
+        assertTrue(congressElectionApp.isCongressMember(WALLET_TWO_NEW));
+        assertFalse(congressElectionApp.isCongressMember(WALLET_TWO));
+        _assertSeatHolder(0, cycleId, WALLET_TWO_NEW, 3, true);
+        _assertCandidateStatus(cycleId, WALLET_TWO_NEW, ElectionTypes.CandidateStatus.Elected);
+    }
+
     function test_ApplyAsCandidate_RejectsIneligibleCandidate() public {
         (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycleRecord) = _createCycle();
 
@@ -471,6 +809,25 @@ contract Milestone4CongressElectionsTest is Test {
 
         cycleId = congressElectionApp.createElectionCycle(nominationStart, votingStart, votingEnd);
         cycleRecord = congressCandidateRegistry.getCycle(cycleId);
+    }
+
+    function _finalizeDefaultCongressTerm() internal returns (uint256 cycleId) {
+        ElectionTypes.CongressCycleRecord memory cycleRecord;
+        (cycleId, cycleRecord) = _createCycle();
+
+        vm.warp(cycleRecord.nominationStart);
+        _applyAllDefaultCandidates(cycleId);
+
+        vm.warp(cycleRecord.votingStart);
+        _castFullWeightBallot(WALLET_ONE, cycleId, WALLET_THREE);
+        _castFullWeightBallot(WALLET_TWO, cycleId, WALLET_ONE);
+        _castFullWeightBallot(WALLET_THREE, cycleId, WALLET_ONE);
+        _castFullWeightBallot(WALLET_FOUR, cycleId, WALLET_TWO);
+        _castFullWeightBallot(WALLET_FIVE, cycleId, WALLET_THREE);
+        _castFullWeightBallot(WALLET_SIX, cycleId, WALLET_FOUR);
+
+        vm.warp(cycleRecord.votingEnd);
+        congressElectionApp.finalizeElection(cycleId);
     }
 
     function _applyAllDefaultCandidates(uint256 cycleId) internal {

@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {ICongressCandidateRegistry} from "../interfaces/ICongressCandidateRegistry.sol";
 import {ICongressElectionPolicy} from "../interfaces/ICongressElectionPolicy.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
+import {ILLMStakingVault} from "../interfaces/ILLMStakingVault.sol";
 import {IOfficeRegistry} from "../interfaces/IOfficeRegistry.sol";
 import {ISenateSeatRegistry} from "../interfaces/ISenateSeatRegistry.sol";
 import {IStakeRegistry} from "../interfaces/IStakeRegistry.sol";
 import {ElectionTypes} from "../types/ElectionTypes.sol";
 import {IdentityTypes} from "../types/IdentityTypes.sol";
 import {OfficeTypes} from "../types/OfficeTypes.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /// @title InitialSetupAuthority
 /// @notice Explicit, sealable setup authority for genesis citizens, offices, Senate seats, and Congress members.
@@ -28,11 +30,20 @@ contract InitialSetupAuthority {
     event SetupCongressTermSeeded(
         uint256 indexed cycleId, uint32 electedCount, uint32 runnerUpCount, address indexed seededBy
     );
+    event SetupCongressContinuityCycleSeeded(
+        uint256 indexed cycleId,
+        uint64 nominationStart,
+        uint64 votingStart,
+        uint64 votingEnd,
+        uint32 incumbentCount,
+        address indexed seededBy
+    );
     event SetupOfficeConfigured(bytes32 indexed officeId, address indexed admin, address indexed configuredBy);
 
     address public immutable owner;
     IIdentityRegistry public immutable identityRegistry;
     IStakeRegistry public immutable stakeRegistry;
+    ILLMStakingVault public immutable stakingVault;
     ICongressCandidateRegistry public immutable congressCandidateRegistry;
     ICongressElectionPolicy public immutable congressElectionPolicy;
     ISenateSeatRegistry public immutable senateSeatRegistry;
@@ -43,6 +54,7 @@ contract InitialSetupAuthority {
     /// @param owner_ The explicit setup operator. This authority can be permanently sealed.
     /// @param identityRegistryAddress The identity registry address.
     /// @param stakeRegistryAddress The stake registry address.
+    /// @param stakingVaultAddress The canonical LLM staking vault pre-funded for genesis stake.
     /// @param congressCandidateRegistryAddress The Congress candidate registry address.
     /// @param congressElectionPolicyAddress The Congress election policy address used for genesis cycle bounds.
     /// @param senateSeatRegistryAddress The Senate seat registry address.
@@ -51,6 +63,7 @@ contract InitialSetupAuthority {
         address owner_,
         address identityRegistryAddress,
         address stakeRegistryAddress,
+        address stakingVaultAddress,
         address congressCandidateRegistryAddress,
         address congressElectionPolicyAddress,
         address senateSeatRegistryAddress,
@@ -61,6 +74,7 @@ contract InitialSetupAuthority {
         }
         _requireContract(identityRegistryAddress);
         _requireContract(stakeRegistryAddress);
+        _requireContract(stakingVaultAddress);
         _requireContract(congressCandidateRegistryAddress);
         _requireContract(congressElectionPolicyAddress);
         _requireContract(senateSeatRegistryAddress);
@@ -69,6 +83,7 @@ contract InitialSetupAuthority {
         owner = owner_;
         identityRegistry = IIdentityRegistry(identityRegistryAddress);
         stakeRegistry = IStakeRegistry(stakeRegistryAddress);
+        stakingVault = ILLMStakingVault(stakingVaultAddress);
         congressCandidateRegistry = ICongressCandidateRegistry(congressCandidateRegistryAddress);
         congressElectionPolicy = ICongressElectionPolicy(congressElectionPolicyAddress);
         senateSeatRegistry = ISenateSeatRegistry(senateSeatRegistryAddress);
@@ -108,7 +123,7 @@ contract InitialSetupAuthority {
         identityRegistry.setIdentityRecord(personId, recordInput);
         identityRegistry.setWalletLink(personId, wallet, IdentityTypes.WalletLinkStatus.Active);
         if (activeStakeToAdd != 0) {
-            stakeRegistry.increaseStake(personId, activeStakeToAdd);
+            stakingVault.creditBackedStake(personId, activeStakeToAdd);
         }
     }
 
@@ -121,7 +136,7 @@ contract InitialSetupAuthority {
             revert InvalidSetupInput();
         }
 
-        stakeRegistry.increaseStake(personId, amount);
+        stakingVault.creditBackedStake(personId, amount);
     }
 
     /// @notice Sets a protected stake floor for an existing person record.
@@ -151,6 +166,77 @@ contract InitialSetupAuthority {
     /// @param members Candidate wallets sorted in intended rank order. First policy seat-count members become elected.
     function seedCongressTerm(address[] calldata members) external returns (uint256 cycleId) {
         _requireOpenOwner(msg.sender);
+        return _seedFinalizedCongressTerm(members);
+    }
+
+    /// @notice Seeds occupied Congress seats and a live shortened cycle ending at the imported pre-migration boundary.
+    /// @dev The live continuity cycle may be shorter than the normal policy cadence, but must provide the full minimum
+    ///      nomination and voting windows and may not exceed one normal cycle. Later cycles are created by the regular
+    ///      CongressElectionApp cadence.
+    /// @param members Candidate wallets sorted in intended rank order. First policy seat-count members become elected.
+    /// @param continuityCycleEnd Absolute end timestamp imported from the pre-migration Congress cycle.
+    /// @return officeTermCycleId Finalized seed cycle that installs the incumbent Congress office term.
+    /// @return continuityCycleId Live shortened election cycle that ends at `continuityCycleEnd`.
+    function seedCongressContinuityTerm(address[] calldata members, uint64 continuityCycleEnd)
+        external
+        returns (uint256 officeTermCycleId, uint256 continuityCycleId)
+    {
+        _requireOpenOwner(msg.sender);
+        officeTermCycleId = _seedFinalizedCongressTerm(members);
+
+        uint64 nominationStart = uint64(block.timestamp);
+        uint64 votingStart = nominationStart + congressElectionPolicy.minimumNominationDuration();
+        if (
+            continuityCycleEnd <= votingStart
+                || continuityCycleEnd - votingStart < congressElectionPolicy.minimumVotingDuration()
+                || continuityCycleEnd - nominationStart > congressElectionPolicy.cycleDuration()
+        ) {
+            revert InvalidSetupInput();
+        }
+
+        continuityCycleId = officeTermCycleId + 1;
+        congressCandidateRegistry.createCycle(
+            continuityCycleId,
+            ElectionTypes.CongressCycleInput({
+                nominationStart: nominationStart,
+                votingStart: votingStart,
+                votingEnd: continuityCycleEnd,
+                votingPowerSnapshotBlock: SafeCast.toUint48(block.number),
+                seatCount: congressElectionPolicy.seatCount(),
+                runnerUpCount: congressElectionPolicy.runnerUpCount(),
+                maxCandidateCount: congressElectionPolicy.maxCandidateCount(),
+                policy: address(congressElectionPolicy),
+                policyReference: _congressPolicyReference()
+            })
+        );
+
+        address[] memory incumbents = congressCandidateRegistry.currentCongressMembers();
+        uint256 incumbentCount = incumbents.length;
+        for (uint256 index = 0; index < incumbentCount; ++index) {
+            address incumbent = incumbents[index];
+            bytes32 personId = _requireActivePerson(incumbent);
+            congressCandidateRegistry.registerCandidate(
+                continuityCycleId,
+                incumbent,
+                personId,
+                keccak256(abi.encode("initial.congress.continuity", continuityCycleId, incumbent)),
+                ""
+            );
+        }
+
+        emit SetupCongressContinuityCycleSeeded(
+            continuityCycleId,
+            nominationStart,
+            votingStart,
+            continuityCycleEnd,
+            // The incumbent list cannot exceed the uint32 policy seat count.
+            // forge-lint: disable-next-line(unsafe-typecast)
+            uint32(incumbentCount),
+            msg.sender
+        );
+    }
+
+    function _seedFinalizedCongressTerm(address[] calldata members) private returns (uint256 cycleId) {
         uint256 memberCount = members.length;
         if (memberCount == 0) {
             revert InvalidSetupInput();
@@ -171,9 +257,11 @@ contract InitialSetupAuthority {
                 nominationStart: uint64(block.timestamp),
                 votingStart: uint64(block.timestamp + 1),
                 votingEnd: uint64(block.timestamp + 2),
+                votingPowerSnapshotBlock: SafeCast.toUint48(block.number),
                 seatCount: congressElectionPolicy.seatCount(),
                 runnerUpCount: congressElectionPolicy.runnerUpCount(),
                 maxCandidateCount: congressElectionPolicy.maxCandidateCount(),
+                policy: address(congressElectionPolicy),
                 policyReference: _congressPolicyReference()
             })
         );

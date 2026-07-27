@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 /// @title KernelModuleIds
-/// @notice Canonical module identifiers used by the current milestone contracts.
+/// @notice Canonical module identifiers used by the protocol contracts.
 library KernelModuleIds {
     bytes32 internal constant GOVERNANCE_ROUTER = keccak256("core.governance-router");
     bytes32 internal constant ACTION_TIMELOCK = keccak256("core.action-timelock");
@@ -12,6 +12,7 @@ library KernelModuleIds {
     bytes32 internal constant REFERENDUM_REGISTRY = keccak256("registry.referendum");
     bytes32 internal constant SENATE_SEAT_REGISTRY = keccak256("registry.senate-seat");
     bytes32 internal constant STAKE_REGISTRY = keccak256("registry.stake");
+    bytes32 internal constant LLM_STAKING_VAULT = keccak256("registry.llm-staking-vault");
     bytes32 internal constant STAKE_LIEN_REGISTRY = keccak256("registry.stake-lien");
     bytes32 internal constant LAND_REGISTRY = keccak256("registry.land");
     bytes32 internal constant COMPANY_REGISTRY = keccak256("registry.company");
@@ -20,6 +21,7 @@ library KernelModuleIds {
     bytes32 internal constant OFFICE_REGISTRY = keccak256("registry.office");
     bytes32 internal constant PRESIDENT_REGISTRY = keccak256("registry.president");
     bytes32 internal constant EXECUTIVE_REGISTRY = keccak256("registry.executive");
+    bytes32 internal constant ELECTORATE_REGISTRY = keccak256("registry.electorate-checkpoint");
     bytes32 internal constant BUDGET_ENVELOPE_ACCOUNTING_AUTHORITY = keccak256("authority.budget-envelope-accounting");
     bytes32 internal constant BUDGET_ENVELOPE_REGISTRY_AUTHORITY = keccak256("authority.budget-envelope-registry");
     bytes32 internal constant COMPANY_REGISTRY_AUTHORITY = keccak256("authority.company-registry");
@@ -36,7 +38,7 @@ library KernelModuleIds {
     bytes32 internal constant REFERENDUM_REGISTRY_AUTHORITY = keccak256("authority.referendum-registry");
     bytes32 internal constant SENATE_SEAT_REGISTRY_AUTHORITY = keccak256("authority.senate-seat-registry");
     bytes32 internal constant STAKE_LIEN_REGISTRY_AUTHORITY = keccak256("authority.stake-lien-registry");
-    bytes32 internal constant STAKE_DEPOSIT_AUTHORITY = keccak256("authority.stake-deposit");
+    bytes32 internal constant STAKE_USER_GATEWAY_AUTHORITY = keccak256("authority.stake-user-gateway");
     bytes32 internal constant STAKE_LIQUIDATION_AUTHORITY = keccak256("authority.stake-liquidation");
     bytes32 internal constant STAKE_REGISTRY_AUTHORITY = keccak256("authority.stake-registry");
     bytes32 internal constant CANDIDATE_ELIGIBILITY_POLICY = keccak256("policy.candidate-eligibility");

@@ -1,7 +1,7 @@
 # Liberland EVM - AGENTS.md
 
 ## Mission
-Build the Liberland EVM smart contract system in small, auditable milestones.
+Build and maintain the Liberland EVM smart contract system as an auditable, constitution-aligned protocol.
 
 This repository is a constitution-aligned governance system, not a generic DAO.
 
@@ -11,7 +11,7 @@ This repository is a constitution-aligned governance system, not a generic DAO.
 - Coding agent: official Codex extension
 - Primary framework: Foundry
 - Local node: Anvil
-- Compiler: Solidity 0.8.35
+- Compiler: Solidity 0.8.36
 - Tests: Forge
 - Deployment scripts: Forge scripts
 - Static analysis: Slither
@@ -26,13 +26,13 @@ This repository is a constitution-aligned governance system, not a generic DAO.
 - Never add arbitrary execution paths for convenience
 
 ## Working rules
-1. Read `docs/CodexImplementationBrief.md` before making architectural changes.
-2. Work in one milestone at a time.
-3. Do not implement future modules before the current milestone is stable.
+1. Read `docs/Architecture.md` and `docs/Audit-Scope.md` before making architectural changes.
+2. Keep each change narrowly scoped and independently reviewable.
+3. Do not broaden deployment scope without updating the deployment and audit documentation.
 4. Define interfaces first, then concrete contracts, then tests.
 5. Keep registries stable and policies replaceable.
 6. Emit events for every governance-relevant state transition.
-7. Use pinned `pragma solidity 0.8.35;` consistently.
+7. Use pinned `pragma solidity 0.8.36;` consistently.
 8. Use NatSpec on public and external functions.
 9. Use custom errors where practical.
 10. Do not use `onlyOwner` as a long-term authority model.
@@ -41,12 +41,12 @@ This repository is a constitution-aligned governance system, not a generic DAO.
 13. If the constitution or politics are unclear, choose the more conservative interpretation and leave a `TODO-CONSTITUTIONAL-REVIEW` comment.
 
 ## Delivery standard for each task
-- Scope the milestone clearly
+- Scope the change clearly
 - Implement the smallest correct set of contracts
 - Add or update tests
 - Compile all touched contracts
 - Summarize assumptions and open questions
-- Stop when the requested milestone is complete
+- Stop when the requested change is complete and verified
 
 ## Preferred repository layout
 - `/contracts/core`

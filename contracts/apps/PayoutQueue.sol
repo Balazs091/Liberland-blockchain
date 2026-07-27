@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {KernelModule} from "../base/KernelModule.sol";
 import {IActionTimelock} from "../interfaces/IActionTimelock.sol";
@@ -168,13 +168,26 @@ contract PayoutQueue is IPayoutQueue, KernelModule {
         if (request.requestId == bytes32(0)) {
             revert InvalidPayoutRequest(requestId);
         }
-        if (request.state != TreasuryTypes.DisbursementState.Proposed) {
-            revert PayoutRequestAlreadyFinalized(requestId, request.state);
+        if (request.state == TreasuryTypes.DisbursementState.Proposed) {
+            request.state = TreasuryTypes.DisbursementState.Canceled;
+            emit PayoutCanceled(requestId, uint64(block.timestamp), msg.sender);
+            return;
         }
 
-        request.state = TreasuryTypes.DisbursementState.Canceled;
+        if (request.state == TreasuryTypes.DisbursementState.Queued) {
+            GovernanceTypes.ActionState actionState =
+                IActionTimelock(_kernel.getModule(KernelModuleIds.ACTION_TIMELOCK)).getActionState(request.actionId);
+            if (actionState != GovernanceTypes.ActionState.Canceled) {
+                revert PayoutActionNotCanceled(requestId, request.actionId, actionState);
+            }
 
-        emit PayoutCanceled(requestId, uint64(block.timestamp), msg.sender);
+            request.state = TreasuryTypes.DisbursementState.Canceled;
+            emit PayoutCanceled(requestId, uint64(block.timestamp), msg.sender);
+            _budgetEnvelopeRegistry.releaseBudget(requestId);
+            return;
+        }
+
+        revert PayoutRequestAlreadyFinalized(requestId, request.state);
     }
 
     /// @inheritdoc IPayoutQueue
@@ -189,10 +202,14 @@ contract PayoutQueue is IPayoutQueue, KernelModule {
             return state;
         }
 
-        GovernanceTypes.ActionState actionState =
-            IActionTimelock(_kernel.getModule(KernelModuleIds.ACTION_TIMELOCK)).getActionState(request.actionId);
+        IActionTimelock actionTimelock = IActionTimelock(_kernel.getModule(KernelModuleIds.ACTION_TIMELOCK));
+        GovernanceTypes.ActionState actionState = actionTimelock.getActionState(request.actionId);
         if (actionState == GovernanceTypes.ActionState.Executed) {
-            if (!ITreasuryVault(_kernel.getModule(KernelModuleIds.TREASURY_VAULT)).isDisbursementExecuted(requestId)) {
+            GovernanceTypes.ActionRecord memory actionRecord = actionTimelock.getAction(request.actionId);
+            if (
+                actionRecord.targetModule != KernelModuleIds.TREASURY_VAULT
+                    || !ITreasuryVault(actionRecord.targetModuleAddress).isDisbursementExecuted(requestId)
+            ) {
                 revert PayoutRequestNotQueued(requestId);
             }
 

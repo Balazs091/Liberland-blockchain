@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {TreasuryTypes} from "../types/TreasuryTypes.sol";
 import {OfficeTypes} from "../types/OfficeTypes.sol";
@@ -10,6 +10,7 @@ interface IOfficeExecutor {
     error BootstrapAlreadyDisabled();
     error BudgetApprovalRequiresReferendum(bytes32 budgetId);
     error InvalidBootstrapAuthority(address authority);
+    error ContributionRewardEvidenceRequired(bytes32 requestId);
     error NotBootstrapAuthority(address caller);
     error UnauthorizedOfficeAction(address caller, bytes32 officeId, OfficeTypes.OfficeActionClass actionClass);
     error OfficeActionOfficeMismatch(bytes32 expectedOfficeId, bytes32 actualOfficeId);
@@ -40,5 +41,6 @@ interface IOfficeExecutor {
     function proposePayout(bytes32 officeId, TreasuryTypes.DisbursementRequestInput calldata input) external;
 
     function routePayout(bytes32 officeId, bytes32 requestId) external returns (bytes32 actionId);
+    /// @notice Cancels an office payout before execution, including its routed timelock action when already queued.
     function cancelPayout(bytes32 officeId, bytes32 requestId) external;
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 /// @title CompanyTypes
 /// @notice Shared enums and structs for the company registry domain.
@@ -82,7 +82,7 @@ library CompanyTypes {
         bytes32 filingId;
         bytes32 companyId;
         bytes32 documentHash;
-        // `filingType` packs alongside `filedBy` and `filedAt` in a single slot (E2).
+        // `filingType` packs alongside `filedBy` and `filedAt` in a single slot.
         address filedBy;
         FilingType filingType;
         uint64 filedAt;

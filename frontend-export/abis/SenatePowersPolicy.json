@@ -1,1 +1,160 @@
-{"abi":[{"type":"constructor","inputs":[{"name":"minimumActionCancellationSupport_","type":"uint32","internalType":"uint32"},{"name":"disbursementSuspensionPeriod_","type":"uint64","internalType":"uint64"}],"stateMutability":"nonpayable"},{"type":"function","name":"disbursementSuspensionPeriod","inputs":[],"outputs":[{"name":"suspensionPeriod","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"function","name":"isActionCancellationAllowed","inputs":[{"name":"actionRecord","type":"tuple","internalType":"struct GovernanceTypes.ActionRecord","components":[{"name":"actionId","type":"bytes32","internalType":"bytes32"},{"name":"actionType","type":"uint8","internalType":"enum GovernanceTypes.ActionType"},{"name":"origin","type":"uint8","internalType":"enum GovernanceTypes.ActionOrigin"},{"name":"originReference","type":"bytes32","internalType":"bytes32"},{"name":"policyReference","type":"bytes32","internalType":"bytes32"},{"name":"targetModule","type":"bytes32","internalType":"bytes32"},{"name":"targetModuleAddress","type":"address","internalType":"address"},{"name":"payload","type":"bytes","internalType":"bytes"},{"name":"createdAt","type":"uint64","internalType":"uint64"},{"name":"earliestExecutionTime","type":"uint64","internalType":"uint64"},{"name":"expiresAt","type":"uint64","internalType":"uint64"},{"name":"state","type":"uint8","internalType":"enum GovernanceTypes.ActionState"}]}],"outputs":[{"name":"allowed","type":"bool","internalType":"bool"}],"stateMutability":"pure"},{"type":"function","name":"minimumActionCancellationSupport","inputs":[],"outputs":[{"name":"count","type":"uint32","internalType":"uint32"}],"stateMutability":"view"},{"type":"function","name":"seatCount","inputs":[],"outputs":[{"name":"count","type":"uint32","internalType":"uint32"}],"stateMutability":"pure"},{"type":"error","name":"InvalidActionCancellationSupport","inputs":[{"name":"minimumSupport","type":"uint32","internalType":"uint32"}]},{"type":"error","name":"InvalidDisbursementSuspensionPeriod","inputs":[{"name":"suspensionPeriod","type":"uint64","internalType":"uint64"}]}]}
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "minimumActionCancellationSupport_",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "disbursementSuspensionPeriod_",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "disbursementSuspensionPeriod",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "suspensionPeriod",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isActionCancellationAllowed",
+    "inputs": [
+      {
+        "name": "actionRecord",
+        "type": "tuple",
+        "internalType": "struct GovernanceTypes.ActionRecord",
+        "components": [
+          {
+            "name": "actionId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "actionType",
+            "type": "uint8",
+            "internalType": "enum GovernanceTypes.ActionType"
+          },
+          {
+            "name": "origin",
+            "type": "uint8",
+            "internalType": "enum GovernanceTypes.ActionOrigin"
+          },
+          {
+            "name": "originReference",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "policyReference",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "targetModule",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "targetModuleAddress",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "payload",
+            "type": "bytes",
+            "internalType": "bytes"
+          },
+          {
+            "name": "createdAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "earliestExecutionTime",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "expiresAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "state",
+            "type": "uint8",
+            "internalType": "enum GovernanceTypes.ActionState"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "allowed",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "minimumActionCancellationSupport",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "count",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "seatCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "count",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "error",
+    "name": "InvalidActionCancellationSupport",
+    "inputs": [
+      {
+        "name": "minimumSupport",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidDisbursementSuspensionPeriod",
+    "inputs": [
+      {
+        "name": "suspensionPeriod",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  }
+]}

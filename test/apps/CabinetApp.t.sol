@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -42,6 +42,7 @@ contract CabinetAppTest is Test {
     address internal constant CM7 = address(0xC07);
     address internal constant CM8 = address(0xC08);
     address internal constant CM9 = address(0xC09);
+    address internal constant CM1_NEW = address(0xC10);
 
     // Prime Minister and minister candidates (citizens in good standing, not necessarily Congress members).
     address internal constant PM_CANDIDATE = address(0x9111);
@@ -51,6 +52,8 @@ contract CabinetAppTest is Test {
     address internal constant MIN_C = address(0xA3);
     address internal constant MIN_D = address(0xA4);
     address internal constant MIN_E = address(0xA5);
+    address internal constant MIN_A_NEW = address(0xA6);
+    address internal constant PM_NEW_WALLET = address(0x9333);
     address internal constant OUTSIDER = address(0x0175);
 
     bytes32 internal constant PID_PM = bytes32(uint256(100));
@@ -94,6 +97,9 @@ contract CabinetAppTest is Test {
         // and the finance office directly.
         kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, address(this));
         kernel.bootstrapSetModule(KernelModuleIds.STAKE_REGISTRY_AUTHORITY, address(this));
+        kernel.bootstrapSetModule(KernelModuleIds.LLM_STAKING_VAULT, address(this));
+        kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY, address(identityRegistry));
+        kernel.bootstrapSetModule(KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY, address(citizenEligibilityPolicy));
         kernel.bootstrapSetModule(KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY_AUTHORITY, address(this));
         kernel.bootstrapSetModule(KernelModuleIds.OFFICE_REGISTRY_AUTHORITY, address(this));
 
@@ -444,6 +450,103 @@ contract CabinetAppTest is Test {
             uint256(officeRegistry.roleOf(FINANCE_OFFICE_ID, FINANCE_GENESIS_ADMIN)),
             uint256(OfficeTypes.OfficeRole.None)
         );
+        assertEq(
+            officeRegistry.getOfficeRecord(FINANCE_OFFICE_ID).adminAuthorizationEndsAt,
+            executiveRegistry.getMinister(ExecutiveTypes.MinistryKind.Finance).termEnd
+        );
+    }
+
+    function test_ExpiredMinisterImmediatelyLosesOfficeAuthorityBeforeRetirement() public {
+        _appointPmWithVotes(PM_CANDIDATE, 4);
+        _appointMinister(ExecutiveTypes.MinistryKind.Finance, MIN_A);
+        officeRegistry.setClerkStatus(FINANCE_OFFICE_ID, OUTSIDER, true);
+        uint64 termEnd = executiveRegistry.getMinister(ExecutiveTypes.MinistryKind.Finance).termEnd;
+
+        vm.warp(termEnd - 1);
+        assertTrue(officeRegistry.isOfficeAdmin(FINANCE_OFFICE_ID, MIN_A));
+        assertTrue(officeRegistry.isOfficeClerk(FINANCE_OFFICE_ID, OUTSIDER));
+
+        vm.warp(termEnd);
+
+        assertFalse(executiveRegistry.isMinisterInTerm(ExecutiveTypes.MinistryKind.Finance));
+        assertEq(uint256(officeRegistry.roleOf(FINANCE_OFFICE_ID, MIN_A)), uint256(OfficeTypes.OfficeRole.None));
+        assertEq(uint256(officeRegistry.roleOf(FINANCE_OFFICE_ID, OUTSIDER)), uint256(OfficeTypes.OfficeRole.None));
+        assertFalse(officeRegistry.isOfficeAdmin(FINANCE_OFFICE_ID, MIN_A));
+        assertFalse(officeRegistry.isOfficeClerk(FINANCE_OFFICE_ID, OUTSIDER));
+        assertFalse(officeRegistry.getClerkRecord(FINANCE_OFFICE_ID, OUTSIDER).active);
+
+        cabinetApp.retireExpiredMinister(ExecutiveTypes.MinistryKind.Finance);
+        assertFalse(officeRegistry.getOfficeRecord(FINANCE_OFFICE_ID).active);
+    }
+
+    function test_NewMinisterDoesNotInheritPriorMinistersClerks() public {
+        _appointPmWithVotes(PM_CANDIDATE, 4);
+        _appointMinister(ExecutiveTypes.MinistryKind.Finance, MIN_A);
+        officeRegistry.setClerkStatus(FINANCE_OFFICE_ID, OUTSIDER, true);
+        assertTrue(officeRegistry.isOfficeClerk(FINANCE_OFFICE_ID, OUTSIDER));
+
+        _voteDismiss(CM1, ExecutiveTypes.MinistryKind.Finance);
+        _voteDismiss(CM2, ExecutiveTypes.MinistryKind.Finance);
+        _voteDismiss(CM3, ExecutiveTypes.MinistryKind.Finance);
+        _voteDismiss(CM4, ExecutiveTypes.MinistryKind.Finance);
+        cabinetApp.dismissMinister(ExecutiveTypes.MinistryKind.Finance);
+        _appointMinister(ExecutiveTypes.MinistryKind.Finance, MIN_E);
+
+        assertFalse(officeRegistry.isOfficeClerk(FINANCE_OFFICE_ID, OUTSIDER));
+        assertFalse(officeRegistry.getClerkRecord(FINANCE_OFFICE_ID, OUTSIDER).active);
+    }
+
+    function test_MinisterWalletMigrationMovesOfficeAuthorityToActiveWallet() public {
+        _appointPmWithVotes(PM_CANDIDATE, 4);
+        _appointMinister(ExecutiveTypes.MinistryKind.Finance, MIN_A);
+
+        _setWalletLink(bytes32(uint256(111)), MIN_A, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(bytes32(uint256(111)), MIN_A_NEW, IdentityTypes.WalletLinkStatus.Active);
+
+        assertFalse(officeRegistry.isOfficeAdmin(FINANCE_OFFICE_ID, MIN_A));
+        assertTrue(officeRegistry.isOfficeAdmin(FINANCE_OFFICE_ID, MIN_A_NEW));
+        assertEq(identityRegistry.activeWalletOf(bytes32(uint256(111))), MIN_A_NEW);
+
+        vm.prank(MIN_A_NEW);
+        cabinetApp.resignMinister(ExecutiveTypes.MinistryKind.Finance);
+        assertFalse(officeRegistry.getOfficeRecord(FINANCE_OFFICE_ID).active);
+    }
+
+    function test_PrimeMinisterWalletMigrationPreservesPersonBoundAuthority() public {
+        _appointPmWithVotes(PM_CANDIDATE, 4);
+
+        _setWalletLink(PID_PM, PM_CANDIDATE, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(PID_PM, PM_NEW_WALLET, IdentityTypes.WalletLinkStatus.Active);
+
+        vm.prank(PM_CANDIDATE);
+        vm.expectRevert(abi.encodeWithSelector(ICabinetApp.NotPrimeMinister.selector, PM_CANDIDATE));
+        cabinetApp.appointMinister(ExecutiveTypes.MinistryKind.Finance, MIN_A);
+
+        vm.prank(PM_NEW_WALLET);
+        cabinetApp.appointMinister(ExecutiveTypes.MinistryKind.Finance, MIN_A);
+        assertEq(executiveRegistry.getMinister(ExecutiveTypes.MinistryKind.Finance).minister, MIN_A);
+    }
+
+    function test_CongressAuthorityAndBallotFollowActiveWalletMigration() public {
+        _setWalletLink(bytes32(uint256(1)), CM1, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(bytes32(uint256(1)), CM1_NEW, IdentityTypes.WalletLinkStatus.Active);
+
+        assertFalse(congressCandidateRegistry.isActiveCongressMember(CM1));
+        assertTrue(congressCandidateRegistry.isActiveCongressMember(CM1_NEW));
+        assertEq(congressCandidateRegistry.currentCongressMembers()[0], CM1_NEW);
+
+        vm.prank(CM1);
+        vm.expectRevert(abi.encodeWithSelector(ICabinetApp.NotCongressMember.selector, CM1));
+        cabinetApp.voteForPrimeMinister(PM_CANDIDATE);
+
+        _voteForPm(CM1_NEW, PM_CANDIDATE);
+        _voteForPm(CM2, PM_CANDIDATE);
+        _voteForPm(CM3, PM_CANDIDATE);
+        _voteForPm(CM4, PM_CANDIDATE);
+        cabinetApp.appointPrimeMinister(PM_CANDIDATE);
+
+        assertEq(executiveRegistry.getPrimeMinister().primeMinister, PM_CANDIDATE);
+        assertEq(executiveRegistry.getPrimeMinister().appointmentSupport, 4);
     }
 
     function test_UnwiredMinistryAppointmentLeavesOfficesUntouched() public {
@@ -475,6 +578,7 @@ contract CabinetAppTest is Test {
 
         // The office is deactivated: no operations run without a minister, so roleOf is None for everyone.
         assertFalse(officeRegistry.getOfficeRecord(FINANCE_OFFICE_ID).active);
+        assertEq(officeRegistry.getOfficeRecord(FINANCE_OFFICE_ID).admin, address(0));
         assertEq(uint256(officeRegistry.roleOf(FINANCE_OFFICE_ID, MIN_A)), uint256(OfficeTypes.OfficeRole.None));
         assertEq(
             uint256(officeRegistry.roleOf(FINANCE_OFFICE_ID, FINANCE_GENESIS_ADMIN)),
@@ -499,6 +603,7 @@ contract CabinetAppTest is Test {
 
         assertFalse(executiveRegistry.isMinisterInTerm(ExecutiveTypes.MinistryKind.Finance));
         assertFalse(officeRegistry.getOfficeRecord(FINANCE_OFFICE_ID).active);
+        assertEq(officeRegistry.getOfficeRecord(FINANCE_OFFICE_ID).admin, address(0));
         assertEq(uint256(officeRegistry.roleOf(FINANCE_OFFICE_ID, MIN_A)), uint256(OfficeTypes.OfficeRole.None));
     }
 
@@ -536,6 +641,10 @@ contract CabinetAppTest is Test {
         stakeRegistry.increaseStake(personId, CITIZEN_STAKE);
     }
 
+    function _setWalletLink(bytes32 personId, address wallet, IdentityTypes.WalletLinkStatus status) internal {
+        identityRegistry.setWalletLink(personId, wallet, status);
+    }
+
     function _seedCongress(address[] memory members) internal returns (uint256 cycleId) {
         cycleId = congressCandidateRegistry.latestCycleId() + 1;
         // forge-lint: disable-next-line(unsafe-typecast)
@@ -547,9 +656,11 @@ contract CabinetAppTest is Test {
                 nominationStart: uint64(block.timestamp),
                 votingStart: uint64(block.timestamp + 1),
                 votingEnd: uint64(block.timestamp + 2),
+                votingPowerSnapshotBlock: uint48(block.number),
                 seatCount: seatCount,
                 runnerUpCount: 1,
                 maxCandidateCount: seatCount + 1,
+                policy: address(cabinetApp),
                 policyReference: keccak256("cabinet.test.congress")
             })
         );

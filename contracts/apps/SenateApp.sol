@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IActionTimelock} from "../interfaces/IActionTimelock.sol";
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
@@ -12,6 +12,7 @@ import {IReferendumRegistry} from "../interfaces/IReferendumRegistry.sol";
 import {ISenateApp} from "../interfaces/ISenateApp.sol";
 import {ISenatePowersPolicy} from "../interfaces/ISenatePowersPolicy.sol";
 import {ISenateSeatRegistry} from "../interfaces/ISenateSeatRegistry.sol";
+import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {IdentityTypes} from "../types/IdentityTypes.sol";
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
 import {LegislationTypes} from "../types/LegislationTypes.sol";
@@ -31,11 +32,9 @@ contract SenateApp is ISenateApp {
     IIdentityRegistry private immutable _identityRegistry;
     ILegislationRegistry private immutable _legislationRegistry;
     ISenateSeatRegistry private immutable _senateSeatRegistry;
-    ISenatePowersPolicy private immutable _senatePowersPolicy;
     IPresidentRegistry private immutable _presidentRegistry;
     IGovernanceRouter private immutable _governanceRouter;
     IActionTimelock private immutable _actionTimelock;
-    IReferendumApp private immutable _referendumApp;
     IConstitutionKernel private immutable _kernel;
 
     mapping(bytes32 actionId => SenateTypes.ActionCancellationRecord actionCancellationRecord) private
@@ -137,11 +136,9 @@ contract SenateApp is ISenateApp {
         _identityRegistry = IIdentityRegistry(identityRegistryAddress);
         _legislationRegistry = legislationRegistry_;
         _senateSeatRegistry = senateSeatRegistry_;
-        _senatePowersPolicy = senatePowersPolicy_;
         _presidentRegistry = presidentRegistry_;
         _governanceRouter = governanceRouter_;
         _actionTimelock = IActionTimelock(actionTimelockAddress);
-        _referendumApp = referendumApp_;
         _kernel = IConstitutionKernel(kernelAddress);
     }
 
@@ -162,7 +159,7 @@ contract SenateApp is ISenateApp {
 
     /// @inheritdoc ISenateApp
     function senatePowersPolicy() external view returns (address policyAddress) {
-        return address(_senatePowersPolicy);
+        return address(_currentSenatePowersPolicy());
     }
 
     /// @inheritdoc ISenateApp
@@ -182,7 +179,7 @@ contract SenateApp is ISenateApp {
 
     /// @inheritdoc ISenateApp
     function referendumApp() external view returns (address appAddress) {
-        return address(_referendumApp);
+        return address(_currentReferendumApp());
     }
 
     /// @inheritdoc ISenateApp
@@ -306,7 +303,7 @@ contract SenateApp is ISenateApp {
     function bootstrapAssignSeat(uint32 seatIndex, address holder) external {
         _requireBootstrapAuthority(msg.sender);
 
-        bytes32 holderPersonId = _resolveActivePersonId(holder);
+        bytes32 holderPersonId = _resolveCitizenPersonId(holder);
         _senateSeatRegistry.assignSeat(seatIndex, holder, holderPersonId, false);
     }
 
@@ -320,7 +317,7 @@ contract SenateApp is ISenateApp {
     function transferMySeat(uint32 seatIndex, address recipient) external {
         _requireSeatHolder(seatIndex, msg.sender);
 
-        bytes32 recipientPersonId = _resolveActivePersonId(recipient);
+        bytes32 recipientPersonId = _resolveCitizenPersonId(recipient);
         _senateSeatRegistry.transferSeat(seatIndex, recipient, recipientPersonId);
     }
 
@@ -328,7 +325,7 @@ contract SenateApp is ISenateApp {
     function nominateSuccessor(uint32 seatIndex, address nominee) external {
         _requireSeatHolder(seatIndex, msg.sender);
 
-        bytes32 nomineePersonId = _resolveActivePersonId(nominee);
+        bytes32 nomineePersonId = _resolveCitizenPersonId(nominee);
         _senateSeatRegistry.nominateSuccessor(seatIndex, nominee, nomineePersonId);
     }
 
@@ -345,7 +342,7 @@ contract SenateApp is ISenateApp {
             revert SeatNotVacant(seatIndex);
         }
 
-        bytes32 claimantPersonId = _resolveActivePersonId(msg.sender);
+        bytes32 claimantPersonId = _resolveCitizenPersonId(msg.sender);
         if (
             seatRecord.nominatedSuccessorPersonId == bytes32(0)
                 || seatRecord.nominatedSuccessorPersonId != claimantPersonId
@@ -436,12 +433,12 @@ contract SenateApp is ISenateApp {
         // President proxy amplifies but cannot fabricate support: proxy coverage is capped at explicit For support
         // (see _effectiveSupport), so a proxy-only majority never reaches the threshold and a supporting proxy can
         // never defeat an otherwise-passing vote.
-        // L6: only cancel while the queued action is still actionable. If support+floor are met but the action
+        // Only cancel while the queued action is still actionable. If support+floor are met but the action
         // has already Expired (or is no longer Queued), finalize the record without reverting and skip the
         // external cancel sink so a stalled vote can always be closed.
         if (
             _effectiveSupport(directSupportCount, presidentProxySupportCount)
-                    >= _senatePowersPolicy.minimumActionCancellationSupport() && _isActionCancelable(actionId)
+                    >= _currentSenatePowersPolicy().minimumActionCancellationSupport() && _isActionCancelable(actionId)
         ) {
             actionCancellationRecord.canceled = true;
             actionCancellationRecord.canceledAt = currentTimestamp;
@@ -544,7 +541,7 @@ contract SenateApp is ISenateApp {
         // active citizen referendum — proxy coverage is capped at explicit direct seat support.
         if (
             _effectiveSupport(directSupportCount, presidentProxySupportCount)
-                >= _senatePowersPolicy.minimumActionCancellationSupport()
+                >= _currentSenatePowersPolicy().minimumActionCancellationSupport()
         ) {
             referendumVetoRecord.vetoed = true;
             referendumVetoRecord.vetoedAt = currentTimestamp;
@@ -562,7 +559,7 @@ contract SenateApp is ISenateApp {
         );
 
         if (referendumVetoRecord.vetoed) {
-            _referendumApp.cancelReferendumBySenate(referendumId);
+            _currentReferendumApp().cancelReferendumBySenate(referendumId);
         }
     }
 
@@ -650,12 +647,13 @@ contract SenateApp is ISenateApp {
 
         // President proxy amplifies but cannot fabricate support: proxy coverage is capped at explicit For support
         // (see _effectiveSupport), so a proxy-only majority never reaches the threshold.
-        // L6: only repeal while the measure is still sub-legal, active, and unrepealed. If support+floor are met
+        // Only repeal while the measure is still sub-legal, active, and unrepealed. If support+floor are met
         // but the measure was already repealed/inactivated, finalize the record without reverting and skip the
         // external repeal sink so a stalled vote can always be closed.
         if (
             _effectiveSupport(directSupportCount, presidentProxySupportCount)
-                    >= _senatePowersPolicy.minimumActionCancellationSupport() && _isSubLegalMeasureRepealable(measureId)
+                    >= _currentSenatePowersPolicy().minimumActionCancellationSupport()
+                && _isSubLegalMeasureRepealable(measureId)
         ) {
             repealRecord.repealed = true;
             repealRecord.repealedAt = currentTimestamp;
@@ -738,8 +736,12 @@ contract SenateApp is ISenateApp {
     }
 
     /// @inheritdoc ISenateApp
-    function suspendDisbursement(bytes32 actionId) external {
+    function suspendDisbursement(bytes32 actionId, uint32 supportingSeatIndex, bytes32 reasonHash) external {
+        if (reasonHash == bytes32(0)) {
+            revert InvalidDisbursementSuspensionReason(reasonHash);
+        }
         GovernanceTypes.ActionRecord memory actionRecord = _requireSuspendableDisbursement(actionId);
+        _requireDisbursementSuspensionReasonAuthor(actionId, supportingSeatIndex, msg.sender);
 
         SenateTypes.DisbursementSuspension storage suspension = _disbursementSuspensions[actionId];
         if (suspension.exists && block.timestamp < suspension.suspendedUntil) {
@@ -755,9 +757,11 @@ contract SenateApp is ISenateApp {
         suspension.exists = true;
         suspension.suspendedUntil = suspendedUntil;
         suspension.renewalCount = 0;
+        suspension.reasonHash = reasonHash;
 
         emit SenateDisbursementSuspended(
             actionId,
+            reasonHash,
             suspendedUntil,
             directSupportCount + presidentProxySupportCount,
             presidentProxySupportCount,
@@ -767,8 +771,12 @@ contract SenateApp is ISenateApp {
     }
 
     /// @inheritdoc ISenateApp
-    function renewDisbursementSuspension(bytes32 actionId) external {
+    function renewDisbursementSuspension(bytes32 actionId, uint32 supportingSeatIndex, bytes32 reasonHash) external {
+        if (reasonHash == bytes32(0)) {
+            revert InvalidDisbursementSuspensionReason(reasonHash);
+        }
         GovernanceTypes.ActionRecord memory actionRecord = _requireSuspendableDisbursement(actionId);
+        _requireDisbursementSuspensionReasonAuthor(actionId, supportingSeatIndex, msg.sender);
 
         SenateTypes.DisbursementSuspension storage suspension = _disbursementSuspensions[actionId];
         if (!suspension.exists || block.timestamp >= suspension.suspendedUntil) {
@@ -783,9 +791,10 @@ contract SenateApp is ISenateApp {
         uint64 suspendedUntil = _boundedSuspensionDeadline(currentTimestamp, actionRecord.expiresAt);
         suspension.suspendedUntil = suspendedUntil;
         suspension.renewalCount += 1;
+        suspension.reasonHash = reasonHash;
 
         emit SenateDisbursementSuspensionRenewed(
-            actionId, suspendedUntil, suspension.renewalCount, msg.sender, currentTimestamp
+            actionId, reasonHash, suspendedUntil, suspension.renewalCount, msg.sender, currentTimestamp
         );
     }
 
@@ -797,18 +806,27 @@ contract SenateApp is ISenateApp {
 
     function _requireSeatHolder(uint32 seatIndex, address caller) private view {
         SenateTypes.SenateSeatRecord memory seatRecord = _senateSeatRegistry.getSeatRecord(seatIndex);
-        if (seatRecord.vacant || seatRecord.holder != caller) {
+        if (seatRecord.vacant || !_isActiveWalletForPerson(caller, seatRecord.holderPersonId)) {
             revert NotSeatHolder(seatIndex, caller);
         }
     }
 
-    function _resolveActivePersonId(address wallet) private view returns (bytes32 personId) {
+    function _isActiveWalletForPerson(address wallet, bytes32 personId) private view returns (bool active) {
+        return personId != bytes32(0) && _identityRegistry.hasActiveWalletLink(wallet)
+            && _identityRegistry.resolveWalletToPersonId(wallet) == personId;
+    }
+
+    function _resolveCitizenPersonId(address wallet) private view returns (bytes32 personId) {
         IdentityTypes.WalletLink memory walletLink = _identityRegistry.getWalletLink(wallet);
         if (walletLink.personId == bytes32(0) || walletLink.status != IdentityTypes.WalletLinkStatus.Active) {
             revert UnknownPersonReference(wallet);
         }
 
-        return walletLink.personId;
+        personId = walletLink.personId;
+        (, IdentityTypes.CitizenshipStatus citizenshipStatus,,) = _identityRegistry.getCitizenshipSummary(personId);
+        if (citizenshipStatus != IdentityTypes.CitizenshipStatus.Citizen) {
+            revert SenateSeatRecipientNotCitizen(wallet, personId);
+        }
     }
 
     function _castActionCancellationVote(bytes32 actionId, uint32 seatIndex) private {
@@ -977,7 +995,7 @@ contract SenateApp is ISenateApp {
         returns (GovernanceTypes.ActionRecord memory actionRecord)
     {
         actionRecord = _actionTimelock.getAction(actionId);
-        if (!_senatePowersPolicy.isActionCancellationAllowed(actionRecord)) {
+        if (!_currentSenatePowersPolicy().isActionCancellationAllowed(actionRecord)) {
             revert SenateProcessNotAllowed(actionId);
         }
     }
@@ -985,7 +1003,7 @@ contract SenateApp is ISenateApp {
     /// @dev Non-reverting cancelability probe used at finalization so a met-but-unactionable vote can still close.
     function _isActionCancelable(bytes32 actionId) private view returns (bool cancelable) {
         GovernanceTypes.ActionRecord memory actionRecord = _actionTimelock.getAction(actionId);
-        return _senatePowersPolicy.isActionCancellationAllowed(actionRecord);
+        return _currentSenatePowersPolicy().isActionCancellationAllowed(actionRecord);
     }
 
     function _requireVetoEligibleReferendum(bytes32 referendumId)
@@ -993,13 +1011,15 @@ contract SenateApp is ISenateApp {
         view
         returns (ReferendumTypes.ReferendumRecord memory referendumRecord)
     {
-        IReferendumRegistry referendumRegistry = IReferendumRegistry(_referendumApp.referendumRegistry());
+        IReferendumRegistry referendumRegistry = IReferendumRegistry(_currentReferendumApp().referendumRegistry());
         referendumRecord = referendumRegistry.getReferendum(referendumId);
         if (
             referendumRecord.referendumId == bytes32(0)
                 || referendumRecord.status != ReferendumTypes.ReferendumStatus.Active
                 || block.timestamp < referendumRecord.startTime || block.timestamp >= referendumRecord.endTime
                 || referendumRecord.referendumClass == ReferendumTypes.ReferendumClass.ConstitutionalAmendment
+                || (referendumRecord.referendumClass == ReferendumTypes.ReferendumClass.ModuleGovernance
+                    && referendumRecord.targetModule == KernelModuleIds.SENATE_APP)
         ) {
             revert SenateProcessNotAllowed(referendumId);
         }
@@ -1037,7 +1057,7 @@ contract SenateApp is ISenateApp {
         // Only a President whose 5-year term is still running may cast proxy votes: an expired (or vacated)
         // President must not retain Senate proxy power until a successor is elected.
         if (
-            caller == address(0) || caller != _presidentRegistry.currentPresident()
+            !_isActiveWalletForPerson(caller, _presidentRegistry.currentPresidentPersonId())
                 || !_presidentRegistry.isPresidentInTerm()
         ) {
             revert NotPresident(caller);
@@ -1066,7 +1086,7 @@ contract SenateApp is ISenateApp {
         bool proxyActive,
         uint64 attemptNonce
     ) private view returns (uint256 directSupportCount, uint256 presidentProxySupportCount) {
-        uint32 seatCount = _senatePowersPolicy.seatCount();
+        uint32 seatCount = _currentSenatePowersPolicy().seatCount();
         for (uint32 seatIndex = 0; seatIndex < seatCount; ++seatIndex) {
             if (_isSupportActive(seatIndex, seatSupports[seatIndex], attemptNonce)) {
                 directSupportCount += 1;
@@ -1087,7 +1107,7 @@ contract SenateApp is ISenateApp {
         view
         returns (uint64 suspendedUntil)
     {
-        suspendedUntil = currentTimestamp + _senatePowersPolicy.disbursementSuspensionPeriod();
+        suspendedUntil = currentTimestamp + _currentSenatePowersPolicy().disbursementSuspensionPeriod();
         if (suspendedUntil > actionExpiresAt) {
             suspendedUntil = actionExpiresAt;
         }
@@ -1108,7 +1128,7 @@ contract SenateApp is ISenateApp {
     }
 
     /// @dev Live seat tally (current occupancy) mirroring the cancellation support/President-proxy-floor model. The
-    ///      proxy is gated on there being a President still in term (L-2), so a resigned/expired President's stale
+    ///      proxy is gated on there being a President still in term, so a resigned/expired President's stale
     ///      proxy cannot keep powering suspensions and renewals.
     function _disbursementSuspensionSupportBreakdown(bytes32 actionId)
         private
@@ -1130,11 +1150,21 @@ contract SenateApp is ISenateApp {
         // support: the proxy can amplify but never fabricate or defeat the required support.
         if (
             _effectiveSupport(directSupportCount, presidentProxySupportCount)
-                < _senatePowersPolicy.minimumActionCancellationSupport()
+                < _currentSenatePowersPolicy().minimumActionCancellationSupport()
         ) {
             revert SenateSupportNotReached(
                 actionId, directSupportCount + presidentProxySupportCount, presidentProxySupportCount
             );
+        }
+    }
+
+    function _requireDisbursementSuspensionReasonAuthor(bytes32 actionId, uint32 seatIndex, address caller)
+        private
+        view
+    {
+        _requireSeatHolder(seatIndex, caller);
+        if (!_isSupportActive(seatIndex, _disbursementSuspensionSupports[actionId][seatIndex], 0)) {
+            revert SenateSupportNotActive(actionId, seatIndex);
         }
     }
 
@@ -1176,7 +1206,7 @@ contract SenateApp is ISenateApp {
         view
         returns (uint256 count)
     {
-        uint32 seatCount = _senatePowersPolicy.seatCount();
+        uint32 seatCount = _currentSenatePowersPolicy().seatCount();
         for (uint32 seatIndex = 0; seatIndex < seatCount; ++seatIndex) {
             if (_isSupportActive(seatIndex, seatSupports[seatIndex], attemptNonce)) {
                 count += 1;
@@ -1208,5 +1238,13 @@ contract SenateApp is ISenateApp {
 
     function _currentSeatOccupancyNonce(uint32 seatIndex) private view returns (uint64 occupancyNonce) {
         return _senateSeatRegistry.getSeatRecord(seatIndex).occupancyNonce;
+    }
+
+    function _currentSenatePowersPolicy() private view returns (ISenatePowersPolicy policy) {
+        return ISenatePowersPolicy(_kernel.getModule(KernelModuleIds.SENATE_POWERS_POLICY));
+    }
+
+    function _currentReferendumApp() private view returns (IReferendumApp referendumApp_) {
+        return IReferendumApp(_kernel.getModule(KernelModuleIds.REFERENDUM_APP));
     }
 }

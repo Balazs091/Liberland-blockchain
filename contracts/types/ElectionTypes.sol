@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 /// @title ElectionTypes
 /// @notice Shared enums and structs for election cycles, candidacies, and results.
@@ -71,9 +71,11 @@ library ElectionTypes {
         uint64 nominationStart;
         uint64 votingStart;
         uint64 votingEnd;
+        uint48 votingPowerSnapshotBlock;
         uint32 seatCount;
         uint32 runnerUpCount;
         uint32 maxCandidateCount;
+        address policy;
         bytes32 policyReference;
     }
 
@@ -84,12 +86,14 @@ library ElectionTypes {
         uint64 votingStart;
         uint64 votingEnd;
         uint64 finalizedAt;
+        uint48 votingPowerSnapshotBlock;
         uint32 seatCount;
         uint32 runnerUpCount;
         uint32 maxCandidateCount;
         uint32 candidateCount;
         uint32 electedCount;
         uint32 runnerUpSlotCount;
+        address policy;
         bytes32 policyReference;
     }
 
@@ -121,6 +125,16 @@ library ElectionTypes {
         uint64 updatedAt;
     }
 
+    /// @notice Authority-supplied identity and policy limits for storing one Congress ballot.
+    struct CongressBallotInput {
+        uint256 cycleId;
+        bytes32 voterPersonId;
+        address voter;
+        uint256 ballotWeight;
+        uint32 maxPositiveCandidates;
+        uint256 maxNegativeAllocation;
+    }
+
     struct CongressFinalizationInput {
         address[] rankedCandidates;
         int256[] rankedVoteTotals;
@@ -141,6 +155,7 @@ library ElectionTypes {
     struct CongressSeatRecord {
         uint256 cycleId;
         address holder;
+        bytes32 holderPersonId;
         uint32 seatIndex;
         uint32 sourceRank;
         bool filledFromRunnerUp;

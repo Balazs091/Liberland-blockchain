@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {LegislationTypes} from "./LegislationTypes.sol";
 import {TreasuryTypes} from "./TreasuryTypes.sol";
@@ -103,6 +103,9 @@ library ReferendumTypes {
         uint64 startTime;
         uint64 endTime;
         uint64 adoptionDelay;
+        uint48 votingPowerSnapshotBlock;
+        address referendumPolicy;
+        address votingPowerPolicy;
         uint256 electorateHeadcountSnapshot;
         uint256 electorateVotingPowerSnapshot;
         bool requiresSupermajority;
@@ -123,6 +126,9 @@ library ReferendumTypes {
         bytes32 proposerReference;
         uint64 startTime;
         uint64 endTime;
+        uint48 votingPowerSnapshotBlock;
+        address referendumPolicy;
+        address votingPowerPolicy;
         uint256 electorateHeadcountSnapshot;
         uint256 electorateVotingPowerSnapshot;
         bool requiresSupermajority;

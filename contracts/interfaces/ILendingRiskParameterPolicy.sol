@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 /// @title ILendingRiskParameterPolicy
 /// @notice Replaceable risk-parameter source for the stake-backed lending pool. Splitting these out of the pool lets

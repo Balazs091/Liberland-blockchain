@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IGovernanceRouter} from "../interfaces/IGovernanceRouter.sol";
+import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
 import {IOfficeExecutor} from "../interfaces/IOfficeExecutor.sol";
 import {IOfficePermissionPolicy} from "../interfaces/IOfficePermissionPolicy.sol";
 import {IOfficeRegistry} from "../interfaces/IOfficeRegistry.sol";
@@ -16,8 +17,6 @@ import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 /// @notice Explicit office-role executor for office administration and treasury payout routing.
 contract OfficeExecutor is IOfficeExecutor {
     IOfficeRegistry private immutable _officeRegistry;
-    IOfficePermissionPolicy private immutable _officePermissionPolicy;
-    ITreasurySpendingPolicy private immutable _treasurySpendingPolicy;
     IPayoutQueue private immutable _payoutQueue;
     IGovernanceRouter private immutable _governanceRouter;
 
@@ -51,8 +50,6 @@ contract OfficeExecutor is IOfficeExecutor {
         }
 
         _officeRegistry = IOfficeRegistry(officeRegistryAddress);
-        _officePermissionPolicy = IOfficePermissionPolicy(officePermissionPolicyAddress);
-        _treasurySpendingPolicy = ITreasurySpendingPolicy(treasurySpendingPolicyAddress);
         _payoutQueue = IPayoutQueue(payoutQueueAddress);
         _governanceRouter = IGovernanceRouter(governanceRouterAddress);
         _bootstrapAuthority = bootstrapAuthority_;
@@ -135,10 +132,15 @@ contract OfficeExecutor is IOfficeExecutor {
         if (input.officeId != officeId) {
             revert OfficeActionOfficeMismatch(officeId, input.officeId);
         }
-        if (!_treasurySpendingPolicy.isPayoutAllowed(
-                officeId, officeRole, input.disbursementType, input.asset, input.amount
-            )) {
+        ITreasurySpendingPolicy spendingPolicy = _currentTreasurySpendingPolicy();
+        if (!spendingPolicy.isPayoutAllowed(officeId, officeRole, input.disbursementType, input.asset, input.amount)) {
             revert UnauthorizedOfficeAction(msg.sender, officeId, OfficeTypes.OfficeActionClass.ProposePayout);
+        }
+        if (
+            input.disbursementType == TreasuryTypes.DisbursementType.ContributionReward
+                && (input.noteHash == bytes32(0) || bytes(input.noteURI).length == 0)
+        ) {
+            revert ContributionRewardEvidenceRequired(input.requestId);
         }
 
         TreasuryTypes.DisbursementRequestInput memory normalizedInput = TreasuryTypes.DisbursementRequestInput({
@@ -149,7 +151,7 @@ contract OfficeExecutor is IOfficeExecutor {
             asset: input.asset,
             recipient: input.recipient,
             amount: input.amount,
-            policyReference: _treasurySpendingPolicy.computePolicyReference(
+            policyReference: spendingPolicy.computePolicyReference(
                 officeId, officeRole, input.disbursementType, input.asset, input.amount
             ),
             noteHash: input.noteHash,
@@ -159,7 +161,7 @@ contract OfficeExecutor is IOfficeExecutor {
         _payoutQueue.proposePayout(
             normalizedInput,
             uint64(block.timestamp)
-                + _treasurySpendingPolicy.minimumQueueDelay(
+                + spendingPolicy.minimumQueueDelay(
                     officeId, officeRole, input.disbursementType, input.asset, input.amount
                 )
         );
@@ -174,12 +176,13 @@ contract OfficeExecutor is IOfficeExecutor {
         if (request.officeId != officeId) {
             revert OfficeActionOfficeMismatch(officeId, request.officeId);
         }
-        if (!_treasurySpendingPolicy.isPayoutAllowed(
+        ITreasurySpendingPolicy spendingPolicy = _currentTreasurySpendingPolicy();
+        if (!spendingPolicy.isPayoutAllowed(
                 officeId, officeRole, request.disbursementType, request.asset, request.amount
             )) {
             revert UnauthorizedOfficeAction(msg.sender, officeId, OfficeTypes.OfficeActionClass.RoutePayout);
         }
-        bytes32 expectedPolicyReference = _treasurySpendingPolicy.computePolicyReference(
+        bytes32 expectedPolicyReference = spendingPolicy.computePolicyReference(
             officeId, officeRole, request.disbursementType, request.asset, request.amount
         );
         if (request.policyReference != expectedPolicyReference) {
@@ -213,6 +216,9 @@ contract OfficeExecutor is IOfficeExecutor {
             revert OfficeActionOfficeMismatch(officeId, request.officeId);
         }
 
+        if (request.state == TreasuryTypes.DisbursementState.Queued) {
+            _governanceRouter.cancelAction(request.actionId);
+        }
         _payoutQueue.cancelPayout(requestId);
     }
 
@@ -226,7 +232,7 @@ contract OfficeExecutor is IOfficeExecutor {
 
         if (
             officeRecord.officeId == bytes32(0) || !officeRecord.active
-                || !_officePermissionPolicy.isActionAuthorized(officeRecord.kind, officeRole, actionClass)
+                || !_currentOfficePermissionPolicy().isActionAuthorized(officeRecord.kind, officeRole, actionClass)
         ) {
             revert UnauthorizedOfficeAction(caller, officeId, actionClass);
         }
@@ -239,10 +245,9 @@ contract OfficeExecutor is IOfficeExecutor {
     ) private view {
         OfficeTypes.OfficeRecord memory officeRecord = _officeRegistry.getOfficeRecord(officeId);
         if (
-            officeRecord.officeId == bytes32(0) || officeRecord.admin != caller
-                || !_officePermissionPolicy.isActionAuthorized(
-                    officeRecord.kind, OfficeTypes.OfficeRole.Admin, actionClass
-                )
+            officeRecord.officeId == bytes32(0) || !_officeRegistry.isOfficeAdminAppointment(officeId, caller)
+                || !_currentOfficePermissionPolicy()
+                    .isActionAuthorized(officeRecord.kind, OfficeTypes.OfficeRole.Admin, actionClass)
         ) {
             revert UnauthorizedOfficeAction(caller, officeId, actionClass);
         }
@@ -255,5 +260,17 @@ contract OfficeExecutor is IOfficeExecutor {
         if (caller != _bootstrapAuthority) {
             revert NotBootstrapAuthority(caller);
         }
+    }
+
+    function _currentOfficePermissionPolicy() private view returns (IOfficePermissionPolicy policy) {
+        return IOfficePermissionPolicy(
+            IConstitutionKernel(_governanceRouter.kernel()).getModule(KernelModuleIds.OFFICE_PERMISSION_POLICY)
+        );
+    }
+
+    function _currentTreasurySpendingPolicy() private view returns (ITreasurySpendingPolicy policy) {
+        return ITreasurySpendingPolicy(
+            IConstitutionKernel(_governanceRouter.kernel()).getModule(KernelModuleIds.TREASURY_SPENDING_POLICY)
+        );
     }
 }

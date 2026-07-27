@@ -1,1 +1,577 @@
-{"abi":[{"type":"constructor","inputs":[{"name":"presidentRegistryAddress","type":"address","internalType":"address"},{"name":"senateSeatRegistryAddress","type":"address","internalType":"address"}],"stateMutability":"nonpayable"},{"type":"function","name":"appointVicePresident","inputs":[{"name":"slot","type":"uint8","internalType":"uint8"},{"name":"vp","type":"address","internalType":"address"},{"name":"vpPersonId","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"canElectPresident","inputs":[{"name":"candidate","type":"address","internalType":"address"}],"outputs":[{"name":"electable","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"currentElectionCycle","inputs":[],"outputs":[{"name":"cycle","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"function","name":"electPresident","inputs":[{"name":"candidate","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"getSeatVote","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"}],"outputs":[{"name":"candidate","type":"address","internalType":"address"},{"name":"seatOccupancyNonce","type":"uint64","internalType":"uint64"},{"name":"electionCycle","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"function","name":"kernel","inputs":[],"outputs":[{"name":"kernelAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"presidentRegistry","inputs":[],"outputs":[{"name":"registryAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"presidentTerm","inputs":[],"outputs":[{"name":"termSeconds","type":"uint64","internalType":"uint64"}],"stateMutability":"pure"},{"type":"function","name":"resignPresident","inputs":[],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"senateSeatRegistry","inputs":[],"outputs":[{"name":"registryAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"voteCountFor","inputs":[{"name":"candidate","type":"address","internalType":"address"}],"outputs":[{"name":"voteCount","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"voteForPresident","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"},{"name":"candidate","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"event","name":"PresidencyVacated","inputs":[{"name":"previousPresident","type":"address","indexed":true,"internalType":"address"},{"name":"vacatedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"PresidentElected","inputs":[{"name":"president","type":"address","indexed":true,"internalType":"address"},{"name":"presidentPersonId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"voteCount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"occupiedSeatCount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"termStart","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"termEnd","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"electedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"PresidentResigned","inputs":[{"name":"president","type":"address","indexed":true,"internalType":"address"},{"name":"resignedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"PresidentSucceeded","inputs":[{"name":"previousPresident","type":"address","indexed":true,"internalType":"address"},{"name":"newPresident","type":"address","indexed":true,"internalType":"address"},{"name":"newPresidentPersonId","type":"bytes32","indexed":false,"internalType":"bytes32"},{"name":"termEnd","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"succeededAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"PresidentVoteCast","inputs":[{"name":"seatIndex","type":"uint32","indexed":true,"internalType":"uint32"},{"name":"voter","type":"address","indexed":true,"internalType":"address"},{"name":"candidate","type":"address","indexed":true,"internalType":"address"},{"name":"seatOccupancyNonce","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"electionCycle","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"castAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"VicePresidentAppointed","inputs":[{"name":"slot","type":"uint8","indexed":true,"internalType":"uint8"},{"name":"vicePresident","type":"address","indexed":true,"internalType":"address"},{"name":"vicePresidentPersonId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"appointedBy","type":"address","indexed":false,"internalType":"address"},{"name":"appointedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"error","name":"CandidateNotSeatHolder","inputs":[{"name":"candidate","type":"address","internalType":"address"}]},{"type":"error","name":"ElectionMajorityNotReached","inputs":[{"name":"candidate","type":"address","internalType":"address"},{"name":"voteCount","type":"uint256","internalType":"uint256"},{"name":"occupiedSeatCount","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"InvalidPresidentRegistry","inputs":[{"name":"registryAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidSenateSeatRegistry","inputs":[{"name":"registryAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidVicePresidentCandidate","inputs":[{"name":"vp","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidVicePresidentSlot","inputs":[{"name":"slot","type":"uint8","internalType":"uint8"}]},{"type":"error","name":"KernelMismatch","inputs":[{"name":"presidentRegistryKernel","type":"address","internalType":"address"},{"name":"senateSeatRegistryKernel","type":"address","internalType":"address"}]},{"type":"error","name":"NotPresident","inputs":[{"name":"caller","type":"address","internalType":"address"}]},{"type":"error","name":"NotSeatHolder","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"},{"name":"caller","type":"address","internalType":"address"}]},{"type":"error","name":"PresidentAlreadyInTerm","inputs":[{"name":"president","type":"address","internalType":"address"}]},{"type":"error","name":"VicePresidentNotSeatHolder","inputs":[{"name":"vp","type":"address","internalType":"address"}]},{"type":"error","name":"VicePresidentPersonIdMismatch","inputs":[{"name":"vp","type":"address","internalType":"address"},{"name":"provided","type":"bytes32","internalType":"bytes32"},{"name":"expected","type":"bytes32","internalType":"bytes32"}]}]}
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "presidentRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "senateSeatRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "appointVicePresident",
+    "inputs": [
+      {
+        "name": "slot",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "vp",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "vpPersonId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "canElectPresident",
+    "inputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "electable",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "currentElectionCycle",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "cycle",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "electPresident",
+    "inputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getSeatVote",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "seatOccupancyNonce",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "electionCycle",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "kernel",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "kernelAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "presidentRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "presidentTerm",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "termSeconds",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "resignPresident",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "senateSeatRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "voteCountFor",
+    "inputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "voteCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "voteForPresident",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "PresidencyVacated",
+    "inputs": [
+      {
+        "name": "previousPresident",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "vacatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PresidentElected",
+    "inputs": [
+      {
+        "name": "president",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "presidentPersonId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "voteCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "occupiedSeatCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "termStart",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "termEnd",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "electedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PresidentResigned",
+    "inputs": [
+      {
+        "name": "president",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "resignedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PresidentSucceeded",
+    "inputs": [
+      {
+        "name": "previousPresident",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newPresident",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "newPresidentPersonId",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "termEnd",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "succeededAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PresidentVoteCast",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "voter",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "candidate",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "seatOccupancyNonce",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "electionCycle",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "castAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "VicePresidentAppointed",
+    "inputs": [
+      {
+        "name": "slot",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "uint8"
+      },
+      {
+        "name": "vicePresident",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "vicePresidentPersonId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "appointedBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "appointedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "CandidateNotSeatHolder",
+    "inputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ElectionMajorityNotReached",
+    "inputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "voteCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "occupiedSeatCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidPresidentRegistry",
+    "inputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidSenateSeatRegistry",
+    "inputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidVicePresidentCandidate",
+    "inputs": [
+      {
+        "name": "vp",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidVicePresidentSlot",
+    "inputs": [
+      {
+        "name": "slot",
+        "type": "uint8",
+        "internalType": "uint8"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "KernelMismatch",
+    "inputs": [
+      {
+        "name": "presidentRegistryKernel",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "senateSeatRegistryKernel",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotPresident",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotSeatHolder",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "PresidentAlreadyInTerm",
+    "inputs": [
+      {
+        "name": "president",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "VicePresidentNotSeatHolder",
+    "inputs": [
+      {
+        "name": "vp",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "VicePresidentPersonIdMismatch",
+    "inputs": [
+      {
+        "name": "vp",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "provided",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "expected",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  }
+]}

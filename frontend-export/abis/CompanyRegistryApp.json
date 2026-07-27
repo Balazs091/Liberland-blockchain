@@ -1,1 +1,508 @@
-{"abi":[{"type":"constructor","inputs":[{"name":"companyRegistryAddress","type":"address","internalType":"address"},{"name":"officeRegistryAddress","type":"address","internalType":"address"},{"name":"officePermissionPolicyAddress","type":"address","internalType":"address"},{"name":"companyRegistryOfficeId_","type":"bytes32","internalType":"bytes32"}],"stateMutability":"nonpayable"},{"type":"function","name":"approveCompany","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"registrationNumberHash","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"burnShares","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"classId","type":"bytes32","internalType":"bytes32"},{"name":"from","type":"address","internalType":"address"},{"name":"amount","type":"uint256","internalType":"uint256"},{"name":"documentHash","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"companyRegistry","inputs":[],"outputs":[{"name":"registryAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"companyRegistryOfficeId","inputs":[],"outputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},{"type":"function","name":"issueShares","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"classId","type":"bytes32","internalType":"bytes32"},{"name":"to","type":"address","internalType":"address"},{"name":"amount","type":"uint256","internalType":"uint256"},{"name":"documentHash","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"officePermissionPolicy","inputs":[],"outputs":[{"name":"policyAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"officeRegistry","inputs":[],"outputs":[{"name":"registryAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"recordFiling","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"filingId","type":"bytes32","internalType":"bytes32"},{"name":"filingType","type":"uint8","internalType":"enum CompanyTypes.FilingType"},{"name":"documentHash","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"registerShareClass","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"classId","type":"bytes32","internalType":"bytes32"},{"name":"metadataHash","type":"bytes32","internalType":"bytes32"},{"name":"authorizedShares","type":"uint256","internalType":"uint256"},{"name":"votingWeightBps","type":"uint16","internalType":"uint16"},{"name":"fractional","type":"bool","internalType":"bool"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"rejectCompany","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"reasonHash","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"setCompanyStatus","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"status","type":"uint8","internalType":"enum CompanyTypes.CompanyStatus"},{"name":"reasonHash","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"setDirector","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"director","type":"address","internalType":"address"},{"name":"roleHash","type":"bytes32","internalType":"bytes32"},{"name":"active","type":"bool","internalType":"bool"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"setShareClassStatus","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"classId","type":"bytes32","internalType":"bytes32"},{"name":"active","type":"bool","internalType":"bool"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"submitIncorporation","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"input","type":"tuple","internalType":"struct CompanyTypes.CompanyInput","components":[{"name":"registrationNumberHash","type":"bytes32","internalType":"bytes32"},{"name":"nameHash","type":"bytes32","internalType":"bytes32"},{"name":"jurisdictionHash","type":"bytes32","internalType":"bytes32"},{"name":"registeredOfficeHash","type":"bytes32","internalType":"bytes32"},{"name":"metadataHash","type":"bytes32","internalType":"bytes32"},{"name":"articlesHash","type":"bytes32","internalType":"bytes32"},{"name":"uboHash","type":"bytes32","internalType":"bytes32"},{"name":"registeredCapital","type":"uint256","internalType":"uint256"}]}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"transferShares","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"classId","type":"bytes32","internalType":"bytes32"},{"name":"from","type":"address","internalType":"address"},{"name":"to","type":"address","internalType":"address"},{"name":"amount","type":"uint256","internalType":"uint256"},{"name":"documentHash","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"updateCompanyMetadata","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"metadataHash","type":"bytes32","internalType":"bytes32"},{"name":"articlesHash","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"error","name":"InvalidCompanyRegistry","inputs":[{"name":"registryAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidCompanyRegistryOffice","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"InvalidOfficePermissionPolicy","inputs":[{"name":"policyAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidOfficeRegistry","inputs":[{"name":"registryAddress","type":"address","internalType":"address"}]},{"type":"error","name":"UnauthorizedCompanyRegistryOfficeAction","inputs":[{"name":"caller","type":"address","internalType":"address"},{"name":"officeId","type":"bytes32","internalType":"bytes32"},{"name":"actionClass","type":"uint8","internalType":"enum OfficeTypes.OfficeActionClass"}]}]}
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "companyRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "officeRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "officePermissionPolicyAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "companyRegistryOfficeId_",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "approveCompany",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "registrationNumberHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "burnShares",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "classId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "from",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "documentHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "companyRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "companyRegistryOfficeId",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "issueShares",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "classId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "documentHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "officePermissionPolicy",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "policyAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "officeRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "recordFiling",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "filingId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "filingType",
+        "type": "uint8",
+        "internalType": "enum CompanyTypes.FilingType"
+      },
+      {
+        "name": "documentHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "registerShareClass",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "classId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "metadataHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "authorizedShares",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "votingWeightBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "fractional",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "rejectCompany",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "reasonHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setCompanyStatus",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "status",
+        "type": "uint8",
+        "internalType": "enum CompanyTypes.CompanyStatus"
+      },
+      {
+        "name": "reasonHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setDirector",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "director",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "roleHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "active",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setShareClassStatus",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "classId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "active",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "submitIncorporation",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "input",
+        "type": "tuple",
+        "internalType": "struct CompanyTypes.CompanyInput",
+        "components": [
+          {
+            "name": "registrationNumberHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "nameHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "jurisdictionHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "registeredOfficeHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "metadataHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "articlesHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "uboHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "registeredCapital",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "transferShares",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "classId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "from",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "documentHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "updateCompanyMetadata",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "metadataHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "articlesHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "error",
+    "name": "InvalidCompanyRegistry",
+    "inputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidCompanyRegistryOffice",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidOfficePermissionPolicy",
+    "inputs": [
+      {
+        "name": "policyAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidOfficeRegistry",
+    "inputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedCompanyRegistryOfficeAction",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "actionClass",
+        "type": "uint8",
+        "internalType": "enum OfficeTypes.OfficeActionClass"
+      }
+    ]
+  }
+]}

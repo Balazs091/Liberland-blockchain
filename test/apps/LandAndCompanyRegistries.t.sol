@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -19,9 +19,9 @@ import {CompanyTypes} from "../../contracts/types/CompanyTypes.sol";
 import {LandTypes} from "../../contracts/types/LandTypes.sol";
 import {OfficeTypes} from "../../contracts/types/OfficeTypes.sol";
 
-/// @title Milestone7LandAndCompanyRegistriesTest
+/// @title LandAndCompanyRegistriesTest
 /// @notice Covers v1 office-authorized land and company registry workflows.
-contract Milestone7LandAndCompanyRegistriesTest is Test {
+contract LandAndCompanyRegistriesTest is Test {
     bytes32 internal constant LAND_OFFICE_ID = keccak256("office.land");
     bytes32 internal constant COMPANY_REGISTRY_OFFICE_ID = keccak256("office.company-registry");
 
@@ -101,7 +101,7 @@ contract Milestone7LandAndCompanyRegistriesTest is Test {
         kernel.disableBootstrapAuthority();
     }
 
-    function test_Milestone7InterfacesExposeSelectors() public pure {
+    function test_InterfacesExposeSelectors() public pure {
         assertTrue(ILandRegistry.createParcel.selector != bytes4(0));
         assertTrue(ILandRegistry.registerTitle.selector != bytes4(0));
         assertTrue(ILandRegistryApp.fileDispute.selector != bytes4(0));
@@ -299,6 +299,33 @@ contract Milestone7LandAndCompanyRegistriesTest is Test {
         companyRegistryApp.registerShareClass(
             COMPANY_TWO_ID, SHARE_CLASS_A, keccak256("class.metadata"), 100, 10_000, false
         );
+    }
+
+    function test_CompanyRegistry_PendingCompanyCannotAccumulateDirectorStateBeforeResubmission() public {
+        vm.prank(FOUNDER);
+        companyRegistryApp.submitIncorporation(COMPANY_TWO_ID, _companyInput("company.two", bytes32(0)));
+
+        vm.prank(COMPANY_ADMIN);
+        vm.expectRevert(
+            abi.encodeWithSelector(ICompanyRegistry.InvalidCompanyStatus.selector, CompanyTypes.CompanyStatus.Pending)
+        );
+        companyRegistryApp.setDirector(COMPANY_TWO_ID, DIRECTOR, keccak256("director.ceo"), true);
+
+        vm.prank(COMPANY_ADMIN);
+        companyRegistryApp.rejectCompany(COMPANY_TWO_ID, keccak256("incomplete"));
+
+        vm.prank(FOUNDER);
+        companyRegistryApp.submitIncorporation(COMPANY_TWO_ID, _companyInput("company.two.revised", bytes32(0)));
+        vm.prank(COMPANY_ADMIN);
+        companyRegistryApp.approveCompany(COMPANY_TWO_ID, REGISTRATION_TWO_NUMBER_HASH);
+
+        vm.startPrank(COMPANY_ADMIN);
+        companyRegistryApp.setDirector(COMPANY_TWO_ID, DIRECTOR, keccak256("director.ceo"), true);
+        companyRegistryApp.setDirector(COMPANY_TWO_ID, DIRECTOR, bytes32(0), false);
+        vm.stopPrank();
+
+        assertEq(companyRegistry.getCompany(COMPANY_TWO_ID).activeDirectorCount, 0);
+        assertFalse(companyRegistry.getDirector(COMPANY_TWO_ID, DIRECTOR).active);
     }
 
     function test_CompanyRegistry_ComplianceWarningCanOperateButSuspendedCannot() public {

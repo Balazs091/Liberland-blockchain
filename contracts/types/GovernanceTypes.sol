@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {LegislationTypes} from "./LegislationTypes.sol";
 import {TreasuryTypes} from "./TreasuryTypes.sol";
@@ -44,6 +44,15 @@ library GovernanceTypes {
         Undefined,
         Active,
         Deprecated
+    }
+
+    enum ModuleClass {
+        Undefined,
+        Core,
+        State,
+        Policy,
+        Application,
+        Authority
     }
 
     struct ActionRequest {

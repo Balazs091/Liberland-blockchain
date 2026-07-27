@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {ILandRegistry} from "../interfaces/ILandRegistry.sol";
+import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
 import {ILandRegistryApp} from "../interfaces/ILandRegistryApp.sol";
 import {IOfficePermissionPolicy} from "../interfaces/IOfficePermissionPolicy.sol";
 import {IOfficeRegistry} from "../interfaces/IOfficeRegistry.sol";
+import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {LandTypes} from "../types/LandTypes.sol";
 import {OfficeTypes} from "../types/OfficeTypes.sol";
 
@@ -13,7 +15,6 @@ import {OfficeTypes} from "../types/OfficeTypes.sol";
 contract LandRegistryApp is ILandRegistryApp {
     ILandRegistry private immutable _landRegistry;
     IOfficeRegistry private immutable _officeRegistry;
-    IOfficePermissionPolicy private immutable _officePermissionPolicy;
     bytes32 private immutable _landOfficeId;
 
     constructor(
@@ -37,7 +38,6 @@ contract LandRegistryApp is ILandRegistryApp {
 
         _landRegistry = ILandRegistry(landRegistryAddress);
         _officeRegistry = IOfficeRegistry(officeRegistryAddress);
-        _officePermissionPolicy = IOfficePermissionPolicy(officePermissionPolicyAddress);
         _landOfficeId = landOfficeId_;
     }
 
@@ -53,7 +53,7 @@ contract LandRegistryApp is ILandRegistryApp {
 
     /// @inheritdoc ILandRegistryApp
     function officePermissionPolicy() external view returns (address policyAddress) {
-        return address(_officePermissionPolicy);
+        return address(_currentOfficePermissionPolicy());
     }
 
     /// @inheritdoc ILandRegistryApp
@@ -134,8 +134,14 @@ contract LandRegistryApp is ILandRegistryApp {
         }
 
         OfficeTypes.OfficeRole officeRole = _officeRegistry.roleOf(_landOfficeId, caller);
-        if (!_officePermissionPolicy.isActionAuthorized(officeRecord.kind, officeRole, actionClass)) {
+        if (!_currentOfficePermissionPolicy().isActionAuthorized(officeRecord.kind, officeRole, actionClass)) {
             revert UnauthorizedLandRegistryOfficeAction(caller, _landOfficeId, actionClass);
         }
+    }
+
+    function _currentOfficePermissionPolicy() private view returns (IOfficePermissionPolicy policy) {
+        return IOfficePermissionPolicy(
+            IConstitutionKernel(_landRegistry.kernel()).getModule(KernelModuleIds.OFFICE_PERMISSION_POLICY)
+        );
     }
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IOfficePermissionPolicy} from "../interfaces/IOfficePermissionPolicy.sol";
 import {OfficeTypes} from "../types/OfficeTypes.sol";
@@ -33,7 +33,8 @@ contract OfficePermissionPolicy is IOfficePermissionPolicy {
         if (
             officeRole == OfficeTypes.OfficeRole.Admin
                 && (actionClass == OfficeTypes.OfficeActionClass.ManageClerks
-                    || actionClass == OfficeTypes.OfficeActionClass.TransferAdmin
+                    || (actionClass == OfficeTypes.OfficeActionClass.TransferAdmin
+                        && officeKind != OfficeTypes.OfficeKind.MinistryOfFinance)
                     || actionClass == OfficeTypes.OfficeActionClass.ManageOfficeMetadata
                     || actionClass == OfficeTypes.OfficeActionClass.SetOfficeActive)
         ) {

@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {ICabinetApp} from "../interfaces/ICabinetApp.sol";
 import {ICitizenEligibilityPolicy} from "../interfaces/ICitizenEligibilityPolicy.sol";
 import {ICongressCandidateRegistry} from "../interfaces/ICongressCandidateRegistry.sol";
+import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
 import {IExecutiveRegistry} from "../interfaces/IExecutiveRegistry.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
 import {IOfficeRegistry} from "../interfaces/IOfficeRegistry.sol";
+import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {ExecutiveTypes} from "../types/ExecutiveTypes.sol";
 
 /// @title CabinetApp
@@ -46,7 +48,6 @@ contract CabinetApp is ICabinetApp {
 
     IExecutiveRegistry private immutable _executiveRegistry;
     ICongressCandidateRegistry private immutable _congressCandidateRegistry;
-    ICitizenEligibilityPolicy private immutable _citizenEligibilityPolicy;
     IIdentityRegistry private immutable _identityRegistry;
     IOfficeRegistry private immutable _officeRegistry;
     address private immutable _kernel;
@@ -125,7 +126,6 @@ contract CabinetApp is ICabinetApp {
 
         _executiveRegistry = IExecutiveRegistry(executiveRegistryAddress);
         _congressCandidateRegistry = ICongressCandidateRegistry(congressCandidateRegistryAddress);
-        _citizenEligibilityPolicy = ICitizenEligibilityPolicy(citizenEligibilityPolicyAddress);
         _identityRegistry = IIdentityRegistry(identityRegistryAddress);
         _officeRegistry = IOfficeRegistry(officeRegistryAddress);
         _kernel = executiveKernel;
@@ -151,7 +151,7 @@ contract CabinetApp is ICabinetApp {
 
     /// @inheritdoc ICabinetApp
     function citizenEligibilityPolicy() external view returns (address policyAddress) {
-        return address(_citizenEligibilityPolicy);
+        return address(_currentCitizenEligibilityPolicy());
     }
 
     /// @inheritdoc ICabinetApp
@@ -268,7 +268,7 @@ contract CabinetApp is ICabinetApp {
         if (_executiveRegistry.isPrimeMinisterInTerm()) {
             return false;
         }
-        if (!_citizenEligibilityPolicy.isCitizenInGoodStanding(candidate)) {
+        if (!_currentCitizenEligibilityPolicy().isCitizenInGoodStanding(candidate)) {
             return false;
         }
 
@@ -299,7 +299,7 @@ contract CabinetApp is ICabinetApp {
     /// @inheritdoc ICabinetApp
     function voteForPrimeMinister(address candidate) external {
         _requireActiveCongressMember(msg.sender);
-        if (!_citizenEligibilityPolicy.isCitizenInGoodStanding(candidate)) {
+        if (!_currentCitizenEligibilityPolicy().isCitizenInGoodStanding(candidate)) {
             revert CandidateNotInGoodStanding(candidate);
         }
 
@@ -318,7 +318,7 @@ contract CabinetApp is ICabinetApp {
         if (_executiveRegistry.isPrimeMinisterInTerm()) {
             revert PrimeMinisterAlreadyInTerm(_executiveRegistry.primeMinister());
         }
-        if (!_citizenEligibilityPolicy.isCitizenInGoodStanding(candidate)) {
+        if (!_currentCitizenEligibilityPolicy().isCitizenInGoodStanding(candidate)) {
             revert CandidateNotInGoodStanding(candidate);
         }
 
@@ -388,7 +388,7 @@ contract CabinetApp is ICabinetApp {
     /// @inheritdoc ICabinetApp
     function resignPrimeMinister() external {
         ExecutiveTypes.PrimeMinisterRecord memory record = _executiveRegistry.getPrimeMinister();
-        if (!record.active || msg.sender != record.primeMinister) {
+        if (!record.active || !_isActiveWalletForPerson(msg.sender, record.personId)) {
             revert NotPrimeMinister(msg.sender);
         }
 
@@ -410,10 +410,10 @@ contract CabinetApp is ICabinetApp {
         if (_executiveRegistry.isMinisterInTerm(ministry)) {
             revert MinisterSlotOccupied(ministry, _executiveRegistry.getMinister(ministry).minister);
         }
-        if (!_citizenEligibilityPolicy.isCitizenInGoodStanding(minister)) {
+        if (!_currentCitizenEligibilityPolicy().isCitizenInGoodStanding(minister)) {
             revert CandidateNotInGoodStanding(minister);
         }
-        if (minister == _executiveRegistry.primeMinister()) {
+        if (_identityRegistry.resolveWalletToPersonId(minister) == _executiveRegistry.getPrimeMinister().personId) {
             revert InvalidMinisterCandidate(minister);
         }
         if (_isSittingMinister(minister)) {
@@ -432,7 +432,7 @@ contract CabinetApp is ICabinetApp {
         emit MinisterAppointed(ministry, minister, personId, msg.sender, termStart, termEnd, uint64(block.timestamp));
 
         // Grant the minister operational control of the ministry's office (admin + active) where one is wired.
-        _syncMinisterOffice(ministry, minister, true);
+        _syncMinisterOffice(ministry, minister, termEnd, true);
     }
 
     /// @inheritdoc ICabinetApp
@@ -480,7 +480,7 @@ contract CabinetApp is ICabinetApp {
         emit MinisterDismissed(ministry, sittingMinister, dismissalVotes, occupiedSeats, uint64(block.timestamp));
 
         // Deactivate the ministry's office (where one is wired): no operations run without a sitting minister.
-        _syncMinisterOffice(ministry, address(0), false);
+        _syncMinisterOffice(ministry, address(0), 0, false);
     }
 
     /// @inheritdoc ICabinetApp
@@ -504,7 +504,7 @@ contract CabinetApp is ICabinetApp {
         emit MinisterTermRetired(ministry, record.minister, uint64(block.timestamp), msg.sender);
 
         // Deactivate the ministry's office (where one is wired): out-of-term officials keep no operational authority.
-        _syncMinisterOffice(ministry, address(0), false);
+        _syncMinisterOffice(ministry, address(0), 0, false);
     }
 
     /// @inheritdoc ICabinetApp
@@ -514,7 +514,7 @@ contract CabinetApp is ICabinetApp {
         }
 
         ExecutiveTypes.MinisterRecord memory record = _executiveRegistry.getMinister(ministry);
-        if (!record.active || msg.sender != record.minister) {
+        if (!record.active || !_isActiveWalletForPerson(msg.sender, record.personId)) {
             revert NotMinister(ministry, msg.sender);
         }
 
@@ -525,7 +525,7 @@ contract CabinetApp is ICabinetApp {
         emit MinisterResigned(ministry, msg.sender, uint64(block.timestamp));
 
         // Deactivate the ministry's office (where one is wired): no operations run without a sitting minister.
-        _syncMinisterOffice(ministry, address(0), false);
+        _syncMinisterOffice(ministry, address(0), 0, false);
     }
 
     function _appointmentVoteCount(address candidate) private view returns (uint256 voteCount) {
@@ -569,6 +569,7 @@ contract CabinetApp is ICabinetApp {
     }
 
     function _isSittingMinister(address wallet) private view returns (bool serving) {
+        bytes32 personId = _identityRegistry.resolveWalletToPersonId(wallet);
         ExecutiveTypes.MinistryKind[4] memory ministries = [
             ExecutiveTypes.MinistryKind.Finance,
             ExecutiveTypes.MinistryKind.ForeignAffairs,
@@ -578,7 +579,7 @@ contract CabinetApp is ICabinetApp {
         for (uint256 index = 0; index < ministries.length; ++index) {
             // Single registry read: isMinisterInTerm is (active && now < termEnd) on the same record.
             ExecutiveTypes.MinisterRecord memory record = _executiveRegistry.getMinister(ministries[index]);
-            if (record.active && block.timestamp < record.termEnd && record.minister == wallet) {
+            if (record.active && block.timestamp < record.termEnd && record.personId == personId) {
                 return true;
             }
         }
@@ -590,19 +591,29 @@ contract CabinetApp is ICabinetApp {
     ///      (`officeId == 0`). On appointment the minister becomes the office admin and the office is (re)activated;
     ///      on dismissal or resignation the office is deactivated so no operations run without a sitting minister.
     ///      The `setOfficeActive` calls are guarded on the current active state so they never revert on same-state.
-    function _syncMinisterOffice(ExecutiveTypes.MinistryKind ministry, address minister, bool appointed) private {
+    function _syncMinisterOffice(
+        ExecutiveTypes.MinistryKind ministry,
+        address minister,
+        uint64 authorizationEndsAt,
+        bool appointed
+    ) private {
         bytes32 officeId = _ministryOfficeId[ministry];
         if (officeId == bytes32(0)) {
             return;
         }
 
         if (appointed) {
-            _officeRegistry.transferOfficeAdmin(officeId, minister);
+            _officeRegistry.transferOfficeAdminForTerm(
+                officeId, minister, _identityRegistry.resolveWalletToPersonId(minister), authorizationEndsAt
+            );
             if (!_officeRegistry.getOfficeRecord(officeId).active) {
                 _officeRegistry.setOfficeActive(officeId, true);
             }
-        } else if (_officeRegistry.getOfficeRecord(officeId).active) {
-            _officeRegistry.setOfficeActive(officeId, false);
+        } else {
+            _officeRegistry.revokeOfficeAdmin(officeId);
+            if (_officeRegistry.getOfficeRecord(officeId).active) {
+                _officeRegistry.setOfficeActive(officeId, false);
+            }
         }
     }
 
@@ -613,12 +624,15 @@ contract CabinetApp is ICabinetApp {
     }
 
     function _requireSittingPrimeMinister(address caller) private view {
-        if (
-            caller == address(0) || caller != _executiveRegistry.primeMinister()
-                || !_executiveRegistry.isPrimeMinisterInTerm()
-        ) {
+        ExecutiveTypes.PrimeMinisterRecord memory record = _executiveRegistry.getPrimeMinister();
+        if (!_isActiveWalletForPerson(caller, record.personId) || !_executiveRegistry.isPrimeMinisterInTerm()) {
             revert NotPrimeMinister(caller);
         }
+    }
+
+    function _isActiveWalletForPerson(address wallet, bytes32 personId) private view returns (bool active) {
+        return personId != bytes32(0) && _identityRegistry.hasActiveWalletLink(wallet)
+            && _identityRegistry.resolveWalletToPersonId(wallet) == personId;
     }
 
     function _currentCongressCycleId() private view returns (uint256 cycleId) {
@@ -627,5 +641,12 @@ contract CabinetApp is ICabinetApp {
 
     function _occupiedSeatCount() private view returns (uint256 occupiedSeats) {
         return _congressCandidateRegistry.getCurrentOfficeTerm().occupiedSeatCount;
+    }
+
+    function _currentCitizenEligibilityPolicy() private view returns (ICitizenEligibilityPolicy policy) {
+        return
+            ICitizenEligibilityPolicy(
+                IConstitutionKernel(_kernel).getModule(KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY)
+            );
     }
 }

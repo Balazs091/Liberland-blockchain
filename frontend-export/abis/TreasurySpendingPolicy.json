@@ -1,1 +1,322 @@
-{"abi":[{"type":"constructor","inputs":[{"name":"financeOfficeId_","type":"bytes32","internalType":"bytes32"},{"name":"assetLimits_","type":"tuple[]","internalType":"struct ITreasurySpendingPolicy.AssetSpendingLimit[]","components":[{"name":"asset","type":"address","internalType":"address"},{"name":"clerkOperationsLimit","type":"uint256","internalType":"uint256"},{"name":"clerkSalaryLimit","type":"uint256","internalType":"uint256"}]}],"stateMutability":"nonpayable"},{"type":"function","name":"allowedAssetAt","inputs":[{"name":"index","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"assetLimit","type":"tuple","internalType":"struct ITreasurySpendingPolicy.AssetSpendingLimit","components":[{"name":"asset","type":"address","internalType":"address"},{"name":"clerkOperationsLimit","type":"uint256","internalType":"uint256"},{"name":"clerkSalaryLimit","type":"uint256","internalType":"uint256"}]}],"stateMutability":"view"},{"type":"function","name":"allowedAssetCount","inputs":[],"outputs":[{"name":"count","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"computePolicyReference","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"},{"name":"officeRole","type":"uint8","internalType":"enum OfficeTypes.OfficeRole"},{"name":"disbursementType","type":"uint8","internalType":"enum TreasuryTypes.DisbursementType"},{"name":"asset","type":"address","internalType":"address"},{"name":"amount","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"policyReference","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},{"type":"function","name":"financeOfficeId","inputs":[],"outputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},{"type":"function","name":"isAssetAllowed","inputs":[{"name":"asset","type":"address","internalType":"address"}],"outputs":[{"name":"allowed","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"isPayoutAllowed","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"},{"name":"officeRole","type":"uint8","internalType":"enum OfficeTypes.OfficeRole"},{"name":"disbursementType","type":"uint8","internalType":"enum TreasuryTypes.DisbursementType"},{"name":"asset","type":"address","internalType":"address"},{"name":"amount","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"allowed","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"minimumQueueDelay","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"},{"name":"officeRole","type":"uint8","internalType":"enum OfficeTypes.OfficeRole"},{"name":"disbursementType","type":"uint8","internalType":"enum TreasuryTypes.DisbursementType"},{"name":"asset","type":"address","internalType":"address"},{"name":"amount","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"delaySeconds","type":"uint64","internalType":"uint64"}],"stateMutability":"view"},{"type":"error","name":"DuplicateSpendingAsset","inputs":[{"name":"asset","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidFinanceOffice","inputs":[{"name":"officeId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"InvalidSpendingAsset","inputs":[{"name":"asset","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidSpendingAssetSet","inputs":[{"name":"assetCount","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"InvalidSpendingLimit","inputs":[{"name":"operationsLimit","type":"uint256","internalType":"uint256"},{"name":"salaryLimit","type":"uint256","internalType":"uint256"}]}],"bytecode":{"object":"0x60a060405234801561000f575f5ffd5b506040516109f63803806109f683398101604081905261002e91610288565b81610054576040516314a80deb60e31b8152600481018390526024015b60405180910390fd5b80515f0361007a57805160405163e9dd868360e01b815260040161004b91815260200190565b60808290525f5b8151811015610214575f82828151811061009d5761009d610382565b602002602001015190505f6001600160a01b0316815f01516001600160a01b031614806100d3575080516001600160a01b03163b155b156100ff578051604051635c822bbf60e11b81526001600160a01b03909116600482015260240161004b565b6020810151158061011257506040810151155b15610143576020810151604080830151905163604351fd60e01b81526004810192909252602482015260440161004b565b80516001600160a01b039081165f90815260208190526040902054161561018b578051604051630e3200e760e11b81526001600160a01b03909116600482015260240161004b565b80516001600160a01b039081165f908152602081815260408083208551815495166001600160a01b03199586168117825592860151600180830191909155919095015160029095019490945583548085018555918490527fb10e2d527612073b26eecdfd717e6a320cf44b4afac2b0732d9fcbe2b7fa0cf6909101805490921617905501610081565b505050610396565b634e487b7160e01b5f52604160045260245ffd5b604051606081016001600160401b03811182821017156102525761025261021c565b60405290565b604051601f8201601f191681016001600160401b03811182821017156102805761028061021c565b604052919050565b5f5f60408385031215610299575f5ffd5b825160208401519092506001600160401b038111156102b6575f5ffd5b8301601f810185136102c6575f5ffd5b80516001600160401b038111156102df576102df61021c565b6102ee60208260051b01610258565b8082825260208201915060206060840285010192508783111561030f575f5ffd5b6020840193505b82841015610374576060848903121561032d575f5ffd5b610335610230565b84516001600160a01b038116811461034b575f5ffd5b815260208581015181830152604080870151908301529083526060909401939190910190610316565b809450505050509250929050565b634e487b7160e01b5f52603260045260245ffd5b6080516106426103b45f395f818160ba015261018b01526106425ff3fe608060405234801561000f575f5ffd5b506004361061007a575f3560e01c80635bcca41a116100585780635bcca41a146100de578063775398381461010a5780639469bf8f1461011d578063f4c842d91461014a575f5ffd5b80631b095d661461007e5780631d80164c146100955780631dafb695146100b8575b5f5ffd5b6001545b6040519081526020015b60405180910390f35b6100a86100a33660046104dd565b610188565b604051901515815260200161008c565b7f0000000000000000000000000000000000000000000000000000000000000000610082565b6100f16100ec3660046104dd565b610368565b60405167ffffffffffffffff909116815260200161008c565b6100826101183660046104dd565b610380565b6100a861012b366004610538565b6001600160a01b039081165f9081526020819052604090205416151590565b61015d610158366004610558565b6103cb565b6040805182516001600160a01b0316815260208084015190820152918101519082015260600161008c565b5f7f0000000000000000000000000000000000000000000000000000000000000000861415806101c857505f8560028111156101c6576101c661056f565b145b806101e357505f8460068111156101e1576101e161056f565b145b806101ec575081155b8061020e57506001600160a01b038381165f9081526020819052604090205416155b1561021a57505f61035f565b600185600281111561022e5761022e61056f565b036102bf5760018460068111156102475761024761056f565b1480610264575060028460068111156102625761026261056f565b145b806102805750600384600681111561027e5761027e61056f565b145b8061029c5750600484600681111561029a5761029a61056f565b145b806102b8575060068460068111156102b6576102b661056f565b145b905061035f565b60028560028111156102d3576102d361056f565b0361035c576001600160a01b0383165f90815260208190526040902060018560068111156103035761030361056f565b14806103205750600485600681111561031e5761031e61056f565b145b156103335760010154821115905061035f565b60028560068111156103475761034761056f565b0361035a5760020154821115905061035f565b505b505f5b95945050505050565b5f610376868686868661045c565b9695505050505050565b5f3086868686866103948c8c8c8c8c61045c565b6040516020016103aa9796959493929190610583565b60405160208183030381529060405280519060200120905095945050505050565b6103f560405180606001604052805f6001600160a01b031681526020015f81526020015f81525090565b5f5f6001848154811061040a5761040a6105f8565b5f9182526020808320909101546001600160a01b039081168452838201949094526040928301909120825160608101845281549094168452600181015491840191909152600201549082015292915050565b5f61046a8686868686610188565b61047557505f61035f565b60038460068111156104895761048961056f565b14806104a6575060068460068111156104a4576104a461056f565b145b156104b557506201518061035f565b5061546095945050505050565b80356001600160a01b03811681146104d8575f5ffd5b919050565b5f5f5f5f5f60a086880312156104f1575f5ffd5b85359450602086013560038110610506575f5ffd5b9350604086013560078110610519575f5ffd5b9250610527606087016104c2565b949793965091946080013592915050565b5f60208284031215610548575f5ffd5b610551826104c2565b9392505050565b5f60208284031215610568575f5ffd5b5035919050565b634e487b7160e01b5f52602160045260245ffd5b6001600160a01b03881681526020810187905260e08101600387106105aa576105aa61056f565b866040830152600786106105c0576105c061056f565b60608201959095526001600160a01b0393909316608084015260a083019190915267ffffffffffffffff1660c0909101529392505050565b634e487b7160e01b5f52603260045260245ffdfea26469706673582212202e72e4abe3eca07c9355a193b577062b0d0f8a0222773671f2fae70831319dff64736f6c63430008230033","sourceMap":"625:5932:73:-:0;;;1263:1153;;;;;;;;;;;;;;;;;;;;;;;;;;;;:::i;:::-;1357:16;1353:106;;1410:38;;-1:-1:-1;;;1410:38:73;;;;;2349:25:143;;;2322:18;;1410:38:73;;;;;;;;1353:106;1472:12;:19;1495:1;1472:24;1468:106;;1543:12;:19;1519:44;;-1:-1:-1;;;1519:44:73;;;;;;2349:25:143;;2337:2;2322:18;;2203:177;1468:106:73;1584:35;;;;1635:13;1630:780;1662:12;:19;1654:5;:27;1630:780;;;1706:36;1745:12;1758:5;1745:19;;;;;;;;:::i;:::-;;;;;;;1706:58;;1810:1;-1:-1:-1;;;;;1782:30:73;:10;:16;;;-1:-1:-1;;;;;1782:30:73;;:67;;;-1:-1:-1;1816:16:73;;-1:-1:-1;;;;;1816:28:73;;:33;1782:67;1778:151;;;1897:16;;1876:38;;-1:-1:-1;;;1876:38:73;;-1:-1:-1;;;;;2863:32:143;;;1876:38:73;;;2845:51:143;2818:18;;1876:38:73;2699:203:143;1778:151:73;1946:31;;;;:36;;:72;;-1:-1:-1;1986:27:73;;;;:32;1946:72;1942:200;;;2066:31;;;;2099:27;;;;;2045:82;;-1:-1:-1;;;2045:82:73;;;;;3081:25:143;;;;3122:18;;;3115:34;3054:18;;2045:82:73;2907:248:143;1942:200:73;2172:16;;-1:-1:-1;;;;;2159:30:73;;;2207:1;2159:30;;;;;;;;;;:36;;:50;2155:136;;2259:16;;2236:40;;-1:-1:-1;;;2236:40:73;;-1:-1:-1;;;;;2863:32:143;;;2236:40:73;;;2845:51:143;2818:18;;2236:40:73;2699:203:143;2155:136:73;2318:16;;-1:-1:-1;;;;;2305:30:73;;;:12;:30;;;;;;;;;;;:43;;;;;;-1:-1:-1;;;;;;2305:43:73;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;2362:37;;;;;;;;;;;;;;;;;;;;;;;1683:7;1630:780;;;;1263:1153;;625:5932;;14:127:143;75:10;70:3;66:20;63:1;56:31;106:4;103:1;96:15;130:4;127:1;120:15;146:252;217:2;211:9;259:4;247:17;;-1:-1:-1;;;;;279:34:143;;315:22;;;276:62;273:88;;;341:18;;:::i;:::-;377:2;370:22;146:252;:::o;403:275::-;474:2;468:9;539:2;520:13;;-1:-1:-1;;516:27:143;504:40;;-1:-1:-1;;;;;559:34:143;;595:22;;;556:62;553:88;;;621:18;;:::i;:::-;657:2;650:22;403:275;;-1:-1:-1;403:275:143:o;683:1515::-;824:6;832;885:2;873:9;864:7;860:23;856:32;853:52;;;901:1;898;891:12;853:52;924:16;;984:2;969:18;;963:25;924:16;;-1:-1:-1;;;;;;1000:30:143;;997:50;;;1043:1;1040;1033:12;997:50;1066:22;;1119:4;1111:13;;1107:27;-1:-1:-1;1097:55:143;;1148:1;1145;1138:12;1097:55;1175:9;;-1:-1:-1;;;;;1196:30:143;;1193:56;;;1229:18;;:::i;:::-;1269:40;1305:2;1296:6;1293:1;1289:14;1285:23;1269:40;:::i;:::-;1331:3;1355:6;1350:3;1343:19;1387:2;1382:3;1378:12;1371:19;;1445:2;1437:4;1429:6;1425:17;1421:2;1417:26;1413:35;1399:49;;1471:7;1463:6;1460:19;1457:39;;;1492:1;1489;1482:12;1457:39;1524:2;1520;1516:11;1505:22;;1536:632;1552:6;1547:3;1544:15;1536:632;;;1634:4;1628:3;1619:7;1615:17;1611:28;1608:48;;;1652:1;1649;1642:12;1608:48;1682:21;;:::i;:::-;1731:10;;-1:-1:-1;;;;;1776:33:143;;1764:46;;1754:74;;1824:1;1821;1814:12;1754:74;1841:22;;1931:2;1922:12;;;1916:19;1955:14;;;1948:31;2047:2;2038:12;;;2032:19;2071:14;;;2064:31;2108:18;;;1578:4;1569:14;;;;2146:12;;;;;1536:632;;;2187:5;2177:15;;;;;;683:1515;;;;;:::o;2567:127::-;2628:10;2623:3;2619:20;2616:1;2609:31;2659:4;2656:1;2649:15;2683:4;2680:1;2673:15;2907:248;625:5932:73;;;;;;;;;;;;;;;;;","linkReferences":{}},"deployedBytecode":{"object":"0x608060405234801561000f575f5ffd5b506004361061007a575f3560e01c80635bcca41a116100585780635bcca41a146100de578063775398381461010a5780639469bf8f1461011d578063f4c842d91461014a575f5ffd5b80631b095d661461007e5780631d80164c146100955780631dafb695146100b8575b5f5ffd5b6001545b6040519081526020015b60405180910390f35b6100a86100a33660046104dd565b610188565b604051901515815260200161008c565b7f0000000000000000000000000000000000000000000000000000000000000000610082565b6100f16100ec3660046104dd565b610368565b60405167ffffffffffffffff909116815260200161008c565b6100826101183660046104dd565b610380565b6100a861012b366004610538565b6001600160a01b039081165f9081526020819052604090205416151590565b61015d610158366004610558565b6103cb565b6040805182516001600160a01b0316815260208084015190820152918101519082015260600161008c565b5f7f0000000000000000000000000000000000000000000000000000000000000000861415806101c857505f8560028111156101c6576101c661056f565b145b806101e357505f8460068111156101e1576101e161056f565b145b806101ec575081155b8061020e57506001600160a01b038381165f9081526020819052604090205416155b1561021a57505f61035f565b600185600281111561022e5761022e61056f565b036102bf5760018460068111156102475761024761056f565b1480610264575060028460068111156102625761026261056f565b145b806102805750600384600681111561027e5761027e61056f565b145b8061029c5750600484600681111561029a5761029a61056f565b145b806102b8575060068460068111156102b6576102b661056f565b145b905061035f565b60028560028111156102d3576102d361056f565b0361035c576001600160a01b0383165f90815260208190526040902060018560068111156103035761030361056f565b14806103205750600485600681111561031e5761031e61056f565b145b156103335760010154821115905061035f565b60028560068111156103475761034761056f565b0361035a5760020154821115905061035f565b505b505f5b95945050505050565b5f610376868686868661045c565b9695505050505050565b5f3086868686866103948c8c8c8c8c61045c565b6040516020016103aa9796959493929190610583565b60405160208183030381529060405280519060200120905095945050505050565b6103f560405180606001604052805f6001600160a01b031681526020015f81526020015f81525090565b5f5f6001848154811061040a5761040a6105f8565b5f9182526020808320909101546001600160a01b039081168452838201949094526040928301909120825160608101845281549094168452600181015491840191909152600201549082015292915050565b5f61046a8686868686610188565b61047557505f61035f565b60038460068111156104895761048961056f565b14806104a6575060068460068111156104a4576104a461056f565b145b156104b557506201518061035f565b5061546095945050505050565b80356001600160a01b03811681146104d8575f5ffd5b919050565b5f5f5f5f5f60a086880312156104f1575f5ffd5b85359450602086013560038110610506575f5ffd5b9350604086013560078110610519575f5ffd5b9250610527606087016104c2565b949793965091946080013592915050565b5f60208284031215610548575f5ffd5b610551826104c2565b9392505050565b5f60208284031215610568575f5ffd5b5035919050565b634e487b7160e01b5f52602160045260245ffd5b6001600160a01b03881681526020810187905260e08101600387106105aa576105aa61056f565b866040830152600786106105c0576105c061056f565b60608201959095526001600160a01b0393909316608084015260a083019190915267ffffffffffffffff1660c0909101529392505050565b634e487b7160e01b5f52603260045260245ffdfea26469706673582212202e72e4abe3eca07c9355a193b577062b0d0f8a0222773671f2fae70831319dff64736f6c63430008230033","sourceMap":"625:5932:73:-:0;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;2811:112;2895:14;:21;2811:112;;;160:25:143;;;148:2;133:18;2811:112:73;;;;;;;;3182:1575;;;;;;:::i;:::-;;:::i;:::-;;;1252:14:143;;1245:22;1227:41;;1215:2;1200:18;3182:1575:73;1087:187:143;2466:108:73;2551:16;2466:108;;4807:347;;;;;;:::i;:::-;;:::i;:::-;;;1635:18:143;1623:31;;;1605:50;;1593:2;1578:18;4807:347:73;1461:200:143;5204:695:73;;;;;;:::i;:::-;;:::i;2624:137::-;;;;;;:::i;:::-;-1:-1:-1;;;;;2715:19:73;;;2684:12;2715:19;;;;;;;;;;:25;;:39;;;2624:137;2973:159;;;;;;:::i;:::-;;:::i;:::-;;;;2330:13:143;;-1:-1:-1;;;;;2326:39:143;2308:58;;2422:4;2410:17;;;2404:24;2382:20;;;2375:54;2473:17;;;2467:24;2445:20;;;2438:54;2296:2;2281:18;2973:159:73;2088:410:143;3182:1575:73;3407:12;3460:16;3448:8;:28;;:73;;;-1:-1:-1;3494:27:73;3480:10;:41;;;;;;;;:::i;:::-;;3448:73;:153;;;-1:-1:-1;3561:40:73;3541:16;:60;;;;;;;;:::i;:::-;;3448:153;:168;;;-1:-1:-1;3605:11:73;;3448:168;:194;;;-1:-1:-1;;;;;;2715:19:73;;;2684:12;2715:19;;;;;;;;;;:25;;:39;3448:194;3431:259;;;-1:-1:-1;3674:5:73;3667:12;;3431:259;3718:28;3704:10;:42;;;;;;;;:::i;:::-;;3700:460;;3789:41;3769:16;:61;;;;;;;;:::i;:::-;;:138;;;-1:-1:-1;3870:37:73;3850:16;:57;;;;;;;;:::i;:::-;;3769:138;:214;;;-1:-1:-1;3947:36:73;3927:16;:56;;;;;;;;:::i;:::-;;3769:214;:291;;;-1:-1:-1;4023:37:73;4003:16;:57;;;;;;;;:::i;:::-;;3769:291;:380;;;-1:-1:-1;4100:49:73;4080:16;:69;;;;;;;;:::i;:::-;;3769:380;3762:387;;;;3700:460;4188:28;4174:10;:42;;;;;;;;:::i;:::-;;4170:558;;-1:-1:-1;;;;;4272:19:73;;4232:37;4272:19;;;;;;;;;;4346:41;4326:16;:61;;;;;;;;:::i;:::-;;:142;;;-1:-1:-1;4431:37:73;4411:16;:57;;;;;;;;:::i;:::-;;4326:142;4305:259;;;4518:31;;;4508:41;;;;-1:-1:-1;4501:48:73;;4305:259;4602:37;4582:16;:57;;;;;;;;:::i;:::-;;4578:140;;4676:27;;;4666:37;;;;-1:-1:-1;4659:44:73;;4578:140;4218:510;4170:558;-1:-1:-1;4745:5:73;3182:1575;;;;;;;;:::o;4807:347::-;5036:19;5074:73;5093:8;5103:10;5115:16;5133:5;5140:6;5074:18;:73::i;:::-;5067:80;4807:347;-1:-1:-1;;;;;;4807:347:73:o;5204:695::-;5438:23;5539:4;5562:8;5588:10;5616:16;5650:5;5673:6;5795:73;5814:8;5824:10;5836:16;5854:5;5861:6;5795:18;:73::i;:::-;5503:379;;;;;;;;;;;;;;:::i;:::-;;;;;;;;;;;;;5480:412;;;;;;5473:419;;5204:695;;;;;;;:::o;2973:159::-;3035:36;-1:-1:-1;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;3035:36:73;3090:12;:35;3103:14;3118:5;3103:21;;;;;;;;:::i;:::-;;;;;;;;;;;;;-1:-1:-1;;;;;3103:21:73;;;3090:35;;;;;;;;;;;;;;;;3083:42;;;;;;;;;;;;;;3103:21;3083:42;;;;;;;;;;;;;;;;;;2973:159;-1:-1:-1;;2973:159:73:o;5905:650::-;6134:19;6170:70;6186:8;6196:10;6208:16;6226:5;6233:6;6170:15;:70::i;:::-;6165:110;;-1:-1:-1;6263:1:73;6256:8;;6165:110;6322:36;6302:16;:56;;;;;;;;:::i;:::-;;:145;;;-1:-1:-1;6398:49:73;6378:16;:69;;;;;;;;:::i;:::-;;6302:145;6285:226;;;-1:-1:-1;1080:6:73;6472:28;;6285:226;-1:-1:-1;1018:7:73;5905:650;;;;;;;:::o;196:173:143:-;264:20;;-1:-1:-1;;;;;313:31:143;;303:42;;293:70;;359:1;356;349:12;293:70;196:173;;;:::o;374:708::-;507:6;515;523;531;539;592:3;580:9;571:7;567:23;563:33;560:53;;;609:1;606;599:12;560:53;645:9;632:23;622:33;;705:2;694:9;690:18;677:32;738:1;731:5;728:12;718:40;;754:1;751;744:12;718:40;777:5;-1:-1:-1;834:2:143;819:18;;806:32;869:1;857:14;;847:42;;885:1;882;875:12;847:42;908:7;-1:-1:-1;934:38:143;968:2;953:18;;934:38;:::i;:::-;374:708;;;;-1:-1:-1;374:708:143;;1045:3;1030:19;1017:33;;374:708;-1:-1:-1;;374:708:143:o;1666:186::-;1725:6;1778:2;1766:9;1757:7;1753:23;1749:32;1746:52;;;1794:1;1791;1784:12;1746:52;1817:29;1836:9;1817:29;:::i;:::-;1807:39;1666:186;-1:-1:-1;;;1666:186:143:o;1857:226::-;1916:6;1969:2;1957:9;1948:7;1944:23;1940:32;1937:52;;;1985:1;1982;1975:12;1937:52;-1:-1:-1;2030:23:143;;1857:226;-1:-1:-1;1857:226:143:o;2503:127::-;2564:10;2559:3;2555:20;2552:1;2545:31;2595:4;2592:1;2585:15;2619:4;2616:1;2609:15;2635:828;-1:-1:-1;;;;;3000:32:143;;2982:51;;3064:2;3049:18;;3042:34;;;2969:3;2954:19;;3106:1;3095:13;;3085:47;;3112:18;;:::i;:::-;3168:6;3163:2;3152:9;3148:18;3141:34;3205:1;3197:6;3194:13;3184:47;;3211:18;;:::i;:::-;3262:2;3247:18;;3240:34;;;;-1:-1:-1;;;;;3311:32:143;;;;3305:3;3290:19;;3283:61;3331:3;3360:19;;3353:35;;;;3437:18;3425:31;3419:3;3404:19;;;3397:60;2635:828;;-1:-1:-1;;;2635:828:143:o;3468:127::-;3529:10;3524:3;3520:20;3517:1;3510:31;3560:4;3557:1;3550:15;3584:4;3581:1;3574:15","linkReferences":{},"immutableReferences":{"35099":[{"start":186,"length":32},{"start":395,"length":32}]}},"methodIdentifiers":{"allowedAssetAt(uint256)":"f4c842d9","allowedAssetCount()":"1b095d66","computePolicyReference(bytes32,uint8,uint8,address,uint256)":"77539838","financeOfficeId()":"1dafb695","isAssetAllowed(address)":"9469bf8f","isPayoutAllowed(bytes32,uint8,uint8,address,uint256)":"1d80164c","minimumQueueDelay(bytes32,uint8,uint8,address,uint256)":"5bcca41a"},"rawMetadata":"{\"compiler\":{\"version\":\"0.8.35+commit.47b9dedd\"},\"language\":\"Solidity\",\"output\":{\"abi\":[{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"financeOfficeId_\",\"type\":\"bytes32\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"clerkOperationsLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"clerkSalaryLimit\",\"type\":\"uint256\"}],\"internalType\":\"struct ITreasurySpendingPolicy.AssetSpendingLimit[]\",\"name\":\"assetLimits_\",\"type\":\"tuple[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"}],\"name\":\"DuplicateSpendingAsset\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"officeId\",\"type\":\"bytes32\"}],\"name\":\"InvalidFinanceOffice\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"}],\"name\":\"InvalidSpendingAsset\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"assetCount\",\"type\":\"uint256\"}],\"name\":\"InvalidSpendingAssetSet\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"operationsLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"salaryLimit\",\"type\":\"uint256\"}],\"name\":\"InvalidSpendingLimit\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"index\",\"type\":\"uint256\"}],\"name\":\"allowedAssetAt\",\"outputs\":[{\"components\":[{\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"clerkOperationsLimit\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"clerkSalaryLimit\",\"type\":\"uint256\"}],\"internalType\":\"struct ITreasurySpendingPolicy.AssetSpendingLimit\",\"name\":\"assetLimit\",\"type\":\"tuple\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"allowedAssetCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"count\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"officeId\",\"type\":\"bytes32\"},{\"internalType\":\"enum OfficeTypes.OfficeRole\",\"name\":\"officeRole\",\"type\":\"uint8\"},{\"internalType\":\"enum TreasuryTypes.DisbursementType\",\"name\":\"disbursementType\",\"type\":\"uint8\"},{\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"computePolicyReference\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"policyReference\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"financeOfficeId\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"officeId\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"}],\"name\":\"isAssetAllowed\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"allowed\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"officeId\",\"type\":\"bytes32\"},{\"internalType\":\"enum OfficeTypes.OfficeRole\",\"name\":\"officeRole\",\"type\":\"uint8\"},{\"internalType\":\"enum TreasuryTypes.DisbursementType\",\"name\":\"disbursementType\",\"type\":\"uint8\"},{\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"isPayoutAllowed\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"allowed\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"officeId\",\"type\":\"bytes32\"},{\"internalType\":\"enum OfficeTypes.OfficeRole\",\"name\":\"officeRole\",\"type\":\"uint8\"},{\"internalType\":\"enum TreasuryTypes.DisbursementType\",\"name\":\"disbursementType\",\"type\":\"uint8\"},{\"internalType\":\"address\",\"name\":\"asset\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"minimumQueueDelay\",\"outputs\":[{\"internalType\":\"uint64\",\"name\":\"delaySeconds\",\"type\":\"uint64\"}],\"stateMutability\":\"view\",\"type\":\"function\"}],\"devdoc\":{\"details\":\"The allowed asset set and per-asset clerk limits are fixed at deployment; changing them means deploying a      new policy and repointing the module through governance, consistent with the replaceable-policy model.\",\"kind\":\"dev\",\"methods\":{\"allowedAssetAt(uint256)\":{\"params\":{\"index\":\"The asset index.\"},\"returns\":{\"assetLimit\":\"The asset spending configuration.\"}},\"allowedAssetCount()\":{\"returns\":{\"count\":\"The allowed asset count.\"}},\"isAssetAllowed(address)\":{\"params\":{\"asset\":\"The ERC20 token address.\"},\"returns\":{\"allowed\":\"True when the asset is configured in this policy.\"}}},\"title\":\"TreasurySpendingPolicy\",\"version\":1},\"userdoc\":{\"kind\":\"user\",\"methods\":{\"allowedAssetAt(uint256)\":{\"notice\":\"Returns the allowed asset configuration at an index.\"},\"allowedAssetCount()\":{\"notice\":\"Returns the number of allowed spending assets.\"},\"isAssetAllowed(address)\":{\"notice\":\"Returns whether an ERC20 asset is allowed for treasury spending.\"}},\"notice\":\"v1 spending guardrails for office-origin treasury requests over an explicit ERC20 asset allowlist.\",\"version\":1}},\"settings\":{\"compilationTarget\":{\"contracts/policies/TreasurySpendingPolicy.sol\":\"TreasurySpendingPolicy\"},\"evmVersion\":\"osaka\",\"libraries\":{},\"metadata\":{\"bytecodeHash\":\"ipfs\"},\"optimizer\":{\"enabled\":true,\"runs\":200},\"remappings\":[\":@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/\",\":forge-std/=lib/forge-std/src/\"]},\"sources\":{\"contracts/interfaces/ITreasurySpendingPolicy.sol\":{\"keccak256\":\"0xeb0a7eae2cb8d99bafeb5c439b27ccdd3b4543406feae96e114d097dbf31edf4\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://df556682027dfc368c2f043478b02589e444d7b63f26ec78073d524b7378f98e\",\"dweb:/ipfs/Qmdtgdk3mmoSd3mCvCtjf8TPsgGDTT6WCADoCZQfi6D9t5\"]},\"contracts/policies/TreasurySpendingPolicy.sol\":{\"keccak256\":\"0x9a85bc92e4803dda4c743cf1a2d2e23ed8c34dff9dd221275606411fa3cfab4c\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://cb6aa3abd8b6919bb77b71c977dbbfc2a386436f92a8f34733a3e3a1eb7913b9\",\"dweb:/ipfs/QmajJn7Q3qSr4Y8TaXK5RR6b4Ukt4zQpH74JzVcyeu58D7\"]},\"contracts/types/OfficeTypes.sol\":{\"keccak256\":\"0xec2f146d1cac7b304a8a23f92038d41656546c389cbbcda8df626c5dfcce1d49\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://912639a3b8eff407fae728a448ab66ab4760ee3985b65305178f24886d1fc676\",\"dweb:/ipfs/QmS4x4KSme4hKh6wNSidFX4ZW1zG4BSE2B8o3dz3rp8S7L\"]},\"contracts/types/TreasuryTypes.sol\":{\"keccak256\":\"0x2fb2ca700fc5d5d34ea52aee8f75e68580d79abe4d81e95a24b79bdb2a885785\",\"license\":\"MIT\",\"urls\":[\"bzz-raw://e9ba6b176656b35d96539e4a261eec2842da47ef4eed7f80758f4a38191f725d\",\"dweb:/ipfs/QmSxaA3hBmEvcivVpuGcuA13Tg1BzxXG7JbHbBxbYS9eD9\"]}},\"version\":1}","metadata":{"compiler":{"version":"0.8.35+commit.47b9dedd"},"language":"Solidity","output":{"abi":[{"inputs":[{"internalType":"bytes32","name":"financeOfficeId_","type":"bytes32"},{"internalType":"struct ITreasurySpendingPolicy.AssetSpendingLimit[]","name":"assetLimits_","type":"tuple[]","components":[{"internalType":"address","name":"asset","type":"address"},{"internalType":"uint256","name":"clerkOperationsLimit","type":"uint256"},{"internalType":"uint256","name":"clerkSalaryLimit","type":"uint256"}]}],"stateMutability":"nonpayable","type":"constructor"},{"inputs":[{"internalType":"address","name":"asset","type":"address"}],"type":"error","name":"DuplicateSpendingAsset"},{"inputs":[{"internalType":"bytes32","name":"officeId","type":"bytes32"}],"type":"error","name":"InvalidFinanceOffice"},{"inputs":[{"internalType":"address","name":"asset","type":"address"}],"type":"error","name":"InvalidSpendingAsset"},{"inputs":[{"internalType":"uint256","name":"assetCount","type":"uint256"}],"type":"error","name":"InvalidSpendingAssetSet"},{"inputs":[{"internalType":"uint256","name":"operationsLimit","type":"uint256"},{"internalType":"uint256","name":"salaryLimit","type":"uint256"}],"type":"error","name":"InvalidSpendingLimit"},{"inputs":[{"internalType":"uint256","name":"index","type":"uint256"}],"stateMutability":"view","type":"function","name":"allowedAssetAt","outputs":[{"internalType":"struct ITreasurySpendingPolicy.AssetSpendingLimit","name":"assetLimit","type":"tuple","components":[{"internalType":"address","name":"asset","type":"address"},{"internalType":"uint256","name":"clerkOperationsLimit","type":"uint256"},{"internalType":"uint256","name":"clerkSalaryLimit","type":"uint256"}]}]},{"inputs":[],"stateMutability":"view","type":"function","name":"allowedAssetCount","outputs":[{"internalType":"uint256","name":"count","type":"uint256"}]},{"inputs":[{"internalType":"bytes32","name":"officeId","type":"bytes32"},{"internalType":"enum OfficeTypes.OfficeRole","name":"officeRole","type":"uint8"},{"internalType":"enum TreasuryTypes.DisbursementType","name":"disbursementType","type":"uint8"},{"internalType":"address","name":"asset","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"stateMutability":"view","type":"function","name":"computePolicyReference","outputs":[{"internalType":"bytes32","name":"policyReference","type":"bytes32"}]},{"inputs":[],"stateMutability":"view","type":"function","name":"financeOfficeId","outputs":[{"internalType":"bytes32","name":"officeId","type":"bytes32"}]},{"inputs":[{"internalType":"address","name":"asset","type":"address"}],"stateMutability":"view","type":"function","name":"isAssetAllowed","outputs":[{"internalType":"bool","name":"allowed","type":"bool"}]},{"inputs":[{"internalType":"bytes32","name":"officeId","type":"bytes32"},{"internalType":"enum OfficeTypes.OfficeRole","name":"officeRole","type":"uint8"},{"internalType":"enum TreasuryTypes.DisbursementType","name":"disbursementType","type":"uint8"},{"internalType":"address","name":"asset","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"stateMutability":"view","type":"function","name":"isPayoutAllowed","outputs":[{"internalType":"bool","name":"allowed","type":"bool"}]},{"inputs":[{"internalType":"bytes32","name":"officeId","type":"bytes32"},{"internalType":"enum OfficeTypes.OfficeRole","name":"officeRole","type":"uint8"},{"internalType":"enum TreasuryTypes.DisbursementType","name":"disbursementType","type":"uint8"},{"internalType":"address","name":"asset","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"stateMutability":"view","type":"function","name":"minimumQueueDelay","outputs":[{"internalType":"uint64","name":"delaySeconds","type":"uint64"}]}],"devdoc":{"kind":"dev","methods":{"allowedAssetAt(uint256)":{"params":{"index":"The asset index."},"returns":{"assetLimit":"The asset spending configuration."}},"allowedAssetCount()":{"returns":{"count":"The allowed asset count."}},"isAssetAllowed(address)":{"params":{"asset":"The ERC20 token address."},"returns":{"allowed":"True when the asset is configured in this policy."}}},"version":1},"userdoc":{"kind":"user","methods":{"allowedAssetAt(uint256)":{"notice":"Returns the allowed asset configuration at an index."},"allowedAssetCount()":{"notice":"Returns the number of allowed spending assets."},"isAssetAllowed(address)":{"notice":"Returns whether an ERC20 asset is allowed for treasury spending."}},"version":1}},"settings":{"remappings":["@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/","forge-std/=lib/forge-std/src/"],"optimizer":{"enabled":true,"runs":200},"metadata":{"bytecodeHash":"ipfs"},"compilationTarget":{"contracts/policies/TreasurySpendingPolicy.sol":"TreasurySpendingPolicy"},"evmVersion":"osaka","libraries":{}},"sources":{"contracts/interfaces/ITreasurySpendingPolicy.sol":{"keccak256":"0xeb0a7eae2cb8d99bafeb5c439b27ccdd3b4543406feae96e114d097dbf31edf4","urls":["bzz-raw://df556682027dfc368c2f043478b02589e444d7b63f26ec78073d524b7378f98e","dweb:/ipfs/Qmdtgdk3mmoSd3mCvCtjf8TPsgGDTT6WCADoCZQfi6D9t5"],"license":"MIT"},"contracts/policies/TreasurySpendingPolicy.sol":{"keccak256":"0x9a85bc92e4803dda4c743cf1a2d2e23ed8c34dff9dd221275606411fa3cfab4c","urls":["bzz-raw://cb6aa3abd8b6919bb77b71c977dbbfc2a386436f92a8f34733a3e3a1eb7913b9","dweb:/ipfs/QmajJn7Q3qSr4Y8TaXK5RR6b4Ukt4zQpH74JzVcyeu58D7"],"license":"MIT"},"contracts/types/OfficeTypes.sol":{"keccak256":"0xec2f146d1cac7b304a8a23f92038d41656546c389cbbcda8df626c5dfcce1d49","urls":["bzz-raw://912639a3b8eff407fae728a448ab66ab4760ee3985b65305178f24886d1fc676","dweb:/ipfs/QmS4x4KSme4hKh6wNSidFX4ZW1zG4BSE2B8o3dz3rp8S7L"],"license":"MIT"},"contracts/types/TreasuryTypes.sol":{"keccak256":"0x2fb2ca700fc5d5d34ea52aee8f75e68580d79abe4d81e95a24b79bdb2a885785","urls":["bzz-raw://e9ba6b176656b35d96539e4a261eec2842da47ef4eed7f80758f4a38191f725d","dweb:/ipfs/QmSxaA3hBmEvcivVpuGcuA13Tg1BzxXG7JbHbBxbYS9eD9"],"license":"MIT"}},"version":1},"id":73}
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "financeOfficeId_",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "llmAsset_",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "assetLimits_",
+        "type": "tuple[]",
+        "internalType": "struct ITreasurySpendingPolicy.AssetSpendingLimit[]",
+        "components": [
+          {
+            "name": "asset",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "clerkOperationsLimit",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "clerkSalaryLimit",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "allowedAssetAt",
+    "inputs": [
+      {
+        "name": "index",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "assetLimit",
+        "type": "tuple",
+        "internalType": "struct ITreasurySpendingPolicy.AssetSpendingLimit",
+        "components": [
+          {
+            "name": "asset",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "clerkOperationsLimit",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "clerkSalaryLimit",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "allowedAssetCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "count",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "computePolicyReference",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "officeRole",
+        "type": "uint8",
+        "internalType": "enum OfficeTypes.OfficeRole"
+      },
+      {
+        "name": "disbursementType",
+        "type": "uint8",
+        "internalType": "enum TreasuryTypes.DisbursementType"
+      },
+      {
+        "name": "asset",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "policyReference",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "financeOfficeId",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isAssetAllowed",
+    "inputs": [
+      {
+        "name": "asset",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "allowed",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isPayoutAllowed",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "officeRole",
+        "type": "uint8",
+        "internalType": "enum OfficeTypes.OfficeRole"
+      },
+      {
+        "name": "disbursementType",
+        "type": "uint8",
+        "internalType": "enum TreasuryTypes.DisbursementType"
+      },
+      {
+        "name": "asset",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "allowed",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "llmAsset",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "asset",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "minimumQueueDelay",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "officeRole",
+        "type": "uint8",
+        "internalType": "enum OfficeTypes.OfficeRole"
+      },
+      {
+        "name": "disbursementType",
+        "type": "uint8",
+        "internalType": "enum TreasuryTypes.DisbursementType"
+      },
+      {
+        "name": "asset",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "delaySeconds",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "DuplicateSpendingAsset",
+    "inputs": [
+      {
+        "name": "asset",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidFinanceOffice",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidSpendingAsset",
+    "inputs": [
+      {
+        "name": "asset",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidSpendingAssetSet",
+    "inputs": [
+      {
+        "name": "assetCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidSpendingLimit",
+    "inputs": [
+      {
+        "name": "operationsLimit",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "salaryLimit",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "LlmAssetNotAllowed",
+    "inputs": [
+      {
+        "name": "asset",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  }
+]}

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IKernelModule} from "./IKernelModule.sol";
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
@@ -13,6 +13,7 @@ interface ITreasuryVault is IKernelModule {
     error InvalidDisbursementRequest(bytes32 requestId);
     error InvalidTreasuryDeposit(uint256 amount);
     error InvalidTreasuryDepositAsset(address asset);
+    error UnexpectedDisbursementAmount(uint256 expectedAmount, uint256 receivedAmount);
     error UnauthorizedTreasuryCaller(address caller);
 
     event TreasuryTokenDepositReceived(
@@ -49,5 +50,7 @@ interface ITreasuryVault is IKernelModule {
     /// @param depositReference Caller-supplied reference for off-chain deposit classification.
     function receiveTokenDeposit(address asset, uint256 amount, bytes32 depositReference) external;
 
+    /// @notice Executes an exact, active budget commitment through the canonical timelock.
+    /// @param payload The disbursement terms, which must match the stable budget registry commitment.
     function executeDisbursement(GovernanceTypes.TreasuryDisbursementPayload calldata payload) external;
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 /// @title IVotingPowerPolicy
 /// @notice Policy interface for governance voting power derived from political stake.
@@ -16,8 +16,20 @@ interface IVotingPowerPolicy {
     /// @return policyAddress The citizen eligibility policy address.
     function citizenEligibilityPolicy() external view returns (address policyAddress);
 
+    /// @notice Returns the immutable electorate registry used for historical voting eligibility.
+    /// @return registryAddress The pinned electorate registry address.
+    function electorateRegistry() external view returns (address registryAddress);
+
     /// @notice Returns the governance voting power for a wallet.
     /// @param wallet The wallet to evaluate.
     /// @return power The resolved voting power.
     function votingPower(address wallet) external view returns (uint256 power);
+
+    /// @notice Returns governance voting power for a complete historical electorate snapshot.
+    /// @dev The person must have belonged to the civic roll at `blockNumber` and must still be in good standing.
+    ///      A migrated active wallet inherits the same person's historical voting power; a revoked wallet does not.
+    /// @param wallet The wallet to evaluate.
+    /// @param blockNumber The electorate and stake checkpoint block.
+    /// @return power The resolved historical voting power.
+    function votingPowerAt(address wallet, uint48 blockNumber) external view returns (uint256 power);
 }

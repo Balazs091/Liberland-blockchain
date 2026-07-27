@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {ILendingRiskParameterPolicy} from "../interfaces/ILendingRiskParameterPolicy.sol";
 
@@ -12,7 +12,8 @@ import {ILendingRiskParameterPolicy} from "../interfaces/ILendingRiskParameterPo
 ///      changes must go through the timelock's review window. The constructor enforces hard bounds so that no
 ///      configured (or repointed) policy can set economically nonsensical values.
 contract LendingRiskParameterPolicy is ILendingRiskParameterPolicy {
-    uint16 internal constant BPS = 10_000;
+    uint256 internal constant BPS = 10_000;
+
     /// @dev Ceilings leave headroom below full utilization/collateral so liquidation seizure plus bonus stays
     ///      solvent and reserves can never starve suppliers.
     uint16 internal constant MAX_LIQUIDATION_THRESHOLD_BPS = 9_000;
@@ -23,6 +24,7 @@ contract LendingRiskParameterPolicy is ILendingRiskParameterPolicy {
     error InvalidLiquidationThreshold(uint16 maxLtvBps, uint16 liquidationThresholdBps);
     error InvalidLiquidationBonus(uint16 liquidationBonusBps);
     error InvalidReserveFactor(uint16 reserveFactorBps);
+    error UnsafeLiquidationParameters(uint16 liquidationThresholdBps, uint16 liquidationBonusBps);
 
     RiskParameters private _parameters;
 
@@ -48,6 +50,9 @@ contract LendingRiskParameterPolicy is ILendingRiskParameterPolicy {
         }
         if (liquidationBonusBps_ > MAX_LIQUIDATION_BONUS_BPS) {
             revert InvalidLiquidationBonus(liquidationBonusBps_);
+        }
+        if (uint256(liquidationThresholdBps_) * (BPS + uint256(liquidationBonusBps_)) > BPS * BPS) {
+            revert UnsafeLiquidationParameters(liquidationThresholdBps_, liquidationBonusBps_);
         }
         if (reserveFactorBps_ > MAX_RESERVE_FACTOR_BPS) {
             revert InvalidReserveFactor(reserveFactorBps_);

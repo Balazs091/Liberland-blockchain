@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {DecisionTypes} from "../types/DecisionTypes.sol";
 import {OfficeTypes} from "../types/OfficeTypes.sol";
@@ -8,6 +8,7 @@ import {OfficeTypes} from "../types/OfficeTypes.sol";
 /// @notice Bounded Congress and ministry decision workflow for wallet-funded token movement, clerk decisions, and
 ///         Congress-approved creation of new government offices and ministries.
 interface IDecisionApp {
+    error CongressDecisionSourceNotAuthorized(bytes32 decisionId, address source);
     error CongressDecisionNotApproved(bytes32 decisionId, uint32 supportCount, uint32 supportRequired);
     error CongressDecisionTermChanged(bytes32 decisionId, uint256 expectedCycleId, uint256 currentCycleId);
     error DecisionAlreadyExists(bytes32 decisionId);
@@ -58,6 +59,10 @@ interface IDecisionApp {
         uint32 supportCount,
         uint32 supportRequired,
         uint64 removedAt
+    );
+
+    event CongressDecisionSourceAuthorizationUpdated(
+        bytes32 indexed decisionId, address indexed source, bool authorized, uint64 updatedAt
     );
 
     event MinistryDecisionPrepared(
@@ -114,9 +119,21 @@ interface IDecisionApp {
     /// @notice Returns the LLM token accepted for transfer-and-stake decisions.
     function llmToken() external view returns (address tokenAddress);
 
+    /// @notice Returns the canonical LLM staking vault.
+    function stakingVault() external view returns (address vaultAddress);
+
     /// @notice Returns the stored decision record.
     /// @param decisionId The decision identifier.
     function getDecision(bytes32 decisionId) external view returns (DecisionTypes.DecisionRecord memory record);
+
+    /// @notice Returns whether the recorded token source explicitly authorized this Congress decision.
+    function isCongressDecisionSourceAuthorized(bytes32 decisionId) external view returns (bool authorized);
+
+    /// @notice Authorizes one prepared Congress decision to use the caller as its token source.
+    function authorizeCongressDecisionSource(bytes32 decisionId) external;
+
+    /// @notice Revokes the caller's authorization before the Congress decision executes.
+    function revokeCongressDecisionSource(bytes32 decisionId) external;
 
     /// @notice Returns true when a Congress member has supported a Congress decision.
     /// @param decisionId The decision identifier.

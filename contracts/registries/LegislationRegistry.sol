@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {KernelModule} from "../base/KernelModule.sol";
 import {ILegislationRegistry} from "../interfaces/ILegislationRegistry.sol";
@@ -107,7 +107,7 @@ contract LegislationRegistry is ILegislationRegistry, KernelModule {
             revert LegislationAlreadyRepealed(measureId);
         }
 
-        // L10: enforce the tier bound of each bounded repeal pathway at the registry, independent of the
+        // Enforce the tier bound of each bounded repeal pathway at the registry, independent of the
         // calling app. Public veto is a Law-tier-only tool; the Senate may only repeal sub-legal measures.
         if (repealOrigin == LegislationTypes.RepealOrigin.PublicVeto) {
             if (!LegislationTypes.isLawTier(legislationRecord.tier)) {

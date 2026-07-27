@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {ICandidateEligibilityPolicy} from "../interfaces/ICandidateEligibilityPolicy.sol";
 import {ICongressCandidateRegistry} from "../interfaces/ICongressCandidateRegistry.sol";
 import {ICongressElectionApp} from "../interfaces/ICongressElectionApp.sol";
 import {ICongressElectionPolicy} from "../interfaces/ICongressElectionPolicy.sol";
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
+import {IElectorateRegistry} from "../interfaces/IElectorateRegistry.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
 import {IVotingPowerPolicy} from "../interfaces/IVotingPowerPolicy.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {ElectionTypes} from "../types/ElectionTypes.sol";
 
@@ -130,12 +132,11 @@ contract CongressElectionApp is ICongressElectionApp {
 
     /// @inheritdoc ICongressElectionApp
     function applyAsCandidate(uint256 cycleId, bytes32 applicationHash, string calldata applicationURI) external {
-        if (!_currentElectionPolicy().isEligibleCandidate(msg.sender)) {
-            revert NotEligibleCandidate(msg.sender);
-        }
-
         ElectionTypes.CongressCycleRecord memory cycleRecord = _getCycleOrRevert(cycleId);
         _requireNominationWindow(cycleId, cycleRecord);
+        if (!_cyclePolicy(cycleRecord).isEligibleCandidate(msg.sender)) {
+            revert NotEligibleCandidate(msg.sender);
+        }
 
         bytes32 personId = _identityRegistry.resolveWalletToPersonId(msg.sender);
         if (personId == bytes32(0)) {
@@ -150,6 +151,10 @@ contract CongressElectionApp is ICongressElectionApp {
         ElectionTypes.CongressCycleRecord memory cycleRecord = _getCycleOrRevert(cycleId);
         _requireNominationWindow(cycleId, cycleRecord);
 
+        bytes32 personId = _identityRegistry.resolveWalletToPersonId(msg.sender);
+        if (personId == bytes32(0) || _identityRegistry.activeWalletOf(personId) != msg.sender) {
+            revert NotActiveCandidateWallet(msg.sender);
+        }
         _congressCandidateRegistry.withdrawCandidate(cycleId, msg.sender);
     }
 
@@ -161,23 +166,24 @@ contract CongressElectionApp is ICongressElectionApp {
             revert InvalidBallotLength(candidates.length, allocations.length);
         }
 
-        ICongressElectionPolicy policy = _currentElectionPolicy();
-        uint256 weight = policy.votingWeight(msg.sender);
+        ICongressElectionPolicy policy = _cyclePolicy(cycleRecord);
+        uint48 snapshotBlock = cycleRecord.votingPowerSnapshotBlock;
+        uint256 weight = policy.votingWeightAt(msg.sender, snapshotBlock);
         if (weight == 0) {
             revert NoVotingPower(msg.sender);
         }
 
-        // Bind the standing ballot to the person so wallet rotation cannot double-vote the same stake (H-3).
-        bytes32 personId = _identityRegistry.resolveWalletToPersonId(msg.sender);
         _congressCandidateRegistry.recordBallot(
-            cycleId,
-            personId,
-            msg.sender,
+            ElectionTypes.CongressBallotInput({
+                cycleId: cycleId,
+                voterPersonId: _identityRegistry.resolveWalletToPersonId(msg.sender),
+                voter: msg.sender,
+                ballotWeight: weight,
+                maxPositiveCandidates: policy.maxPositiveCandidates(),
+                maxNegativeAllocation: policy.maxNegativeAllocationAt(msg.sender, snapshotBlock)
+            }),
             candidates,
-            allocations,
-            weight,
-            policy.maxPositiveCandidates(),
-            policy.maxNegativeAllocation(msg.sender)
+            allocations
         );
     }
 
@@ -195,7 +201,7 @@ contract CongressElectionApp is ICongressElectionApp {
         if (block.timestamp < cycleRecord.votingEnd) {
             revert ElectionNotEnded(cycleId, cycleRecord.votingEnd, uint64(block.timestamp));
         }
-        ICongressElectionPolicy policy = _currentElectionPolicy();
+        ICongressElectionPolicy policy = _cyclePolicy(cycleRecord);
 
         {
             uint256 candidateCount = _congressCandidateRegistry.getCycleCandidateCount(cycleId);
@@ -206,7 +212,8 @@ contract CongressElectionApp is ICongressElectionApp {
                 address candidate = _congressCandidateRegistry.getCycleCandidateAt(cycleId, index);
                 ElectionTypes.CongressCandidateRecord memory candidateRecord =
                     _congressCandidateRegistry.getCandidate(cycleId, candidate);
-                bool eligibleCandidate = policy.isEligibleCandidate(candidate);
+                address currentCandidate = _identityRegistry.activeWalletOf(candidateRecord.personId);
+                bool eligibleCandidate = currentCandidate != address(0) && policy.isEligibleCandidate(currentCandidate);
 
                 ranking[index] = RankingEntry({
                     candidate: candidate,
@@ -215,7 +222,7 @@ contract CongressElectionApp is ICongressElectionApp {
                     eligible: eligibleCandidate
                 });
                 // A seat requires eligibility AND non-negative net support: a candidate net-REJECTED
-                // (voteTotal < 0) by the electorate is not seated even when eligible seats remain (M10).
+                // (voteTotal < 0) by the electorate is not seated even when eligible seats remain.
                 // Zero is still qualified so uncontested incumbents/genesis members keep continuity.
                 if (eligibleCandidate && candidateRecord.voteTotal >= 0) {
                     qualifiedCandidateCount += 1;
@@ -247,8 +254,9 @@ contract CongressElectionApp is ICongressElectionApp {
         }
 
         if (_congressCandidateRegistry.latestCycleId() == cycleId) {
-            (uint64 nominationStart, uint64 votingStart, uint64 votingEnd) = _nextElectionWindow(cycleId, policy);
-            _createElectionCycle(cycleId, nominationStart, votingStart, votingEnd, policy);
+            ICongressElectionPolicy nextPolicy = _currentElectionPolicy();
+            (uint64 nominationStart, uint64 votingStart, uint64 votingEnd) = _nextElectionWindow(cycleId, nextPolicy);
+            _createElectionCycle(cycleId, nominationStart, votingStart, votingEnd, nextPolicy);
         }
     }
 
@@ -267,8 +275,11 @@ contract CongressElectionApp is ICongressElectionApp {
             revert NotActiveCongressMember(member);
         }
         // Anyone may remove a sitting member who has lost candidacy eligibility (lost citizenship,
-        // dropped below the bond, or entered unstaking welfare). Eligible members cannot be recalled (M9).
-        if (_currentElectionPolicy().isEligibleCandidate(member)) {
+        // dropped below the bond, or entered unstaking welfare). Eligible members cannot be recalled.
+        ICongressElectionPolicy termPolicy = _cyclePolicy(
+            _congressCandidateRegistry.getCycle(_congressCandidateRegistry.getCurrentOfficeTerm().cycleId)
+        );
+        if (termPolicy.isEligibleCandidate(member)) {
             revert MemberStillEligible(member);
         }
 
@@ -276,16 +287,29 @@ contract CongressElectionApp is ICongressElectionApp {
     }
 
     /// @inheritdoc ICongressElectionApp
-    function purgeIneligibleStandingBallots(uint256 cycleId, address[] calldata voters) external {
-        // Permissionless cleanup: drop the persisted standing ballot of any listed voter who no longer has
-        // voting power (welfare/ineligible/insufficient stake), so their frozen weight stops counting (M2).
-        ICongressElectionPolicy policy = _currentElectionPolicy();
-        for (uint256 index = 0; index < voters.length; ++index) {
-            address voter = voters[index];
-            if (policy.votingWeight(voter) == 0) {
-                _congressCandidateRegistry.dropStandingBallot(cycleId, voter);
-            }
+    function recallUnrepresentedSeat(uint32 seatIndex)
+        external
+        returns (uint32 vacatedSeatIndex, address replacementCandidate)
+    {
+        ElectionTypes.CongressOfficeTerm memory term = _congressCandidateRegistry.getCurrentOfficeTerm();
+        ElectionTypes.CongressSeatRecord memory seatRecord = _congressCandidateRegistry.getSeatRecord(seatIndex);
+        if (
+            term.cycleId == 0 || seatRecord.cycleId != term.cycleId || seatRecord.holderPersonId == bytes32(0)
+                || seatRecord.holder == address(0)
+        ) {
+            revert CongressSeatNotOccupied(seatIndex);
         }
+
+        address activeWallet = _identityRegistry.activeWalletOf(seatRecord.holderPersonId);
+        if (activeWallet != address(0)) {
+            revert CongressSeatStillRepresented(seatIndex, activeWallet);
+        }
+
+        (bool hasReplacement, uint256 runnerUpIndex) = _findNextEligibleRunnerUp();
+        return
+            _congressCandidateRegistry.vacateAndFillSeatForPerson(
+                seatRecord.holderPersonId, hasReplacement, runnerUpIndex
+            );
     }
 
     function _vacateAndFill(address member) private returns (uint32 seatIndex, address replacementCandidate) {
@@ -297,18 +321,18 @@ contract CongressElectionApp is ICongressElectionApp {
     function _findNextEligibleRunnerUp() private view returns (bool found, uint256 runnerUpIndex) {
         ElectionTypes.CongressOfficeTerm memory term = _congressCandidateRegistry.getCurrentOfficeTerm();
         uint256 cycleId = term.cycleId;
-        ICongressElectionPolicy policy = _currentElectionPolicy();
+        ICongressElectionPolicy policy = _cyclePolicy(_congressCandidateRegistry.getCycle(cycleId));
         uint256 runnerUpCount = _congressCandidateRegistry.getRunnerUpCount(cycleId);
 
         for (uint256 index = term.nextRunnerUpIndex; index < runnerUpCount; ++index) {
             address candidate = _congressCandidateRegistry.getRunnerUpAt(cycleId, index);
-            if (_congressCandidateRegistry.isActiveCongressMember(candidate)) {
+            ElectionTypes.CongressCandidateRecord memory candidateRecord =
+                _congressCandidateRegistry.getCandidate(cycleId, candidate);
+            address currentCandidate = _identityRegistry.activeWalletOf(candidateRecord.personId);
+            if (currentCandidate == address(0) || _congressCandidateRegistry.isActiveCongressMember(currentCandidate)) {
                 continue;
             }
-            if (
-                policy.isEligibleCandidate(candidate)
-                    && _congressCandidateRegistry.getCandidate(cycleId, candidate).voteTotal >= 0
-            ) {
+            if (policy.isEligibleCandidate(currentCandidate) && candidateRecord.voteTotal >= 0) {
                 return (true, index);
             }
         }
@@ -332,15 +356,28 @@ contract CongressElectionApp is ICongressElectionApp {
         }
 
         cycleId = previousCycleId + 1;
+        uint48 votingPowerSnapshotBlock = _lastCompletedBlock();
+        IElectorateRegistry electorateRegistry =
+            IElectorateRegistry(_kernel.getModule(KernelModuleIds.ELECTORATE_REGISTRY));
+        address votingPowerPolicyAddress = policy.votingPowerPolicy();
+        address policyElectorateRegistry = IVotingPowerPolicy(votingPowerPolicyAddress).electorateRegistry();
+        if (policyElectorateRegistry != address(electorateRegistry)) {
+            revert VotingPowerElectorateMismatch(
+                votingPowerPolicyAddress, policyElectorateRegistry, address(electorateRegistry)
+            );
+        }
+        electorateRegistry.snapshotAtCurrentEpoch(votingPowerSnapshotBlock);
         _congressCandidateRegistry.createCycle(
             cycleId,
             ElectionTypes.CongressCycleInput({
                 nominationStart: nominationStart,
                 votingStart: votingStart,
                 votingEnd: votingEnd,
+                votingPowerSnapshotBlock: votingPowerSnapshotBlock,
                 seatCount: policy.seatCount(),
                 runnerUpCount: policy.runnerUpCount(),
                 maxCandidateCount: policy.maxCandidateCount(),
+                policy: address(policy),
                 policyReference: _policyReference(policy)
             })
         );
@@ -376,15 +413,33 @@ contract CongressElectionApp is ICongressElectionApp {
         } else {
             ElectionTypes.CongressCycleRecord memory previousCycle =
                 _congressCandidateRegistry.getCycle(previousCycleId);
-            // Anchor to the later of the prior cycle's end and now, so a late finalization can never produce a
-            // past-dated (zero-length) nomination window that disenfranchises challengers and entrenches incumbents
-            // (M-6). On-time cadence is unaffected (votingEnd is still in the future, so it wins the max).
             uint64 currentTimestamp = uint64(block.timestamp);
-            nominationStart = previousCycle.votingEnd > currentTimestamp ? previousCycle.votingEnd : currentTimestamp;
+            // Preserve the imported cycle's UTC time-of-day forever. On-time finalization starts at the prior end;
+            // late finalization moves to the next daily occurrence of that same UTC boundary. This avoids a
+            // past-dated nomination window while ensuring every new cycle remains a full `cycleDuration()` and ends
+            // at a predictable civil hour instead of inheriting an arbitrary transaction timestamp.
+            nominationStart = previousCycle.votingEnd >= currentTimestamp
+                ? previousCycle.votingEnd
+                : _nextDailyBoundary(currentTimestamp, previousCycle.votingEnd);
         }
 
         votingStart = nominationStart + policy.minimumNominationDuration();
         votingEnd = nominationStart + policy.cycleDuration();
+    }
+
+    function _nextDailyBoundary(uint64 currentTimestamp, uint64 anchorTimestamp)
+        private
+        pure
+        returns (uint64 boundary)
+    {
+        uint64 dayLength = 1 days;
+        uint64 secondsIntoDay = anchorTimestamp % dayLength;
+        // The modulo computes a deterministic UTC day bucket; it is never used as randomness. Slither reports
+        // this timestamp modulo as weak-prng, but no outcome or selection depends on unpredictability here.
+        boundary = currentTimestamp - currentTimestamp % dayLength + secondsIntoDay;
+        if (boundary < currentTimestamp) {
+            boundary += dayLength;
+        }
     }
 
     function _validateElectionWindow(
@@ -472,6 +527,19 @@ contract CongressElectionApp is ICongressElectionApp {
 
     function _currentElectionPolicy() private view returns (ICongressElectionPolicy policy) {
         return ICongressElectionPolicy(_kernel.getModule(KernelModuleIds.CONGRESS_ELECTION_POLICY));
+    }
+
+    function _cyclePolicy(ElectionTypes.CongressCycleRecord memory cycleRecord)
+        private
+        pure
+        returns (ICongressElectionPolicy policy)
+    {
+        return ICongressElectionPolicy(cycleRecord.policy);
+    }
+
+    /// @dev Using the last completed block makes the snapshot immune to later transactions in the creation block.
+    function _lastCompletedBlock() private view returns (uint48 snapshotBlock) {
+        return block.number == 0 ? 0 : SafeCast.toUint48(block.number - 1);
     }
 
     function _validatePolicy(

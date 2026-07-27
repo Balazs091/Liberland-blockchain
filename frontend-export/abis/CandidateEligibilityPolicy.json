@@ -1,1 +1,132 @@
-{"abi":[{"type":"constructor","inputs":[{"name":"identityRegistryAddress","type":"address","internalType":"address"},{"name":"stakeRegistryAddress","type":"address","internalType":"address"},{"name":"citizenEligibilityPolicyAddress","type":"address","internalType":"address"},{"name":"minimumCandidateStake_","type":"uint256","internalType":"uint256"}],"stateMutability":"nonpayable"},{"type":"function","name":"citizenEligibilityPolicy","inputs":[],"outputs":[{"name":"policyAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"identityRegistry","inputs":[],"outputs":[{"name":"registryAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"isEligibleCandidate","inputs":[{"name":"wallet","type":"address","internalType":"address"}],"outputs":[{"name":"eligible","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"minimumCandidateStake","inputs":[],"outputs":[{"name":"minimumStake","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"stakeRegistry","inputs":[],"outputs":[{"name":"registryAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"error","name":"InvalidMinimumCandidateStake","inputs":[{"name":"minimumStake","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"InvalidPolicy","inputs":[{"name":"policyAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidRegistry","inputs":[{"name":"registryAddress","type":"address","internalType":"address"}]}]}
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "identityRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "stakeRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "citizenEligibilityPolicyAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "minimumCandidateStake_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "citizenEligibilityPolicy",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "policyAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "identityRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isEligibleCandidate",
+    "inputs": [
+      {
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "eligible",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "minimumCandidateStake",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "minimumStake",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "stakeRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "InvalidMinimumCandidateStake",
+    "inputs": [
+      {
+        "name": "minimumStake",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidPolicy",
+    "inputs": [
+      {
+        "name": "policyAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidRegistry",
+    "inputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  }
+]}

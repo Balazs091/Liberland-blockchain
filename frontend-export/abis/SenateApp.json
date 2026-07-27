@@ -1,1 +1,2260 @@
-{"abi":[{"type":"constructor","inputs":[{"name":"identityRegistryAddress","type":"address","internalType":"address"},{"name":"senateSeatRegistryAddress","type":"address","internalType":"address"},{"name":"senatePowersPolicyAddress","type":"address","internalType":"address"},{"name":"presidentRegistryAddress","type":"address","internalType":"address"},{"name":"governanceRouterAddress","type":"address","internalType":"address"},{"name":"actionTimelockAddress","type":"address","internalType":"address"},{"name":"referendumAppAddress","type":"address","internalType":"address"}],"stateMutability":"nonpayable"},{"type":"function","name":"actionCancellationSupportCount","inputs":[{"name":"actionId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"count","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"actionTimelock","inputs":[],"outputs":[{"name":"timelockAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"bootstrapAssignSeat","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"},{"name":"holder","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"castPresidentActionCancellationProxyVote","inputs":[{"name":"actionId","type":"bytes32","internalType":"bytes32"},{"name":"option","type":"uint8","internalType":"enum SenateTypes.VoteOption"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"castPresidentDisbursementSuspensionProxyVote","inputs":[{"name":"actionId","type":"bytes32","internalType":"bytes32"},{"name":"option","type":"uint8","internalType":"enum SenateTypes.VoteOption"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"castPresidentReferendumVetoProxyVote","inputs":[{"name":"referendumId","type":"bytes32","internalType":"bytes32"},{"name":"option","type":"uint8","internalType":"enum SenateTypes.VoteOption"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"castPresidentSubLegalMeasureRepealProxyVote","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"},{"name":"option","type":"uint8","internalType":"enum SenateTypes.VoteOption"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"claimSeatBySuccession","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"clearSuccessor","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"finalizeActionCancellation","inputs":[{"name":"actionId","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"finalizeReferendumVeto","inputs":[{"name":"referendumId","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"finalizeSubLegalMeasureRepeal","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"getActionCancellationPresidentProxyVote","inputs":[{"name":"actionId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"proxyVote","type":"tuple","internalType":"struct SenateTypes.PresidentProxyVote","components":[{"name":"option","type":"uint8","internalType":"enum SenateTypes.VoteOption"},{"name":"updatedAt","type":"uint64","internalType":"uint64"}]}],"stateMutability":"view"},{"type":"function","name":"getActionCancellationRecord","inputs":[{"name":"actionId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"record","type":"tuple","internalType":"struct SenateTypes.ActionCancellationRecord","components":[{"name":"actionId","type":"bytes32","internalType":"bytes32"},{"name":"supportSnapshot","type":"uint32","internalType":"uint32"},{"name":"presidentProxySupportSnapshot","type":"uint32","internalType":"uint32"},{"name":"createdAt","type":"uint64","internalType":"uint64"},{"name":"deadline","type":"uint64","internalType":"uint64"},{"name":"finalizedAt","type":"uint64","internalType":"uint64"},{"name":"canceledAt","type":"uint64","internalType":"uint64"},{"name":"exists","type":"bool","internalType":"bool"},{"name":"finalized","type":"bool","internalType":"bool"},{"name":"canceled","type":"bool","internalType":"bool"}]}],"stateMutability":"view"},{"type":"function","name":"getActionCancellationSupport","inputs":[{"name":"actionId","type":"bytes32","internalType":"bytes32"},{"name":"seatIndex","type":"uint32","internalType":"uint32"}],"outputs":[{"name":"support","type":"tuple","internalType":"struct SenateTypes.VoteSupport","components":[{"name":"supported","type":"bool","internalType":"bool"},{"name":"option","type":"uint8","internalType":"enum SenateTypes.VoteOption"},{"name":"attemptNonce","type":"uint64","internalType":"uint64"},{"name":"seatOccupancyNonce","type":"uint64","internalType":"uint64"},{"name":"updatedAt","type":"uint64","internalType":"uint64"}]}],"stateMutability":"view"},{"type":"function","name":"getDisbursementSuspension","inputs":[{"name":"actionId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"suspension","type":"tuple","internalType":"struct SenateTypes.DisbursementSuspension","components":[{"name":"exists","type":"bool","internalType":"bool"},{"name":"suspendedUntil","type":"uint64","internalType":"uint64"},{"name":"renewalCount","type":"uint32","internalType":"uint32"}]}],"stateMutability":"view"},{"type":"function","name":"getReferendumVetoPresidentProxyVote","inputs":[{"name":"referendumId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"proxyVote","type":"tuple","internalType":"struct SenateTypes.PresidentProxyVote","components":[{"name":"option","type":"uint8","internalType":"enum SenateTypes.VoteOption"},{"name":"updatedAt","type":"uint64","internalType":"uint64"}]}],"stateMutability":"view"},{"type":"function","name":"getReferendumVetoRecord","inputs":[{"name":"referendumId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"record","type":"tuple","internalType":"struct SenateTypes.ReferendumVetoRecord","components":[{"name":"referendumId","type":"bytes32","internalType":"bytes32"},{"name":"createdAt","type":"uint64","internalType":"uint64"},{"name":"deadline","type":"uint64","internalType":"uint64"},{"name":"finalizedAt","type":"uint64","internalType":"uint64"},{"name":"vetoedAt","type":"uint64","internalType":"uint64"},{"name":"supportSnapshot","type":"uint32","internalType":"uint32"},{"name":"presidentProxySupportSnapshot","type":"uint32","internalType":"uint32"},{"name":"exists","type":"bool","internalType":"bool"},{"name":"finalized","type":"bool","internalType":"bool"},{"name":"vetoed","type":"bool","internalType":"bool"}]}],"stateMutability":"view"},{"type":"function","name":"getReferendumVetoSupport","inputs":[{"name":"referendumId","type":"bytes32","internalType":"bytes32"},{"name":"seatIndex","type":"uint32","internalType":"uint32"}],"outputs":[{"name":"support","type":"tuple","internalType":"struct SenateTypes.VoteSupport","components":[{"name":"supported","type":"bool","internalType":"bool"},{"name":"option","type":"uint8","internalType":"enum SenateTypes.VoteOption"},{"name":"attemptNonce","type":"uint64","internalType":"uint64"},{"name":"seatOccupancyNonce","type":"uint64","internalType":"uint64"},{"name":"updatedAt","type":"uint64","internalType":"uint64"}]}],"stateMutability":"view"},{"type":"function","name":"getSubLegalMeasureRepealPresidentProxyVote","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"proxyVote","type":"tuple","internalType":"struct SenateTypes.PresidentProxyVote","components":[{"name":"option","type":"uint8","internalType":"enum SenateTypes.VoteOption"},{"name":"updatedAt","type":"uint64","internalType":"uint64"}]}],"stateMutability":"view"},{"type":"function","name":"getSubLegalMeasureRepealRecord","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"record","type":"tuple","internalType":"struct SenateTypes.SubLegalMeasureRepealRecord","components":[{"name":"measureId","type":"bytes32","internalType":"bytes32"},{"name":"repealId","type":"bytes32","internalType":"bytes32"},{"name":"attemptNonce","type":"uint64","internalType":"uint64"},{"name":"createdAt","type":"uint64","internalType":"uint64"},{"name":"deadline","type":"uint64","internalType":"uint64"},{"name":"finalizedAt","type":"uint64","internalType":"uint64"},{"name":"repealedAt","type":"uint64","internalType":"uint64"},{"name":"supportSnapshot","type":"uint32","internalType":"uint32"},{"name":"presidentProxySupportSnapshot","type":"uint32","internalType":"uint32"},{"name":"exists","type":"bool","internalType":"bool"},{"name":"finalized","type":"bool","internalType":"bool"},{"name":"repealed","type":"bool","internalType":"bool"}]}],"stateMutability":"view"},{"type":"function","name":"getSubLegalMeasureRepealSupport","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"},{"name":"seatIndex","type":"uint32","internalType":"uint32"}],"outputs":[{"name":"support","type":"tuple","internalType":"struct SenateTypes.VoteSupport","components":[{"name":"supported","type":"bool","internalType":"bool"},{"name":"option","type":"uint8","internalType":"enum SenateTypes.VoteOption"},{"name":"attemptNonce","type":"uint64","internalType":"uint64"},{"name":"seatOccupancyNonce","type":"uint64","internalType":"uint64"},{"name":"updatedAt","type":"uint64","internalType":"uint64"}]}],"stateMutability":"view"},{"type":"function","name":"governanceRouter","inputs":[],"outputs":[{"name":"routerAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"identityRegistry","inputs":[],"outputs":[{"name":"registryAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"legislationRegistry","inputs":[],"outputs":[{"name":"registryAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"nominateSuccessor","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"},{"name":"nominee","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"presidentRegistry","inputs":[],"outputs":[{"name":"registryAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"referendumApp","inputs":[],"outputs":[{"name":"appAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"referendumVetoSupportCount","inputs":[{"name":"referendumId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"count","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"removeActionCancellationSupport","inputs":[{"name":"actionId","type":"bytes32","internalType":"bytes32"},{"name":"seatIndex","type":"uint32","internalType":"uint32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"removeDisbursementSuspensionSupport","inputs":[{"name":"actionId","type":"bytes32","internalType":"bytes32"},{"name":"seatIndex","type":"uint32","internalType":"uint32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"removeReferendumVetoSupport","inputs":[{"name":"referendumId","type":"bytes32","internalType":"bytes32"},{"name":"seatIndex","type":"uint32","internalType":"uint32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"removeSubLegalMeasureRepealSupport","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"},{"name":"seatIndex","type":"uint32","internalType":"uint32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"renewDisbursementSuspension","inputs":[{"name":"actionId","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"senatePowersPolicy","inputs":[],"outputs":[{"name":"policyAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"senateSeatRegistry","inputs":[],"outputs":[{"name":"registryAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"subLegalMeasureRepealSupportCount","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"count","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"supportActionCancellation","inputs":[{"name":"actionId","type":"bytes32","internalType":"bytes32"},{"name":"seatIndex","type":"uint32","internalType":"uint32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"supportDisbursementSuspension","inputs":[{"name":"actionId","type":"bytes32","internalType":"bytes32"},{"name":"seatIndex","type":"uint32","internalType":"uint32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"supportReferendumVeto","inputs":[{"name":"referendumId","type":"bytes32","internalType":"bytes32"},{"name":"seatIndex","type":"uint32","internalType":"uint32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"supportSubLegalMeasureRepeal","inputs":[{"name":"measureId","type":"bytes32","internalType":"bytes32"},{"name":"seatIndex","type":"uint32","internalType":"uint32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"suspendDisbursement","inputs":[{"name":"actionId","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"transferMySeat","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"},{"name":"recipient","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"vacateMySeat","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"event","name":"PresidentActionCancellationProxyVoteRecorded","inputs":[{"name":"actionId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"president","type":"address","indexed":true,"internalType":"address"},{"name":"option","type":"uint8","indexed":false,"internalType":"enum SenateTypes.VoteOption"},{"name":"recordedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"PresidentDisbursementSuspensionProxyVoteRecorded","inputs":[{"name":"actionId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"president","type":"address","indexed":true,"internalType":"address"},{"name":"option","type":"uint8","indexed":false,"internalType":"enum SenateTypes.VoteOption"},{"name":"recordedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"PresidentReferendumVetoProxyVoteRecorded","inputs":[{"name":"referendumId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"president","type":"address","indexed":true,"internalType":"address"},{"name":"option","type":"uint8","indexed":false,"internalType":"enum SenateTypes.VoteOption"},{"name":"recordedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"PresidentSubLegalMeasureRepealProxyVoteRecorded","inputs":[{"name":"measureId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"president","type":"address","indexed":true,"internalType":"address"},{"name":"option","type":"uint8","indexed":false,"internalType":"enum SenateTypes.VoteOption"},{"name":"recordedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"SenateActionCanceled","inputs":[{"name":"actionId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"supportCount","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"canceledBy","type":"address","indexed":true,"internalType":"address"},{"name":"canceledAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"SenateActionCancellationFinalized","inputs":[{"name":"actionId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"supportCount","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"presidentProxySupportCount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"canceled","type":"bool","indexed":false,"internalType":"bool"},{"name":"finalizedBy","type":"address","indexed":true,"internalType":"address"},{"name":"finalizedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"SenateActionCancellationOpened","inputs":[{"name":"actionId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"openedBySeat","type":"uint32","indexed":true,"internalType":"uint32"},{"name":"openedBy","type":"address","indexed":true,"internalType":"address"},{"name":"openedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"SenateActionSupportRecorded","inputs":[{"name":"actionId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"seatIndex","type":"uint32","indexed":true,"internalType":"uint32"},{"name":"seatHolder","type":"address","indexed":true,"internalType":"address"},{"name":"supportCount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"recordedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"SenateActionSupportRemoved","inputs":[{"name":"actionId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"seatIndex","type":"uint32","indexed":true,"internalType":"uint32"},{"name":"seatHolder","type":"address","indexed":true,"internalType":"address"},{"name":"supportCount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"removedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"SenateDisbursementSuspended","inputs":[{"name":"actionId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"suspendedUntil","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"supportCount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"presidentProxySupportCount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"suspendedBy","type":"address","indexed":true,"internalType":"address"},{"name":"suspendedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"SenateDisbursementSuspensionRenewed","inputs":[{"name":"actionId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"suspendedUntil","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"renewalCount","type":"uint32","indexed":false,"internalType":"uint32"},{"name":"renewedBy","type":"address","indexed":true,"internalType":"address"},{"name":"renewedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"SenateDisbursementSuspensionSupportRecorded","inputs":[{"name":"actionId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"seatIndex","type":"uint32","indexed":true,"internalType":"uint32"},{"name":"seatHolder","type":"address","indexed":true,"internalType":"address"},{"name":"recordedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"SenateDisbursementSuspensionSupportRemoved","inputs":[{"name":"actionId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"seatIndex","type":"uint32","indexed":true,"internalType":"uint32"},{"name":"seatHolder","type":"address","indexed":true,"internalType":"address"},{"name":"removedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"SenateReferendumSupportRecorded","inputs":[{"name":"referendumId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"seatIndex","type":"uint32","indexed":true,"internalType":"uint32"},{"name":"seatHolder","type":"address","indexed":true,"internalType":"address"},{"name":"supportCount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"recordedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"SenateReferendumSupportRemoved","inputs":[{"name":"referendumId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"seatIndex","type":"uint32","indexed":true,"internalType":"uint32"},{"name":"seatHolder","type":"address","indexed":true,"internalType":"address"},{"name":"supportCount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"removedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"SenateReferendumVetoFinalized","inputs":[{"name":"referendumId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"supportCount","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"presidentProxySupportCount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"vetoed","type":"bool","indexed":false,"internalType":"bool"},{"name":"finalizedBy","type":"address","indexed":true,"internalType":"address"},{"name":"finalizedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"SenateReferendumVetoOpened","inputs":[{"name":"referendumId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"openedBySeat","type":"uint32","indexed":true,"internalType":"uint32"},{"name":"openedBy","type":"address","indexed":true,"internalType":"address"},{"name":"openedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"SenateReferendumVetoed","inputs":[{"name":"referendumId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"supportCount","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"vetoedBy","type":"address","indexed":true,"internalType":"address"},{"name":"vetoedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"SenateSubLegalMeasureRepealFinalized","inputs":[{"name":"measureId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"supportCount","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"presidentProxySupportCount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"repealed","type":"bool","indexed":false,"internalType":"bool"},{"name":"finalizedBy","type":"address","indexed":true,"internalType":"address"},{"name":"finalizedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"SenateSubLegalMeasureRepealOpened","inputs":[{"name":"measureId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"repealId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"openedBySeat","type":"uint32","indexed":true,"internalType":"uint32"},{"name":"openedBy","type":"address","indexed":false,"internalType":"address"},{"name":"openedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"deadline","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"SenateSubLegalMeasureRepealSupportRecorded","inputs":[{"name":"measureId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"seatIndex","type":"uint32","indexed":true,"internalType":"uint32"},{"name":"seatHolder","type":"address","indexed":true,"internalType":"address"},{"name":"supportCount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"recordedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"SenateSubLegalMeasureRepealSupportRemoved","inputs":[{"name":"measureId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"seatIndex","type":"uint32","indexed":true,"internalType":"uint32"},{"name":"seatHolder","type":"address","indexed":true,"internalType":"address"},{"name":"supportCount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"removedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"SenateSubLegalMeasureRepealed","inputs":[{"name":"measureId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"repealId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"supportCount","type":"uint256","indexed":true,"internalType":"uint256"},{"name":"repealedBy","type":"address","indexed":false,"internalType":"address"},{"name":"repealedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"error","name":"DisbursementAlreadySuspended","inputs":[{"name":"actionId","type":"bytes32","internalType":"bytes32"},{"name":"suspendedUntil","type":"uint64","internalType":"uint64"}]},{"type":"error","name":"DisbursementSuspensionNotRenewable","inputs":[{"name":"actionId","type":"bytes32","internalType":"bytes32"},{"name":"suspendedUntil","type":"uint64","internalType":"uint64"}]},{"type":"error","name":"InvalidPolicy","inputs":[{"name":"policyAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidPresidentRegistry","inputs":[{"name":"registryAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidReferendumApp","inputs":[{"name":"referendumApp","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidRegistry","inputs":[{"name":"registryAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidRouter","inputs":[{"name":"routerAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidSenateVoteOption","inputs":[{"name":"option","type":"uint8","internalType":"enum SenateTypes.VoteOption"}]},{"type":"error","name":"InvalidTimelock","inputs":[{"name":"timelockAddress","type":"address","internalType":"address"}]},{"type":"error","name":"NotNominatedSuccessor","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"},{"name":"claimant","type":"address","internalType":"address"}]},{"type":"error","name":"NotPresident","inputs":[{"name":"caller","type":"address","internalType":"address"}]},{"type":"error","name":"NotSeatHolder","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"},{"name":"caller","type":"address","internalType":"address"}]},{"type":"error","name":"SeatNotVacant","inputs":[{"name":"seatIndex","type":"uint32","internalType":"uint32"}]},{"type":"error","name":"SenateProcessAlreadyFinalized","inputs":[{"name":"processId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"SenateProcessNotAllowed","inputs":[{"name":"processId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"SenateSupportAlreadyActive","inputs":[{"name":"processId","type":"bytes32","internalType":"bytes32"},{"name":"seatIndex","type":"uint32","internalType":"uint32"}]},{"type":"error","name":"SenateSupportNotActive","inputs":[{"name":"processId","type":"bytes32","internalType":"bytes32"},{"name":"seatIndex","type":"uint32","internalType":"uint32"}]},{"type":"error","name":"SenateSupportNotReached","inputs":[{"name":"processId","type":"bytes32","internalType":"bytes32"},{"name":"supportCount","type":"uint256","internalType":"uint256"},{"name":"presidentProxySupportCount","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"SenateVoteNotFinalizable","inputs":[{"name":"deadline","type":"uint64","internalType":"uint64"},{"name":"currentTimestamp","type":"uint64","internalType":"uint64"}]},{"type":"error","name":"SenateVoteNotOpen","inputs":[{"name":"deadline","type":"uint64","internalType":"uint64"},{"name":"currentTimestamp","type":"uint64","internalType":"uint64"}]},{"type":"error","name":"UnauthorizedBootstrapCaller","inputs":[{"name":"caller","type":"address","internalType":"address"}]},{"type":"error","name":"UnknownPersonReference","inputs":[{"name":"wallet","type":"address","internalType":"address"}]}]}
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "identityRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "senateSeatRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "senatePowersPolicyAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "presidentRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "governanceRouterAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "actionTimelockAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "referendumAppAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "actionCancellationSupportCount",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "count",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "actionTimelock",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "timelockAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "bootstrapAssignSeat",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "holder",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "castPresidentActionCancellationProxyVote",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "option",
+        "type": "uint8",
+        "internalType": "enum SenateTypes.VoteOption"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "castPresidentDisbursementSuspensionProxyVote",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "option",
+        "type": "uint8",
+        "internalType": "enum SenateTypes.VoteOption"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "castPresidentReferendumVetoProxyVote",
+    "inputs": [
+      {
+        "name": "referendumId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "option",
+        "type": "uint8",
+        "internalType": "enum SenateTypes.VoteOption"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "castPresidentSubLegalMeasureRepealProxyVote",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "option",
+        "type": "uint8",
+        "internalType": "enum SenateTypes.VoteOption"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "claimSeatBySuccession",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "clearSuccessor",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "finalizeActionCancellation",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "finalizeReferendumVeto",
+    "inputs": [
+      {
+        "name": "referendumId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "finalizeSubLegalMeasureRepeal",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getActionCancellationPresidentProxyVote",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "proxyVote",
+        "type": "tuple",
+        "internalType": "struct SenateTypes.PresidentProxyVote",
+        "components": [
+          {
+            "name": "option",
+            "type": "uint8",
+            "internalType": "enum SenateTypes.VoteOption"
+          },
+          {
+            "name": "updatedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getActionCancellationRecord",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "record",
+        "type": "tuple",
+        "internalType": "struct SenateTypes.ActionCancellationRecord",
+        "components": [
+          {
+            "name": "actionId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "supportSnapshot",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "presidentProxySupportSnapshot",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "createdAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "deadline",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "finalizedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "canceledAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "exists",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "finalized",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "canceled",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getActionCancellationSupport",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "support",
+        "type": "tuple",
+        "internalType": "struct SenateTypes.VoteSupport",
+        "components": [
+          {
+            "name": "supported",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "option",
+            "type": "uint8",
+            "internalType": "enum SenateTypes.VoteOption"
+          },
+          {
+            "name": "attemptNonce",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "seatOccupancyNonce",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "updatedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getDisbursementSuspension",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "suspension",
+        "type": "tuple",
+        "internalType": "struct SenateTypes.DisbursementSuspension",
+        "components": [
+          {
+            "name": "exists",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "suspendedUntil",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "renewalCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "reasonHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getReferendumVetoPresidentProxyVote",
+    "inputs": [
+      {
+        "name": "referendumId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "proxyVote",
+        "type": "tuple",
+        "internalType": "struct SenateTypes.PresidentProxyVote",
+        "components": [
+          {
+            "name": "option",
+            "type": "uint8",
+            "internalType": "enum SenateTypes.VoteOption"
+          },
+          {
+            "name": "updatedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getReferendumVetoRecord",
+    "inputs": [
+      {
+        "name": "referendumId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "record",
+        "type": "tuple",
+        "internalType": "struct SenateTypes.ReferendumVetoRecord",
+        "components": [
+          {
+            "name": "referendumId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "createdAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "deadline",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "finalizedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "vetoedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "supportSnapshot",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "presidentProxySupportSnapshot",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "exists",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "finalized",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "vetoed",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getReferendumVetoSupport",
+    "inputs": [
+      {
+        "name": "referendumId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "support",
+        "type": "tuple",
+        "internalType": "struct SenateTypes.VoteSupport",
+        "components": [
+          {
+            "name": "supported",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "option",
+            "type": "uint8",
+            "internalType": "enum SenateTypes.VoteOption"
+          },
+          {
+            "name": "attemptNonce",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "seatOccupancyNonce",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "updatedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getSubLegalMeasureRepealPresidentProxyVote",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "proxyVote",
+        "type": "tuple",
+        "internalType": "struct SenateTypes.PresidentProxyVote",
+        "components": [
+          {
+            "name": "option",
+            "type": "uint8",
+            "internalType": "enum SenateTypes.VoteOption"
+          },
+          {
+            "name": "updatedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getSubLegalMeasureRepealRecord",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "record",
+        "type": "tuple",
+        "internalType": "struct SenateTypes.SubLegalMeasureRepealRecord",
+        "components": [
+          {
+            "name": "measureId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "repealId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "attemptNonce",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "createdAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "deadline",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "finalizedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "repealedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "supportSnapshot",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "presidentProxySupportSnapshot",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "exists",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "finalized",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "repealed",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getSubLegalMeasureRepealSupport",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "support",
+        "type": "tuple",
+        "internalType": "struct SenateTypes.VoteSupport",
+        "components": [
+          {
+            "name": "supported",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "option",
+            "type": "uint8",
+            "internalType": "enum SenateTypes.VoteOption"
+          },
+          {
+            "name": "attemptNonce",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "seatOccupancyNonce",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "updatedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "governanceRouter",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "routerAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "identityRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "legislationRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "nominateSuccessor",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "nominee",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "presidentRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "referendumApp",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "appAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "referendumVetoSupportCount",
+    "inputs": [
+      {
+        "name": "referendumId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "count",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "removeActionCancellationSupport",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "removeDisbursementSuspensionSupport",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "removeReferendumVetoSupport",
+    "inputs": [
+      {
+        "name": "referendumId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "removeSubLegalMeasureRepealSupport",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "renewDisbursementSuspension",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "supportingSeatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "reasonHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "senatePowersPolicy",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "policyAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "senateSeatRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "subLegalMeasureRepealSupportCount",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "count",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "supportActionCancellation",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "supportDisbursementSuspension",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "supportReferendumVeto",
+    "inputs": [
+      {
+        "name": "referendumId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "supportSubLegalMeasureRepeal",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "suspendDisbursement",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "supportingSeatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "reasonHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "transferMySeat",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "recipient",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "vacateMySeat",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "PresidentActionCancellationProxyVoteRecorded",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "president",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "option",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum SenateTypes.VoteOption"
+      },
+      {
+        "name": "recordedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PresidentDisbursementSuspensionProxyVoteRecorded",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "president",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "option",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum SenateTypes.VoteOption"
+      },
+      {
+        "name": "recordedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PresidentReferendumVetoProxyVoteRecorded",
+    "inputs": [
+      {
+        "name": "referendumId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "president",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "option",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum SenateTypes.VoteOption"
+      },
+      {
+        "name": "recordedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PresidentSubLegalMeasureRepealProxyVoteRecorded",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "president",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "option",
+        "type": "uint8",
+        "indexed": false,
+        "internalType": "enum SenateTypes.VoteOption"
+      },
+      {
+        "name": "recordedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateActionCanceled",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "supportCount",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "canceledBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "canceledAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateActionCancellationFinalized",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "supportCount",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "presidentProxySupportCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "canceled",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      },
+      {
+        "name": "finalizedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "finalizedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateActionCancellationOpened",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "openedBySeat",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "openedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "openedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateActionSupportRecorded",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "seatHolder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "supportCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "recordedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateActionSupportRemoved",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "seatHolder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "supportCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "removedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateDisbursementSuspended",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "reasonHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "suspendedUntil",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "supportCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "presidentProxySupportCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "suspendedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "suspendedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateDisbursementSuspensionRenewed",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "reasonHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "suspendedUntil",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "renewalCount",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      },
+      {
+        "name": "renewedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "renewedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateDisbursementSuspensionSupportRecorded",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "seatHolder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "recordedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateDisbursementSuspensionSupportRemoved",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "seatHolder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "removedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateReferendumSupportRecorded",
+    "inputs": [
+      {
+        "name": "referendumId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "seatHolder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "supportCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "recordedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateReferendumSupportRemoved",
+    "inputs": [
+      {
+        "name": "referendumId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "seatHolder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "supportCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "removedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateReferendumVetoFinalized",
+    "inputs": [
+      {
+        "name": "referendumId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "supportCount",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "presidentProxySupportCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "vetoed",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      },
+      {
+        "name": "finalizedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "finalizedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateReferendumVetoOpened",
+    "inputs": [
+      {
+        "name": "referendumId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "openedBySeat",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "openedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "openedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateReferendumVetoed",
+    "inputs": [
+      {
+        "name": "referendumId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "supportCount",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "vetoedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "vetoedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateSubLegalMeasureRepealFinalized",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "supportCount",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "presidentProxySupportCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "repealed",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      },
+      {
+        "name": "finalizedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "finalizedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateSubLegalMeasureRepealOpened",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "repealId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "openedBySeat",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "openedBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "openedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "deadline",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateSubLegalMeasureRepealSupportRecorded",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "seatHolder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "supportCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "recordedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateSubLegalMeasureRepealSupportRemoved",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "indexed": true,
+        "internalType": "uint32"
+      },
+      {
+        "name": "seatHolder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "supportCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "removedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SenateSubLegalMeasureRepealed",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "repealId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "supportCount",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "repealedBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "repealedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "DisbursementAlreadySuspended",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "suspendedUntil",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "DisbursementSuspensionNotRenewable",
+    "inputs": [
+      {
+        "name": "actionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "suspendedUntil",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidDisbursementSuspensionReason",
+    "inputs": [
+      {
+        "name": "reasonHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidPolicy",
+    "inputs": [
+      {
+        "name": "policyAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidPresidentRegistry",
+    "inputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidReferendumApp",
+    "inputs": [
+      {
+        "name": "referendumApp",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidRegistry",
+    "inputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidRouter",
+    "inputs": [
+      {
+        "name": "routerAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidSenateVoteOption",
+    "inputs": [
+      {
+        "name": "option",
+        "type": "uint8",
+        "internalType": "enum SenateTypes.VoteOption"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidTimelock",
+    "inputs": [
+      {
+        "name": "timelockAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotNominatedSuccessor",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "claimant",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotPresident",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "NotSeatHolder",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      },
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SeatNotVacant",
+    "inputs": [
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SenateProcessAlreadyFinalized",
+    "inputs": [
+      {
+        "name": "processId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SenateProcessNotAllowed",
+    "inputs": [
+      {
+        "name": "processId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SenateSeatRecipientNotCitizen",
+    "inputs": [
+      {
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SenateSupportAlreadyActive",
+    "inputs": [
+      {
+        "name": "processId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SenateSupportNotActive",
+    "inputs": [
+      {
+        "name": "processId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "seatIndex",
+        "type": "uint32",
+        "internalType": "uint32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SenateSupportNotReached",
+    "inputs": [
+      {
+        "name": "processId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "supportCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "presidentProxySupportCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SenateVoteNotFinalizable",
+    "inputs": [
+      {
+        "name": "deadline",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "currentTimestamp",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SenateVoteNotOpen",
+    "inputs": [
+      {
+        "name": "deadline",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "currentTimestamp",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedBootstrapCaller",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnknownPersonReference",
+    "inputs": [
+      {
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  }
+]}

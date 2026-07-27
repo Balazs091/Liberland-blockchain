@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -9,6 +9,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
+import {ICitizenEligibilityPolicy} from "../interfaces/ICitizenEligibilityPolicy.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
 import {IInterestRatePolicy} from "../interfaces/IInterestRatePolicy.sol";
 import {ILendingRiskParameterPolicy} from "../interfaces/ILendingRiskParameterPolicy.sol";
@@ -26,6 +27,12 @@ import {StakeTypes} from "../types/StakeTypes.sol";
 contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
     using SafeERC20 for IERC20;
 
+    struct RepaymentQuote {
+        uint256 amount;
+        uint256 scaledDebt;
+        uint256 remainingDebt;
+    }
+
     uint256 public constant RAY = 1e27;
     uint256 public constant HEALTH_FACTOR_SCALE = 1e18;
     uint256 public constant BPS = 10_000;
@@ -38,38 +45,41 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
     IIdentityRegistry private immutable _identityRegistry;
     IStakeRegistry private immutable _stakeRegistry;
     IStakeLienRegistry private immutable _stakeLienRegistry;
-    IInterestRatePolicy private immutable _interestRatePolicy;
     uint8 private immutable _shareDecimals;
     uint256 private immutable _borrowCap;
 
-    uint256 private _totalBorrows;
+    uint256 private _totalScaledDebt;
     uint256 private _totalReserves;
     uint256 private _borrowIndex;
     uint64 private _lastAccrualTimestamp;
+    uint64 private _rateCheckpointTimestamp;
+    uint256 private _rateCheckpointIndex;
+    uint256 private _effectiveBorrowRateRay;
+    uint256 private _effectiveSupplyRateRay;
+    uint256 private _reserveAccrualRemainder;
+    uint16 private _effectiveReserveFactorBps;
+    bool private _accrualConfigurationInitialized;
 
-    mapping(bytes32 personId => uint256 debtPrincipal) private _accountDebtPrincipal;
-    mapping(bytes32 personId => uint256 accountBorrowIndex) private _accountBorrowIndexes;
+    mapping(bytes32 personId => uint256 scaledDebt) private _accountScaledDebt;
 
     /// @param kernelAddress The canonical kernel registry address.
     /// @param usdcAddress The USDC token address.
     /// @param identityRegistryAddress The identity registry address.
     /// @param stakeRegistryAddress The stake registry address.
     /// @param stakeLienRegistryAddress The stake lien registry address.
-    /// @param interestRatePolicyAddress The utilization-rate policy address.
     /// @param borrowCap_ Maximum total USDC borrows for this v1 pool.
     /// @dev The LLM/USDC price oracle is resolved live from the kernel (`LLM_USDC_PRICE_ORACLE_POLICY`), not fixed
     ///      at construction, so governance can move from the launch manual oracle to a Uniswap V4 TWAP oracle by
     ///      repointing that module without redeploying this pool. Every resolution re-checks that the oracle prices
-    ///      this pool's own USDC (`_priceOracle`), so a mis-scaled or wrong-asset oracle can never be used. The
-    ///      retained-stake floor is likewise resolved live from the stake-lien registry (which sources the governed
-    ///      citizenship stake), so a governed change to the citizenship floor cannot diverge from lending.
+    ///      this pool's own USDC (`_priceOracle`), so a mis-scaled or wrong-asset oracle can never be used. The current
+    ///      citizenship floor applies when a lien begins and is snapshotted until that lien is cleared, so a later
+    ///      floor increase cannot retroactively freeze liquidation.
     constructor(
         address kernelAddress,
         address usdcAddress,
         address identityRegistryAddress,
         address stakeRegistryAddress,
         address stakeLienRegistryAddress,
-        address interestRatePolicyAddress,
         uint256 borrowCap_
     ) ERC20("Liberland USDC Lending Share", "llUSDC") {
         _requireContract(kernelAddress);
@@ -77,7 +87,6 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         _requireContract(identityRegistryAddress);
         _requireContract(stakeRegistryAddress);
         _requireContract(stakeLienRegistryAddress);
-        _requireContract(interestRatePolicyAddress);
         if (borrowCap_ == 0) {
             revert InvalidBorrowCap(borrowCap_);
         }
@@ -87,11 +96,12 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         _identityRegistry = IIdentityRegistry(identityRegistryAddress);
         _stakeRegistry = IStakeRegistry(stakeRegistryAddress);
         _stakeLienRegistry = IStakeLienRegistry(stakeLienRegistryAddress);
-        _interestRatePolicy = IInterestRatePolicy(interestRatePolicyAddress);
         _shareDecimals = IERC20Metadata(usdcAddress).decimals();
         _borrowCap = borrowCap_;
         _borrowIndex = RAY;
         _lastAccrualTimestamp = uint64(block.timestamp);
+        _rateCheckpointTimestamp = uint64(block.timestamp);
+        _rateCheckpointIndex = RAY;
     }
 
     /// @inheritdoc ERC20
@@ -131,7 +141,7 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
     /// @notice Returns the configured interest-rate policy.
     /// @return policyAddress The interest-rate policy address.
     function interestRatePolicy() external view returns (address policyAddress) {
-        return address(_interestRatePolicy);
+        return address(_interestRatePolicy());
     }
 
     /// @notice Returns the configured total borrow cap.
@@ -143,7 +153,7 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
     /// @notice Returns stored total borrows before preview interest.
     /// @return amount The stored total borrow amount.
     function totalBorrows() external view returns (uint256 amount) {
-        return _totalBorrows;
+        return _storedTotalBorrows();
     }
 
     /// @notice Returns stored protocol reserves.
@@ -161,7 +171,7 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
     /// @inheritdoc IUSDCLendingPoolApp
     function totalManagedAssets() public view returns (uint256 amount) {
         uint256 cash = _usdc.balanceOf(address(this));
-        uint256 grossAssets = cash + _totalBorrows;
+        uint256 grossAssets = cash + _storedTotalBorrows();
         if (grossAssets <= _totalReserves) {
             return 0;
         }
@@ -181,28 +191,36 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
 
     /// @inheritdoc IUSDCLendingPoolApp
     function utilizationRate() public view returns (uint256 utilizationRay) {
+        uint256 storedBorrows = _storedTotalBorrows();
         uint256 managedAssets = totalManagedAssets();
-        if (managedAssets == 0 || _totalBorrows == 0) {
+        if (managedAssets == 0 || storedBorrows == 0) {
             return 0;
         }
-        if (_totalBorrows >= managedAssets) {
+        if (storedBorrows >= managedAssets) {
             return RAY;
         }
 
-        return Math.mulDiv(_totalBorrows, RAY, managedAssets);
+        return Math.mulDiv(storedBorrows, RAY, managedAssets);
     }
 
     /// @inheritdoc IUSDCLendingPoolApp
     function ratePreview() external view returns (LendingTypes.RatePreview memory preview) {
         preview.utilizationRay = utilizationRate();
-        preview.borrowRatePerSecondRay = _interestRatePolicy.borrowRatePerSecond(preview.utilizationRay);
+        if (_accrualConfigurationInitialized) {
+            preview.borrowRatePerSecondRay = _effectiveBorrowRateRay;
+            preview.supplyRatePerSecondRay = _effectiveSupplyRateRay;
+            return preview;
+        }
+
+        IInterestRatePolicy interestPolicy = _interestRatePolicy();
+        preview.borrowRatePerSecondRay = interestPolicy.borrowRatePerSecond(preview.utilizationRay);
         preview.supplyRatePerSecondRay =
-            _interestRatePolicy.supplyRatePerSecond(preview.utilizationRay, _riskParameters().reserveFactorBps);
+            interestPolicy.supplyRatePerSecond(preview.utilizationRay, _riskParameters().reserveFactorBps);
     }
 
     /// @inheritdoc IUSDCLendingPoolApp
     function currentDebtOf(bytes32 personId) public view returns (uint256 amount) {
-        return _debtAtIndex(personId, _previewBorrowIndex());
+        return _debtAtIndex(_accountScaledDebt[personId], _previewBorrowIndex());
     }
 
     /// @inheritdoc IUSDCLendingPoolApp
@@ -214,7 +232,8 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         }
 
         uint256 availableByCollateral = maxDebt - debt;
-        uint256 availableByCap = _totalBorrows >= _borrowCap ? 0 : _borrowCap - _totalBorrows;
+        uint256 storedBorrows = _storedTotalBorrows();
+        uint256 availableByCap = storedBorrows >= _borrowCap ? 0 : _borrowCap - storedBorrows;
         uint256 liquidity = availableLiquidity();
 
         amount = availableByCollateral;
@@ -259,6 +278,7 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
 
         _pullUsdc(msg.sender, assets);
         _mint(receiver, shares);
+        _checkpointAccrualConfiguration(true);
 
         emit USDCDeposited(msg.sender, receiver, assets, shares);
     }
@@ -285,6 +305,7 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
 
         _burn(msg.sender, shares);
         _usdc.safeTransfer(receiver, assets);
+        _checkpointAccrualConfiguration(true);
 
         emit USDCWithdrawn(msg.sender, receiver, assets, shares);
     }
@@ -295,13 +316,18 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         _accrueInterest();
 
         bytes32 personId = _requireActivePerson(msg.sender);
+        if (!ICitizenEligibilityPolicy(_kernel.getModule(KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY))
+                .isCitizenInGoodStanding(msg.sender)) {
+            revert BorrowerNotEligible(personId);
+        }
         StakeTypes.StakeRecord memory stakeRecord = _stakeRegistry.getStakeRecord(personId);
 
         // Resolve the governed risk params once for this call (LTV + per-person cap read the same struct).
         ILendingRiskParameterPolicy.RiskParameters memory riskParams = _riskParameters();
-        uint256 debt = _storedDebtOf(personId);
-        uint256 newDebt = debt + amount;
-        uint256 maxDebt = _maxDebtForRecord(stakeRecord, _priceOracle(), riskParams.maxLtvBps);
+        uint256 scaledDebtIncrease = Math.mulDiv(amount, RAY, _borrowIndex, Math.Rounding.Ceil);
+        uint256 newScaledDebt = _accountScaledDebt[personId] + scaledDebtIncrease;
+        uint256 newDebt = _debtAtIndex(newScaledDebt, _borrowIndex);
+        uint256 maxDebt = _maxDebtForRecord(personId, stakeRecord, _priceOracle(), riskParams.maxLtvBps);
         if (newDebt > maxDebt) {
             revert BorrowWouldBreachLtv(personId, newDebt, maxDebt);
         }
@@ -313,7 +339,8 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
             revert BorrowExceedsPerPersonCap(personId, newDebt, perPersonCap);
         }
 
-        uint256 newTotalBorrows = _totalBorrows + amount;
+        uint256 newTotalScaledDebt = _totalScaledDebt + scaledDebtIncrease;
+        uint256 newTotalBorrows = _debtAtIndex(newTotalScaledDebt, _borrowIndex);
         if (newTotalBorrows > _borrowCap) {
             revert BorrowCapExceeded(newTotalBorrows, _borrowCap);
         }
@@ -323,42 +350,54 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
             revert InsufficientLiquidity(liquidity, amount);
         }
 
-        _totalBorrows = newTotalBorrows;
-        _setDebt(personId, newDebt);
+        _setScaledDebt(personId, newScaledDebt);
 
-        uint256 lienedStake = _syncLienTo(personId, _surplusStakeForRecord(stakeRecord));
+        uint256 lienedStake = _syncLienTo(personId, _surplusStakeForRecord(personId, stakeRecord));
         _usdc.safeTransfer(msg.sender, amount);
+        _checkpointAccrualConfiguration(true);
 
         emit USDCBorrowed(msg.sender, personId, amount, newDebt, lienedStake, uint64(block.timestamp));
     }
 
     /// @inheritdoc IUSDCLendingPoolApp
     function repay(uint256 amount) external nonReentrant returns (uint256 repaidAmount) {
+        bytes32 personId = _requireActivePerson(msg.sender);
+        return _repay(msg.sender, personId, amount);
+    }
+
+    /// @inheritdoc IUSDCLendingPoolApp
+    function repayFor(bytes32 personId, uint256 amount) external nonReentrant returns (uint256 repaidAmount) {
+        if (personId == bytes32(0) || !_identityRegistry.identityExists(personId)) {
+            revert InvalidBorrowerPersonId(personId);
+        }
+        return _repay(msg.sender, personId, amount);
+    }
+
+    function _repay(address payer, bytes32 personId, uint256 amount) private returns (uint256 repaidAmount) {
         _requireAmount(amount);
         _accrueInterest();
 
-        bytes32 personId = _requireActivePerson(msg.sender);
         uint256 debt = _storedDebtOf(personId);
         if (debt == 0) {
             revert NoDebt(personId);
         }
 
-        repaidAmount = amount > debt ? debt : amount;
-        _pullUsdc(msg.sender, repaidAmount);
+        RepaymentQuote memory quote = _repaymentQuote(personId, amount, debt);
+        repaidAmount = quote.amount;
+        _pullUsdc(payer, repaidAmount);
 
-        uint256 newDebt = debt - repaidAmount;
-        _totalBorrows -= repaidAmount;
-        _setDebt(personId, newDebt);
+        _setScaledDebt(personId, quote.scaledDebt);
 
         uint256 releasedLien = 0;
-        if (newDebt == 0) {
+        if (quote.remainingDebt == 0) {
             releasedLien = _stakeLienRegistry.lienedStakeOf(personId);
             if (releasedLien != 0) {
                 _stakeLienRegistry.decreaseLien(personId, releasedLien);
             }
         }
+        _checkpointAccrualConfiguration(true);
 
-        emit USDCRepaid(msg.sender, personId, repaidAmount, newDebt, releasedLien, uint64(block.timestamp));
+        emit USDCRepaid(payer, personId, repaidAmount, quote.remainingDebt, releasedLien, uint64(block.timestamp));
     }
 
     /// @inheritdoc IUSDCLendingPoolApp
@@ -392,26 +431,26 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
             revert LiquidationNotAllowed(borrowerPersonId, healthFactor);
         }
 
-        repaidAmount = repayAmount > debt ? debt : repayAmount;
+        RepaymentQuote memory quote = _repaymentQuote(borrowerPersonId, repayAmount, debt);
+        repaidAmount = quote.amount;
         uint256 repaymentWithBonus =
             Math.mulDiv(repaidAmount, BPS + riskParams.liquidationBonusBps, BPS, Math.Rounding.Ceil);
         seizedStake = oracle.quoteAssetToLlm(repaymentWithBonus);
 
         StakeTypes.StakeRecord memory stakeRecord = _stakeRegistry.getStakeRecord(borrowerPersonId);
-        uint256 seizableStake = _surplusStakeForRecord(stakeRecord);
+        uint256 seizableStake = _surplusStakeForRecord(borrowerPersonId, stakeRecord);
         if (seizedStake > seizableStake) {
             revert InsufficientLiquidationCollateral(borrowerPersonId, seizableStake, seizedStake);
         }
 
         _pullUsdc(msg.sender, repaidAmount);
 
-        uint256 newDebt = debt - repaidAmount;
-        _totalBorrows -= repaidAmount;
-        _setDebt(borrowerPersonId, newDebt);
+        _setScaledDebt(borrowerPersonId, quote.scaledDebt);
 
-        uint256 targetLien = newDebt == 0 ? 0 : seizableStake - seizedStake;
+        uint256 targetLien = quote.remainingDebt == 0 ? 0 : seizableStake - seizedStake;
         _syncLienTo(borrowerPersonId, targetLien);
         _stakeRegistry.transferActiveStake(borrowerPersonId, liquidatorPersonId, seizedStake);
+        _checkpointAccrualConfiguration(true);
 
         emit StakeBackedPositionLiquidated(
             msg.sender,
@@ -419,7 +458,7 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
             liquidatorPersonId,
             repaidAmount,
             seizedStake,
-            newDebt,
+            quote.remainingDebt,
             uint64(block.timestamp)
         );
     }
@@ -437,134 +476,200 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
             revert NoDebt(borrowerPersonId);
         }
 
-        // Bad debt only exists once every seizable unit of surplus stake is gone (liquidators must seize what they
-        // can first). The remaining collateral is the untouchable citizenship floor, so the debt is unrecoverable.
+        // Bad debt exists once no liquidator can make the smallest scaled-debt reduction. This accepts nonzero
+        // collateral dust that cannot satisfy the exact rounded-up seizure required by `liquidate`, including the
+        // case where one asset unit is too small to change a heavily accrued scaled balance.
         StakeTypes.StakeRecord memory stakeRecord = _stakeRegistry.getStakeRecord(borrowerPersonId);
-        uint256 seizableStake = _surplusStakeForRecord(stakeRecord);
-        if (seizableStake != 0) {
+        uint256 seizableStake = _surplusStakeForRecord(borrowerPersonId, stakeRecord);
+        ILendingRiskParameterPolicy.RiskParameters memory riskParams = _riskParameters();
+        ILLMPriceOraclePolicy oracle = _priceOracle();
+        uint256 minimumEffectiveRepayment = _minimumEffectiveRepayment(borrowerPersonId, debt);
+        uint256 minimumRepaymentWithBonus =
+            Math.mulDiv(minimumEffectiveRepayment, BPS + riskParams.liquidationBonusBps, BPS, Math.Rounding.Ceil);
+        uint256 minimumSeizableStake = oracle.quoteAssetToLlm(minimumRepaymentWithBonus);
+        if (seizableStake >= minimumSeizableStake) {
             revert PositionNotBadDebt(borrowerPersonId, seizableStake);
         }
 
-        // Genuine-insolvency guard: even valuing the borrower's entire remaining active stake (including the
-        // untouchable citizenship floor) at the liquidation threshold cannot cover the debt. Without this, a
-        // position whose seizable surplus is zero only because its protected floor was raised — while its stake
-        // remains ample — could be force-written-off, dumping a recoverable debt onto reserves/LPs.
-        uint256 fullStakeLiquidationValue = Math.mulDiv(
-            _priceOracle().quoteLlmToAsset(stakeRecord.activeStake), _riskParameters().liquidationThresholdBps, BPS
-        );
-        if (fullStakeLiquidationValue >= debt) {
-            revert PositionRecoverable(borrowerPersonId, fullStakeLiquidationValue, debt);
-        }
-
-        writtenOffDebt = debt;
+        uint256 totalBorrowsBefore = _storedTotalBorrows();
+        _setScaledDebt(borrowerPersonId, 0);
+        writtenOffDebt = totalBorrowsBefore - _storedTotalBorrows();
         // Protocol reserves are first-loss capital and absorb the write-off before suppliers. Any remainder lowers
         // the LP share value; governance restores it by a referendum-approved treasury disbursement to this pool
         // (a plain USDC transfer in raises cash and share value), keeping bad debt off the supplier base.
-        coveredByReserves = debt <= _totalReserves ? debt : _totalReserves;
-        supplierShortfall = debt - coveredByReserves;
+        coveredByReserves = writtenOffDebt <= _totalReserves ? writtenOffDebt : _totalReserves;
+        supplierShortfall = writtenOffDebt - coveredByReserves;
 
         _totalReserves -= coveredByReserves;
-        _totalBorrows = _totalBorrows >= debt ? _totalBorrows - debt : 0;
-        _setDebt(borrowerPersonId, 0);
 
         uint256 residualLien = _stakeLienRegistry.lienedStakeOf(borrowerPersonId);
         if (residualLien != 0) {
             _stakeLienRegistry.decreaseLien(borrowerPersonId, residualLien);
         }
+        _checkpointAccrualConfiguration(true);
 
         emit BadDebtAbsorbed(
             msg.sender, borrowerPersonId, writtenOffDebt, coveredByReserves, supplierShortfall, uint64(block.timestamp)
         );
     }
 
-    /// @inheritdoc IUSDCLendingPoolApp
-    function claimProtocolReserves(uint256 amount) external nonReentrant {
-        _requireAmount(amount);
-        _accrueInterest();
-
-        if (_totalReserves < amount) {
-            revert InsufficientProtocolReserves(_totalReserves, amount);
-        }
-
-        _totalReserves -= amount;
-        address treasury = _kernel.getModule(KernelModuleIds.TREASURY_VAULT);
-        _usdc.safeTransfer(treasury, amount);
-
-        emit ProtocolReservesClaimed(treasury, amount, uint64(block.timestamp));
-    }
-
     function _accrueInterest() private {
         uint64 currentTimestamp = uint64(block.timestamp);
+        if (!_accrualConfigurationInitialized) {
+            _lastAccrualTimestamp = currentTimestamp;
+            _checkpointAccrualConfiguration(true);
+            return;
+        }
+
         uint256 elapsed = currentTimestamp - _lastAccrualTimestamp;
         if (elapsed == 0) {
+            _checkpointAccrualConfiguration(false);
             return;
         }
-
         _lastAccrualTimestamp = currentTimestamp;
-        if (_totalBorrows == 0) {
+        if (_totalScaledDebt == 0) {
+            _checkpointAccrualConfiguration(false);
             return;
         }
 
-        uint256 borrowRateRay = _interestRatePolicy.borrowRatePerSecond(utilizationRate());
-        uint256 interestFactorRay = borrowRateRay * elapsed;
-        uint256 interestAccrued = Math.mulDiv(_totalBorrows, interestFactorRay, RAY);
-        uint256 protocolReservesAccrued = Math.mulDiv(interestAccrued, _riskParameters().reserveFactorBps, BPS);
-
-        _totalBorrows += interestAccrued;
+        uint256 totalBorrowsBefore = _storedTotalBorrows();
+        _borrowIndex = _borrowIndexAt(currentTimestamp);
+        uint256 totalBorrowsAfter = _storedTotalBorrows();
+        uint256 interestAccrued = totalBorrowsAfter - totalBorrowsBefore;
+        uint256 protocolReservesAccrued = _accrueProtocolReserves(interestAccrued);
         _totalReserves += protocolReservesAccrued;
-        _borrowIndex += Math.mulDiv(_borrowIndex, interestFactorRay, RAY);
 
         emit InterestAccrued(
-            interestAccrued, protocolReservesAccrued, _totalBorrows, _totalReserves, _borrowIndex, currentTimestamp
+            interestAccrued, protocolReservesAccrued, totalBorrowsAfter, _totalReserves, _borrowIndex, currentTimestamp
         );
+        _checkpointAccrualConfiguration(false);
     }
 
     function _previewBorrowIndex() private view returns (uint256 indexRay) {
-        uint256 elapsed = block.timestamp - _lastAccrualTimestamp;
-        if (elapsed == 0 || _totalBorrows == 0) {
+        if (!_accrualConfigurationInitialized || _totalScaledDebt == 0 || block.timestamp == _lastAccrualTimestamp) {
             return _borrowIndex;
         }
 
-        uint256 borrowRateRay = _interestRatePolicy.borrowRatePerSecond(utilizationRate());
-        return _borrowIndex + Math.mulDiv(_borrowIndex, borrowRateRay * elapsed, RAY);
+        return _borrowIndexAt(uint64(block.timestamp));
+    }
+
+    function _borrowIndexAt(uint64 timestamp) private view returns (uint256 indexRay) {
+        uint256 elapsed = timestamp - _rateCheckpointTimestamp;
+        uint256 growthFactorRay = _rayPow(RAY + _effectiveBorrowRateRay, elapsed);
+        return Math.mulDiv(_rateCheckpointIndex, growthFactorRay, RAY);
+    }
+
+    function _storedTotalBorrows() private view returns (uint256 amount) {
+        return _debtAtIndex(_totalScaledDebt, _borrowIndex);
     }
 
     function _storedDebtOf(bytes32 personId) private view returns (uint256 amount) {
-        return _debtAtIndex(personId, _borrowIndex);
+        return _debtAtIndex(_accountScaledDebt[personId], _borrowIndex);
     }
 
-    function _debtAtIndex(bytes32 personId, uint256 indexRay) private view returns (uint256 amount) {
-        uint256 principal = _accountDebtPrincipal[personId];
-        if (principal == 0) {
+    function _debtAtIndex(uint256 scaledDebt, uint256 indexRay) private pure returns (uint256 amount) {
+        if (scaledDebt == 0) {
             return 0;
         }
 
-        return Math.mulDiv(principal, indexRay, _accountBorrowIndexes[personId]);
+        return Math.mulDiv(scaledDebt, indexRay, RAY, Math.Rounding.Ceil);
     }
 
-    function _setDebt(bytes32 personId, uint256 newDebt) private {
-        if (newDebt == 0) {
-            delete _accountDebtPrincipal[personId];
-            delete _accountBorrowIndexes[personId];
-            return;
+    function _setScaledDebt(bytes32 personId, uint256 newScaledDebt) private {
+        uint256 oldScaledDebt = _accountScaledDebt[personId];
+        if (newScaledDebt > oldScaledDebt) {
+            _totalScaledDebt += newScaledDebt - oldScaledDebt;
+        } else {
+            _totalScaledDebt -= oldScaledDebt - newScaledDebt;
         }
 
-        _accountDebtPrincipal[personId] = newDebt;
-        _accountBorrowIndexes[personId] = _borrowIndex;
+        if (newScaledDebt == 0) {
+            delete _accountScaledDebt[personId];
+        } else {
+            _accountScaledDebt[personId] = newScaledDebt;
+        }
+    }
+
+    function _repaymentQuote(bytes32 personId, uint256 maximumAmount, uint256 currentDebt)
+        private
+        view
+        returns (RepaymentQuote memory quote)
+    {
+        uint256 currentScaledDebt = _accountScaledDebt[personId];
+        if (maximumAmount >= currentDebt) {
+            quote.amount = currentDebt;
+            return quote;
+        }
+
+        uint256 targetDebt = currentDebt - maximumAmount;
+        quote.scaledDebt = Math.mulDiv(targetDebt, RAY, _borrowIndex, Math.Rounding.Ceil);
+        quote.remainingDebt = _debtAtIndex(quote.scaledDebt, _borrowIndex);
+        quote.amount = currentDebt - quote.remainingDebt;
+        if (quote.scaledDebt >= currentScaledDebt || quote.amount == 0) {
+            revert InvalidAmount(0);
+        }
+    }
+
+    function _minimumEffectiveRepayment(bytes32 personId, uint256 currentDebt) private view returns (uint256 amount) {
+        uint256 currentScaledDebt = _accountScaledDebt[personId];
+        return currentDebt - _debtAtIndex(currentScaledDebt - 1, _borrowIndex);
+    }
+
+    function _accrueProtocolReserves(uint256 interestAccrued) private returns (uint256 amount) {
+        amount = Math.mulDiv(interestAccrued, _effectiveReserveFactorBps, BPS);
+        uint256 accumulatedRemainder =
+            _reserveAccrualRemainder + mulmod(interestAccrued, _effectiveReserveFactorBps, BPS);
+        amount += accumulatedRemainder / BPS;
+        _reserveAccrualRemainder = accumulatedRemainder % BPS;
+    }
+
+    function _checkpointAccrualConfiguration(bool forceNewInterval) private {
+        uint16 reserveFactorBps = _riskParameters().reserveFactorBps;
+        uint256 utilizationRay = utilizationRate();
+        IInterestRatePolicy interestPolicy = _interestRatePolicy();
+        uint256 borrowRateRay = interestPolicy.borrowRatePerSecond(utilizationRay);
+        uint256 supplyRateRay = interestPolicy.supplyRatePerSecond(utilizationRay, reserveFactorBps);
+        if (
+            !_accrualConfigurationInitialized || forceNewInterval || borrowRateRay != _effectiveBorrowRateRay
+                || reserveFactorBps != _effectiveReserveFactorBps
+        ) {
+            _accrualConfigurationInitialized = true;
+            _rateCheckpointTimestamp = uint64(block.timestamp);
+            _rateCheckpointIndex = _borrowIndex;
+            _effectiveBorrowRateRay = borrowRateRay;
+            _effectiveReserveFactorBps = reserveFactorBps;
+        }
+        _effectiveSupplyRateRay = supplyRateRay;
+    }
+
+    function _rayPow(uint256 baseRay, uint256 exponent) private pure returns (uint256 resultRay) {
+        resultRay = RAY;
+        while (exponent != 0) {
+            if (exponent & 1 != 0) {
+                resultRay = Math.mulDiv(resultRay, baseRay, RAY);
+            }
+            exponent >>= 1;
+            if (exponent != 0) {
+                baseRay = Math.mulDiv(baseRay, baseRay, RAY);
+            }
+        }
     }
 
     function _maxDebtForPerson(bytes32 personId) private view returns (uint256 amount) {
-        return _maxDebtForRecord(_stakeRegistry.getStakeRecord(personId), _priceOracle(), _riskParameters().maxLtvBps);
+        return _maxDebtForRecord(
+            personId, _stakeRegistry.getStakeRecord(personId), _priceOracle(), _riskParameters().maxLtvBps
+        );
     }
 
     /// @dev Takes the already-resolved oracle and max LTV so mutating callers resolve the governed modules once per
     ///      transaction instead of re-resolving per read.
     function _maxDebtForRecord(
+        bytes32 personId,
         StakeTypes.StakeRecord memory stakeRecord,
         ILLMPriceOraclePolicy oracle,
         uint16 maxLtvBps
     ) private view returns (uint256 amount) {
-        return Math.mulDiv(oracle.quoteLlmToAsset(_surplusStakeForRecord(stakeRecord)), maxLtvBps, BPS);
+        return Math.mulDiv(oracle.quoteLlmToAsset(_surplusStakeForRecord(personId, stakeRecord)), maxLtvBps, BPS);
     }
 
     function _healthFactor(bytes32 personId, uint256 debt) private view returns (uint256 healthFactor) {
@@ -582,8 +687,9 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         }
 
         StakeTypes.StakeRecord memory stakeRecord = _stakeRegistry.getStakeRecord(personId);
-        uint256 liquidationValue =
-            Math.mulDiv(oracle.quoteLlmToAsset(_surplusStakeForRecord(stakeRecord)), liquidationThresholdBps, BPS);
+        uint256 liquidationValue = Math.mulDiv(
+            oracle.quoteLlmToAsset(_surplusStakeForRecord(personId, stakeRecord)), liquidationThresholdBps, BPS
+        );
 
         return Math.mulDiv(liquidationValue, HEALTH_FACTOR_SCALE, debt);
     }
@@ -594,6 +700,10 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         return
             ILendingRiskParameterPolicy(_kernel.getModule(KernelModuleIds.LENDING_RISK_PARAMETER_POLICY))
                 .riskParameters();
+    }
+
+    function _interestRatePolicy() private view returns (IInterestRatePolicy policy) {
+        return IInterestRatePolicy(_kernel.getModule(KernelModuleIds.USDC_INTEREST_RATE_POLICY));
     }
 
     /// @dev Resolves the LLM/USDC price oracle live from the kernel so governance can swap the launch manual oracle
@@ -607,8 +717,12 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         }
     }
 
-    function _surplusStakeForRecord(StakeTypes.StakeRecord memory stakeRecord) private view returns (uint256 amount) {
-        uint256 retainedStake = _retainedStakeFloor(stakeRecord.protectedStakeFloor);
+    function _surplusStakeForRecord(bytes32 personId, StakeTypes.StakeRecord memory stakeRecord)
+        private
+        view
+        returns (uint256 amount)
+    {
+        uint256 retainedStake = _retainedStakeFloor(personId, stakeRecord.protectedStakeFloor);
         if (stakeRecord.activeStake <= retainedStake) {
             return 0;
         }
@@ -616,12 +730,10 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         return stakeRecord.activeStake - retainedStake;
     }
 
-    /// @dev The retained floor is the greater of the person's own protected floor and the governed citizenship stake
-    ///      (sourced live from the stake-lien registry). Reading it live keeps lending's untouchable floor in lockstep
-    ///      with any governed change to the citizenship stake requirement, so liquidation can never strip a citizen
-    ///      below the current citizenship floor.
-    function _retainedStakeFloor(uint256 protectedStakeFloor) private view returns (uint256 amount) {
-        uint256 citizenshipFloor = _stakeLienRegistry.minimumRetainedStake();
+    /// @dev The retained floor is the greater of the person's protected floor and the citizenship floor snapshotted
+    ///      when their current lien began. With no lien, the lien registry returns the current policy minimum.
+    function _retainedStakeFloor(bytes32 personId, uint256 protectedStakeFloor) private view returns (uint256 amount) {
+        uint256 citizenshipFloor = _stakeLienRegistry.retainedStakeFloorOf(personId);
         return protectedStakeFloor > citizenshipFloor ? protectedStakeFloor : citizenshipFloor;
     }
 

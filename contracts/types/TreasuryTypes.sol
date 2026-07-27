@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 /// @title TreasuryTypes
 /// @notice Shared enums and structs for treasury envelopes and payout requests.
@@ -20,7 +20,8 @@ library TreasuryTypes {
         Grant,
         Refund,
         CourtOrder,
-        CapitalExpenditure
+        CapitalExpenditure,
+        ContributionReward
     }
 
     enum DisbursementState {

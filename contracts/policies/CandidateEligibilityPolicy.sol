@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {ICandidateEligibilityPolicy} from "../interfaces/ICandidateEligibilityPolicy.sol";
 import {ICitizenEligibilityPolicy} from "../interfaces/ICitizenEligibilityPolicy.sol";

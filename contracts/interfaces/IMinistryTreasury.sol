@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IKernelModule} from "./IKernelModule.sol";
 
@@ -12,11 +12,12 @@ interface IMinistryTreasury is IKernelModule {
         bytes32 officeId, address clerk, address asset, uint256 spentToday, uint256 dailyLimit, uint256 requested
     );
     error InsufficientMinistryBalance(bytes32 officeId, address asset, uint256 available, uint256 requested);
-    error InsufficientMinistryPoolShares(bytes32 officeId, uint256 available, uint256 required);
+    error InsufficientMinistryPoolShares(bytes32 officeId, address pool, uint256 available, uint256 required);
     error InvalidAmount(uint256 amount);
     error InvalidAsset(address asset);
     error InvalidMinistryOffice(bytes32 officeId);
     error InvalidRecipient(address recipient);
+    error NoMinistryPoolShares(bytes32 officeId, address pool);
     error UnauthorizedFundingAuthority(address caller);
     error UnauthorizedMinistryCaller(bytes32 officeId, address caller);
     error UnexpectedAssetAmount(uint256 expectedAmount, uint256 actualAmount);
@@ -35,14 +36,21 @@ interface IMinistryTreasury is IKernelModule {
     event ClerkDailyLimitSet(
         bytes32 indexed officeId, address indexed asset, uint256 dailyLimit, address setBy, uint64 setAt
     );
-    event MinistrySuppliedToPool(bytes32 indexed officeId, uint256 assets, uint256 shares, uint64 suppliedAt);
-    event MinistryWithdrewFromPool(bytes32 indexed officeId, uint256 assets, uint256 shares, uint64 withdrewAt);
+    event MinistrySuppliedToPool(
+        bytes32 indexed officeId, address indexed pool, uint256 assets, uint256 shares, uint64 suppliedAt
+    );
+    event MinistryWithdrewFromPool(
+        bytes32 indexed officeId, address indexed pool, uint256 assets, uint256 shares, uint64 withdrewAt
+    );
 
     /// @notice Returns an office's idle (non-pool) balance of an asset.
     function balanceOf(bytes32 officeId, address asset) external view returns (uint256 amount);
 
-    /// @notice Returns an office's lending-pool share balance held by this treasury.
+    /// @notice Returns an office's share balance in the current governed lending pool.
     function poolSharesOf(bytes32 officeId) external view returns (uint256 shares);
+
+    /// @notice Returns an office's share balance in a specific current or retired lending pool.
+    function poolSharesAt(bytes32 officeId, address pool) external view returns (uint256 shares);
 
     /// @notice Returns the per-clerk daily spend limit an office's minister set for an asset (0 = clerks blocked).
     function clerkDailyLimit(bytes32 officeId, address asset) external view returns (uint256 dailyLimit);
@@ -72,4 +80,10 @@ interface IMinistryTreasury is IKernelModule {
     /// @notice Withdraws stablecoin from the lending pool back into an office's idle balance. Minister only.
     /// @return shares The lending-pool shares redeemed from the office.
     function withdrawFromPool(bytes32 officeId, uint256 amount) external returns (uint256 shares);
+
+    /// @notice Withdraws from a specific current or retired lending pool in which the office owns recorded shares.
+    /// @dev This keeps pool-pointer replacement from stranding an office's old-pool position or mixing it with
+    ///      another office's position in the replacement pool.
+    /// @return shares The lending-pool shares redeemed from the office.
+    function withdrawFromPoolAt(bytes32 officeId, address pool, uint256 amount) external returns (uint256 shares);
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {IKernelModule} from "./IKernelModule.sol";
 import {TreasuryTypes} from "../types/TreasuryTypes.sol";
@@ -68,6 +68,15 @@ interface IBudgetEnvelopeRegistry is IKernelModule {
     function availableAmount(bytes32 budgetId) external view returns (uint256 amount);
     function isBudgetActive(bytes32 budgetId) external view returns (bool active);
     function hasCommittedRequest(bytes32 requestId) external view returns (bool committed);
+    /// @notice Returns the immutable accounting terms reserved for a payout request.
+    /// @param requestId The payout request identifier.
+    /// @return budgetId The budget charged by the request.
+    /// @return amount The exact reserved amount.
+    /// @return active Whether the commitment is still active.
+    function getBudgetCommitment(bytes32 requestId)
+        external
+        view
+        returns (bytes32 budgetId, uint256 amount, bool active);
     function recordBudgetApproval(bytes32 budgetId, TreasuryTypes.BudgetEnvelopeInput calldata input) external;
     function reserveBudget(bytes32 requestId, bytes32 budgetId, uint256 amount) external;
     function releaseBudget(bytes32 requestId) external;

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {ReferendumTypes} from "../types/ReferendumTypes.sol";
 
@@ -23,6 +23,9 @@ interface IReferendumApp {
     error SenateVetoPending(bytes32 referendumId, uint64 deadline);
     error ReferendumNotEnded(bytes32 referendumId, uint64 endTime, uint64 currentTime);
     error UnknownAmendmentTarget(bytes32 measureId);
+    error VotingPowerElectorateMismatch(
+        address votingPowerPolicy, address policyElectorateRegistry, address currentElectorateRegistry
+    );
 
     /// @notice Returns the configured identity registry address.
     /// @return registryAddress The identity registry address.
@@ -159,7 +162,8 @@ interface IReferendumApp {
         external
         returns (bytes32 referendumId);
 
-    /// @notice Records a vote on an active referendum using the caller's current voting power.
+    /// @notice Records a vote using the caller's person-level electorate and stake snapshot.
+    /// @dev Current good standing is also required, while an approved wallet migration preserves snapshot rights.
     /// @param referendumId The referendum identifier to vote on.
     /// @param option The vote option to record.
     function castVote(bytes32 referendumId, ReferendumTypes.VoteOption option) external;

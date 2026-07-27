@@ -1,1 +1,1458 @@
-{"abi":[{"type":"constructor","inputs":[{"name":"kernelAddress","type":"address","internalType":"address"}],"stateMutability":"nonpayable"},{"type":"function","name":"approveCompany","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"registrationNumberHash","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"burnShares","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"classId","type":"bytes32","internalType":"bytes32"},{"name":"from","type":"address","internalType":"address"},{"name":"amount","type":"uint256","internalType":"uint256"},{"name":"documentHash","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"companyByNameHash","inputs":[{"name":"nameHash","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},{"type":"function","name":"companyByRegistrationNumberHash","inputs":[{"name":"registrationNumberHash","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},{"type":"function","name":"companyExists","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"exists","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"companyIdAt","inputs":[{"name":"index","type":"uint256","internalType":"uint256"}],"outputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"}],"stateMutability":"view"},{"type":"function","name":"getCompany","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"record","type":"tuple","internalType":"struct CompanyTypes.CompanyRecord","components":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"registrationNumberHash","type":"bytes32","internalType":"bytes32"},{"name":"nameHash","type":"bytes32","internalType":"bytes32"},{"name":"jurisdictionHash","type":"bytes32","internalType":"bytes32"},{"name":"registeredOfficeHash","type":"bytes32","internalType":"bytes32"},{"name":"metadataHash","type":"bytes32","internalType":"bytes32"},{"name":"articlesHash","type":"bytes32","internalType":"bytes32"},{"name":"uboHash","type":"bytes32","internalType":"bytes32"},{"name":"registeredCapital","type":"uint256","internalType":"uint256"},{"name":"founder","type":"address","internalType":"address"},{"name":"status","type":"uint8","internalType":"enum CompanyTypes.CompanyStatus"},{"name":"activeDirectorCount","type":"uint32","internalType":"uint32"},{"name":"shareClassCount","type":"uint32","internalType":"uint32"},{"name":"submittedAt","type":"uint64","internalType":"uint64"},{"name":"approvedAt","type":"uint64","internalType":"uint64"},{"name":"updatedAt","type":"uint64","internalType":"uint64"}]}],"stateMutability":"view"},{"type":"function","name":"getDirector","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"director","type":"address","internalType":"address"}],"outputs":[{"name":"record","type":"tuple","internalType":"struct CompanyTypes.DirectorRecord","components":[{"name":"director","type":"address","internalType":"address"},{"name":"roleHash","type":"bytes32","internalType":"bytes32"},{"name":"active","type":"bool","internalType":"bool"},{"name":"appointedAt","type":"uint64","internalType":"uint64"},{"name":"removedAt","type":"uint64","internalType":"uint64"}]}],"stateMutability":"view"},{"type":"function","name":"getFiling","inputs":[{"name":"filingId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"record","type":"tuple","internalType":"struct CompanyTypes.FilingRecord","components":[{"name":"filingId","type":"bytes32","internalType":"bytes32"},{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"documentHash","type":"bytes32","internalType":"bytes32"},{"name":"filedBy","type":"address","internalType":"address"},{"name":"filingType","type":"uint8","internalType":"enum CompanyTypes.FilingType"},{"name":"filedAt","type":"uint64","internalType":"uint64"}]}],"stateMutability":"view"},{"type":"function","name":"getShareClass","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"classId","type":"bytes32","internalType":"bytes32"}],"outputs":[{"name":"record","type":"tuple","internalType":"struct CompanyTypes.ShareClassRecord","components":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"classId","type":"bytes32","internalType":"bytes32"},{"name":"metadataHash","type":"bytes32","internalType":"bytes32"},{"name":"authorizedShares","type":"uint256","internalType":"uint256"},{"name":"issuedShares","type":"uint256","internalType":"uint256"},{"name":"votingWeightBps","type":"uint16","internalType":"uint16"},{"name":"fractional","type":"bool","internalType":"bool"},{"name":"active","type":"bool","internalType":"bool"},{"name":"createdAt","type":"uint64","internalType":"uint64"},{"name":"updatedAt","type":"uint64","internalType":"uint64"}]}],"stateMutability":"view"},{"type":"function","name":"issueShares","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"classId","type":"bytes32","internalType":"bytes32"},{"name":"to","type":"address","internalType":"address"},{"name":"amount","type":"uint256","internalType":"uint256"},{"name":"documentHash","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"kernel","inputs":[],"outputs":[{"name":"kernelAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"recordFiling","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"filingId","type":"bytes32","internalType":"bytes32"},{"name":"filingType","type":"uint8","internalType":"enum CompanyTypes.FilingType"},{"name":"documentHash","type":"bytes32","internalType":"bytes32"},{"name":"filedBy","type":"address","internalType":"address"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"registerShareClass","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"classId","type":"bytes32","internalType":"bytes32"},{"name":"metadataHash","type":"bytes32","internalType":"bytes32"},{"name":"authorizedShares","type":"uint256","internalType":"uint256"},{"name":"votingWeightBps","type":"uint16","internalType":"uint16"},{"name":"fractional","type":"bool","internalType":"bool"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"rejectCompany","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"reasonHash","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"setCompanyStatus","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"status","type":"uint8","internalType":"enum CompanyTypes.CompanyStatus"},{"name":"reasonHash","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"setDirector","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"director","type":"address","internalType":"address"},{"name":"roleHash","type":"bytes32","internalType":"bytes32"},{"name":"active","type":"bool","internalType":"bool"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"setShareClassStatus","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"classId","type":"bytes32","internalType":"bytes32"},{"name":"active","type":"bool","internalType":"bool"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"shareBalanceOf","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"classId","type":"bytes32","internalType":"bytes32"},{"name":"holder","type":"address","internalType":"address"}],"outputs":[{"name":"balance","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"submitCompany","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"founder","type":"address","internalType":"address"},{"name":"input","type":"tuple","internalType":"struct CompanyTypes.CompanyInput","components":[{"name":"registrationNumberHash","type":"bytes32","internalType":"bytes32"},{"name":"nameHash","type":"bytes32","internalType":"bytes32"},{"name":"jurisdictionHash","type":"bytes32","internalType":"bytes32"},{"name":"registeredOfficeHash","type":"bytes32","internalType":"bytes32"},{"name":"metadataHash","type":"bytes32","internalType":"bytes32"},{"name":"articlesHash","type":"bytes32","internalType":"bytes32"},{"name":"uboHash","type":"bytes32","internalType":"bytes32"},{"name":"registeredCapital","type":"uint256","internalType":"uint256"}]}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"totalCompanyCount","inputs":[],"outputs":[{"name":"count","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"transferShares","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"classId","type":"bytes32","internalType":"bytes32"},{"name":"from","type":"address","internalType":"address"},{"name":"to","type":"address","internalType":"address"},{"name":"amount","type":"uint256","internalType":"uint256"},{"name":"documentHash","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"function","name":"updateCompanyMetadata","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"metadataHash","type":"bytes32","internalType":"bytes32"},{"name":"articlesHash","type":"bytes32","internalType":"bytes32"}],"outputs":[],"stateMutability":"nonpayable"},{"type":"event","name":"CompanyApproved","inputs":[{"name":"companyId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"registrationNumberHash","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"approvedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"recordedBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"CompanyMetadataUpdated","inputs":[{"name":"companyId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"metadataHash","type":"bytes32","indexed":false,"internalType":"bytes32"},{"name":"articlesHash","type":"bytes32","indexed":false,"internalType":"bytes32"},{"name":"updatedAt","type":"uint64","indexed":false,"internalType":"uint64"},{"name":"recordedBy","type":"address","indexed":true,"internalType":"address"}],"anonymous":false},{"type":"event","name":"CompanyStatusUpdated","inputs":[{"name":"companyId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"status","type":"uint8","indexed":true,"internalType":"enum CompanyTypes.CompanyStatus"},{"name":"reasonHash","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"updatedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"CompanySubmitted","inputs":[{"name":"companyId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"nameHash","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"founder","type":"address","indexed":true,"internalType":"address"},{"name":"submittedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"DirectorStatusUpdated","inputs":[{"name":"companyId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"director","type":"address","indexed":true,"internalType":"address"},{"name":"active","type":"bool","indexed":false,"internalType":"bool"},{"name":"roleHash","type":"bytes32","indexed":false,"internalType":"bytes32"},{"name":"updatedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"FilingRecorded","inputs":[{"name":"companyId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"filingId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"filingType","type":"uint8","indexed":true,"internalType":"enum CompanyTypes.FilingType"},{"name":"documentHash","type":"bytes32","indexed":false,"internalType":"bytes32"},{"name":"filedBy","type":"address","indexed":false,"internalType":"address"}],"anonymous":false},{"type":"event","name":"ShareClassRegistered","inputs":[{"name":"companyId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"classId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"authorizedShares","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"registeredAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"ShareClassStatusUpdated","inputs":[{"name":"companyId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"classId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"active","type":"bool","indexed":false,"internalType":"bool"},{"name":"updatedAt","type":"uint64","indexed":false,"internalType":"uint64"}],"anonymous":false},{"type":"event","name":"SharesBurned","inputs":[{"name":"companyId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"classId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"from","type":"address","indexed":true,"internalType":"address"},{"name":"amount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"documentHash","type":"bytes32","indexed":false,"internalType":"bytes32"}],"anonymous":false},{"type":"event","name":"SharesIssued","inputs":[{"name":"companyId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"classId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"to","type":"address","indexed":true,"internalType":"address"},{"name":"amount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"documentHash","type":"bytes32","indexed":false,"internalType":"bytes32"}],"anonymous":false},{"type":"event","name":"SharesTransferred","inputs":[{"name":"companyId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"classId","type":"bytes32","indexed":true,"internalType":"bytes32"},{"name":"from","type":"address","indexed":true,"internalType":"address"},{"name":"to","type":"address","indexed":false,"internalType":"address"},{"name":"amount","type":"uint256","indexed":false,"internalType":"uint256"},{"name":"documentHash","type":"bytes32","indexed":false,"internalType":"bytes32"}],"anonymous":false},{"type":"error","name":"CompanyAlreadyRegistered","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"CompanyNameAlreadyRegistered","inputs":[{"name":"nameHash","type":"bytes32","internalType":"bytes32"},{"name":"companyId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"CompanyNotFound","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"FilingAlreadyRegistered","inputs":[{"name":"filingId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"FilingNotFound","inputs":[{"name":"filingId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"InvalidCompanyPayload","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"InvalidCompanyStatus","inputs":[{"name":"status","type":"uint8","internalType":"enum CompanyTypes.CompanyStatus"}]},{"type":"error","name":"InvalidDirector","inputs":[{"name":"director","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidFilingPayload","inputs":[{"name":"filingId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"InvalidModuleAddress","inputs":[{"name":"moduleId","type":"bytes32","internalType":"bytes32"},{"name":"moduleAddress","type":"address","internalType":"address"}]},{"type":"error","name":"InvalidRegistrationNumber","inputs":[{"name":"registrationNumberHash","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"InvalidShareClass","inputs":[{"name":"classId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"InvalidShareTransfer","inputs":[{"name":"from","type":"address","internalType":"address"},{"name":"to","type":"address","internalType":"address"},{"name":"amount","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"RegistrationNumberAlreadyRegistered","inputs":[{"name":"registrationNumberHash","type":"bytes32","internalType":"bytes32"},{"name":"companyId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"ShareClassAlreadyRegistered","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"classId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"ShareClassNotFound","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"classId","type":"bytes32","internalType":"bytes32"}]},{"type":"error","name":"ShareTransferExceedsBalance","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"classId","type":"bytes32","internalType":"bytes32"},{"name":"holder","type":"address","internalType":"address"},{"name":"balance","type":"uint256","internalType":"uint256"},{"name":"amount","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"ShareTransferExceedsSupply","inputs":[{"name":"companyId","type":"bytes32","internalType":"bytes32"},{"name":"classId","type":"bytes32","internalType":"bytes32"},{"name":"authorizedShares","type":"uint256","internalType":"uint256"},{"name":"requestedShares","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"UnauthorizedCompanyRegistryCaller","inputs":[{"name":"caller","type":"address","internalType":"address"}]}]}
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "kernelAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "approveCompany",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "registrationNumberHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "burnShares",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "classId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "from",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "documentHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "companyByNameHash",
+    "inputs": [
+      {
+        "name": "nameHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "companyByRegistrationNumberHash",
+    "inputs": [
+      {
+        "name": "registrationNumberHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "companyExists",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "exists",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "companyIdAt",
+    "inputs": [
+      {
+        "name": "index",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCompany",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "record",
+        "type": "tuple",
+        "internalType": "struct CompanyTypes.CompanyRecord",
+        "components": [
+          {
+            "name": "companyId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "registrationNumberHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "nameHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "jurisdictionHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "registeredOfficeHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "metadataHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "articlesHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "uboHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "registeredCapital",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "founder",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "status",
+            "type": "uint8",
+            "internalType": "enum CompanyTypes.CompanyStatus"
+          },
+          {
+            "name": "activeDirectorCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "shareClassCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "submittedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "approvedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "updatedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getDirector",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "director",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "record",
+        "type": "tuple",
+        "internalType": "struct CompanyTypes.DirectorRecord",
+        "components": [
+          {
+            "name": "director",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "roleHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "active",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "appointedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "removedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getFiling",
+    "inputs": [
+      {
+        "name": "filingId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "record",
+        "type": "tuple",
+        "internalType": "struct CompanyTypes.FilingRecord",
+        "components": [
+          {
+            "name": "filingId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "companyId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "documentHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "filedBy",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "filingType",
+            "type": "uint8",
+            "internalType": "enum CompanyTypes.FilingType"
+          },
+          {
+            "name": "filedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getShareClass",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "classId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "record",
+        "type": "tuple",
+        "internalType": "struct CompanyTypes.ShareClassRecord",
+        "components": [
+          {
+            "name": "companyId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "classId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "metadataHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "authorizedShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "issuedShares",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "votingWeightBps",
+            "type": "uint16",
+            "internalType": "uint16"
+          },
+          {
+            "name": "fractional",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "active",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "createdAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "updatedAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "issueShares",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "classId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "documentHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "kernel",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "kernelAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "recordFiling",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "filingId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "filingType",
+        "type": "uint8",
+        "internalType": "enum CompanyTypes.FilingType"
+      },
+      {
+        "name": "documentHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "filedBy",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "registerShareClass",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "classId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "metadataHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "authorizedShares",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "votingWeightBps",
+        "type": "uint16",
+        "internalType": "uint16"
+      },
+      {
+        "name": "fractional",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "rejectCompany",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "reasonHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setCompanyStatus",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "status",
+        "type": "uint8",
+        "internalType": "enum CompanyTypes.CompanyStatus"
+      },
+      {
+        "name": "reasonHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setDirector",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "director",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "roleHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "active",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "setShareClassStatus",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "classId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "active",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "shareBalanceOf",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "classId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "holder",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "balance",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "submitCompany",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "founder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "input",
+        "type": "tuple",
+        "internalType": "struct CompanyTypes.CompanyInput",
+        "components": [
+          {
+            "name": "registrationNumberHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "nameHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "jurisdictionHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "registeredOfficeHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "metadataHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "articlesHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "uboHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "registeredCapital",
+            "type": "uint256",
+            "internalType": "uint256"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "totalCompanyCount",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "count",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "transferShares",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "classId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "from",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "documentHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "updateCompanyMetadata",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "metadataHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "articlesHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "CompanyApproved",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "registrationNumberHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "approvedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "recordedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CompanyMetadataUpdated",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "metadataHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "articlesHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "updatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "recordedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CompanyStatusUpdated",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "status",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "enum CompanyTypes.CompanyStatus"
+      },
+      {
+        "name": "reasonHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "updatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CompanySubmitted",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "nameHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "founder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "submittedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "DirectorStatusUpdated",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "director",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "active",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      },
+      {
+        "name": "roleHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "updatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "FilingRecorded",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "filingId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "filingType",
+        "type": "uint8",
+        "indexed": true,
+        "internalType": "enum CompanyTypes.FilingType"
+      },
+      {
+        "name": "documentHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "filedBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ShareClassRegistered",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "classId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "authorizedShares",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "registeredAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ShareClassStatusUpdated",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "classId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "active",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      },
+      {
+        "name": "updatedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SharesBurned",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "classId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "from",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "documentHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SharesIssued",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "classId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "documentHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SharesTransferred",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "classId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "from",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "documentHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "CompanyAlreadyRegistered",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CompanyNameAlreadyRegistered",
+    "inputs": [
+      {
+        "name": "nameHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CompanyNotFound",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "FilingAlreadyRegistered",
+    "inputs": [
+      {
+        "name": "filingId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "FilingNotFound",
+    "inputs": [
+      {
+        "name": "filingId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidCompanyPayload",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidCompanyStatus",
+    "inputs": [
+      {
+        "name": "status",
+        "type": "uint8",
+        "internalType": "enum CompanyTypes.CompanyStatus"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidDirector",
+    "inputs": [
+      {
+        "name": "director",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidFilingPayload",
+    "inputs": [
+      {
+        "name": "filingId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidModuleAddress",
+    "inputs": [
+      {
+        "name": "moduleId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "moduleAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidRegistrationNumber",
+    "inputs": [
+      {
+        "name": "registrationNumberHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidShareClass",
+    "inputs": [
+      {
+        "name": "classId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidShareTransfer",
+    "inputs": [
+      {
+        "name": "from",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "RegistrationNumberAlreadyRegistered",
+    "inputs": [
+      {
+        "name": "registrationNumberHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ShareClassAlreadyRegistered",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "classId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ShareClassNotFound",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "classId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ShareTransferExceedsBalance",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "classId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "holder",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "balance",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ShareTransferExceedsSupply",
+    "inputs": [
+      {
+        "name": "companyId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "classId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "authorizedShares",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "requestedShares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedCompanyRegistryCaller",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  }
+]}

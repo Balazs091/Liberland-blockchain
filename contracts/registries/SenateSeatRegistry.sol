@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {ISenateSeatRegistry} from "../interfaces/ISenateSeatRegistry.sol";
 import {KernelModule} from "../base/KernelModule.sol";
@@ -13,6 +13,8 @@ contract SenateSeatRegistry is ISenateSeatRegistry, KernelModule {
 
     mapping(uint32 seatIndex => SenateTypes.SenateSeatRecord seatRecord) private _seatRecords;
     mapping(address wallet => uint256 count) private _activeSeatCounts;
+    mapping(address wallet => bytes32 personId) private _activeSeatHolderPersonIds;
+    mapping(bytes32 personId => uint256 count) private _activeSeatCountsByPerson;
 
     uint32 private _occupiedSeatCount;
 
@@ -37,6 +39,16 @@ contract SenateSeatRegistry is ISenateSeatRegistry, KernelModule {
     /// @inheritdoc ISenateSeatRegistry
     function isActiveSeatHolder(address wallet) external view returns (bool active) {
         return _activeSeatCounts[wallet] != 0;
+    }
+
+    /// @inheritdoc ISenateSeatRegistry
+    function isActiveSeatHolderPerson(bytes32 personId) external view returns (bool active) {
+        return _activeSeatCountsByPerson[personId] != 0;
+    }
+
+    /// @inheritdoc ISenateSeatRegistry
+    function activeSeatHolderPersonId(address wallet) external view returns (bytes32 personId) {
+        return _activeSeatHolderPersonIds[wallet];
     }
 
     /// @inheritdoc ISenateSeatRegistry
@@ -82,7 +94,10 @@ contract SenateSeatRegistry is ISenateSeatRegistry, KernelModule {
         seatRecord.successorNominatedAt = 0;
         seatRecord.vacant = false;
 
+        _requireConsistentHolderPerson(holder, holderPersonId);
         _activeSeatCounts[holder] += 1;
+        _activeSeatHolderPersonIds[holder] = holderPersonId;
+        _activeSeatCountsByPerson[holderPersonId] += 1;
         _occupiedSeatCount += 1;
 
         emit SenateSeatAssigned(
@@ -113,6 +128,10 @@ contract SenateSeatRegistry is ISenateSeatRegistry, KernelModule {
         uint64 occupancyNonce = seatRecord.occupancyNonce + 1;
 
         _activeSeatCounts[previousHolder] -= 1;
+        if (_activeSeatCounts[previousHolder] == 0) {
+            delete _activeSeatHolderPersonIds[previousHolder];
+        }
+        _activeSeatCountsByPerson[previousHolderPersonId] -= 1;
         _occupiedSeatCount -= 1;
 
         seatRecord.holder = address(0);
@@ -147,8 +166,16 @@ contract SenateSeatRegistry is ISenateSeatRegistry, KernelModule {
         }
 
         address previousHolder = seatRecord.holder;
+        bytes32 previousHolderPersonId = seatRecord.holderPersonId;
+        _requireConsistentHolderPerson(newHolder, newHolderPersonId);
         _activeSeatCounts[previousHolder] -= 1;
+        if (_activeSeatCounts[previousHolder] == 0) {
+            delete _activeSeatHolderPersonIds[previousHolder];
+        }
         _activeSeatCounts[newHolder] += 1;
+        _activeSeatHolderPersonIds[newHolder] = newHolderPersonId;
+        _activeSeatCountsByPerson[previousHolderPersonId] -= 1;
+        _activeSeatCountsByPerson[newHolderPersonId] += 1;
 
         uint64 currentTimestamp = uint64(block.timestamp);
         uint64 occupancyNonce = seatRecord.occupancyNonce + 1;
@@ -228,6 +255,13 @@ contract SenateSeatRegistry is ISenateSeatRegistry, KernelModule {
         }
 
         revert UnauthorizedSenateSeatRegistryCaller(caller);
+    }
+
+    function _requireConsistentHolderPerson(address holder, bytes32 suppliedPersonId) private view {
+        bytes32 currentPersonId = _activeSeatHolderPersonIds[holder];
+        if (_activeSeatCounts[holder] != 0 && currentPersonId != suppliedPersonId) {
+            revert SeatHolderPersonMismatch(holder, currentPersonId, suppliedPersonId);
+        }
     }
 
     function _requireValidSeatIndex(uint32 seatIndex) private pure {

@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {ICompanyRegistry} from "../interfaces/ICompanyRegistry.sol";
+import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
 import {ICompanyRegistryApp} from "../interfaces/ICompanyRegistryApp.sol";
 import {IOfficePermissionPolicy} from "../interfaces/IOfficePermissionPolicy.sol";
 import {IOfficeRegistry} from "../interfaces/IOfficeRegistry.sol";
+import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {CompanyTypes} from "../types/CompanyTypes.sol";
 import {OfficeTypes} from "../types/OfficeTypes.sol";
 
@@ -13,7 +15,6 @@ import {OfficeTypes} from "../types/OfficeTypes.sol";
 contract CompanyRegistryApp is ICompanyRegistryApp {
     ICompanyRegistry private immutable _companyRegistry;
     IOfficeRegistry private immutable _officeRegistry;
-    IOfficePermissionPolicy private immutable _officePermissionPolicy;
     bytes32 private immutable _companyRegistryOfficeId;
 
     constructor(
@@ -37,7 +38,6 @@ contract CompanyRegistryApp is ICompanyRegistryApp {
 
         _companyRegistry = ICompanyRegistry(companyRegistryAddress);
         _officeRegistry = IOfficeRegistry(officeRegistryAddress);
-        _officePermissionPolicy = IOfficePermissionPolicy(officePermissionPolicyAddress);
         _companyRegistryOfficeId = companyRegistryOfficeId_;
     }
 
@@ -53,7 +53,7 @@ contract CompanyRegistryApp is ICompanyRegistryApp {
 
     /// @inheritdoc ICompanyRegistryApp
     function officePermissionPolicy() external view returns (address policyAddress) {
-        return address(_officePermissionPolicy);
+        return address(_currentOfficePermissionPolicy());
     }
 
     /// @inheritdoc ICompanyRegistryApp
@@ -162,8 +162,14 @@ contract CompanyRegistryApp is ICompanyRegistryApp {
         }
 
         OfficeTypes.OfficeRole officeRole = _officeRegistry.roleOf(_companyRegistryOfficeId, caller);
-        if (!_officePermissionPolicy.isActionAuthorized(officeRecord.kind, officeRole, actionClass)) {
+        if (!_currentOfficePermissionPolicy().isActionAuthorized(officeRecord.kind, officeRole, actionClass)) {
             revert UnauthorizedCompanyRegistryOfficeAction(caller, _companyRegistryOfficeId, actionClass);
         }
+    }
+
+    function _currentOfficePermissionPolicy() private view returns (IOfficePermissionPolicy policy) {
+        return IOfficePermissionPolicy(
+            IConstitutionKernel(_companyRegistry.kernel()).getModule(KernelModuleIds.OFFICE_PERMISSION_POLICY)
+        );
     }
 }

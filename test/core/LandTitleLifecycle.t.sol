@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -10,7 +10,7 @@ import {LandRegistry} from "../../contracts/registries/LandRegistry.sol";
 import {LandTypes} from "../../contracts/types/LandTypes.sol";
 
 /// @title LandTitleLifecycleTest
-/// @notice L4: registry-authority-gated title close plus the retire guard against open accepted disputes.
+/// @notice Covers registry-authority-gated title close plus the retire guard against open accepted disputes.
 contract LandTitleLifecycleTest is Test {
     ConstitutionKernel internal kernel;
     LandRegistry internal landRegistry;
@@ -37,7 +37,7 @@ contract LandTitleLifecycleTest is Test {
         landRegistry.activateParcel(PARCEL_ID, DOC_HASH);
     }
 
-    function test_L4_RetireParcelBlockedByActiveDispute() public {
+    function test_RetireParcelBlockedByActiveDispute() public {
         landRegistry.fileDispute(DISPUTE_ID, PARCEL_ID, CLAIMANT, keccak256("evidence"));
         landRegistry.acceptDispute(DISPUTE_ID, bytes32(0));
         assertEq(landRegistry.activeDisputeCountOf(PARCEL_ID), 1);
@@ -46,7 +46,7 @@ contract LandTitleLifecycleTest is Test {
         landRegistry.retireParcel(PARCEL_ID, keccak256("retire-doc"));
     }
 
-    function test_L4_CloseTitleThenRetireSucceeds() public {
+    function test_CloseTitleThenRetireSucceeds() public {
         landRegistry.registerTitle(TITLE_ID, _titleInput());
         assertEq(landRegistry.activeTitleOfParcel(PARCEL_ID), TITLE_ID);
 
@@ -58,7 +58,7 @@ contract LandTitleLifecycleTest is Test {
         assertEq(uint256(landRegistry.getParcel(PARCEL_ID).status), uint256(LandTypes.ParcelStatus.Retired));
     }
 
-    function test_L4_CloseTitleRequiresRegistryAuthority() public {
+    function test_CloseTitleRequiresRegistryAuthority() public {
         landRegistry.registerTitle(TITLE_ID, _titleInput());
 
         vm.prank(OUTSIDER);

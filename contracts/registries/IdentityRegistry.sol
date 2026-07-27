@@ -1,18 +1,25 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {KernelModule} from "../base/KernelModule.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
+import {IElectorateRegistry} from "../interfaces/IElectorateRegistry.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {IdentityTypes} from "../types/IdentityTypes.sol";
 
 /// @title IdentityRegistry
 /// @notice Stable fact registry for person identity status and wallet links.
 contract IdentityRegistry is IIdentityRegistry, KernelModule {
+    uint256 private constant _ELECTORATE_SYNC_GAS_LIMIT = 500_000;
+    uint256 private constant _ELECTORATE_SYNC_GAS_RESERVE = 50_000;
+
     mapping(bytes32 personId => IdentityTypes.IdentityRecord identityRecord) private _identityRecords;
     mapping(address wallet => IdentityTypes.WalletLink walletLink) private _walletLinks;
     mapping(bytes32 personId => uint256 count) private _activeWalletCounts;
+    mapping(bytes32 personId => address wallet) private _activeWallets;
+    mapping(bytes32 personId => uint256 revision) private _electorateRevisions;
     bytes32[] private _identityIds;
+    uint256 private _electorateMutationCount;
 
     /// @param kernelAddress The canonical kernel registry address.
     constructor(address kernelAddress) KernelModule(kernelAddress) {}
@@ -73,8 +80,23 @@ contract IdentityRegistry is IIdentityRegistry, KernelModule {
     }
 
     /// @inheritdoc IIdentityRegistry
+    function electorateRevisionOf(bytes32 personId) external view returns (uint256 revision) {
+        return _electorateRevisions[personId];
+    }
+
+    /// @inheritdoc IIdentityRegistry
+    function electorateMutationCount() external view returns (uint256 count) {
+        return _electorateMutationCount;
+    }
+
+    /// @inheritdoc IIdentityRegistry
     function activeWalletCountOf(bytes32 personId) external view returns (uint256 count) {
         return _activeWalletCounts[personId];
+    }
+
+    /// @inheritdoc IIdentityRegistry
+    function activeWalletOf(bytes32 personId) external view returns (address wallet) {
+        return _activeWallets[personId];
     }
 
     /// @inheritdoc IIdentityRegistry
@@ -129,6 +151,7 @@ contract IdentityRegistry is IIdentityRegistry, KernelModule {
                 personId, previousStatus, recordInput.citizenshipStatus, updatedAt, msg.sender
             );
         }
+        _advanceElectorateSource(personId);
     }
 
     /// @inheritdoc IIdentityRegistry
@@ -160,6 +183,7 @@ contract IdentityRegistry is IIdentityRegistry, KernelModule {
 
             if (previousStatus == IdentityTypes.WalletLinkStatus.Active) {
                 _activeWalletCounts[currentPersonId] -= 1;
+                delete _activeWallets[currentPersonId];
             }
 
             walletLink.wallet = wallet;
@@ -167,6 +191,7 @@ contract IdentityRegistry is IIdentityRegistry, KernelModule {
             walletLink.unlinkedAt = currentTimestamp;
 
             emit WalletLinkUpdated(wallet, personId, status, walletLink.linkedAt, walletLink.unlinkedAt, msg.sender);
+            _advanceElectorateSource(personId);
             return;
         }
 
@@ -194,6 +219,7 @@ contract IdentityRegistry is IIdentityRegistry, KernelModule {
                 && (status != IdentityTypes.WalletLinkStatus.Active || currentPersonId != personId)
         ) {
             _activeWalletCounts[currentPersonId] -= 1;
+            delete _activeWallets[currentPersonId];
         }
         if (
             status == IdentityTypes.WalletLinkStatus.Active
@@ -205,13 +231,48 @@ contract IdentityRegistry is IIdentityRegistry, KernelModule {
                 revert PersonAlreadyHasActiveWallet(personId);
             }
             _activeWalletCounts[personId] += 1;
+            _activeWallets[personId] = wallet;
         }
 
         emit WalletLinkUpdated(wallet, personId, status, walletLink.linkedAt, walletLink.unlinkedAt, msg.sender);
+        if (currentPersonId != bytes32(0) && currentPersonId != personId) {
+            _advanceElectorateSource(currentPersonId);
+        }
+        _advanceElectorateSource(personId);
+    }
+
+    function _advanceElectorateSource(bytes32 personId) private {
+        uint256 personRevision = ++_electorateRevisions[personId];
+        uint256 mutationCount = ++_electorateMutationCount;
+        emit ElectorateSourceRevisionAdvanced(personId, personRevision, mutationCount);
+
+        address electorateRegistryAddress = address(0);
+        try _kernel.getModule(KernelModuleIds.ELECTORATE_REGISTRY) returns (address moduleAddress) {
+            electorateRegistryAddress = moduleAddress;
+        } catch {
+            return;
+        }
+
+        uint256 availableGas = gasleft();
+        if (availableGas <= _ELECTORATE_SYNC_GAS_RESERVE) {
+            emit ElectorateSynchronizationDeferred(personId, electorateRegistryAddress);
+            return;
+        }
+        uint256 forwardedGas = availableGas - _ELECTORATE_SYNC_GAS_RESERVE;
+        if (forwardedGas > _ELECTORATE_SYNC_GAS_LIMIT) {
+            forwardedGas = _ELECTORATE_SYNC_GAS_LIMIT;
+        }
+
+        (bool synchronized,) = electorateRegistryAddress.call{gas: forwardedGas}(
+            abi.encodeCall(IElectorateRegistry.syncPerson, (personId))
+        );
+        if (!synchronized) {
+            emit ElectorateSynchronizationDeferred(personId, electorateRegistryAddress);
+        }
     }
 
     function _requireRegistryAuthority(address caller) private view {
-        // L7: resolve the primary authority through the same try/catch used for the setup-authority fallback so
+        // Resolve the primary authority through the same try/catch used for the setup-authority fallback so
         // that an unregistered IDENTITY_REGISTRY_AUTHORITY does not brick every write (including the fallback).
         if (_isModuleCaller(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, caller)) {
             return;

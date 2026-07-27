@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {MinistryTreasury} from "../../contracts/apps/MinistryTreasury.sol";
 import {ConstitutionKernel} from "../../contracts/core/ConstitutionKernel.sol";
@@ -14,8 +15,10 @@ import {OfficeRegistry} from "../../contracts/registries/OfficeRegistry.sol";
 import {OfficeTypes} from "../../contracts/types/OfficeTypes.sol";
 
 /// @dev Minimal 1:1 lending-pool stand-in exposing only the entrypoints MinistryTreasury calls. The real pool's
-///      share/yield math is covered by the Milestone 8 suite; this isolates the ministry-treasury logic.
+///      share/yield math is covered by the lending suite; this isolates the ministry-treasury logic.
 contract MockLendingPool {
+    using SafeERC20 for IERC20;
+
     MockUSDC private immutable _usdc;
 
     mapping(address holder => uint256 shares) public shareBalanceOf;
@@ -29,14 +32,14 @@ contract MockLendingPool {
     }
 
     function deposit(uint256 assets, address receiver) external returns (uint256 shares) {
-        _usdc.transferFrom(msg.sender, address(this), assets);
+        IERC20(address(_usdc)).safeTransferFrom(msg.sender, address(this), assets);
         shareBalanceOf[receiver] += assets;
         return assets;
     }
 
     function withdraw(uint256 assets, address receiver) external returns (uint256 shares) {
         shareBalanceOf[msg.sender] -= assets;
-        _usdc.transfer(receiver, assets);
+        IERC20(address(_usdc)).safeTransfer(receiver, assets);
         return assets;
     }
 }
@@ -237,6 +240,7 @@ contract MinistryTreasuryTest is Test {
             abi.encodeWithSelector(
                 IMinistryTreasury.InsufficientMinistryPoolShares.selector,
                 FINANCE_OFFICE_ID,
+                address(pool),
                 1_000 * USDC_UNIT,
                 1_400 * USDC_UNIT
             )
@@ -246,6 +250,43 @@ contract MinistryTreasuryTest is Test {
         // Interior's position is intact after finance's failed over-withdrawal.
         assertEq(treasury.poolSharesOf(INTERIOR_OFFICE_ID), 600 * USDC_UNIT);
         assertEq(treasury.balanceOf(INTERIOR_OFFICE_ID, address(usdc)), 400 * USDC_UNIT);
+    }
+
+    function test_PoolReplacementDoesNotMixOfficeSharesAndOldPoolRemainsWithdrawable() public {
+        _fund(FINANCE_OFFICE_ID, usdc, 1_000 * USDC_UNIT);
+        _fund(INTERIOR_OFFICE_ID, usdc, 1_000 * USDC_UNIT);
+
+        MockLendingPool oldPool = pool;
+        vm.prank(FINANCE_MINISTER);
+        treasury.supplyToPool(FINANCE_OFFICE_ID, 1_000 * USDC_UNIT);
+
+        MockLendingPool replacementPool = new MockLendingPool(usdc);
+        kernel.bootstrapSetModule(KernelModuleIds.USDC_LENDING_POOL_APP, address(replacementPool));
+
+        vm.prank(INTERIOR_MINISTER);
+        treasury.supplyToPool(INTERIOR_OFFICE_ID, 600 * USDC_UNIT);
+
+        assertEq(treasury.poolSharesOf(FINANCE_OFFICE_ID), 0);
+        assertEq(treasury.poolSharesAt(FINANCE_OFFICE_ID, address(oldPool)), 1_000 * USDC_UNIT);
+        assertEq(treasury.poolSharesOf(INTERIOR_OFFICE_ID), 600 * USDC_UNIT);
+
+        vm.prank(FINANCE_MINISTER);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IMinistryTreasury.NoMinistryPoolShares.selector, FINANCE_OFFICE_ID, address(replacementPool)
+            )
+        );
+        treasury.withdrawFromPool(FINANCE_OFFICE_ID, 100 * USDC_UNIT);
+
+        assertEq(replacementPool.shareBalanceOf(address(treasury)), 600 * USDC_UNIT);
+        assertEq(treasury.poolSharesOf(INTERIOR_OFFICE_ID), 600 * USDC_UNIT);
+
+        vm.prank(FINANCE_MINISTER);
+        treasury.withdrawFromPoolAt(FINANCE_OFFICE_ID, address(oldPool), 250 * USDC_UNIT);
+
+        assertEq(treasury.balanceOf(FINANCE_OFFICE_ID, address(usdc)), 250 * USDC_UNIT);
+        assertEq(treasury.poolSharesAt(FINANCE_OFFICE_ID, address(oldPool)), 750 * USDC_UNIT);
+        assertEq(replacementPool.shareBalanceOf(address(treasury)), 600 * USDC_UNIT);
     }
 
     function test_NewlyRegisteredOfficeCanHoldAndSpendFunds() public {

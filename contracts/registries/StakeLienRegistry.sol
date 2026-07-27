@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {KernelModule} from "../base/KernelModule.sol";
 import {ICitizenEligibilityPolicy} from "../interfaces/ICitizenEligibilityPolicy.sol";
@@ -10,19 +10,24 @@ import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 /// @notice Stable fact registry for lending liens against active political stake.
 contract StakeLienRegistry is IStakeLienRegistry, KernelModule {
     mapping(bytes32 personId => uint256 lienedStake) private _liens;
+    mapping(bytes32 personId => uint256 retainedStakeFloor) private _retainedStakeFloors;
 
     /// @param kernelAddress The canonical kernel registry address.
     constructor(address kernelAddress) KernelModule(kernelAddress) {}
 
     /// @inheritdoc IStakeLienRegistry
-    /// @dev Sourced live from the governed citizenship stake (`CitizenEligibilityPolicy.minimumCitizenStake`) rather
-    ///      than frozen at deployment, so the stake that lending must leave untouchable stays in lockstep with any
-    ///      governed change to the citizenship requirement. Both the stake registry's active-stake floor and the
-    ///      lending pool read this, so they can never diverge from the current citizenship floor.
+    /// @dev Sourced live from the governed citizenship policy for positions that do not yet have a lien.
     function minimumRetainedStake() external view returns (uint256 amount) {
-        return
-            ICitizenEligibilityPolicy(_kernel.getModule(KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY))
-                .minimumCitizenStake();
+        return _currentMinimumRetainedStake();
+    }
+
+    /// @inheritdoc IStakeLienRegistry
+    function retainedStakeFloorOf(bytes32 personId) external view returns (uint256 amount) {
+        if (_liens[personId] == 0) {
+            return _currentMinimumRetainedStake();
+        }
+
+        return _retainedStakeFloors[personId];
     }
 
     /// @inheritdoc IStakeLienRegistry
@@ -36,8 +41,14 @@ contract StakeLienRegistry is IStakeLienRegistry, KernelModule {
         _requireValidPersonId(personId);
         _requireValidAmount(amount);
 
-        uint256 newLienedStake = _liens[personId] + amount;
+        uint256 currentLienedStake = _liens[personId];
+        uint256 newLienedStake = currentLienedStake + amount;
         uint64 updatedAt = uint64(block.timestamp);
+        if (currentLienedStake == 0) {
+            uint256 retainedStakeFloor = _currentMinimumRetainedStake();
+            _retainedStakeFloors[personId] = retainedStakeFloor;
+            emit RetainedStakeFloorUpdated(personId, 0, retainedStakeFloor, updatedAt);
+        }
         _liens[personId] = newLienedStake;
 
         emit StakeLienIncreased(personId, amount, newLienedStake, updatedAt, msg.sender);
@@ -57,8 +68,19 @@ contract StakeLienRegistry is IStakeLienRegistry, KernelModule {
         uint256 newLienedStake = currentLien - amount;
         uint64 updatedAt = uint64(block.timestamp);
         _liens[personId] = newLienedStake;
+        if (newLienedStake == 0) {
+            uint256 previousRetainedFloor = _retainedStakeFloors[personId];
+            delete _retainedStakeFloors[personId];
+            emit RetainedStakeFloorUpdated(personId, previousRetainedFloor, 0, updatedAt);
+        }
 
         emit StakeLienDecreased(personId, amount, newLienedStake, updatedAt, msg.sender);
+    }
+
+    function _currentMinimumRetainedStake() private view returns (uint256 amount) {
+        return
+            ICitizenEligibilityPolicy(_kernel.getModule(KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY))
+                .minimumCitizenStake();
     }
 
     function _requireRegistryAuthority(address caller) private view {

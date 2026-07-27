@@ -1,1 +1,122 @@
-{"abi":[{"type":"constructor","inputs":[{"name":"identityRegistryAddress","type":"address","internalType":"address"},{"name":"stakeRegistryAddress","type":"address","internalType":"address"},{"name":"minimumCitizenStake_","type":"uint256","internalType":"uint256"}],"stateMutability":"nonpayable"},{"type":"function","name":"identityRegistry","inputs":[],"outputs":[{"name":"registryAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"function","name":"isCitizenInGoodStanding","inputs":[{"name":"wallet","type":"address","internalType":"address"}],"outputs":[{"name":"eligible","type":"bool","internalType":"bool"}],"stateMutability":"view"},{"type":"function","name":"minimumCitizenStake","inputs":[],"outputs":[{"name":"minimumStake","type":"uint256","internalType":"uint256"}],"stateMutability":"view"},{"type":"function","name":"stakeRegistry","inputs":[],"outputs":[{"name":"registryAddress","type":"address","internalType":"address"}],"stateMutability":"view"},{"type":"error","name":"InvalidMinimumCitizenStake","inputs":[{"name":"minimumStake","type":"uint256","internalType":"uint256"}]},{"type":"error","name":"InvalidRegistry","inputs":[{"name":"registryAddress","type":"address","internalType":"address"}]}]}
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "identityRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "stakeRegistryAddress",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "minimumCitizenStake_",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "identityRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isCitizenInGoodStanding",
+    "inputs": [
+      {
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "eligible",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isCitizenOnCivicRoll",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "eligible",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "minimumCitizenStake",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "minimumStake",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "stakeRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "InvalidMinimumCitizenStake",
+    "inputs": [
+      {
+        "name": "minimumStake",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidRegistry",
+    "inputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  }
+]}

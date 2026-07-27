@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.35;
+pragma solidity 0.8.36;
 
 import {ICitizenEligibilityPolicy} from "../interfaces/ICitizenEligibilityPolicy.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
@@ -51,6 +51,19 @@ contract CitizenEligibilityPolicy is ICitizenEligibilityPolicy {
     }
 
     /// @inheritdoc ICitizenEligibilityPolicy
+    function isCitizenOnCivicRoll(bytes32 personId) public view returns (bool eligible) {
+        if (personId == bytes32(0) || _identityRegistry.activeWalletCountOf(personId) == 0) {
+            return false;
+        }
+
+        IdentityTypes.IdentityRecord memory record = _identityRegistry.getIdentityRecord(personId);
+        return record.personId != bytes32(0) && record.verificationStatus == IdentityTypes.VerificationStatus.Verified
+            && record.citizenshipStatus == IdentityTypes.CitizenshipStatus.Citizen
+            && record.ageClass == IdentityTypes.AgeClass.Adult && !record.finalSuspension
+            && _stakeRegistry.activeStakeOf(personId) >= _minimumCitizenStake;
+    }
+
+    /// @inheritdoc ICitizenEligibilityPolicy
     function isCitizenInGoodStanding(address wallet) external view returns (bool eligible) {
         if (wallet == address(0)) {
             return false;
@@ -61,23 +74,7 @@ contract CitizenEligibilityPolicy is ICitizenEligibilityPolicy {
             return false;
         }
 
-        IdentityTypes.IdentityRecord memory record = _identityRegistry.getIdentityRecord(walletLink.personId);
-        if (record.personId == bytes32(0)) {
-            return false;
-        }
-        if (record.verificationStatus != IdentityTypes.VerificationStatus.Verified) {
-            return false;
-        }
-        if (record.citizenshipStatus != IdentityTypes.CitizenshipStatus.Citizen) {
-            return false;
-        }
-        if (record.ageClass != IdentityTypes.AgeClass.Adult) {
-            return false;
-        }
-        if (record.finalSuspension) {
-            return false;
-        }
-        if (_stakeRegistry.activeStakeOf(walletLink.personId) < _minimumCitizenStake) {
+        if (!isCitizenOnCivicRoll(walletLink.personId)) {
             return false;
         }
 
