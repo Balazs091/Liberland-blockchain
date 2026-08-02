@@ -4,6 +4,20 @@ set -euo pipefail
 repository_root="$(git rev-parse --show-toplevel)"
 cd "$repository_root"
 
+python_command=""
+for candidate in python3 python; do
+  if command -v "$candidate" >/dev/null 2>&1 \
+    && "$candidate" -c 'import sys; raise SystemExit(0 if sys.version_info.major == 3 else 1)' >/dev/null 2>&1;
+  then
+    python_command="$candidate"
+    break
+  fi
+done
+if [[ -z "$python_command" ]]; then
+  echo "Audit freeze requires a working Python 3 executable named python3 or python." >&2
+  exit 1
+fi
+
 if [[ -n "$(git status --porcelain=v1)" ]]; then
   echo "Audit freeze requires a clean working tree." >&2
   exit 1
@@ -35,6 +49,6 @@ FOUNDRY_PROFILE=audit forge test --match-path 'test/invariant/*.t.sol' -vvv
 forge test --match-path 'test/scripts/*.t.sol' -vvv
 bash scripts/export-frontend-abis.sh
 git diff --exit-code -- frontend-export/abis
-python3 scripts/check-slither-baseline.py
+"$python_command" scripts/check-slither-baseline.py
 
 echo "Audit-freeze verification passed for $(git rev-parse HEAD)."

@@ -2,9 +2,10 @@
 
 Date: 2026-08-03
 Remediation base: `302add43ee24a0d94f9388e4401be2c97fc3c149` (`main` at review start)
-Target: verified remediation working tree; immutable audit commit not assigned yet
-Verdict: code candidate and constitutional source verified; audit freeze blocked by the commit/tag prerequisites
-below; not approved for Ethereum mainnet launch
+Target: the exact commit referenced by the annotated `audit-freeze-2026-08-03` tag and its retained successful
+`scripts/audit-freeze-check.sh` evidence log
+Verdict: code candidate and constitutional source verified; the tag is valid only when it identifies a clean commit
+whose retained freeze log ends with that same commit's success marker; not approved for Ethereum mainnet launch
 
 ## Scope and method
 
@@ -135,21 +136,20 @@ transaction provenance, and the five stateful invariant campaigns.
 The boss-review values and accepted policy choices are collected in `docs/Protocol-Parameters.md`; the external
 review boundary and focus are in `docs/Audit-Scope.md`.
 
-## Remaining audit-freeze prerequisites
+## Audit-freeze procedure and evidence
 
-The code changes, local verification matrix, and pinned constitutional source are complete, but the external-audit
-package is not immutable yet. The supplied PDF is stored at
-`docs/constitutional-sources/2024-09-24 Constitution.pdf`, and its SHA-256 is enforced by
+The code changes, local verification matrix, and pinned constitutional source form one audit candidate. The supplied
+PDF is stored at `docs/constitutional-sources/2024-09-24 Constitution.pdf`, and its SHA-256 is enforced by
 `scripts/verify-constitution-source.sh`.
 
-1. commit the remediation as the code target, then record that exact commit SHA in an evidence-only follow-up commit
-   or signed audit manifest (a commit cannot truthfully contain its own not-yet-computed SHA);
-2. from the clean committed tree, run `bash scripts/audit-freeze-check.sh`, retain its complete output, and create a
-   signed/annotated immutable audit tag only after it passes.
+An audit-freeze tag is valid only if the candidate is committed, `bash scripts/audit-freeze-check.sh` is run from
+that clean commit, the complete output is retained, and an annotated tag is created only after the command exits
+successfully. The tag annotation records the target commit and evidence-log SHA-256, avoiding an impossible
+self-reference inside the commit being identified.
 
 ## Remaining launch prerequisites
 
-After the audit-freeze prerequisites above are completed, mainnet will still remain blocked on:
+After audit freeze, mainnet still remains blocked on:
 
 1. a fresh Sepolia redeployment from the reviewed revision, explorer source verification, regenerated address
    manifest, and frontend smoke test of onboarding, migration, election/referendum creation, office work, payouts,
@@ -167,7 +167,7 @@ After the audit-freeze prerequisites above are completed, mainnet will still rem
 
 No concrete unresolved critical/high source-code blocker is known from this internal review, and the remediation
 working tree passes the stated build, unit, fuzz, invariant, coverage, size, deployment-integration, and static-analysis
-checks. The latest owner-supplied constitution is now pinned and its alignment matrix has been refreshed. The package
-must not yet be called audit-frozen: the code target must receive an immutable commit/tag, and the clean-tree freeze
-checker must pass against that target. Even after those audit-intake steps, fresh deployment evidence, final
-production inputs, fork rehearsal, and an independent audit remain required before Ethereum mainnet use.
+checks. The latest owner-supplied constitution is pinned and its alignment matrix has been refreshed. A package may
+be called audit-frozen only when the annotated tag identifies the clean commit and the retained freeze log ends with
+that exact commit's success marker. Even then, fresh deployment evidence, final production inputs, fork rehearsal,
+and an independent audit remain required before Ethereum mainnet use.

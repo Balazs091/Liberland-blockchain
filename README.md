@@ -81,7 +81,7 @@ forge fmt --check
 forge build --sizes
 forge test -vvv
 forge coverage --report summary
-python3 scripts/check-slither-baseline.py
+python scripts/check-slither-baseline.py
 ```
 
 The Slither helper prints the full unsuppressed report and requires a fresh manual triage if the reviewed severity
