@@ -152,6 +152,14 @@ contract DeployGenesisHarness is Deploy {
         return (address(_decisionApp), address(_lendingPool), address(_ministryTreasury));
     }
 
+    function productionLandTopology() external view returns (address policy, address app, address authority) {
+        return (
+            _kernel.getModule(KernelModuleIds.LAND_PARTY_POLICY),
+            address(_landRegistryApp),
+            _kernel.getModule(KernelModuleIds.LAND_REGISTRY_AUTHORITY)
+        );
+    }
+
     function productionLendingParameters()
         external
         view
@@ -262,6 +270,10 @@ contract DeployGenesisTest is Test {
         assertTrue(decisionApp.code.length != 0);
         assertTrue(lendingPool.code.length != 0);
         assertTrue(ministryTreasury.code.length != 0);
+
+        (address landPartyPolicy, address landApp, address landAuthority) = harness.productionLandTopology();
+        assertTrue(landPartyPolicy.code.length != 0);
+        assertEq(landAuthority, landApp);
 
         _assertProductionLendingParameters(harness);
     }

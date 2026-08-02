@@ -26,7 +26,9 @@ library OfficeTypes {
         ProposePayout,
         RoutePayout,
         CancelPayout,
-        ManageLandRegistry,
+        PrepareLandRecords,
+        FinalizeLandRecords,
+        ResolveLandDisputes,
         ManageCompanyRegistry,
         ManageOfficeMetadata,
         SetOfficeActive

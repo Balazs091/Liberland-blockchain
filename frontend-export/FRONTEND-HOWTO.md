@@ -13,6 +13,8 @@ In particular:
 - candidate eligibility is decided by `contracts/policies/CandidateEligibilityPolicy.sol`
 - Congress election timing is exposed by `contracts/policies/CongressElectionPolicy.sol`
 - unstake portion and welfare period are exposed by `contracts/policies/UnstakingPolicy.sol`
+- land-party existence, acquisition eligibility, and current signers are decided by
+  `contracts/policies/LandPartyPolicy.sol`
 
 ## Demo config
 
@@ -381,6 +383,7 @@ Show office records, budget envelopes, payout requests, and the office-mediated 
 - `PayoutQueue`
 - `TreasuryVault`
 - `LandRegistry`
+- `LandPartyPolicy`
 - `LandRegistryApp`
 - `CompanyRegistry`
 - `CompanyRegistryApp`
@@ -460,10 +463,32 @@ For Congress token transfers, the source approves `DecisionApp`. For Congress mi
 
 - use the app contracts for writes because they enforce the relevant office role checks
 - use the registries for read pages and event indexing
+- land titles use `PartyRef(namespace,id)`, not wallet holders; show the stable party and resolve current signers from
+  `LandPartyPolicy`
+- clerks can call only `submitParcelDraft` and `updateParcelDraft`; registrar/admin controls all live record changes
+- title transfer is a registrar-submitted dual-consent EIP-712 flow. Fetch the current title version and nonce, build
+  an anchor whose lineage is that version, call `hashTitleTransferAuthorization`, collect both signatures, and
+  submit them before the deadline
+- refresh authorization immediately before submission because a person-wallet migration, company-director change,
+  or office-administrator change invalidates the previous signer authority
+- block/warn before removing a company's final director or finalizing dissolution while it still owns land; the
+  current policy deliberately does not invent a receiver for a terminal signer-less company
+- index `ParcelVersionRecorded` and `TitleVersionRecorded`; resolve their content/source hashes through the
+  canonical off-chain schema. Do not treat an arbitrary JSON encoding or URI as the hashed legal record
+- subdivision/merge accept at most `MAX_PARCELS_PER_OPERATION()` parcels and are atomic; boundary adjustment updates
+  exactly two parcels atomically
+- filed disputes do not lock a parcel until accepted; accepted disputes and active encumbrances block transfers and
+  structural operations
 - rejected company applications release their name / registration-number reservation, so a corrected application can reuse the identifiers
 - pending, suspended, dissolving, dissolved, and rejected companies cannot mutate directors, share classes, shares,
   or filings; these child-state writes are limited to `Active` and `ComplianceWarning`
 - leasehold land titles must have a future `leaseExpiresAt`, and expired leaseholds cannot be transferred
+- the current app exposes `closeExpiredLease`, not general title closure; freehold and other non-lease titles cannot
+  be administratively closed and reassigned around the dual-consent transfer workflow
+
+Read `../docs/Land-Cadastre.md` before implementing cadastral writes. Fees, insurance/compensation, court orders,
+co-ownership shares, and geometry validation are intentionally absent until reviewed modules and underlying rules
+exist; do not simulate them as if the current contracts enforced them.
 
 ### Ministry pool replacement
 

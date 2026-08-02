@@ -137,6 +137,13 @@ contract CoreBootstrapTest is Test {
         assertTrue(kernel.isAuthorizedModule(address(timelock)));
     }
 
+    function test_LandPartyPolicyUsesConstitutionalPolicyClass() public {
+        ConstitutionKernel kernel = new ConstitutionKernel(address(this));
+        assertEq(
+            uint256(kernel.moduleClass(KernelModuleIds.LAND_PARTY_POLICY)), uint256(GovernanceTypes.ModuleClass.Policy)
+        );
+    }
+
     function test_BootstrapSetModulesReplacesExistingModuleAndAuthorization() public {
         ConstitutionKernel kernel = new ConstitutionKernel(address(this));
         MockModule initialModule = new MockModule(keccak256("initial"));

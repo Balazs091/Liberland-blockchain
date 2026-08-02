@@ -35,6 +35,7 @@ import {CongressElectionPolicy} from "../contracts/policies/CongressElectionPoli
 import {FixedLlmUsdcPriceOraclePolicy} from "../contracts/policies/FixedLlmUsdcPriceOraclePolicy.sol";
 import {KinkedInterestRatePolicy} from "../contracts/policies/KinkedInterestRatePolicy.sol";
 import {LendingRiskParameterPolicy} from "../contracts/policies/LendingRiskParameterPolicy.sol";
+import {LandPartyPolicy} from "../contracts/policies/LandPartyPolicy.sol";
 import {OfficePermissionPolicy} from "../contracts/policies/OfficePermissionPolicy.sol";
 import {ReferendumPolicy} from "../contracts/policies/ReferendumPolicy.sol";
 import {SenatePowersPolicy} from "../contracts/policies/SenatePowersPolicy.sol";
@@ -127,6 +128,7 @@ contract Deploy is DeploymentScriptBase {
     CongressElectionPolicy internal _congressElectionPolicy;
     ReferendumPolicy internal _referendumPolicy;
     SenatePowersPolicy internal _senatePowersPolicy;
+    LandPartyPolicy internal _landPartyPolicy;
     OfficePermissionPolicy internal _officePermissionPolicy;
     TreasurySpendingPolicy internal _treasurySpendingPolicy;
     FixedLlmUsdcPriceOraclePolicy internal _llmUsdcOracle;
@@ -197,6 +199,7 @@ contract Deploy is DeploymentScriptBase {
         address congressElectionPolicy;
         address referendumPolicy;
         address senatePowersPolicy;
+        address landPartyPolicy;
         address officePermissionPolicy;
         address treasurySpendingPolicy;
         address llmUsdcOracle;
@@ -432,12 +435,18 @@ contract Deploy is DeploymentScriptBase {
             address(_officeRegistry)
         );
         _officePermissionPolicy = new OfficePermissionPolicy();
+        _landPartyPolicy =
+            new LandPartyPolicy(address(_identityRegistry), address(_companyRegistry), address(_officeRegistry));
         _treasurySpendingPolicy = new TreasurySpendingPolicy(FINANCE_OFFICE_ID, _llmTokenAddress, _treasuryAssetLimits);
         _identityApp = new IdentityApp(
             address(_identityRegistry), address(_officeRegistry), IDENTITY_OFFICE_ID, IDENTITY_MIGRATION_DELAY
         );
         _landRegistryApp = new LandRegistryApp(
-            address(_landRegistry), address(_officeRegistry), address(_officePermissionPolicy), LAND_OFFICE_ID
+            address(_landRegistry),
+            address(_officeRegistry),
+            address(_officePermissionPolicy),
+            address(_landPartyPolicy),
+            LAND_OFFICE_ID
         );
         _companyRegistryApp = new CompanyRegistryApp(
             address(_companyRegistry),
@@ -488,7 +497,7 @@ contract Deploy is DeploymentScriptBase {
     }
 
     function _registerModules() internal {
-        (bytes32[] memory moduleIds, address[] memory moduleAddresses) = _allocateModuleBatch(59);
+        (bytes32[] memory moduleIds, address[] memory moduleAddresses) = _allocateModuleBatch(60);
         uint256 index;
 
         // Standing identity authority: the IdentityApp becomes the sole live mutator of the identity registry.
@@ -602,6 +611,9 @@ contract Deploy is DeploymentScriptBase {
             index++,
             KernelModuleIds.OFFICE_PERMISSION_POLICY,
             address(_officePermissionPolicy)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.LAND_PARTY_POLICY, address(_landPartyPolicy)
         );
         _setModuleBatchEntry(
             moduleIds,
@@ -1042,6 +1054,7 @@ contract Deploy is DeploymentScriptBase {
         deployment.congressElectionPolicy = address(_congressElectionPolicy);
         deployment.referendumPolicy = address(_referendumPolicy);
         deployment.senatePowersPolicy = address(_senatePowersPolicy);
+        deployment.landPartyPolicy = address(_landPartyPolicy);
         deployment.officePermissionPolicy = address(_officePermissionPolicy);
         deployment.treasurySpendingPolicy = address(_treasurySpendingPolicy);
         deployment.llmUsdcOracle = address(_llmUsdcOracle);
@@ -1112,6 +1125,7 @@ contract Deploy is DeploymentScriptBase {
         vm.serializeAddress(deploymentKey, "congressElectionPolicy", deployment.congressElectionPolicy);
         vm.serializeAddress(deploymentKey, "referendumPolicy", deployment.referendumPolicy);
         vm.serializeAddress(deploymentKey, "senatePowersPolicy", deployment.senatePowersPolicy);
+        vm.serializeAddress(deploymentKey, "landPartyPolicy", deployment.landPartyPolicy);
         vm.serializeAddress(deploymentKey, "officePermissionPolicy", deployment.officePermissionPolicy);
         vm.serializeAddress(deploymentKey, "treasurySpendingPolicy", deployment.treasurySpendingPolicy);
         vm.serializeAddress(deploymentKey, "llmUsdcOracle", deployment.llmUsdcOracle);
@@ -1177,6 +1191,7 @@ contract Deploy is DeploymentScriptBase {
         console2.log("OfficeRegistry:", deployment.officeRegistry);
         console2.log("PresidentRegistry:", deployment.presidentRegistry);
         console2.log("ExecutiveRegistry:", deployment.executiveRegistry);
+        console2.log("LandPartyPolicy:", deployment.landPartyPolicy);
         console2.log("OfficePermissionPolicy:", deployment.officePermissionPolicy);
         console2.log("TreasurySpendingPolicy:", deployment.treasurySpendingPolicy);
         console2.log("LLMUSDCOracle:", deployment.llmUsdcOracle);

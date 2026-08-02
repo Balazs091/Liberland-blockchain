@@ -222,8 +222,8 @@ contract ConstitutionKernel is IConstitutionKernel {
             moduleId == KernelModuleIds.CANDIDATE_ELIGIBILITY_POLICY
                 || moduleId == KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY
                 || moduleId == KernelModuleIds.CONGRESS_ELECTION_POLICY
-                || moduleId == KernelModuleIds.OFFICE_PERMISSION_POLICY || moduleId == KernelModuleIds.REFERENDUM_POLICY
-                || moduleId == KernelModuleIds.SENATE_POWERS_POLICY
+                || moduleId == KernelModuleIds.OFFICE_PERMISSION_POLICY || moduleId == KernelModuleIds.LAND_PARTY_POLICY
+                || moduleId == KernelModuleIds.REFERENDUM_POLICY || moduleId == KernelModuleIds.SENATE_POWERS_POLICY
                 || moduleId == KernelModuleIds.TREASURY_SPENDING_POLICY
                 || moduleId == KernelModuleIds.VOTING_POWER_POLICY || moduleId == KernelModuleIds.UNSTAKING_POLICY
                 || moduleId == KernelModuleIds.LLM_USDC_PRICE_ORACLE_POLICY

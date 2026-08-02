@@ -1,6 +1,6 @@
 # Internal Smart Contract Audit Report
 
-Date: 2026-07-27
+Date: 2026-08-02
 Target: pre-external-audit repository state
 Verdict: ready for external-audit intake; not approved for Ethereum mainnet launch
 
@@ -20,12 +20,12 @@ mainnet approval.
 - Foundry `1.7.1`, Slither `0.11.5`, and Solc `0.8.36`; every project pragma is pinned to `0.8.36`.
 - The optimized build targets EVM `osaka` with 200 optimizer runs.
 - `forge build --sizes`: pass.
-- `forge test -vvv`: 306 passed, 0 failed, including the 256-run fuzz campaign.
-- `forge coverage --report summary`: pass, 306 passed and 0 failed.
-  - lines: 77.44% (5,962 / 7,699)
-  - statements: 81.02% (6,775 / 8,362)
-  - branches: 40.64% (497 / 1,223)
-  - functions: 85.42% (961 / 1,125)
+- `forge test -vvv`: 315 passed, 0 failed, including the 256-run fuzz campaign.
+- `forge coverage --report summary`: pass, 315 passed and 0 failed.
+  - lines: 77.76% (6,324 / 8,133)
+  - statements: 81.27% (7,200 / 8,859)
+  - branches: 40.16% (512 / 1,275)
+  - functions: 85.55% (1,018 / 1,190)
 - Foundry emitted the known anchor/source-mapping warnings during coverage; the test run still completed
   successfully.
 
@@ -39,6 +39,9 @@ The EIP-170 runtime limit is 24,576 bytes.
 | `CongressCandidateRegistry` | 21,647 bytes | 2,929 bytes |
 | `ReferendumApp` | 20,278 bytes | 4,298 bytes |
 | `CongressElectionApp` | 17,385 bytes | 7,191 bytes |
+| `LandRegistry` | 18,601 bytes | 5,975 bytes |
+| `LandRegistryApp` | 12,096 bytes | 12,480 bytes |
+| `LandPartyPolicy` | 4,809 bytes | 19,767 bytes |
 | `ElectorateRegistry` | 6,453 bytes | 18,123 bytes |
 
 `SenateApp` remains deployable but has little upgrade headroom. Any remediation or later feature that touches it
@@ -46,9 +49,9 @@ must rerun the size check immediately and may require deliberate decomposition.
 
 ### Slither
 
-- Full unsuppressed `slither . --ignore-compile`: 137 contracts, 101 detectors, 319 raw results.
+- Full unsuppressed `slither .`: 151 contracts, 101 detectors, 366 raw results.
 - Project-only high/medium view
-  (`--exclude-dependencies --exclude-low --exclude-informational`): 137 contracts, 63 detectors, 43 results.
+  (`--exclude-dependencies --exclude-low --exclude-informational`): 151 contracts, 63 detectors, 43 results.
 - Manual triage found no concrete launch blocker in these results. The arbitrary-send findings are explicitly
   authorized source pulls; weak-PRNG is UTC-boundary modulo arithmetic, not randomness; equality findings are
   intentional state/zero checks; reentrancy findings are covered by `nonReentrant`, trusted fixed registries, or
@@ -73,11 +76,14 @@ result.
 | Lending accrual/configuration changes could retroactively reprice debt | Debt uses one RAY-scaled global index and checkpoints the effective rate/reserve configuration by interval. Current debt has a preview getter; state-changing accrual remains explicit. |
 | Bad-debt absorption could be blocked by collateral dust or incorrectly treat protected stake as recoverable | `absorbBadDebt` rejects only while surplus stake can cover the rounded seizure for the smallest repayment that actually reduces scaled debt. Protected/retained floor stake is not recoverable collateral. Reserves absorb eligible write-offs before supplier share value. |
 | Replacing a ministry lending pool could strand an office's prior shares | Positions are keyed by office and pool, with explicit reads/withdrawal for retired pools. |
+| Wallet-held land titles and registrar-only transfers could lose party continuity or bypass consent | Titles now store stable namespaced person/company/office IDs. The live replaceable party policy resolves current signers. Transfers require seller and buyer EIP-712/EIP-1271 authorization, a title nonce, deadline, expected version, anchored instrument, and registrar finalization. The current app cannot administratively close a non-expired title and recreate it around consent. |
+| Multi-parcel cadastral changes could leave partial or untraceable state | Parcel/title revisions are domain-separated and source-document chained. Subdivision, merge, and two-parcel boundary adjustment validate the full bounded set before applying one atomic transaction. Clerk preparation and registrar finalization are separate permission classes. |
 
 Regression coverage includes source-callback failure and catch-up, current-electorate creation checks, completion-block
 rejection, historical pinned-process continuity, stake-transfer vote reuse, candidacy/address reassignment,
 zero-active-wallet seat recovery, governance self-replacement liveness, payout reconciliation, office lifecycle,
-global lending accrual, liquidation rounding, and bad-debt dust.
+global lending accrual, liquidation rounding, bad-debt dust, cadastral lineage, EIP-1271 consent, signer migration,
+and atomic parcel operations.
 
 ## Accepted risks and external-auditor focus
 
@@ -109,6 +115,11 @@ global lending accrual, liquidation rounding, and bad-debt dust.
    disclose its effect on open Senate processes.
 8. **v1 scope.** Judiciary/Agents and operational Foreign Affairs, Interior, and Justice domain apps are not present.
    Their absence does not grant those powers through a generic executor.
+9. **Cadastre law and off-chain data.** Solidity does not validate geometry, retain legal documents, determine
+   co-ownership, calculate transaction fees, provide insurance/compensation, or enforce court judgments. The
+   registrar anchors canonical records and source instruments. Later features require defined law/data standards
+   and reviewed replacement apps/policies or dedicated registries; no generic placeholder custody or override is
+   deployed.
 
 The boss-review values and accepted policy choices are collected in `docs/Protocol-Parameters.md`; the external
 review boundary and focus are in `docs/Audit-Scope.md`.
@@ -119,13 +130,13 @@ The code is ready to enter an external audit, but mainnet remains blocked on:
 
 1. a fresh Sepolia redeployment from the reviewed revision, explorer source verification, regenerated address
    manifest, and frontend smoke test of onboarding, migration, election/referendum creation, office work, payouts,
-   lending, and recovery paths;
+   lending, cadastral EIP-712/EIP-1271 transfers, parcel operations, and recovery paths;
 2. final production parameter-manifest and genesis/migration values, independently checked and signed off, including
    real token addresses/bytecode, seven occupied Congress seats, stake backing, offices/roles, treasury limits,
    contribution-reward reserve, and the 17:00 UTC continuity endpoint;
 3. a mainnet-fork deployment and lifecycle rehearsal with those exact values, including bootstrap retirement,
-   invariant checks, lending liquidation/bad debt, wallet migration with active roles, election rollover, treasury
-   reward flow, and a representative module/state migration;
+   invariant checks, lending liquidation/bad debt, wallet migration with active roles and land titles, election
+   rollover, treasury reward flow, cadastral record migration, and a representative module/state migration;
 4. an independent smart-contract and lending-economic audit, remediation, and rerun of build, tests, coverage,
    Slither, sizes, deployment integration, source verification, and frontend smoke tests.
 

@@ -43,8 +43,13 @@ contract OfficePermissionPolicy is IOfficePermissionPolicy {
 
         if (officeKind != OfficeTypes.OfficeKind.MinistryOfFinance) {
             if (officeKind == OfficeTypes.OfficeKind.LandRegistryOffice) {
-                return (officeRole == OfficeTypes.OfficeRole.Admin || officeRole == OfficeTypes.OfficeRole.Clerk)
-                    && actionClass == OfficeTypes.OfficeActionClass.ManageLandRegistry;
+                if (officeRole == OfficeTypes.OfficeRole.Admin) {
+                    return actionClass == OfficeTypes.OfficeActionClass.PrepareLandRecords
+                        || actionClass == OfficeTypes.OfficeActionClass.FinalizeLandRecords
+                        || actionClass == OfficeTypes.OfficeActionClass.ResolveLandDisputes;
+                }
+                return officeRole == OfficeTypes.OfficeRole.Clerk
+                    && actionClass == OfficeTypes.OfficeActionClass.PrepareLandRecords;
             }
 
             if (officeKind == OfficeTypes.OfficeKind.CompanyRegistryOffice) {

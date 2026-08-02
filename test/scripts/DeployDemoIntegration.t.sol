@@ -61,6 +61,14 @@ contract DeployDemoIntegrationHarness is DeployDemo {
         return _kernel.getModule(KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY_AUTHORITY);
     }
 
+    function landTopologyForTest() external view returns (address policy, address app, address authority) {
+        return (
+            _kernel.getModule(KernelModuleIds.LAND_PARTY_POLICY),
+            address(_landRegistryApp),
+            _kernel.getModule(KernelModuleIds.LAND_REGISTRY_AUTHORITY)
+        );
+    }
+
     function routerBootstrapAuthorityForTest() external view returns (address authority) {
         return _router.bootstrapAuthority();
     }
@@ -125,6 +133,9 @@ contract DeployDemoIntegrationTest is Test {
         assertEq(deployment.identityAppForTest(), address(gateway));
         assertEq(deployment.identityAuthorityForTest(), address(gateway));
         assertEq(deployment.congressAuthorityForTest(), address(deployment.congressAppForTest()));
+        (address landPartyPolicy, address landApp, address landAuthority) = deployment.landTopologyForTest();
+        assertTrue(landPartyPolicy.code.length != 0);
+        assertEq(landAuthority, landApp);
 
         vm.prank(NEW_USER);
         bytes32 personId = gateway.registerSelf(keccak256("new-user"), "ipfs://demo/new-user");

@@ -86,7 +86,15 @@ Evidence: `test/apps/CabinetApp.t.sol`, `test/apps/MinistryTreasury.t.sol`,
 
 - An office admin controls clerks, admin transfer, metadata, and active status according to the live office policy.
   The Finance Ministry admin cannot self-transfer that political office; Cabinet succession controls it.
-- Land and Company Registry admins and clerks execute their respective registry workflows through dedicated apps.
+- A Land Registry clerk prepares and revises parcel drafts. Only the Land Registry admin/registrar can make a parcel
+  live, revise/retire it, register a title, close an expired lease, finalize a signed transfer, perform a
+  subdivision/merge/boundary
+  adjustment, manage encumbrances, or accept/resolve a dispute.
+- Title holders are stable person/company/office IDs rather than wallets. A transfer requires current seller and
+  buyer EIP-712/EIP-1271 signatures, the current title version and nonce, a deadline, and registrar finalization.
+  A currently authorized party signer may file a dispute; an accepted dispute or active encumbrance locks transfer
+  and structural parcel changes. See `docs/Land-Cadastre.md` for the full frontend/legal data contract.
+- Company Registry admins and clerks execute their workflows through the dedicated company app.
 - A public company applicant may submit an incorporation request; the Company Registry office handles approval,
   rejection, status, shares, directors, and filings.
 - A pending company cannot receive directors, share classes, shares, or filings. Those child-state operations become
@@ -99,7 +107,8 @@ Evidence: `test/apps/CabinetApp.t.sol`, `test/apps/MinistryTreasury.t.sol`,
   `PayoutQueue.syncPayoutState` after execution, Senate cancellation, or expiry; executed state is verified against
   the vault address pinned in the action.
 
-Evidence: `test/apps/LandAndCompanyRegistries.t.sol` and `test/apps/TreasuryAndOffices.t.sol`.
+Evidence: `test/apps/LandRegistry.t.sol`, `test/apps/CompanyRegistry.t.sol`, and
+`test/apps/TreasuryAndOffices.t.sol`.
 
 ## Contributors receiving LLM
 

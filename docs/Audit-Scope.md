@@ -11,6 +11,7 @@ disagrees.
 - bootstrap, authority retirement, module registration, and generated address-manifest correctness;
 - external LLM/USDC assumptions, stake and treasury custody, lending economics, and contribution-reward funding;
 - cross-module authorization, replacement/migration paths, denial-of-service bounds, and accounting invariants;
+- land-party resolution, EIP-712/EIP-1271 title consent, cadastral version lineage, and atomic parcel operations;
 - all Foundry tests as evidence, not as a substitute for independent review; and
 - the deliberate draft-constitution differences recorded in `docs/Constitution-Alignment.md`.
 
@@ -142,6 +143,15 @@ coverage should be expanded during remediation.
    Before repeal, public-veto reads exclude currently ineligible supporters and the next cast prunes them; completed
    repeals preserve their final count. Review state reconciliation, replacement boundaries, bounded supporter
    iteration, and exact budget accounting.
+9. **Cadastre integrity and signer continuity — redesigned; retain in focus.** Titles store stable namespaced party
+   IDs. The replaceable land-party policy resolves current person wallets, company directors, and office
+   administrators. Transfers bind both party IDs, the current title version, anchor, transaction ID, title nonce,
+   deadline, chain, and app address into one EIP-712 digest signed by seller and buyer, then require registrar
+   finalization. Parcel/title versions chain source documents; subdivision, merge, and boundary adjustment are
+   bounded and atomic. Independently review EOA/EIP-1271 signature semantics, wallet/director/office changes between
+   signing and execution, nonce/version replay resistance, lineage construction, dispute/encumbrance locks, and
+   migration from any earlier land storage. Also review operational prevention/recovery for a company that loses its
+   final director or reaches terminal dissolution while still holding title.
 
 ## Known omissions and accepted boundaries
 
@@ -149,6 +159,10 @@ The repository does not implement a Judiciary branch or constitutional Agents. F
 Justice have political minister records but no v1 operational offices/domain apps. Other draft-to-code differences,
 including equal-base voting, Public Veto official removal, Senate scope, treaty classification, and Vice-President
 succession, are classified in `docs/Constitution-Alignment.md`.
+
+The land contracts intentionally omit on-chain geometry validation, document storage, co-ownership shares,
+transaction fees, insurance/compensation, and judicial enforcement. `docs/Land-Cadastre.md` describes how reviewed
+replacement apps/policies and dedicated registries can add them after the underlying law and data standards exist.
 
 The fixed launch oracle is intentionally accepted. The following are not accepted substitutes for launch review:
 
@@ -181,5 +195,6 @@ Before the external-audit package or any new public demo is treated as current:
 - `docs/Ethereum-Mainnet-Deployment.md`: production procedure
 - `docs/Sepolia-Demo-Deployment.md`: demo procedure and seeded state
 - `docs/Lending-And-Treasury.md`: money, lending, and ministry treasury
+- `docs/Land-Cadastre.md`: cadastral data, parties, signatures, operations, and extension boundary
 - `docs/User-Journeys.md`: role-by-role workflows
 - `frontend-export/`: frontend handoff; never protocol authority

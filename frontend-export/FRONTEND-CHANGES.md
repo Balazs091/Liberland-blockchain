@@ -1,7 +1,7 @@
 # Frontend Changes
 
 This handoff covers the Solidity `0.8.36`, network-manifest, staking/electorate, identity continuity, governance
-liveness, treasury, lending, and Congress-ballot changes.
+liveness, treasury, lending, Congress-ballot, and land-cadastre changes.
 
 ## Required integration changes
 
@@ -58,6 +58,33 @@ liveness, treasury, lending, and Congress-ballot changes.
 27. Disable company director/share/filing writes unless company status is `Active` or `ComplianceWarning`.
 28. Replace the lending ABI: the pool constructor has six arguments, debt is globally index-scaled,
     `currentDebtOf` previews pending interest, and `totalBorrows`/`borrowIndex` remain stored until accrual.
+
+29. Replace the complete land ABI and add the `landPartyPolicy` manifest field. Titles now use
+    `PartyRef(namespace,id)`, transfers use dual EIP-712/EIP-1271 authorization and a title nonce, record writes use
+    versioned `RecordAnchor` lineage, and subdivision/merge/boundary operations are atomic. The old wallet-holder and
+    direct parcel/title mutation interfaces are incompatible.
+30. Do not reuse old numeric `OfficeActionClass` values. The new land split is `PrepareLandRecords = 7`,
+    `FinalizeLandRecords = 8`, and `ResolveLandDisputes = 9`; `ManageCompanyRegistry`, `ManageOfficeMetadata`, and
+    `SetOfficeActive` are now `10`, `11`, and `12`. Prefer app capability checks over passing these policy enums from
+    ordinary user screens.
+
+## Cadastre migration
+
+- Treat this as a breaking land redeployment, not an ABI-only frontend update.
+- Read `LandPartyPolicy.personNamespace()`, `companyNamespace()`, and `officeNamespace()` instead of hardcoding
+  namespace hashes in business logic.
+- Use `LandRegistry` for records/events and `LandRegistryApp` for every write.
+- Only clerks may prepare/update drafts; only the Land Registry admin/registrar may finalize live records,
+  structural operations, encumbrances, and dispute status.
+- Build transfers from `getTitle(titleId).versionHash`, `titleTransferNonce(titleId)`, a new anchor whose
+  `lineageHash` is that version, a unique `transactionId`, and a deadline. Ask both sides to sign the digest returned
+  by `hashTitleTransferAuthorization(request)`, then let the registrar submit both signatures.
+- Resolve current authorized signers through the live land-party policy immediately before submission. A wallet
+  migration, director change, or office-administrator change can invalidate an earlier signature by design.
+- Do not calculate legal geometry validity, document authenticity, fees, insurance, or compensation in the browser.
+  Display and verify the external canonical records whose hashes are committed on-chain.
+
+The complete data and signature contract is in `../docs/Land-Cadastre.md`.
 
 ## Congress timing
 

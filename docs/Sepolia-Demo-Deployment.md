@@ -188,9 +188,15 @@ The production election contracts do not need to change to seed demo state. A ne
 
 ## Land and company registry demo note
 
-The demo script deploys and wires `LandRegistry`, `LandRegistryApp`, `CompanyRegistry`, and `CompanyRegistryApp`, but it does not seed parcel or company records.
+The demo script deploys and wires `LandRegistry`, `LandPartyPolicy`, `LandRegistryApp`, `CompanyRegistry`, and
+`CompanyRegistryApp`, but it does not seed parcel or company records.
 
-Use the configured land and company registry office admin wallets to create live demo records after deployment. Land disputes can be filed by any wallet through `LandRegistryApp.fileDispute(...)`, then accepted or resolved by the Land Registry Office. Incorporation submissions can be made by any wallet through `CompanyRegistryApp.submitIncorporation(...)`, then approved or rejected by the Company Registry Office.
+The Land Registry clerk may prepare parcel drafts; the office admin/registrar finalizes live parcel/title changes.
+Titles reference a registered person, active company, or active office, and a transfer requires current seller and
+buyer EIP-712 signatures plus registrar submission. Only a current authorized signer for a registered party may
+file a dispute; the registrar then accepts or resolves it. Incorporation submissions remain public through
+`CompanyRegistryApp.submitIncorporation(...)`, with approval/rejection handled by the Company Registry Office. See
+`docs/Land-Cadastre.md` before constructing demo land data or signatures.
 
 ## How to change recurring election cadence
 
@@ -271,6 +277,7 @@ Useful fields inside it:
 - `congressVotingStart`
 - `congressVotingEnd`
 - `landRegistry`
+- `landPartyPolicy`
 - `landRegistryApp`
 - `companyRegistry`
 - `companyRegistryApp`

@@ -21,7 +21,8 @@ Registries are the source of truth. Policies define rules. Apps coordinate typed
 - Senate queued-action cancellation, referendum veto, sub-legal repeal, documented temporary disbursement suspension, and bounded President-proxy participation
 - Senate-elected President and succession, plus Congress/Prime-Minister Cabinet workflows
 - treasury vault, referendum-approved budget envelopes, office permissions, and payout routing
-- office-mediated land and company fact registries
+- office-mediated company facts and a versioned land cadastre with stable legal parties, dual-consent transfers,
+  chained record anchors, and atomic parcel operations
 - bounded Congress and ministry decisions for ERC20 transfers, ministry funding, clerk changes, transfer-and-stake, and office creation
 - stake-backed USDC lending and an office-keyed ministry treasury; mock tokens, self-registration, and seeded demo
   state remain Sepolia-only
@@ -129,6 +130,13 @@ President, Prime Minister, ministers, and term-bound ministry-office administrat
 single active wallet after an approved migration. Stored historical records retain their original wallet for audit
 provenance; clients resolve `activeWalletOf(personId)` for the current signer. Generic office appointments remain
 wallet-bound unless the appointing app explicitly supplies a person ID.
+
+Land ownership is similarly identity-stable but policy-extensible. A title stores a namespaced party ID rather than
+a wallet. The live `LandPartyPolicy` resolves current person, company, and office signers; `LandRegistryApp` requires
+seller and buyer EIP-712 consent plus registrar finalization. Parcel/title versions chain content and source-document
+hashes, while subdivision, merge, and boundary adjustment update their complete bounded parcel set atomically. The
+stable registry stores no geometry, documents, transaction fees, or insurance funds. Those belong in reviewed
+replaceable workflows or dedicated future registries once their law is defined. See `docs/Land-Cadastre.md`.
 
 Congress candidacy is also person-bound within a cycle. The original application wallet remains the canonical audit
 record and durable ballot target, even if that address is later assigned to another person. A current active wallet
@@ -239,6 +247,7 @@ state.
 - no population-sized constitutional snapshot transaction
 - no standing Congress ballots across cycles
 - no production dependency on demo minting or onboarding powers
+- no generic land-record override, on-chain GIS engine, or placeholder fee/insurance custody
 
 Role-by-role behavior and current operational gaps are mapped in `docs/User-Journeys.md`.
 

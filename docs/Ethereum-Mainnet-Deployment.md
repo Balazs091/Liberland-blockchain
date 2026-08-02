@@ -128,6 +128,13 @@ interval. The risk policy rejects a threshold/bonus pair whose full-threshold li
 collateral. A borrower's citizenship retained-stake floor is fixed when the lien begins and cleared only when the
 lien reaches zero.
 
+The land deployment includes `LandRegistry`, `LandPartyPolicy`, and `LandRegistryApp`. Production title parties are
+stable identity/company/office IDs, while current signers are resolved at execution time. Use a reviewed EIP-1271
+multisig as the Land Registry Office administrator where operationally appropriate. Publish the cadastral schema and
+canonical hashing rules before importing records, preserve predecessor lineage, and independently reconcile every
+parcel, active title, dispute, and encumbrance. Transaction fees, insurance/compensation, and judicial settlement are
+not launch placeholders; add them only as reviewed modules once their law is defined. See `docs/Land-Cadastre.md`.
+
 ## Module replacement release procedure
 
 Before proposing a replacement address, archive its deployed bytecode and compiler metadata, confirm it is not an independently upgradeable proxy or generic delegatecall executor, review every immutable dependency, and rehearse the migration on a fork with copied production state. A replacement app must preserve the interfaces needed during the transition or be deployed as part of an explicitly reviewed breaking migration. For a state-bearing module, prove how every required record and asset reaches the replacement before activating its canonical pointer; the kernel deliberately cannot infer or perform this migration.

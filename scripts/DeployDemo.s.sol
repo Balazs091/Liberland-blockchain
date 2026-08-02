@@ -34,6 +34,7 @@ import {CongressElectionPolicy} from "../contracts/policies/CongressElectionPoli
 import {FixedLlmUsdcPriceOraclePolicy} from "../contracts/policies/FixedLlmUsdcPriceOraclePolicy.sol";
 import {KinkedInterestRatePolicy} from "../contracts/policies/KinkedInterestRatePolicy.sol";
 import {LendingRiskParameterPolicy} from "../contracts/policies/LendingRiskParameterPolicy.sol";
+import {LandPartyPolicy} from "../contracts/policies/LandPartyPolicy.sol";
 import {OfficePermissionPolicy} from "../contracts/policies/OfficePermissionPolicy.sol";
 import {ReferendumPolicy} from "../contracts/policies/ReferendumPolicy.sol";
 import {SenatePowersPolicy} from "../contracts/policies/SenatePowersPolicy.sol";
@@ -151,6 +152,7 @@ contract DeployDemo is DeploymentScriptBase {
     CongressElectionPolicy internal _congressElectionPolicy;
     ReferendumPolicy internal _referendumPolicy;
     SenatePowersPolicy internal _senatePowersPolicy;
+    LandPartyPolicy internal _landPartyPolicy;
     OfficePermissionPolicy internal _officePermissionPolicy;
     TreasurySpendingPolicy internal _treasurySpendingPolicy;
     CongressElectionApp internal _congressElectionApp;
@@ -217,6 +219,7 @@ contract DeployDemo is DeploymentScriptBase {
         address congressElectionPolicy;
         address referendumPolicy;
         address senatePowersPolicy;
+        address landPartyPolicy;
         address officePermissionPolicy;
         address treasurySpendingPolicy;
         address congressElectionApp;
@@ -427,10 +430,16 @@ contract DeployDemo is DeploymentScriptBase {
             address(_officeRegistry)
         );
         _officePermissionPolicy = new OfficePermissionPolicy();
+        _landPartyPolicy =
+            new LandPartyPolicy(address(_identityRegistry), address(_companyRegistry), address(_officeRegistry));
         _treasurySpendingPolicy =
             new TreasurySpendingPolicy(FINANCE_OFFICE_ID, address(_llmToken), _treasurySpendingAssetLimits());
         _landRegistryApp = new LandRegistryApp(
-            address(_landRegistry), address(_officeRegistry), address(_officePermissionPolicy), LAND_OFFICE_ID
+            address(_landRegistry),
+            address(_officeRegistry),
+            address(_officePermissionPolicy),
+            address(_landPartyPolicy),
+            LAND_OFFICE_ID
         );
         _companyRegistryApp = new CompanyRegistryApp(
             address(_companyRegistry),
@@ -477,7 +486,7 @@ contract DeployDemo is DeploymentScriptBase {
     }
 
     function _registerBootstrapModules() internal {
-        (bytes32[] memory moduleIds, address[] memory moduleAddresses) = _allocateModuleBatch(56);
+        (bytes32[] memory moduleIds, address[] memory moduleAddresses) = _allocateModuleBatch(57);
         uint256 index;
 
         _setModuleBatchEntry(
@@ -601,6 +610,9 @@ contract DeployDemo is DeploymentScriptBase {
             index++,
             KernelModuleIds.OFFICE_PERMISSION_POLICY,
             address(_officePermissionPolicy)
+        );
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.LAND_PARTY_POLICY, address(_landPartyPolicy)
         );
         _setModuleBatchEntry(
             moduleIds,
@@ -1142,6 +1154,7 @@ contract DeployDemo is DeploymentScriptBase {
         deployment.congressElectionPolicy = address(_congressElectionPolicy);
         deployment.referendumPolicy = address(_referendumPolicy);
         deployment.senatePowersPolicy = address(_senatePowersPolicy);
+        deployment.landPartyPolicy = address(_landPartyPolicy);
         deployment.officePermissionPolicy = address(_officePermissionPolicy);
         deployment.treasurySpendingPolicy = address(_treasurySpendingPolicy);
         deployment.congressElectionApp = address(_congressElectionApp);
@@ -1210,6 +1223,7 @@ contract DeployDemo is DeploymentScriptBase {
         vm.serializeAddress(deploymentKey, "congressElectionPolicy", deployment.congressElectionPolicy);
         vm.serializeAddress(deploymentKey, "referendumPolicy", deployment.referendumPolicy);
         vm.serializeAddress(deploymentKey, "senatePowersPolicy", deployment.senatePowersPolicy);
+        vm.serializeAddress(deploymentKey, "landPartyPolicy", deployment.landPartyPolicy);
         vm.serializeAddress(deploymentKey, "officePermissionPolicy", deployment.officePermissionPolicy);
         vm.serializeAddress(deploymentKey, "treasurySpendingPolicy", deployment.treasurySpendingPolicy);
         vm.serializeAddress(deploymentKey, "congressElectionApp", deployment.congressElectionApp);
@@ -1287,6 +1301,7 @@ contract DeployDemo is DeploymentScriptBase {
         console2.log("OfficeRegistry:", deployment.officeRegistry);
         console2.log("PresidentRegistry:", deployment.presidentRegistry);
         console2.log("ExecutiveRegistry:", deployment.executiveRegistry);
+        console2.log("LandPartyPolicy:", deployment.landPartyPolicy);
         console2.log("OfficePermissionPolicy:", deployment.officePermissionPolicy);
         console2.log("TreasurySpendingPolicy:", deployment.treasurySpendingPolicy);
         console2.log("DecisionApp:", deployment.decisionApp);

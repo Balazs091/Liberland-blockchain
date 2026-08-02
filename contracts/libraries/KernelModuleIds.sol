@@ -45,6 +45,7 @@ library KernelModuleIds {
     bytes32 internal constant CITIZEN_ELIGIBILITY_POLICY = keccak256("policy.citizen-eligibility");
     bytes32 internal constant CONGRESS_ELECTION_POLICY = keccak256("policy.congress-election");
     bytes32 internal constant OFFICE_PERMISSION_POLICY = keccak256("policy.office-permission");
+    bytes32 internal constant LAND_PARTY_POLICY = keccak256("policy.land-party");
     bytes32 internal constant REFERENDUM_POLICY = keccak256("policy.referendum");
     bytes32 internal constant SENATE_POWERS_POLICY = keccak256("policy.senate-powers");
     bytes32 internal constant TREASURY_SPENDING_POLICY = keccak256("policy.treasury-spending");

@@ -13,7 +13,7 @@ This folder is the clean handoff package for the frontend.
 - `FRONTEND-HOWTO.md`
   - page-by-page guidance for the first demo frontend screens
 - `FRONTEND-CHANGES.md`
-  - migration notes for the compiler, network-manifest, and Congress timing update
+  - migration notes for compiler, manifests, governance, lending, and the breaking cadastre update
 - `abis/`
   - generated ABI artifacts for the source contract set; regenerate the whole directory after every contract change
     and do not mix files from different revisions
@@ -114,6 +114,7 @@ Production uses Ethereum mainnet (`chainId: 1`) and `deployments/ethereum-mainne
   - call `syncPayoutState(requestId)` after timelock execution/cancellation/expiry; do not infer queue state solely
     from the timelock
 - land and company reads
+  - `LandPartyPolicy`
   - `LandRegistry`
   - `LandRegistryApp`
   - `CompanyRegistry`
@@ -145,13 +146,15 @@ For most frontend work, prefer these as entrypoints:
 - `DecisionApp.json`
 - `OfficeExecutor.json`
 - `LandRegistryApp.json`
+- `LandPartyPolicy.json`
 - `CompanyRegistryApp.json`
 - `USDCLendingPoolApp.json`
 
 Use registry and policy ABIs for detailed reads where needed. Do not assume the checked-in ABI directory matches an
 unverified local change: run the export script from the exact source revision used by the manifest.
 
-Both manifests expose `DecisionApp`, `MinistryTreasury`, the lending pool, lien registry, and lending policy addresses.
+Both manifests expose `DecisionApp`, `MinistryTreasury`, the lending pool, lien registry, lending policy, and
+`LandPartyPolicy` addresses.
 Still feature-detect addresses and validate `chainId`; an old deployment manifest may predate the current scope.
 
 ## Demo flow

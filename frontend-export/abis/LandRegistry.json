@@ -12,6 +12,19 @@
   },
   {
     "type": "function",
+    "name": "MAX_PARCELS_PER_OPERATION",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "acceptDispute",
     "inputs": [
       {
@@ -21,6 +34,11 @@
       },
       {
         "name": "evidenceHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "transactionId",
         "type": "bytes32",
         "internalType": "bytes32"
       }
@@ -38,7 +56,44 @@
         "internalType": "bytes32"
       },
       {
-        "name": "documentHash",
+        "name": "expectedRevision",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "finalAnchor",
+        "type": "tuple",
+        "internalType": "struct LandTypes.RecordAnchor",
+        "components": [
+          {
+            "name": "schemaId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "contentHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "sourceDocumentHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "lineageHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "schemaVersion",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      },
+      {
+        "name": "transactionId",
         "type": "bytes32",
         "internalType": "bytes32"
       }
@@ -105,6 +160,191 @@
   },
   {
     "type": "function",
+    "name": "adjustBoundary",
+    "inputs": [
+      {
+        "name": "first",
+        "type": "tuple",
+        "internalType": "struct LandTypes.ParcelRevisionInput",
+        "components": [
+          {
+            "name": "parcelId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "expectedRevision",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "parcel",
+            "type": "tuple",
+            "internalType": "struct LandTypes.ParcelInput",
+            "components": [
+              {
+                "name": "parcelNumberHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "districtHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "anchor",
+                "type": "tuple",
+                "internalType": "struct LandTypes.RecordAnchor",
+                "components": [
+                  {
+                    "name": "schemaId",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "contentHash",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "sourceDocumentHash",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "lineageHash",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "schemaVersion",
+                    "type": "uint32",
+                    "internalType": "uint32"
+                  }
+                ]
+              },
+              {
+                "name": "spatialDataHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "coordinateReferenceSystemHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "spatialType",
+                "type": "uint8",
+                "internalType": "enum LandTypes.SpatialType"
+              },
+              {
+                "name": "areaSquareMeters",
+                "type": "uint64",
+                "internalType": "uint64"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "second",
+        "type": "tuple",
+        "internalType": "struct LandTypes.ParcelRevisionInput",
+        "components": [
+          {
+            "name": "parcelId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "expectedRevision",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "parcel",
+            "type": "tuple",
+            "internalType": "struct LandTypes.ParcelInput",
+            "components": [
+              {
+                "name": "parcelNumberHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "districtHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "anchor",
+                "type": "tuple",
+                "internalType": "struct LandTypes.RecordAnchor",
+                "components": [
+                  {
+                    "name": "schemaId",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "contentHash",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "sourceDocumentHash",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "lineageHash",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "schemaVersion",
+                    "type": "uint32",
+                    "internalType": "uint32"
+                  }
+                ]
+              },
+              {
+                "name": "spatialDataHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "coordinateReferenceSystemHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "spatialType",
+                "type": "uint8",
+                "internalType": "enum LandTypes.SpatialType"
+              },
+              {
+                "name": "areaSquareMeters",
+                "type": "uint64",
+                "internalType": "uint64"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "transactionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "closeTitle",
     "inputs": [
       {
@@ -118,7 +358,44 @@
         "internalType": "bytes32"
       },
       {
-        "name": "documentHash",
+        "name": "expectedVersionHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "closingAnchor",
+        "type": "tuple",
+        "internalType": "struct LandTypes.RecordAnchor",
+        "components": [
+          {
+            "name": "schemaId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "contentHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "sourceDocumentHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "lineageHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "schemaVersion",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      },
+      {
+        "name": "transactionId",
         "type": "bytes32",
         "internalType": "bytes32"
       }
@@ -128,7 +405,7 @@
   },
   {
     "type": "function",
-    "name": "createParcel",
+    "name": "createParcelDraft",
     "inputs": [
       {
         "name": "parcelId",
@@ -151,9 +428,36 @@
             "internalType": "bytes32"
           },
           {
-            "name": "metadataHash",
-            "type": "bytes32",
-            "internalType": "bytes32"
+            "name": "anchor",
+            "type": "tuple",
+            "internalType": "struct LandTypes.RecordAnchor",
+            "components": [
+              {
+                "name": "schemaId",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "contentHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "sourceDocumentHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "lineageHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "schemaVersion",
+                "type": "uint32",
+                "internalType": "uint32"
+              }
+            ]
           },
           {
             "name": "spatialDataHash",
@@ -161,7 +465,7 @@
             "internalType": "bytes32"
           },
           {
-            "name": "documentHash",
+            "name": "coordinateReferenceSystemHash",
             "type": "bytes32",
             "internalType": "bytes32"
           },
@@ -176,6 +480,11 @@
             "internalType": "uint64"
           }
         ]
+      },
+      {
+        "name": "transactionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "outputs": [],
@@ -197,11 +506,28 @@
       },
       {
         "name": "claimant",
-        "type": "address",
-        "internalType": "address"
+        "type": "tuple",
+        "internalType": "struct LandTypes.PartyRef",
+        "components": [
+          {
+            "name": "namespace",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "id",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
       },
       {
         "name": "evidenceHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "transactionId",
         "type": "bytes32",
         "internalType": "bytes32"
       }
@@ -237,8 +563,20 @@
           },
           {
             "name": "claimant",
-            "type": "address",
-            "internalType": "address"
+            "type": "tuple",
+            "internalType": "struct LandTypes.PartyRef",
+            "components": [
+              {
+                "name": "namespace",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "id",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
           },
           {
             "name": "status",
@@ -252,6 +590,11 @@
           },
           {
             "name": "resolutionHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "transactionId",
             "type": "bytes32",
             "internalType": "bytes32"
           },
@@ -302,14 +645,68 @@
             "internalType": "bytes32"
           },
           {
-            "name": "documentHash",
+            "name": "typeCode",
             "type": "bytes32",
             "internalType": "bytes32"
+          },
+          {
+            "name": "beneficiary",
+            "type": "tuple",
+            "internalType": "struct LandTypes.PartyRef",
+            "components": [
+              {
+                "name": "namespace",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "id",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          },
+          {
+            "name": "anchor",
+            "type": "tuple",
+            "internalType": "struct LandTypes.RecordAnchor",
+            "components": [
+              {
+                "name": "schemaId",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "contentHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "sourceDocumentHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "lineageHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "schemaVersion",
+                "type": "uint32",
+                "internalType": "uint32"
+              }
+            ]
           },
           {
             "name": "status",
             "type": "uint8",
             "internalType": "enum LandTypes.EncumbranceStatus"
+          },
+          {
+            "name": "validUntil",
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "registeredAt",
@@ -358,9 +755,36 @@
             "internalType": "bytes32"
           },
           {
-            "name": "metadataHash",
-            "type": "bytes32",
-            "internalType": "bytes32"
+            "name": "anchor",
+            "type": "tuple",
+            "internalType": "struct LandTypes.RecordAnchor",
+            "components": [
+              {
+                "name": "schemaId",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "contentHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "sourceDocumentHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "lineageHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "schemaVersion",
+                "type": "uint32",
+                "internalType": "uint32"
+              }
+            ]
           },
           {
             "name": "spatialDataHash",
@@ -368,7 +792,17 @@
             "internalType": "bytes32"
           },
           {
-            "name": "documentHash",
+            "name": "coordinateReferenceSystemHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "versionHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "lastTransactionId",
             "type": "bytes32",
             "internalType": "bytes32"
           },
@@ -384,6 +818,11 @@
           },
           {
             "name": "areaSquareMeters",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "revision",
             "type": "uint64",
             "internalType": "uint64"
           },
@@ -430,8 +869,62 @@
           },
           {
             "name": "holder",
-            "type": "address",
-            "internalType": "address"
+            "type": "tuple",
+            "internalType": "struct LandTypes.PartyRef",
+            "components": [
+              {
+                "name": "namespace",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "id",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          },
+          {
+            "name": "anchor",
+            "type": "tuple",
+            "internalType": "struct LandTypes.RecordAnchor",
+            "components": [
+              {
+                "name": "schemaId",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "contentHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "sourceDocumentHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "lineageHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "schemaVersion",
+                "type": "uint32",
+                "internalType": "uint32"
+              }
+            ]
+          },
+          {
+            "name": "versionHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "lastTransactionId",
+            "type": "bytes32",
+            "internalType": "bytes32"
           },
           {
             "name": "tenureType",
@@ -439,19 +932,19 @@
             "internalType": "enum LandTypes.TenureType"
           },
           {
+            "name": "active",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
             "name": "leaseExpiresAt",
             "type": "uint64",
             "internalType": "uint64"
           },
           {
-            "name": "documentHash",
-            "type": "bytes32",
-            "internalType": "bytes32"
-          },
-          {
-            "name": "active",
-            "type": "bool",
-            "internalType": "bool"
+            "name": "revision",
+            "type": "uint64",
+            "internalType": "uint64"
           },
           {
             "name": "registeredAt",
@@ -480,6 +973,147 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "mergeParcels",
+    "inputs": [
+      {
+        "name": "sourceParcelIds",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      },
+      {
+        "name": "expectedRevisions",
+        "type": "uint64[]",
+        "internalType": "uint64[]"
+      },
+      {
+        "name": "result",
+        "type": "tuple",
+        "internalType": "struct LandTypes.MergeResult",
+        "components": [
+          {
+            "name": "parcelId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "titleId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "parcel",
+            "type": "tuple",
+            "internalType": "struct LandTypes.ParcelInput",
+            "components": [
+              {
+                "name": "parcelNumberHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "districtHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "anchor",
+                "type": "tuple",
+                "internalType": "struct LandTypes.RecordAnchor",
+                "components": [
+                  {
+                    "name": "schemaId",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "contentHash",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "sourceDocumentHash",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "lineageHash",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "schemaVersion",
+                    "type": "uint32",
+                    "internalType": "uint32"
+                  }
+                ]
+              },
+              {
+                "name": "spatialDataHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "coordinateReferenceSystemHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "spatialType",
+                "type": "uint8",
+                "internalType": "enum LandTypes.SpatialType"
+              },
+              {
+                "name": "areaSquareMeters",
+                "type": "uint64",
+                "internalType": "uint64"
+              }
+            ]
+          },
+          {
+            "name": "titleAnchor",
+            "type": "tuple",
+            "internalType": "struct LandTypes.RecordAnchor",
+            "components": [
+              {
+                "name": "schemaId",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "contentHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "sourceDocumentHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "lineageHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "schemaVersion",
+                "type": "uint32",
+                "internalType": "uint32"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "transactionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -529,12 +1163,78 @@
         "internalType": "bytes32"
       },
       {
-        "name": "titleId",
-        "type": "bytes32",
-        "internalType": "bytes32"
+        "name": "input",
+        "type": "tuple",
+        "internalType": "struct LandTypes.EncumbranceInput",
+        "components": [
+          {
+            "name": "titleId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "typeCode",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "beneficiary",
+            "type": "tuple",
+            "internalType": "struct LandTypes.PartyRef",
+            "components": [
+              {
+                "name": "namespace",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "id",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          },
+          {
+            "name": "anchor",
+            "type": "tuple",
+            "internalType": "struct LandTypes.RecordAnchor",
+            "components": [
+              {
+                "name": "schemaId",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "contentHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "sourceDocumentHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "lineageHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "schemaVersion",
+                "type": "uint32",
+                "internalType": "uint32"
+              }
+            ]
+          },
+          {
+            "name": "validUntil",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
       },
       {
-        "name": "documentHash",
+        "name": "transactionId",
         "type": "bytes32",
         "internalType": "bytes32"
       }
@@ -563,8 +1263,52 @@
           },
           {
             "name": "holder",
-            "type": "address",
-            "internalType": "address"
+            "type": "tuple",
+            "internalType": "struct LandTypes.PartyRef",
+            "components": [
+              {
+                "name": "namespace",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "id",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              }
+            ]
+          },
+          {
+            "name": "anchor",
+            "type": "tuple",
+            "internalType": "struct LandTypes.RecordAnchor",
+            "components": [
+              {
+                "name": "schemaId",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "contentHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "sourceDocumentHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "lineageHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "schemaVersion",
+                "type": "uint32",
+                "internalType": "uint32"
+              }
+            ]
           },
           {
             "name": "tenureType",
@@ -575,13 +1319,13 @@
             "name": "leaseExpiresAt",
             "type": "uint64",
             "internalType": "uint64"
-          },
-          {
-            "name": "documentHash",
-            "type": "bytes32",
-            "internalType": "bytes32"
           }
         ]
+      },
+      {
+        "name": "transactionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "outputs": [],
@@ -597,7 +1341,39 @@
         "internalType": "bytes32"
       },
       {
-        "name": "documentHash",
+        "name": "releaseAnchor",
+        "type": "tuple",
+        "internalType": "struct LandTypes.RecordAnchor",
+        "components": [
+          {
+            "name": "schemaId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "contentHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "sourceDocumentHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "lineageHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "schemaVersion",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      },
+      {
+        "name": "transactionId",
         "type": "bytes32",
         "internalType": "bytes32"
       }
@@ -623,6 +1399,11 @@
         "name": "claimAccepted",
         "type": "bool",
         "internalType": "bool"
+      },
+      {
+        "name": "transactionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "outputs": [],
@@ -638,7 +1419,277 @@
         "internalType": "bytes32"
       },
       {
-        "name": "documentHash",
+        "name": "expectedRevision",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "retirementAnchor",
+        "type": "tuple",
+        "internalType": "struct LandTypes.RecordAnchor",
+        "components": [
+          {
+            "name": "schemaId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "contentHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "sourceDocumentHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "lineageHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "schemaVersion",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      },
+      {
+        "name": "transactionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "reviseParcel",
+    "inputs": [
+      {
+        "name": "parcelId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "expectedRevision",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "input",
+        "type": "tuple",
+        "internalType": "struct LandTypes.ParcelInput",
+        "components": [
+          {
+            "name": "parcelNumberHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "districtHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "anchor",
+            "type": "tuple",
+            "internalType": "struct LandTypes.RecordAnchor",
+            "components": [
+              {
+                "name": "schemaId",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "contentHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "sourceDocumentHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "lineageHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "schemaVersion",
+                "type": "uint32",
+                "internalType": "uint32"
+              }
+            ]
+          },
+          {
+            "name": "spatialDataHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "coordinateReferenceSystemHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "spatialType",
+            "type": "uint8",
+            "internalType": "enum LandTypes.SpatialType"
+          },
+          {
+            "name": "areaSquareMeters",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      },
+      {
+        "name": "transactionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "subdivideParcel",
+    "inputs": [
+      {
+        "name": "parentParcelId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "expectedParentRevision",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "children",
+        "type": "tuple[]",
+        "internalType": "struct LandTypes.SubdivisionChild[]",
+        "components": [
+          {
+            "name": "parcelId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "titleId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "parcel",
+            "type": "tuple",
+            "internalType": "struct LandTypes.ParcelInput",
+            "components": [
+              {
+                "name": "parcelNumberHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "districtHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "anchor",
+                "type": "tuple",
+                "internalType": "struct LandTypes.RecordAnchor",
+                "components": [
+                  {
+                    "name": "schemaId",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "contentHash",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "sourceDocumentHash",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "lineageHash",
+                    "type": "bytes32",
+                    "internalType": "bytes32"
+                  },
+                  {
+                    "name": "schemaVersion",
+                    "type": "uint32",
+                    "internalType": "uint32"
+                  }
+                ]
+              },
+              {
+                "name": "spatialDataHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "coordinateReferenceSystemHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "spatialType",
+                "type": "uint8",
+                "internalType": "enum LandTypes.SpatialType"
+              },
+              {
+                "name": "areaSquareMeters",
+                "type": "uint64",
+                "internalType": "uint64"
+              }
+            ]
+          },
+          {
+            "name": "titleAnchor",
+            "type": "tuple",
+            "internalType": "struct LandTypes.RecordAnchor",
+            "components": [
+              {
+                "name": "schemaId",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "contentHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "sourceDocumentHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "lineageHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "schemaVersion",
+                "type": "uint32",
+                "internalType": "uint32"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "transactionId",
         "type": "bytes32",
         "internalType": "bytes32"
       }
@@ -688,12 +1739,61 @@
         "internalType": "bytes32"
       },
       {
-        "name": "newHolder",
-        "type": "address",
-        "internalType": "address"
+        "name": "expectedVersionHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
       },
       {
-        "name": "documentHash",
+        "name": "newHolder",
+        "type": "tuple",
+        "internalType": "struct LandTypes.PartyRef",
+        "components": [
+          {
+            "name": "namespace",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "id",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
+      },
+      {
+        "name": "anchor",
+        "type": "tuple",
+        "internalType": "struct LandTypes.RecordAnchor",
+        "components": [
+          {
+            "name": "schemaId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "contentHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "sourceDocumentHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "lineageHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "schemaVersion",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      },
+      {
+        "name": "transactionId",
         "type": "bytes32",
         "internalType": "bytes32"
       }
@@ -703,12 +1803,17 @@
   },
   {
     "type": "function",
-    "name": "updateParcel",
+    "name": "updateParcelDraft",
     "inputs": [
       {
         "name": "parcelId",
         "type": "bytes32",
         "internalType": "bytes32"
+      },
+      {
+        "name": "expectedRevision",
+        "type": "uint64",
+        "internalType": "uint64"
       },
       {
         "name": "input",
@@ -726,9 +1831,36 @@
             "internalType": "bytes32"
           },
           {
-            "name": "metadataHash",
-            "type": "bytes32",
-            "internalType": "bytes32"
+            "name": "anchor",
+            "type": "tuple",
+            "internalType": "struct LandTypes.RecordAnchor",
+            "components": [
+              {
+                "name": "schemaId",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "contentHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "sourceDocumentHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "lineageHash",
+                "type": "bytes32",
+                "internalType": "bytes32"
+              },
+              {
+                "name": "schemaVersion",
+                "type": "uint32",
+                "internalType": "uint32"
+              }
+            ]
           },
           {
             "name": "spatialDataHash",
@@ -736,7 +1868,7 @@
             "internalType": "bytes32"
           },
           {
-            "name": "documentHash",
+            "name": "coordinateReferenceSystemHash",
             "type": "bytes32",
             "internalType": "bytes32"
           },
@@ -751,10 +1883,46 @@
             "internalType": "uint64"
           }
         ]
+      },
+      {
+        "name": "transactionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "BoundaryAdjusted",
+    "inputs": [
+      {
+        "name": "firstParcelId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "secondParcelId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "transactionId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "recordedBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",
@@ -773,10 +1941,16 @@
         "internalType": "bytes32"
       },
       {
-        "name": "claimant",
-        "type": "address",
+        "name": "claimantPartyKey",
+        "type": "bytes32",
         "indexed": true,
-        "internalType": "address"
+        "internalType": "bytes32"
+      },
+      {
+        "name": "transactionId",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
       },
       {
         "name": "filedAt",
@@ -804,6 +1978,24 @@
         "internalType": "enum LandTypes.DisputeStatus"
       },
       {
+        "name": "transactionId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "evidenceHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "resolutionHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
         "name": "updatedAt",
         "type": "uint64",
         "indexed": false,
@@ -812,7 +2004,7 @@
       {
         "name": "recordedBy",
         "type": "address",
-        "indexed": true,
+        "indexed": false,
         "internalType": "address"
       }
     ],
@@ -841,6 +2033,18 @@
         "internalType": "bytes32"
       },
       {
+        "name": "typeCode",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "beneficiaryPartyKey",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
         "name": "registeredAt",
         "type": "uint64",
         "indexed": false,
@@ -866,6 +2070,12 @@
         "internalType": "bytes32"
       },
       {
+        "name": "transactionId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
         "name": "releasedAt",
         "type": "uint64",
         "indexed": false,
@@ -874,7 +2084,7 @@
       {
         "name": "recordedBy",
         "type": "address",
-        "indexed": true,
+        "indexed": false,
         "internalType": "address"
       }
     ],
@@ -913,7 +2123,38 @@
   },
   {
     "type": "event",
-    "name": "ParcelUpdated",
+    "name": "ParcelSubdivided",
+    "inputs": [
+      {
+        "name": "parentParcelId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "transactionId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "childCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "recordedBy",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ParcelVersionRecorded",
     "inputs": [
       {
         "name": "parcelId",
@@ -922,16 +2163,83 @@
         "internalType": "bytes32"
       },
       {
-        "name": "status",
-        "type": "uint8",
+        "name": "revision",
+        "type": "uint64",
         "indexed": true,
-        "internalType": "enum LandTypes.ParcelStatus"
+        "internalType": "uint64"
       },
       {
-        "name": "updatedAt",
+        "name": "versionHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "previousVersionHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "operationType",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "transactionId",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "contentHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "sourceDocumentHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "recordedAt",
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
+      },
+      {
+        "name": "recordedBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ParcelsMerged",
+    "inputs": [
+      {
+        "name": "newParcelId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "transactionId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "sourceCount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
       },
       {
         "name": "recordedBy",
@@ -990,10 +2298,10 @@
         "internalType": "bytes32"
       },
       {
-        "name": "holder",
-        "type": "address",
+        "name": "holderPartyKey",
+        "type": "bytes32",
         "indexed": true,
-        "internalType": "address"
+        "internalType": "bytes32"
       },
       {
         "name": "registeredAt",
@@ -1015,22 +2323,95 @@
         "internalType": "bytes32"
       },
       {
-        "name": "previousHolder",
-        "type": "address",
+        "name": "previousHolderPartyKey",
+        "type": "bytes32",
         "indexed": true,
-        "internalType": "address"
+        "internalType": "bytes32"
       },
       {
-        "name": "newHolder",
-        "type": "address",
+        "name": "newHolderPartyKey",
+        "type": "bytes32",
         "indexed": true,
-        "internalType": "address"
+        "internalType": "bytes32"
       },
       {
         "name": "transferredAt",
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "TitleVersionRecorded",
+    "inputs": [
+      {
+        "name": "titleId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "revision",
+        "type": "uint64",
+        "indexed": true,
+        "internalType": "uint64"
+      },
+      {
+        "name": "versionHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "previousVersionHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "operationType",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "transactionId",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "holderPartyKey",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "contentHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "sourceDocumentHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "recordedAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      },
+      {
+        "name": "recordedBy",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
       }
     ],
     "anonymous": false
@@ -1114,6 +2495,22 @@
   },
   {
     "type": "error",
+    "name": "InvalidLineage",
+    "inputs": [
+      {
+        "name": "expectedLineageHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "providedLineageHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InvalidModuleAddress",
     "inputs": [
       {
@@ -1125,6 +2522,22 @@
         "name": "moduleAddress",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidOperationLength",
+    "inputs": [
+      {
+        "name": "length",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maximum",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },
@@ -1152,12 +2565,67 @@
   },
   {
     "type": "error",
+    "name": "InvalidParty",
+    "inputs": [
+      {
+        "name": "party",
+        "type": "tuple",
+        "internalType": "struct LandTypes.PartyRef",
+        "components": [
+          {
+            "name": "namespace",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "id",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidRecordAnchor",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidTitlePayload",
     "inputs": [
       {
         "name": "titleId",
         "type": "bytes32",
         "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidTransactionId",
+    "inputs": [
+      {
+        "name": "transactionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "MismatchedOperationArrays",
+    "inputs": [
+      {
+        "name": "leftLength",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "rightLength",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },
@@ -1205,6 +2673,75 @@
     "inputs": [
       {
         "name": "parcelId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SourceParcelDuplicated",
+    "inputs": [
+      {
+        "name": "parcelId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SourceTitlesDiffer",
+    "inputs": [
+      {
+        "name": "firstTitleId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "otherTitleId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "StaleParcelRevision",
+    "inputs": [
+      {
+        "name": "parcelId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "expectedRevision",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "actualRevision",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "StaleTitleVersion",
+    "inputs": [
+      {
+        "name": "titleId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "expectedVersionHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "actualVersionHash",
         "type": "bytes32",
         "internalType": "bytes32"
       }

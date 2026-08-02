@@ -13,7 +13,8 @@ The implemented contract surface includes:
 - referenda, Tier 1/Tier 2 enactment after adoption delay, Senate cancellation, Senate active-referendum veto, Senate sub-legal repeal, President proxy voting for non-voting senators, and public veto flows
 - Congress election cycles, deterministic recurring cadence, person-bound candidacy, cycle-scoped weighted signed ballots, finalization, runner-up succession, and zero-active-wallet seat recovery
 - treasury, referendum-approved budget laws, budget-envelope, office, and payout routing flows
-- office-authorized land and company registries with stable fact storage for parcels, titles, disputes, encumbrances, companies, directors, filings, and official share ledgers
+- an office-authorized, versioned land cadastre with stable legal-party IDs, dual-consent transfers, atomic parcel
+  operations, and a separate company registry with official directors, filings, and share ledgers
 - stake-backed USDC lending with stake liens, utilization-based interest, treasury reserves, and liquidation into active staked LLM
 - bounded Congress and ministry decisions for ERC20 movement, ministry clerk decisions, and LLM transfer-and-stake decisions
 - production initial setup authority for genesis citizens, Senate seats, Congress members, and offices, with a readiness check and permanent seal
@@ -32,6 +33,7 @@ The implemented contract surface includes:
 - `docs/Internal-Audit-Report.md`
 - `docs/Audit-Scope.md`
 - `docs/Constitution-Alignment.md`
+- `docs/Land-Cadastre.md`
 - `docs/User-Journeys.md`
 - the applicable network deployment guide under `docs/`
 
