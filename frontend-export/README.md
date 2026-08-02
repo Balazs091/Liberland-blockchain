@@ -49,6 +49,9 @@ Production uses Ethereum mainnet (`chainId: 1`) and `deployments/ethereum-mainne
   fails; a missed callback or policy rebuild pauses new process creation until catch-up/rebuild has completed and
   one more block has begun
 - Timing-only election cadence changes use the dedicated policy referendum; breaking election-policy replacements use the constitutional module path
+- Router origins (`ReferendumApp`, `CongressElectionApp`, `SenateApp`, and `OfficeExecutor`) and the
+  constitutional-review hook use the constitutional module threshold; only bounded apps without routing/review power
+  use the ordinary module threshold
 - Coordinated app/authority upgrades use `ActionTimelock.executeActions(actionIds)` so pointer activation is atomic
 - the incumbent Senate cannot cancel or hold open the active referendum for its exact `SENATE_APP` replacement or
   cancel the resulting action; its queue hook is skipped only there. Constitutional review is skipped only for its
@@ -62,6 +65,8 @@ Production uses Ethereum mainnet (`chainId: 1`) and `deployments/ethereum-mainne
 - candidacy is person-bound: keep the original application wallet as the durable ballot target, resolve withdrawal
   through the caller's current active-person link, and use the person's current active wallet for eligibility and
   seat assignment
+- `EncumbranceRegistered` includes the external dossier `transactionId`; expired leaseholds cannot be subdivided or
+  merged and must use the explicit closure workflow
 - expose `recallUnrepresentedSeat(seatIndex)` only when the seated person's `activeWalletOf(personId)` is zero; it is
   a permissionless representation recovery and reverts while the seat remains represented
 - For live onboarding demos, set `IDENTITY_ADMIN` to a wallet you control before deploying; that wallet becomes the registrar for `DemoCitizenGateway`

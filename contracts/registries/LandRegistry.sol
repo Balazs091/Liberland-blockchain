@@ -268,6 +268,7 @@ contract LandRegistry is ILandRegistry, KernelModule {
         _requireParcelActive(parent);
         _requireParcelUnlocked(parentParcelId);
         LandTypes.TitleRecord storage parentTitle = _getActiveTitle(parentParcelId);
+        _requireLeaseCurrent(parentTitle);
 
         _validateSubdivisionChildren(children, parent.versionHash, parentTitle.versionHash);
 
@@ -544,6 +545,7 @@ contract LandRegistry is ILandRegistry, KernelModule {
             input.titleId,
             input.typeCode,
             _optionalPartyKey(input.beneficiary),
+            transactionId,
             currentTimestamp
         );
     }

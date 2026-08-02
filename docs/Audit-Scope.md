@@ -13,7 +13,7 @@ disagrees.
 - cross-module authorization, replacement/migration paths, denial-of-service bounds, and accounting invariants;
 - land-party resolution, EIP-712/EIP-1271 title consent, cadastral version lineage, and atomic parcel operations;
 - all Foundry tests as evidence, not as a substitute for independent review; and
-- the deliberate draft-constitution differences recorded in `docs/Constitution-Alignment.md`.
+- the pinned constitutional source and deliberate differences recorded in `docs/Constitution-Alignment.md`.
 
 The production target is Ethereum mainnet (chain ID 1). Sepolia (chain ID 11155111) is an accelerated demonstration
 environment with mock assets and demo-only onboarding powers.
@@ -89,7 +89,9 @@ coverage should be expanded during remediation.
    and the invariant `LLM balance >= aggregate active stake` independently.
 2. **Upgrade consistency — accepted audited-module trust model.** Every non-core replacement identifies an exact
    address and passes its referendum threshold, timelock, and Senate window. State, policy, authority, and new
-   extension IDs require the constitutional double threshold; known bounded apps use the ordinary module threshold.
+   extension IDs require the constitutional double threshold. Router origins and the constitutional-review hook are
+   authorities because replacing them changes protocol-wide power. Only bounded apps with neither routing nor review
+   powers use the ordinary module threshold.
    Active referenda and elections pin their starting policies. Senate negative-control processes intentionally use
    the live Senate policy, so a policy replacement may immediately affect their threshold or duration. Atomic action
    batches support coordinated pointer changes. A pointer does not migrate storage/custody, and defective approved
@@ -150,8 +152,14 @@ coverage should be expanded during remediation.
    finalization. Parcel/title versions chain source documents; subdivision, merge, and boundary adjustment are
    bounded and atomic. Independently review EOA/EIP-1271 signature semantics, wallet/director/office changes between
    signing and execution, nonce/version replay resistance, lineage construction, dispute/encumbrance locks, and
-   migration from any earlier land storage. Also review operational prevention/recovery for a company that loses its
-   final director or reaches terminal dissolution while still holding title.
+   migration from any earlier land storage. Structural operations reject expired leaseholds, and encumbrance events
+   retain the caller-supplied transaction ID. Also review operational prevention/recovery for a company that loses
+   its final director or reaches terminal dissolution while still holding title.
+
+The stateful invariant suite independently exercises governance queue lifecycle, stake/electorate synchronization,
+treasury conservation and replay resistance, land provenance/active-title consistency, and lending accounting,
+liens, custody, and live policy replacement. The ordinary profile runs 64 sequences at depth 64; the `audit` profile
+runs 256 sequences at depth 256.
 
 ## Known omissions and accepted boundaries
 
@@ -176,8 +184,10 @@ The fixed launch oracle is intentionally accepted. The following are not accepte
 
 Before the external-audit package or any new public demo is treated as current:
 
+- verify `docs/constitutional-sources/2024-09-24 Constitution.pdf` against the exact SHA-256 recorded in
+  `docs/Constitution-Alignment.md`;
 - complete the revision-specific build, full test, coverage, Slither, runtime-size, and deployment-integration run
-  recorded in `docs/Internal-Audit-Report.md`;
+  recorded in `docs/Internal-Audit-Report.md` (the repeatable command is `bash scripts/audit-freeze-check.sh`);
 - regenerate the entire `frontend-export/abis/` directory from the same commit rather than merging individual files;
 - make a fresh Sepolia deployment, replace the ignored live manifest, and confirm
   `identityApp == demoCitizenGateway`; and
@@ -191,7 +201,8 @@ Before the external-audit package or any new public demo is treated as current:
 - `docs/Protocol-Parameters.md`: boss-review production/demo parameter table
 - `docs/Internal-Audit-Report.md`: internal findings, fixes, residual risks, and readiness verdict
 - `docs/Audit-Scope.md`: external review boundary and focus
-- `docs/Constitution-Alignment.md`: draft comparison and accepted deviations
+- `docs/Constitution-Alignment.md`: pinned-source comparison and accepted deviations
+- `docs/constitutional-sources/README.md`: immutable constitutional input and provenance record
 - `docs/Ethereum-Mainnet-Deployment.md`: production procedure
 - `docs/Sepolia-Demo-Deployment.md`: demo procedure and seeded state
 - `docs/Lending-And-Treasury.md`: money, lending, and ministry treasury

@@ -144,6 +144,30 @@ contract CoreBootstrapTest is Test {
         );
     }
 
+    function test_RouterOriginsAndConstitutionalReviewUseAuthorityClass() public {
+        ConstitutionKernel kernel = new ConstitutionKernel(address(this));
+        assertEq(
+            uint256(kernel.moduleClass(KernelModuleIds.REFERENDUM_APP)), uint256(GovernanceTypes.ModuleClass.Authority)
+        );
+        assertEq(
+            uint256(kernel.moduleClass(KernelModuleIds.CONGRESS_ELECTION_APP)),
+            uint256(GovernanceTypes.ModuleClass.Authority)
+        );
+        assertEq(
+            uint256(kernel.moduleClass(KernelModuleIds.SENATE_APP)), uint256(GovernanceTypes.ModuleClass.Authority)
+        );
+        assertEq(
+            uint256(kernel.moduleClass(KernelModuleIds.OFFICE_EXECUTOR)), uint256(GovernanceTypes.ModuleClass.Authority)
+        );
+        assertEq(
+            uint256(kernel.moduleClass(KernelModuleIds.CONSTITUTIONAL_REVIEW)),
+            uint256(GovernanceTypes.ModuleClass.Authority)
+        );
+        assertEq(
+            uint256(kernel.moduleClass(KernelModuleIds.DECISION_APP)), uint256(GovernanceTypes.ModuleClass.Application)
+        );
+    }
+
     function test_BootstrapSetModulesReplacesExistingModuleAndAuthorization() public {
         ConstitutionKernel kernel = new ConstitutionKernel(address(this));
         MockModule initialModule = new MockModule(keccak256("initial"));

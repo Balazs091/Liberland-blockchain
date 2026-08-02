@@ -104,6 +104,7 @@ interface ILandRegistry is IKernelModule {
         bytes32 indexed titleId,
         bytes32 typeCode,
         bytes32 beneficiaryPartyKey,
+        bytes32 transactionId,
         uint64 registeredAt
     );
     event EncumbranceReleased(

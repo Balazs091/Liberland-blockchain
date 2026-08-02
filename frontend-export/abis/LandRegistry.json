@@ -2045,6 +2045,12 @@
         "internalType": "bytes32"
       },
       {
+        "name": "transactionId",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
         "name": "registeredAt",
         "type": "uint64",
         "indexed": false,

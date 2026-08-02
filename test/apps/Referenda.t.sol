@@ -995,7 +995,7 @@ contract ReferendaTest is Test {
         assertEq(kernel.getModule(KernelModuleIds.STAKE_REGISTRY_AUTHORITY), address(replacementStakeAuthority));
     }
 
-    function test_AppModuleGovernanceReferendum_StaysOrdinaryThreshold() public {
+    function test_RouterOriginReplacement_RequiresConstitutionalThreshold() public {
         MockModule replacementSenateApp = new MockModule(keccak256("replacement-senate-app"));
         ReferendumTypes.ModuleGovernanceProposal memory proposal = _defaultModuleGovernanceProposal(
             "proposal-repoint-senate-app",
@@ -1008,11 +1008,12 @@ contract ReferendaTest is Test {
         vm.prank(WALLET_ONE);
         bytes32 referendumId = referendumApp.createCitizenModuleGovernanceReferendum(proposal);
 
-        // An operational `app.*` pointer stays at the ordinary threshold: no supermajority flag, no snapshot.
+        // A router origin can submit every supported typed action, so replacing one must clear the same constitutional
+        // threshold as replacing a policy, authority, or state module.
         ReferendumTypes.ReferendumRecord memory referendumRecord = referendumRegistry.getReferendum(referendumId);
-        assertFalse(referendumRecord.requiresSupermajority);
-        assertEq(referendumRecord.electorateHeadcountSnapshot, 0);
-        assertEq(referendumRecord.electorateVotingPowerSnapshot, 0);
+        assertTrue(referendumRecord.requiresSupermajority);
+        assertEq(referendumRecord.electorateHeadcountSnapshot, 3);
+        assertEq(referendumRecord.electorateVotingPowerSnapshot, 19_000);
 
         // The incumbent Senate cannot directly cancel or fabricate a pending veto against its own replacement.
         vm.prank(address(mockSenateApp));
@@ -1020,7 +1021,7 @@ contract ReferendaTest is Test {
         referendumApp.cancelReferendumBySenate(referendumId);
         mockSenateApp.openReferendumVeto(referendumId, proposal.endTime);
 
-        // The same 11_000-of-19_000 (~58%) tally that fails the sensitive path passes here at ordinary quorum.
+        // The 11_000-of-19_000 (~58%) supporting tally clears ordinary quorum but not the 65% constitutional prong.
         vm.prank(WALLET_ONE);
         referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.For);
         vm.prank(WALLET_TWO);
@@ -1032,20 +1033,53 @@ contract ReferendaTest is Test {
         referendumApp.finalizeReferendum(referendumId);
 
         ReferendumTypes.ReferendumResult memory result = referendumRegistry.getReferendumResult(referendumId);
-        assertEq(result.quorumRequired, CITIZEN_QUORUM);
-        assertEq(result.headcountQuorumRequired, 0);
-        assertEq(result.electorateVotingPower, 0);
+        assertEq(result.quorumRequired, 12_350);
+        assertEq(result.headcountQuorumRequired, 2);
+        assertEq(result.electorateVotingPower, 19_000);
+        assertFalse(result.quorumMet);
+        assertFalse(result.passed);
+        assertEq(result.enactmentActionId, bytes32(0));
+        assertEq(kernel.getModule(KernelModuleIds.SENATE_APP), address(mockSenateApp));
+    }
+
+    function test_BoundedNonOriginAppReplacement_StaysAtOrdinaryThreshold() public {
+        MockModule currentDecisionApp = new MockModule(keccak256("current-decision-app"));
+        MockModule replacementDecisionApp = new MockModule(keccak256("replacement-decision-app"));
+        vm.prank(address(timelock));
+        kernel.governanceRegisterModule(KernelModuleIds.DECISION_APP, address(currentDecisionApp));
+
+        ReferendumTypes.ModuleGovernanceProposal memory proposal = _defaultModuleGovernanceProposal(
+            "proposal-repoint-decision-app",
+            "module-repoint-decision-app",
+            KernelModuleIds.DECISION_APP,
+            address(replacementDecisionApp),
+            false
+        );
+        vm.prank(WALLET_ONE);
+        bytes32 referendumId = referendumApp.createCitizenModuleGovernanceReferendum(proposal);
+
+        ReferendumTypes.ReferendumRecord memory referendumRecord = referendumRegistry.getReferendum(referendumId);
+        assertFalse(referendumRecord.requiresSupermajority);
+        assertEq(referendumRecord.electorateHeadcountSnapshot, 0);
+        assertEq(referendumRecord.electorateVotingPowerSnapshot, 0);
+
+        vm.prank(WALLET_ONE);
+        referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.For);
+        vm.prank(WALLET_TWO);
+        referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.For);
+        vm.prank(WALLET_THREE);
+        referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.Against);
+
+        vm.warp(proposal.endTime);
+        referendumApp.finalizeReferendum(referendumId);
+        ReferendumTypes.ReferendumResult memory result = referendumRegistry.getReferendumResult(referendumId);
         assertTrue(result.quorumMet);
         assertTrue(result.passed);
 
         GovernanceTypes.ActionRecord memory actionRecord = timelock.getAction(result.enactmentActionId);
-        assertEq(uint256(actionRecord.actionType), uint256(GovernanceTypes.ActionType.ModulePointerUpdate));
-        assertEq(actionRecord.targetModule, KernelModuleIds.SENATE_APP);
-
         vm.warp(actionRecord.earliestExecutionTime);
         timelock.executeAction(result.enactmentActionId);
-
-        assertEq(kernel.getModule(KernelModuleIds.SENATE_APP), address(replacementSenateApp));
+        assertEq(kernel.getModule(KernelModuleIds.DECISION_APP), address(replacementDecisionApp));
     }
 
     function test_BreakingSenateInterfaceCannotBrickReferendumFinalization() public {

@@ -97,11 +97,13 @@ Governance uses bounded action types and never unrestricted calldata execution.
 
 - `Core`: router and timelock; never repointable
 - `State`: registries and value/state-bearing apps; replaceable only through the constitutional double-threshold path and an externally reviewed state/custody migration
-- `Policy` and `Authority`: replaceable only through the constitutional double-threshold path
-- `Application`: known bounded workflow pointers; ordinary module-governance threshold
+- `Policy` and `Authority`: replaceable only through the constitutional double-threshold path; `Authority` includes
+  every router origin and the constitutional-review hook because replacing any of them changes protocol-wide power
+- `Application`: bounded workflow pointers that are neither router origins nor review hooks; ordinary
+  module-governance threshold
 - `Undefined`: new extension IDs require the double threshold both to register and to replace later
 
-State evolution requires a separately reviewed migration/deployment; a pointer vote does not copy storage or move custody. Brand-new modules use `ModuleRegistration`; every non-core replacement uses `ModulePointerUpdate`. Both pass through an exact-address referendum, the timelock, and bounded Senate cancellation, while state/policy/authority/extension targets use the constitutional double threshold. Application replacement deliberately relies on voters approving reviewed bytecode and a compatible state/migration plan. The router prevents unsupported or malformed action classes, but it does not assign supported types permanently to political branches. Current branch limits live in the current audited apps. This lets a future constitutional design replace a module without an obsolete core matrix blocking it. Treasury disbursements remain independently constrained by the active budget commitment even if an approved origin module changes.
+State evolution requires a separately reviewed migration/deployment; a pointer vote does not copy storage or move custody. Brand-new modules use `ModuleRegistration`; every non-core replacement uses `ModulePointerUpdate`. Both pass through an exact-address referendum, the timelock, and bounded Senate cancellation, while state/policy/authority/extension targets use the constitutional double threshold. Application replacement deliberately relies on voters approving reviewed bytecode and a compatible state/migration plan. Router-origin apps (`ReferendumApp`, `CongressElectionApp`, `SenateApp`, and `OfficeExecutor`) and the constitutional-review hook are classified as authorities, so changing any protocol-wide action source or execution gate cannot use the ordinary app threshold. The router prevents unsupported or malformed action classes, but it does not permanently assign supported types to political branches. Current branch limits live in the audited apps; changing a router origin therefore remains possible, but only through the constitutional threshold. Treasury disbursements remain independently constrained by the active budget commitment even if an approved origin module changes.
 
 Optional negative-power hooks are fail-open only when the Senate/review module is absent or interface-incompatible; otherwise active cancellation, suspension, veto, and review records remain enforced. This prevents a breaking-but-approved Senate interface from freezing all future governance. A replacement of `ReferendumApp` itself still requires exceptional care: approving defective bytecode can disable the only current referendum-creation path, and avoiding that absolutely would require another permanent trust root. Production procedure therefore forbids unreviewed upgradeable proxies and requires bytecode, interface, migration, and fork-rehearsal review before an exact address is proposed.
 
@@ -252,4 +254,4 @@ state.
 Role-by-role behavior and current operational gaps are mapped in `docs/User-Journeys.md`.
 
 Known omissions and external-audit focus areas are listed in `docs/Audit-Scope.md`.
-The detailed comparison with the supplied draft constitution is in `docs/Constitution-Alignment.md`.
+The detailed comparison with the pinned owner-supplied draft constitution is in `docs/Constitution-Alignment.md`.

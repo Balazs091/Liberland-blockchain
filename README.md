@@ -20,6 +20,9 @@ The implemented contract surface includes:
 - production initial setup authority for genesis citizens, Senate seats, Congress members, and offices, with a readiness check and permanent seal
 - canonical LLM staking custody with aggregate backing checks and checkpointed electorate aggregates and eligibility
 - process-pinned governance policies and last-completed-block stake/eligibility snapshots for live referenda and elections
+- exact-address module evolution through referenda and the timelock: state/policy/authority/extension changes use the
+  constitutional double threshold, including every router origin and the constitutional-review hook, while only
+  bounded non-origin apps use the ordinary module threshold
 - person-bound elected/executive authority that follows an approved active-wallet migration
 - person-bound candidacy that survives wallet migration without duplicate applications or ballot entries
 - a 70,000,000 LLM hard-cap requirement and evidence-backed, budgeted contribution rewards with no Treasury mint power
@@ -33,6 +36,7 @@ The implemented contract surface includes:
 - `docs/Internal-Audit-Report.md`
 - `docs/Audit-Scope.md`
 - `docs/Constitution-Alignment.md`
+- `docs/constitutional-sources/README.md`
 - `docs/Land-Cadastre.md`
 - `docs/User-Journeys.md`
 - the applicable network deployment guide under `docs/`
@@ -58,9 +62,9 @@ test/
 ## Tooling
 
 - Solidity `0.8.36`
-- Foundry for build, test, formatting, and scripts
+- Foundry `1.7.1` for build, test, formatting, and scripts
 - Anvil for local execution
-- Slither for static analysis
+- Slither `0.11.5` for static analysis
 
 Ensure the Foundry binaries are available on your `PATH` before running commands.
 
@@ -73,13 +77,16 @@ git submodule update --init --recursive
 ## Commands
 
 ```bash
-forge fmt
-forge build
+forge fmt --check
+forge build --sizes
 forge test -vvv
-slither .
+forge coverage --report summary
+python3 scripts/check-slither-baseline.py
 ```
 
-`slither` is optional for local development, but should be run before relying on a production deployment.
+The Slither helper prints the full unsuppressed report and requires a fresh manual triage if the reviewed severity
+counts change. The pinned constitutional PDF is verified by `scripts/verify-constitution-source.sh`. After the
+candidate commit exists, run the complete clean-tree gate with `bash scripts/audit-freeze-check.sh`.
 
 ## Deployment Outputs
 

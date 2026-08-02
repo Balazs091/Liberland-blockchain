@@ -6,6 +6,11 @@ $utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
 
 New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
 foreach ($contract in $contracts) {
+    $contract = $contract.Trim()
+    if ($contract -notmatch '^[A-Za-z_][A-Za-z0-9_]*$') {
+        throw "Invalid contract name in scripts/frontend-abi-contracts.txt: $contract"
+    }
+
     $abi = (& forge inspect $contract abi --json) -join [Environment]::NewLine
     if ($LASTEXITCODE -ne 0) {
         throw "Failed to export ABI for $contract"

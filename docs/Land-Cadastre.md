@@ -46,8 +46,9 @@ Every cadastral payload uses a `RecordAnchor`:
 - `lineageHash` binds the new record to its predecessor or source records.
 
 Parcel and title writes generate a chain- and registry-domain-separated on-chain `versionHash`, increment a revision,
-store a nonzero `transactionId`,
-and emit content/source hashes for indexing. Ordinary revisions must name the previous `versionHash` as their
+store a nonzero `transactionId`, and emit content/source hashes for indexing. Encumbrance registration also emits its
+nonzero `transactionId`, so an indexer can bind the fact to the same external transaction dossier even though the
+compact encumbrance record does not duplicate that field in storage. Ordinary revisions must name the previous `versionHash` as their
 lineage. This detects stale writes and creates a tamper-evident chain without storing large documents or geometry.
 The schema definition, canonicalization algorithm, document retention rules, and URI resolution belong in the
 external cadastre specification and must be versioned alongside the frontend/backend release.
@@ -118,7 +119,8 @@ Subdivision, merge, and two-parcel boundary adjustment are atomic:
 - boundary adjustment revises exactly two active parcels together while leaving their titles unchanged.
 
 Source revisions and version lineage are checked before any write. A failed child/source validation reverts the
-whole transaction. Geometry validity, non-overlap, area conservation, and CRS transformation are deliberately not
+whole transaction. An expired leasehold cannot be subdivided or merged; it must follow the explicit expired-lease
+closure workflow. Geometry validity, non-overlap, area conservation, and CRS transformation are deliberately not
 computed by Solidity; the registrar must validate them in the GIS system, then anchor the canonical result.
 
 ## Intentionally deferred extensions

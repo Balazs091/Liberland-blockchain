@@ -90,6 +90,8 @@ Evidence: `test/apps/CabinetApp.t.sol`, `test/apps/MinistryTreasury.t.sol`,
   live, revise/retire it, register a title, close an expired lease, finalize a signed transfer, perform a
   subdivision/merge/boundary
   adjustment, manage encumbrances, or accept/resolve a dispute.
+- Structural parcel operations reject expired leaseholds. `EncumbranceRegistered` emits the supplied transaction ID
+  so auditors and indexers can bind the compact on-chain fact to its external dossier.
 - Title holders are stable person/company/office IDs rather than wallets. A transfer requires current seller and
   buyer EIP-712/EIP-1271 signatures, the current title version and nonce, a deadline, and registrar finalization.
   A currently authorized party signer may file a dispute; an accepted dispute or active encumbrance locks transfer
@@ -173,7 +175,10 @@ Evidence: `test/apps/LlmBackedUSDC.t.sol`.
 - Core router and timelock pointers are immutable.
 - Stable fact/custody modules are canonically replaceable under the constitutional double threshold, but require a
   reviewed migration because changing a pointer does not copy storage or move assets.
-- Known apps use the ordinary module threshold; policies and authorities use the constitutional double threshold.
+- Router origins (`ReferendumApp`, `CongressElectionApp`, `SenateApp`, and `OfficeExecutor`) and the
+  constitutional-review hook are authorities and use the constitutional double threshold. Only bounded apps without
+  routing or review power use the ordinary module threshold; policies and other authorities also use the double
+  threshold.
 - A new unclassified extension requires the double threshold to register and to replace later. It is no longer
   permanently frozen after registration.
 - The dedicated Congress-election-policy referendum remains timing-only. A full breaking replacement, including

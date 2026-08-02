@@ -252,16 +252,17 @@ contract ConstitutionKernel is IConstitutionKernel {
                 || moduleId == KernelModuleIds.STAKE_LIQUIDATION_AUTHORITY
                 || moduleId == KernelModuleIds.STAKE_REGISTRY_AUTHORITY
                 || moduleId == KernelModuleIds.MINISTRY_TREASURY_FUNDING_AUTHORITY
+                || moduleId == KernelModuleIds.CONGRESS_ELECTION_APP || moduleId == KernelModuleIds.OFFICE_EXECUTOR
+                || moduleId == KernelModuleIds.REFERENDUM_APP || moduleId == KernelModuleIds.SENATE_APP
+                || moduleId == KernelModuleIds.CONSTITUTIONAL_REVIEW
         ) {
             return GovernanceTypes.ModuleClass.Authority;
         }
         if (
-            moduleId == KernelModuleIds.CABINET_APP || moduleId == KernelModuleIds.CONGRESS_ELECTION_APP
-                || moduleId == KernelModuleIds.COMPANY_REGISTRY_APP || moduleId == KernelModuleIds.DECISION_APP
-                || moduleId == KernelModuleIds.HEAD_OF_STATE_APP || moduleId == KernelModuleIds.LAND_REGISTRY_APP
-                || moduleId == KernelModuleIds.OFFICE_EXECUTOR || moduleId == KernelModuleIds.PAYOUT_QUEUE
-                || moduleId == KernelModuleIds.PUBLIC_VETO_APP || moduleId == KernelModuleIds.REFERENDUM_APP
-                || moduleId == KernelModuleIds.SENATE_APP || moduleId == KernelModuleIds.CONSTITUTIONAL_REVIEW
+            moduleId == KernelModuleIds.CABINET_APP || moduleId == KernelModuleIds.COMPANY_REGISTRY_APP
+                || moduleId == KernelModuleIds.DECISION_APP || moduleId == KernelModuleIds.HEAD_OF_STATE_APP
+                || moduleId == KernelModuleIds.LAND_REGISTRY_APP || moduleId == KernelModuleIds.PAYOUT_QUEUE
+                || moduleId == KernelModuleIds.PUBLIC_VETO_APP
         ) {
             return GovernanceTypes.ModuleClass.Application;
         }

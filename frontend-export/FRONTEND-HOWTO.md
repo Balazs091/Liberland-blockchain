@@ -482,7 +482,9 @@ For Congress token transfers, the source approves `DecisionApp`. For Congress mi
 - rejected company applications release their name / registration-number reservation, so a corrected application can reuse the identifiers
 - pending, suspended, dissolving, dissolved, and rejected companies cannot mutate directors, share classes, shares,
   or filings; these child-state writes are limited to `Active` and `ComplianceWarning`
-- leasehold land titles must have a future `leaseExpiresAt`, and expired leaseholds cannot be transferred
+- leasehold land titles must have a future `leaseExpiresAt`, and expired leaseholds cannot be transferred,
+  subdivided, or merged
+- index the `transactionId` emitted by `EncumbranceRegistered` as the external dossier provenance for that fact
 - the current app exposes `closeExpiredLease`, not general title closure; freehold and other non-lease titles cannot
   be administratively closed and reassigned around the dual-consent transfer workflow
 

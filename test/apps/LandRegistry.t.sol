@@ -23,6 +23,16 @@ import {OfficeTypes} from "../../contracts/types/OfficeTypes.sol";
 /// @title LandRegistryTest
 /// @notice Covers stable parties, signed transfers, version lineage, split powers, and atomic parcel operations.
 contract LandRegistryTest is Test {
+    event EncumbranceRegistered(
+        bytes32 indexed encumbranceId,
+        bytes32 indexed parcelId,
+        bytes32 indexed titleId,
+        bytes32 typeCode,
+        bytes32 beneficiaryPartyKey,
+        bytes32 transactionId,
+        uint64 registeredAt
+    );
+
     bytes32 internal constant LAND_OFFICE_ID = keccak256("office.land");
     bytes32 internal constant PARCEL_ID = keccak256("parcel.one");
     bytes32 internal constant PARCEL_TWO_ID = keccak256("parcel.two");
@@ -318,6 +328,61 @@ contract LandRegistryTest is Test {
         assertFalse(landRegistry.getTitle(TITLE_ID).active);
     }
 
+    function test_SubdivisionRejectsExpiredLeaseWithoutChangingParent() public {
+        vm.prank(LAND_CLERK);
+        landRegistryApp.submitParcelDraft(
+            PARCEL_ID,
+            _parcelInput("expired.split", "expired.split.draft", keccak256("expired.split.genesis")),
+            keccak256("tx.expired.split.draft")
+        );
+        LandTypes.ParcelRecord memory draft = landRegistry.getParcel(PARCEL_ID);
+        vm.prank(LAND_ADMIN);
+        landRegistryApp.activateParcel(
+            PARCEL_ID,
+            draft.revision,
+            _anchor("expired.split.activation", draft.versionHash),
+            keccak256("tx.expired.split.activation")
+        );
+        LandTypes.ParcelRecord memory active = landRegistry.getParcel(PARCEL_ID);
+        uint64 leaseExpiresAt = uint64(block.timestamp + 1 days);
+        LandTypes.TitleInput memory leaseTitleInput = LandTypes.TitleInput({
+            parcelId: PARCEL_ID,
+            holder: _personParty(SELLER_PERSON_ID),
+            anchor: _anchor("expired.split.title", active.versionHash),
+            tenureType: LandTypes.TenureType.Leasehold,
+            leaseExpiresAt: leaseExpiresAt
+        });
+        vm.prank(LAND_ADMIN);
+        landRegistryApp.registerTitle(TITLE_ID, leaseTitleInput, keccak256("tx.expired.split.title"));
+
+        LandTypes.TitleRecord memory parentTitle = landRegistry.getTitle(TITLE_ID);
+        LandTypes.SubdivisionChild[] memory children = new LandTypes.SubdivisionChild[](2);
+        children[0] = LandTypes.SubdivisionChild({
+            parcelId: keccak256("expired.child.one"),
+            titleId: keccak256("expired.child.title.one"),
+            parcel: _parcelInput("expired.child.one", "expired.child.one", active.versionHash),
+            titleAnchor: _anchor("expired.child.title.one", parentTitle.versionHash)
+        });
+        children[1] = LandTypes.SubdivisionChild({
+            parcelId: keccak256("expired.child.two"),
+            titleId: keccak256("expired.child.title.two"),
+            parcel: _parcelInput("expired.child.two", "expired.child.two", active.versionHash),
+            titleAnchor: _anchor("expired.child.title.two", parentTitle.versionHash)
+        });
+
+        vm.warp(leaseExpiresAt);
+        vm.expectRevert(abi.encodeWithSelector(ILandRegistry.InvalidTitlePayload.selector, TITLE_ID));
+        vm.prank(LAND_ADMIN);
+        landRegistryApp.subdivideParcel(PARCEL_ID, active.revision, children, keccak256("tx.expired.split.subdivide"));
+
+        assertEq(uint256(landRegistry.getParcel(PARCEL_ID).status), uint256(LandTypes.ParcelStatus.Active));
+        assertTrue(landRegistry.getTitle(TITLE_ID).active);
+        assertFalse(landRegistry.parcelExists(children[0].parcelId));
+        assertFalse(landRegistry.titleExists(children[0].titleId));
+        assertFalse(landRegistry.parcelExists(children[1].parcelId));
+        assertFalse(landRegistry.titleExists(children[1].titleId));
+    }
+
     function test_RejectsPartiallySpecifiedEncumbranceBeneficiary() public {
         _activateParcelWithTitle(PARCEL_ID, TITLE_ID, "parcel.one", _personParty(SELLER_PERSON_ID));
         LandTypes.TitleRecord memory title = landRegistry.getTitle(TITLE_ID);
@@ -365,8 +430,19 @@ contract LandRegistryTest is Test {
             anchor: _anchor("encumbrance", title.versionHash),
             validUntil: 0
         });
+        bytes32 encumbranceTransactionId = keccak256("tx.encumbrance.register");
+        vm.expectEmit(true, true, true, true, address(landRegistry));
+        emit EncumbranceRegistered(
+            ENCUMBRANCE_ID,
+            PARCEL_ID,
+            TITLE_ID,
+            encumbrance.typeCode,
+            landPartyPolicy.partyKey(encumbrance.beneficiary),
+            encumbranceTransactionId,
+            uint64(block.timestamp)
+        );
         vm.prank(LAND_ADMIN);
-        landRegistryApp.registerEncumbrance(ENCUMBRANCE_ID, encumbrance, keccak256("tx.encumbrance.register"));
+        landRegistryApp.registerEncumbrance(ENCUMBRANCE_ID, encumbrance, encumbranceTransactionId);
 
         LandTypes.TitleTransferRequest memory request = _transferRequest(TITLE_ID, _personParty(BUYER_PERSON_ID));
         (bytes memory sellerSignature, bytes memory buyerSignature) = _signTransfer(request, SELLER_KEY, BUYER_KEY);

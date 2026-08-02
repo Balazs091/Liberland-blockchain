@@ -56,9 +56,10 @@ release. LLM is not minted by Treasury; contribution rewards spend an existing T
 | Constitutional supporting headcount | max(2, 50% of electorate, rounded up) |
 | Constitutional supporting stake | 65% of weighted turnout, rounded up |
 
-State-bearing modules, policies, authorities, and new extension IDs use the constitutional double threshold. Known
-bounded workflow apps use the ordinary module-governance threshold. The dedicated Congress-election-policy
-referendum may change timing only; a breaking election-policy replacement uses constitutional module governance.
+State-bearing modules, policies, authorities, and new extension IDs use the constitutional double threshold. Router
+origins and the constitutional-review hook are authorities. Only bounded workflow apps without routing or review
+power use the ordinary module-governance threshold. The dedicated Congress-election-policy referendum may change
+timing only; a breaking election-policy replacement uses constitutional module governance.
 Each referendum and election stores its starting policy and the last completed block used for individual historical
 stake weight. New creation requires the voting policy's immutable electorate pointer to match the current kernel
 electorate and `snapshotAtCurrentEpoch` to certify that block against the current policy epoch and live identity/stake

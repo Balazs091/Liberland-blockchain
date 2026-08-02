@@ -1,16 +1,18 @@
 # Internal Smart Contract Audit Report
 
-Date: 2026-08-02
-Target: pre-external-audit repository state
-Verdict: ready for external-audit intake; not approved for Ethereum mainnet launch
+Date: 2026-08-03
+Remediation base: `302add43ee24a0d94f9388e4401be2c97fc3c149` (`main` at review start)
+Target: verified remediation working tree; immutable audit commit not assigned yet
+Verdict: code candidate and constitutional source verified; audit freeze blocked by the commit/tag prerequisites
+below; not approved for Ethereum mainnet launch
 
 ## Scope and method
 
 The internal review covered all Solidity contracts, interfaces, libraries, network parameter manifests, deployment
 and setup scripts, authority retirement, cross-module replacement paths, accounting and custody flows, user and
 government journeys, and the frontend documentation handoff. The methods included manual cross-contract tracing,
-adversarial lifecycle review, Foundry build/unit/fuzz/integration runs, coverage, runtime-size inspection, full
-unsuppressed Slither analysis, deployment-manifest comparison, and draft-constitution comparison.
+adversarial lifecycle review, Foundry build/unit/fuzz/invariant/integration runs, coverage, runtime-size inspection, full
+unsuppressed Slither analysis, deployment-manifest comparison, and pinned-constitution comparison.
 
 This report is internal engineering evidence. It is not an independent audit, a lending-economic certification, or
 mainnet approval.
@@ -20,12 +22,15 @@ mainnet approval.
 - Foundry `1.7.1`, Slither `0.11.5`, and Solc `0.8.36`; every project pragma is pinned to `0.8.36`.
 - The optimized build targets EVM `osaka` with 200 optimizer runs.
 - `forge build --sizes`: pass.
-- `forge test -vvv`: 315 passed, 0 failed, including the 256-run fuzz campaign.
-- `forge coverage --report summary`: pass, 315 passed and 0 failed.
-  - lines: 77.76% (6,324 / 8,133)
-  - statements: 81.27% (7,200 / 8,859)
-  - branches: 40.16% (512 / 1,275)
-  - functions: 85.55% (1,018 / 1,190)
+- `forge test -vvv`: 335 passed, 0 failed. This includes 17 stateful invariant tests under the default 64-run,
+  depth-64 profile, with zero handler reverts.
+- `FOUNDRY_PROFILE=audit forge test --match-path 'test/invariant/*.t.sol' -vvv`: 17 passed, 0 failed across five
+  suites. Every invariant reported 256 runs and 65,536 handler calls with zero handler reverts.
+- `forge coverage --report summary`: pass, 335 passed and 0 failed.
+  - lines: 78.87% (6,618 / 8,391)
+  - statements: 82.30% (7,525 / 9,143)
+  - branches: 43.67% (583 / 1,335)
+  - functions: 86.10% (1,065 / 1,237)
 - Foundry emitted the known anchor/source-mapping warnings during coverage; the test run still completed
   successfully.
 
@@ -39,7 +44,7 @@ The EIP-170 runtime limit is 24,576 bytes.
 | `CongressCandidateRegistry` | 21,647 bytes | 2,929 bytes |
 | `ReferendumApp` | 20,278 bytes | 4,298 bytes |
 | `CongressElectionApp` | 17,385 bytes | 7,191 bytes |
-| `LandRegistry` | 18,601 bytes | 5,975 bytes |
+| `LandRegistry` | 18,616 bytes | 5,960 bytes |
 | `LandRegistryApp` | 12,096 bytes | 12,480 bytes |
 | `LandPartyPolicy` | 4,809 bytes | 19,767 bytes |
 | `ElectorateRegistry` | 6,453 bytes | 18,123 bytes |
@@ -78,12 +83,18 @@ result.
 | Replacing a ministry lending pool could strand an office's prior shares | Positions are keyed by office and pool, with explicit reads/withdrawal for retired pools. |
 | Wallet-held land titles and registrar-only transfers could lose party continuity or bypass consent | Titles now store stable namespaced person/company/office IDs. The live replaceable party policy resolves current signers. Transfers require seller and buyer EIP-712/EIP-1271 authorization, a title nonce, deadline, expected version, anchored instrument, and registrar finalization. The current app cannot administratively close a non-expired title and recreate it around consent. |
 | Multi-parcel cadastral changes could leave partial or untraceable state | Parcel/title revisions are domain-separated and source-document chained. Subdivision, merge, and two-parcel boundary adjustment validate the full bounded set before applying one atomic transaction. Clerk preparation and registrar finalization are separate permission classes. |
+| Replacing a router-origin app at the ordinary app threshold could change protocol-wide execution power | `ReferendumApp`, `CongressElectionApp`, `SenateApp`, `OfficeExecutor`, and the constitutional-review hook are classified as authorities. Their replacement now requires the constitutional headcount plus weighted-support threshold. Bounded non-origin apps retain the ordinary path. |
+| Subdivision could roll an expired lease into live child titles | `LandRegistry.subdivideParcel` now rejects an expired active lease before validating or writing children; the regression test proves the parent remains unchanged and no child exists. Merge already performed the equivalent source-title check. |
+| Encumbrance registration accepted but discarded the external transaction ID | `EncumbranceRegistered` now emits the supplied nonzero `transactionId`; the interface, generated ABI, tests, and frontend/indexing documentation are synchronized. |
+| Critical cross-module invariants had no stateful campaign | Five handler-based suites now exercise governance lifecycle, stake/electorate synchronization, treasury conservation/replay, land provenance/title uniqueness, and lending accounting/liens/custody/live risk-policy replacement. |
+| Reproducibility and repository hygiene drifted | CI actions and Foundry/Slither versions are pinned, coverage and unsuppressed Slither run in CI, an exact severity-count guard forces re-triage if the finding set moves, LF policy is explicit, the full frontend ABI package was regenerated, and obsolete populated/unused `.gitkeep` files were removed. |
 
 Regression coverage includes source-callback failure and catch-up, current-electorate creation checks, completion-block
 rejection, historical pinned-process continuity, stake-transfer vote reuse, candidacy/address reassignment,
 zero-active-wallet seat recovery, governance self-replacement liveness, payout reconciliation, office lifecycle,
 global lending accrual, liquidation rounding, bad-debt dust, cadastral lineage, EIP-1271 consent, signer migration,
-and atomic parcel operations.
+atomic parcel operations, router-origin threshold enforcement, expired-lease subdivision rejection, encumbrance
+transaction provenance, and the five stateful invariant campaigns.
 
 ## Accepted risks and external-auditor focus
 
@@ -124,9 +135,21 @@ and atomic parcel operations.
 The boss-review values and accepted policy choices are collected in `docs/Protocol-Parameters.md`; the external
 review boundary and focus are in `docs/Audit-Scope.md`.
 
+## Remaining audit-freeze prerequisites
+
+The code changes, local verification matrix, and pinned constitutional source are complete, but the external-audit
+package is not immutable yet. The supplied PDF is stored at
+`docs/constitutional-sources/2024-09-24 Constitution.pdf`, and its SHA-256 is enforced by
+`scripts/verify-constitution-source.sh`.
+
+1. commit the remediation as the code target, then record that exact commit SHA in an evidence-only follow-up commit
+   or signed audit manifest (a commit cannot truthfully contain its own not-yet-computed SHA);
+2. from the clean committed tree, run `bash scripts/audit-freeze-check.sh`, retain its complete output, and create a
+   signed/annotated immutable audit tag only after it passes.
+
 ## Remaining launch prerequisites
 
-The code is ready to enter an external audit, but mainnet remains blocked on:
+After the audit-freeze prerequisites above are completed, mainnet will still remain blocked on:
 
 1. a fresh Sepolia redeployment from the reviewed revision, explorer source verification, regenerated address
    manifest, and frontend smoke test of onboarding, migration, election/referendum creation, office work, payouts,
@@ -142,8 +165,9 @@ The code is ready to enter an external audit, but mainnet remains blocked on:
 
 ## Readiness conclusion
 
-No concrete unresolved critical/high source-code blocker is known from this internal review. The repository is ready
-for external-audit intake because the current behavior, parameters, trust assumptions, operational pauses, and
-frontend integration requirements are explicit and verified against the current test/build baseline. This verdict
-must not be presented as production approval: fresh deployment evidence, final production inputs, fork rehearsal,
-and independent audit are still required before Ethereum mainnet use.
+No concrete unresolved critical/high source-code blocker is known from this internal review, and the remediation
+working tree passes the stated build, unit, fuzz, invariant, coverage, size, deployment-integration, and static-analysis
+checks. The latest owner-supplied constitution is now pinned and its alignment matrix has been refreshed. The package
+must not yet be called audit-frozen: the code target must receive an immutable commit/tag, and the clean-tree freeze
+checker must pass against that target. Even after those audit-intake steps, fresh deployment evidence, final
+production inputs, fork rehearsal, and an independent audit remain required before Ethereum mainnet use.

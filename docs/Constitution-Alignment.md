@@ -1,8 +1,24 @@
 # Draft Constitution Alignment
 
-This document compares the current contracts with the draft supplied as `2024-09-24 Constitution.md`.
-The reviewed source has SHA-256
-`2EE19F4D26559B9ECE079B6EE84C12793B929D8CF56E82F7E7812F4769D06BA6`.
+This document compares the current contracts with the latest constitutional baseline supplied by the project owner:
+the 25-page PDF stored as `docs/constitutional-sources/2024-09-24 Constitution.pdf`. The document identifies itself
+as the **DRAFT Constitution of Liberland**, reference `MJ-LP-2024-05`, with a visible issue date of 20 September 2025.
+The legacy filename is retained because it is the filename supplied by the owner; the internal issue date is the
+authoritative date metadata recorded by this review.
+
+The reviewed PDF is identified by SHA-256
+`A24E56A4077D3513D3467091BDD81EA445208D4F5D1CDE207BA87EFFE076BEE6`. On 2026-08-03, the owner-supplied local PDF
+and a fresh PDF export of the linked
+[Google document](https://docs.google.com/document/d/1Wz2xkM15LNWVgX_Wm7cdUAGzZimhpHVYQFq80EhtuFg/edit?tab=t.0) were
+byte-for-byte identical. The same retrieval's plain-text export had SHA-256
+`15576C6AB5AFA0785F29303163BDACB79587A0E9E7B8D6A19E6436DE6CF58AFE`. The web document remains mutable; the
+repository PDF, not the URL, is the immutable audit input enforced by `scripts/verify-constitution-source.sh`.
+See `docs/constitutional-sources/README.md` for the complete provenance record.
+
+The full source was reread against this matrix on 2026-08-03. That review did not identify an additional Solidity
+change suitable for the audit-freeze remediation: implemented requirements remain accurately described below, and
+the constitution's broader or differently specified mechanisms remain explicit omissions or current-policy
+differences for external review.
 
 The draft is design guidance, not an immutable protocol specification. A difference is implemented only when the
 draft's approach is simpler or comparably simple and is also clearer or safer. More complex political systems are

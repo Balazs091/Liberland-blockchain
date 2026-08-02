@@ -466,9 +466,10 @@ contract ReferendumApp is IReferendumApp {
         // Core execution modules (governance-router, action-timelock) are intentionally NOT repointable through a
         // referendum at any threshold: they are the trust root that enforces the timelock and origin routing, so
         // live-swapping either one would let a single passing proposal bypass every downstream safeguard it is meant
-        // to gate. Authorities, policies, state-bearing modules, and unclassified extension IDs require the
-        // constitutional supermajority; known application pointers use the ordinary threshold. The kernel cannot
-        // verify state continuity, so state-bearing replacements additionally require an audited migration plan.
+        // to gate. Authorities (including router-origin and constitutional-review modules), policies, state-bearing
+        // modules, and unclassified extension IDs require the constitutional supermajority; bounded application
+        // pointers without protocol-wide routing or review powers use the ordinary threshold. The kernel cannot verify
+        // state continuity, so state-bearing replacements additionally require an audited migration plan.
         if (
             proposal.targetModule == bytes32(0) || proposal.newModuleAddress == address(0)
                 || proposal.newModuleAddress.code.length == 0 || _isCoreModule(proposal.targetModule)
@@ -1048,11 +1049,12 @@ contract ReferendumApp is IReferendumApp {
     /// @notice Returns whether repointing a module must clear the constitutional-amendment double-threshold
     ///         (>=50% of the electorate by headcount AND >=65% of cast voting power) instead of the ordinary
     ///         module-governance quorum.
-    /// @dev Policy, authority, state-bearing, and unclassified modules use the constitutional threshold. Known
-    ///      operational application pointers use the ordinary threshold. Core `governance-router` and
-    ///      `action-timelock` are blocked upstream in `_validateModuleGovernanceProposal` and never reach here. The dedicated
-    ///      Congress-election-policy referendum remains a lower-friction timing-only path; a full breaking policy
-    ///      replacement uses this constitutional module-governance path.
+    /// @dev Policy, authority (including router-origin and constitutional-review modules), state-bearing, and
+    ///      unclassified modules use the constitutional threshold. Bounded applications without protocol-wide routing
+    ///      or review powers use the ordinary threshold. Core `governance-router` and `action-timelock` are blocked
+    ///      upstream in `_validateModuleGovernanceProposal` and never reach here. The dedicated Congress-election-policy
+    ///      referendum remains a lower-friction timing-only path; a full breaking policy replacement uses this
+    ///      constitutional module-governance path.
     /// @param moduleId The target module identifier being repointed or registered.
     /// @return requiresSupermajority Whether the repoint must clear the constitutional double-threshold.
     function _requiresGovernanceSupermajority(bytes32 moduleId) private view returns (bool requiresSupermajority) {

@@ -164,7 +164,7 @@ New workflow creation resolves the live kernel pointer. Do not retain a deployme
 UI state. Refresh module addresses after module governance, but keep using the policy stored in an already-created
 referendum or Congress cycle for that process's display and simulation.
 
-State-bearing modules, policies, and authorities require the constitutional threshold. A state-bearing replacement additionally requires a reviewed storage/custody migration because the pointer action does not migrate state. Known bounded workflow apps use the ordinary module-governance threshold. Unclassified newly registered IDs require the constitutional threshold and can be repointed later; they are no longer permanently frozen. A replacement app is an exact-address, reviewed-bytecode governance decision; after execution, refresh every live app pointer.
+State-bearing modules, policies, and authorities require the constitutional threshold. Router origins (`ReferendumApp`, `CongressElectionApp`, `SenateApp`, and `OfficeExecutor`) and the constitutional-review hook are classified as authorities because replacing them changes protocol-wide power. A state-bearing replacement additionally requires a reviewed storage/custody migration because the pointer action does not migrate state. Only bounded workflow apps without routing or review power use the ordinary module-governance threshold. Unclassified newly registered IDs require the constitutional threshold and can be repointed later; they are no longer permanently frozen. A replacement app is an exact-address, reviewed-bytecode governance decision; after execution, refresh every live app pointer.
 
 The router authenticates the current kernel-approved module for each origin and validates supported typed actions and targets. It no longer hardcodes today's branch/action matrix. Current Congress and Senate apps still expose no positive or unrestricted execution method, and the current Senate routes cancellation only. A future audited replacement app can therefore change the constitutional workflow without replacing the core.
 
@@ -227,6 +227,8 @@ Congress ERC20-transfer and ministry-funding decisions require the source to aut
 - Disable presidential vote submission while `PresidentRegistry.isPresidentInTerm()` is true.
 - Pending companies cannot acquire directors, share classes, shares, or filings. Enable those writes only for
   `Active` or `ComplianceWarning`.
+- `EncumbranceRegistered` now includes the caller-supplied `transactionId`; index it as external dossier
+  provenance. Do not attempt to subdivide or merge a parcel whose active title is an expired leasehold.
 
 ## Generated artifacts
 
