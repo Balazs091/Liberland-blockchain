@@ -16,7 +16,7 @@ In particular:
 - land-party existence, acquisition eligibility, and current signers are decided by
   `contracts/policies/LandPartyPolicy.sol`
 
-## Demo config
+## Network and audit-build config
 
 Use `frontend-export/sepolia-demo.json` for the live demo environment.
 
@@ -30,10 +30,59 @@ Important:
   base-unit amounts are decimal strings so JSON parsing cannot silently lose precision
 - require `config.identityApp === config.demoCitizenGateway` for the current Sepolia deployment. The gateway inherits
   `IdentityApp` and is the one standing identity-registry authority, not a second onboarding-only writer
+- the client/audit UI must use the office-mediated `IdentityApp` lifecycle even when the Sepolia address also exposes
+  demo-only `registerSelf` and `confirmCitizenship` selectors. Do not render those demo-only selectors in the audit
+  build
 - an older deployment does not gain the fixed boundary, historical vote weight, or person-bound role continuity;
   redeploy and replace its config
 
 For production, use `deployments/ethereum-mainnet.json`; its schema is shown in `ethereum-mainnet.example.json`. `genesisCongressSeatCount` is `7`, while `genesisCongressContinuityCycleId` and `genesisCongressContinuityEnd` identify the imported live cycle and its absolute Unix endpoint. These are deployment metadata. Prefer on-chain registry reads for current state.
+
+### Network-specific onboarding
+
+The audit/client build has no public on-chain citizenship application transaction. The application and evidence
+submission stay off-chain. The connected citizen wallet may display an application-status/pending-office-review
+screen, but it must not manufacture a local `personId` or submit `registerSelf`.
+
+On both the production deployment and the Sepolia audit UI, the Identity Office admin performs the on-chain writes:
+
+1. Resolve `identityOfficeId()` from `IdentityApp`, then read the current admin from
+   `officeRegistry.getOfficeRecord(identityOfficeId)`; do not hardcode the admin wallet.
+2. The admin calls `identityApp.registerIdentity(personId, input)`, where `input` contains `metadataHash`,
+   `metadataURI`, `verificationStatus`, `citizenshipStatus`, `ageClass`, `correctionFlag`, and `finalSuspension`.
+3. The admin calls `identityApp.linkWallet(personId, wallet, WalletLinkStatus.Active)`.
+4. Later citizenship-only changes use `identityApp.setCitizenship(personId, status)`.
+
+Only the Identity Office admin may register identities, link wallets, or set citizenship. Identity Office clerks may
+approve/cancel wallet migrations, but they cannot onboard a person. The public UI should poll
+`identityRegistry.getWalletLink(wallet)` and `getWalletIdentityRecord(wallet)` after the off-chain application is
+submitted.
+
+Sepolia deployment metadata may expose `identityApp == demoCitizenGateway`. That is one contract inheriting the
+standard office workflow, so call the inherited `IdentityApp` methods at `identityApp`. The extra self-registration
+selectors are test/demo conveniences and are outside the client/audit UI contract.
+
+Wallet migration is the citizen-facing on-chain identity flow:
+
+- old active wallet: `requestWalletMigration(newWallet)`
+- Identity Office admin or clerk: `approveWalletMigration(personId)`
+- anyone after `migrationDelay()`: `finalizeWalletMigration(personId)`
+- old wallet or Identity Office officer: `cancelWalletMigration(personId)`
+- status read: `getWalletMigration(personId)`
+
+The new wallet must be unlinked, and the person's stake remains attached to `personId` throughout migration.
+
+### Deployment-only demo authority
+
+`demoAuthority` is the address of a `DemoSetupAuthority` contract, not a wallet with its own private key. Its
+immutable `owner()` is the Sepolia deployment wallet from `PRIVATE_KEY` (the current manifest's
+`0x6319d5531045fdA2E91fe43f363eE80b8BCD7DDc`). The repository does not identify a human custodian beyond that
+wallet; the deployment operator must document custody off-chain.
+
+This contract was authorized only while seeded demo state was being written. Final deployment wiring replaces all
+of its registry-authority module pointers, and the kernel, router, and office bootstrap authorities are zero. It
+therefore gates no live frontend action and cannot seed more state on this deployment even if its owner signs. Do
+not expose it as an admin or recovery control.
 
 ## Governance timing rule
 
@@ -63,6 +112,7 @@ Show the connected wallet's:
 ### Contracts
 
 - `LLMToken`
+- `IdentityApp`
 - `DemoCitizenGateway`
 - `IdentityRegistry`
 - `StakeRegistry`
@@ -97,10 +147,15 @@ The demo uses the same 30-day welfare policy as production. `unstake()` immediat
 
 ### Writes
 
-- register:
-  - `demoCitizenGateway.registerSelf(metadataHash, metadataURI)`
-- registrar approval:
-  - `demoCitizenGateway.confirmCitizenship(wallet, approved, adult)`
+- office-mediated onboarding for the audit/client build:
+  - `identityApp.registerIdentity(personId, input)` from the Identity Office admin
+  - `identityApp.linkWallet(personId, wallet, WalletLinkStatus.Active)` from the Identity Office admin
+  - `identityApp.setCitizenship(personId, status)` for later status-only changes
+- citizen wallet migration:
+  - `identityApp.requestWalletMigration(newWallet)`
+  - `identityApp.approveWalletMigration(personId)` from an Identity Office admin or clerk
+  - `identityApp.finalizeWalletMigration(personId)` after `migrationDelay()`
+  - `identityApp.cancelWalletMigration(personId)` from the old wallet or an Identity Office officer
 - mint demo merits:
   - `llmToken.mint(wallet, amount)`
 - approve:
@@ -110,9 +165,9 @@ The demo uses the same 30-day welfare policy as production. `unstake()` immediat
 - unstake the policy-defined portion:
   - `demoCitizenGateway.unstake()`
 
-The same Sepolia address also exposes inherited `IdentityApp` functions for registrar/office administration,
-renunciation, and wallet migration. Use the `DemoCitizenGateway` ABI at `demoCitizenGateway`; do not treat the equal
-`identityApp` manifest field as a separate contract.
+The same Sepolia address may also expose demo-only `registerSelf` and `confirmCitizenship` functions. They are not
+part of the audit/client onboarding flow. Do not treat the equal `identityApp` and `demoCitizenGateway` manifest
+fields as separate contracts.
 
 ### Suggested balance card
 
@@ -133,7 +188,13 @@ For v1, build the history from events:
 - ERC-20:
   - `Transfer(address,address,uint256)` from `LLMToken`
   - `Approval(address,address,uint256)` if useful
-- demo gateway:
+- identity app/registry:
+  - `WalletMigrationRequested`
+  - `WalletMigrationApproved`
+  - `WalletMigrationFinalized`
+  - `IdentityRecordUpdated`
+  - `WalletLinkUpdated`
+- demo gateway, only for a separate explicit sandbox UI:
   - `DemoRegistrationSubmitted`
   - `DemoCitizenshipConfirmed`
   - `DemoMeritsStaked`
@@ -435,7 +496,49 @@ Use `DecisionApp` for bounded Congress and ministry decisions:
   - `prepareMinistryClerkDecision(...)`
   - `executeMinistryDecision(decisionId)`
 
-For Congress token transfers, the source approves `DecisionApp`. For Congress ministry funding, the source approves `MinistryTreasury`. In both cases the source must also authorize the exact decision ID; a generic ERC20 allowance is not decision consent. The source can revoke with `revokeCongressDecisionSource(decisionId)` before execution. For ministry decisions, the current contract model treats the office admin wallet as the ministry signer/source wallet.
+For Congress token transfers, the source approves `DecisionApp`. For Congress ministry funding, the source approves
+`MinistryTreasury`. In both cases the source must also authorize the exact decision ID; a generic ERC20 allowance is
+not decision consent. Creation auto-authorizes the source only when `source == msg.sender`, meaning the active
+Congress member creating the decision is also the recorded source wallet. Every other source must call
+`authorizeCongressDecisionSource(decisionId)` itself and may revoke with
+`revokeCongressDecisionSource(decisionId)` before execution. For ministry decisions, the current contract model
+treats the office admin wallet as the ministry signer/source wallet.
+
+### Budget-approval referendum form
+
+The canonical creation path is
+`referendumApp.createCongressBudgetApprovalReferendum(proposal)`. Only a current Congress member can submit it.
+`officeExecutor.requestBudgetApproval(...)` is a compatibility stub that always reverts with
+`BudgetApprovalRequiresReferendum`; never build a form around it.
+
+The `BudgetApprovalProposal` form fields are:
+
+- `proposalMetadataHash`: commitment to the proposal metadata/evidence document
+- `budgetId`: nonzero and not already registered; `officeExecutor.computeBudgetId(officeId, sequence)` is the
+  deterministic helper
+- `budgetLawTextHash`: nonzero commitment to the budget-law text
+- `budget.officeId`: nonzero target office ID
+- `budget.disbursementType`: nonzero `DisbursementType` (`Operations=1`, `Salary=2`, `Grant=3`, `Refund=4`,
+  `CourtOrder=5`, `CapitalExpenditure=6`, `ContributionReward=7`)
+- `budget.asset`: deployed ERC-20 contract currently allowed by `TreasurySpendingPolicy`; read the policy instead of
+  hardcoding the token list
+- `budget.allocatedAmount`: positive amount in the asset's smallest units
+- `budget.startsAt` and `budget.endsAt`: budget validity interval, with `endsAt > startsAt`
+- `startTime` and `endTime`: referendum voting interval; require `startTime >= latestBlock.timestamp` and
+  `endTime - startTime >= referendumPolicy.minimumVotingDuration()`
+- `adoptionDelay`: post-vote review delay
+- `emergency`: Congress-only shortcut flag
+
+For a normal budget referendum, default `adoptionDelay` from `referendumPolicy.standardAdoptionDelay()` (currently
+7 days). The contract permits a Congress proposal up to `maximumAdoptionDelay()` (currently 7 days). For
+`emergency=true`, the voting interval must be at least `emergencyVotingDuration()` (currently 3 days) and
+`adoptionDelay` must be zero. Emergency does not skip the treasury action timelock: after a passing vote is
+finalized, `TreasuryBudgetApproval` still observes `actionTimelock.minimumDelay(...)` (currently 1 day on Sepolia).
+
+After creation, read `referendumRegistry.getBudgetApprovalDetails(referendumId)`. After the voting window, anyone
+may call `finalizeReferendum(referendumId)`. If it passes, follow
+`getReferendumResult(referendumId).enactmentActionId`, wait until the timelock reports it executable, and call
+`actionTimelock.executeAction(actionId)`. Only that execution creates the budget envelope.
 
 ### Treasury notes
 
@@ -511,6 +614,12 @@ early ballots rather than keeping a successor election open during an incumbent 
 
 For lending:
 
+- client-demo scope: slides/read-only tier, not a live borrow/supply storyline. The current Sepolia pool has no
+  liquidity, LP shares, borrows, or reserves, so a transactional screen would demonstrate setup rather than a real
+  position. A compact read-only page may show the live parameters and zero state
+- the deployed fixed oracle returns `2_000_000` USDC base units per whole LLM: `1 LLM = 2 USDC`
+- current risk parameters are 30% max LTV, 40% liquidation threshold, 15% liquidation bonus, 15% reserve factor,
+  1,000,000 USDC total borrow cap, and no per-person cap on the Sepolia demo
 - `currentDebtOf(personId)` previews the current compounded debt
 - `totalBorrows()` and `borrowIndex()` return stored checkpoints; refresh them after `accrueInterest()` or another
   mutating pool transaction and do not expect a time-only block to change them
@@ -526,18 +635,20 @@ For lending:
 1. Wallet connect
 2. Demo config load from `sepolia-demo.json`
 3. Finances read-only card
-4. Register / approve / mint / approve / stake flow
-5. Discrete unstake / welfare flow
-6. Election read-only page
-7. Cycle preview, finalization, and candidacy actions
-8. Ballot builder and `castBallot`
-9. Finalize ended cycles and show elected / runner-up results
-10. Show zero-active-wallet seat recovery when its on-chain condition is met
-11. Office and treasury read-only pages
-12. Decision read/write pages for office admins, clerks, and Congress members
-13. Land/company registry read-only pages
-14. Public Veto and President election-state pages
-15. Lending debt/accrual and ministry current/retired-pool pages
+4. Off-chain application status plus Identity Office `registerIdentity` / `linkWallet` panel
+5. Mint / approve / stake and discrete unstake / welfare flows
+6. Wallet migration request / approve / finalize flow
+7. Election read-only page
+8. Cycle preview, finalization, and candidacy actions
+9. Ballot builder and `castBallot`
+10. Finalize ended cycles and show elected / runner-up results
+11. Show zero-active-wallet seat recovery when its on-chain condition is met
+12. Office and treasury read-only pages
+13. Budget-approval referendum form and pass / timelock / execute status
+14. Decision read/write pages for office admins, clerks, and Congress members
+15. Land/company registry read-only pages
+16. Public Veto and President election-state pages
+17. Lending parameter/state page in the slides/read-only tier
 
 ## Practical notes
 
