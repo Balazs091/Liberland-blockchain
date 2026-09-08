@@ -107,6 +107,8 @@ Deployment parameters are network-specific and intentionally kept in separate ma
 See `docs/Sepolia-Demo-Deployment.md` and `docs/Ethereum-Mainnet-Deployment.md` for operators. Frontend developers should start with `frontend-export/INTEGRATION-CHECKLIST.md` and `frontend-export/FRONTEND-HOWTO.md`.
 
 For a public demo deployment, run `scripts/DeployDemo.s.sol`, then copy the generated `deployments/sepolia-demo.json` to `frontend-export/sepolia-demo.json` for the frontend handoff package.
+The [current public Sepolia deployment](docs/Sepolia-Demo-Deployment.md#current-public-deployment) records the
+8 September 2026 addresses, confirmed configuration and exact-versus-similar explorer verification status.
 In the current demo, `identityApp` and `demoCitizenGateway` intentionally resolve to the same deployed contract:
 `DemoCitizenGateway` inherits the standard `IdentityApp` workflows so the demo has one standing identity-registry
 writer.

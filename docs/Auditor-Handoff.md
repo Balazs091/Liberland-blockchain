@@ -6,13 +6,18 @@ not a security certification. Assess the complete implementation and independent
 
 ## Exact target
 
-The package's `PROVENANCE.json` records the commit, tree, local tag, toolchain and recursive submodule revisions.
+The package's `PROVENANCE.json` records the packaged commit/tree, tested and deployed implementation revision,
+documentation-only differences, toolchain and recursive submodule revisions.
 `SOURCE-SHA256.txt` binds every packaged source/dependency file; `PACKAGE-SHA256.txt` also binds evidence.
-The outer ZIP has a separate SHA-256 file. The Git commit and tag are local only; they were not pushed.
+The outer ZIP has a separate SHA-256 file. The source commits are local only; they were not pushed.
 
 `source/` contains the entire tracked current source, tests, scripts, constitutional input, documentation and
 52 generated frontend ABIs, plus the exact pinned dependency sources. No production keys, actual genesis personal
-data, live deployment manifests, build caches, Git history or private development records are included.
+data, live deployment manifests, build caches, Git history or private development records are included in `source/`.
+The separate `deployment/` folder supplies the confirmed public Sepolia manifest, transaction/runtime/wiring checks
+and per-contract explorer status. Its 48 Exact Match and 3 Similar Match records are distinguished explicitly;
+the latter still require Etherscan approval for exact-label conversion. See [Sepolia Deployment](Sepolia-Demo-Deployment.md).
+These demo records and public reviewer addresses do not substitute for verified production genesis or controllers.
 The source archive intentionally has no `.git`; provenance records its originating commit rather than pretending
 that a new repository initialization reproduces that commit.
 

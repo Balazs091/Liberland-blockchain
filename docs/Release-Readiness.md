@@ -1,6 +1,6 @@
 # Release Readiness
 
-Status: implementation checks passed; regenerate the exact-source submission package before external handoff.
+Status: implementation checks passed; ready for independent external source review with the revision-bound package.
 **Not authorized for mainnet launch**.
 The package's `PROVENANCE.json` identifies the exact source commit, tree, dependency revisions and toolchain.
 Verify the package checksums before relying on its contents.
@@ -67,7 +67,10 @@ a source archive or verification manifest from a different revision. Fuzzed cove
 
 Toolchain: Forge 1.7.1, Solidity 0.8.36, Slither 0.11.5; Osaka, optimizer 200, no via-IR in deployable builds.
 The source is tested without raising deployment-size or transaction-cap settings to conceal failures.
-The source package requires a clean exact-commit release gate; raw results accompany it.
+The contract/test/script/dependency/ABI trees passed the clean release gate at
+`33f501417b7fd5cbba1f43f044d9f8348acd1c7c`. The refreshed package adds deployment documentation only;
+provenance identifies both revisions and verifies identical implementation trees. Current documentation/ABI checks
+are recorded separately, alongside the full gate's raw results.
 
 | Check | Recorded result |
 | --- | --- |
@@ -82,6 +85,8 @@ The source package requires a clean exact-commit release gate; raw results accom
 | Unsuppressed static analysis | **430 labels**, 425 distinct normalized fingerprints: 6 High, 66 Medium, 264 Low, 94 Informational; see [Static Analysis Notes](Static-Analysis-Triage.md) and the raw JSON |
 | Constitutional provenance | Pinned source PDF SHA-256 verified; this is not constitutional/legal certification |
 | Production-script rehearsal | Localhost-only two-stage mock-token/synthetic-genesis deployment passed: seven incumbents, continuity cycle, five review accounts, committee/app binding, sealed setup and retired kernel/router/office bootstrap |
+| Public Sepolia deployment | 92 successful transactions, 51 contracts; confirmed addresses, 63 module pointers, reviewer/office assignments, bootstrap retirement, stake backing, prefunding and election metadata |
+| Explorer source status | All 51 published source sets match local files: 48 Exact Match and 3 Similar Match. Exact conversion for MockUSDC, OfficePermissionPolicy and LendingRiskParameterPolicy requires Etherscan approval; see [Sepolia Deployment](Sepolia-Demo-Deployment.md) |
 
 Test-instance counts include inherited cases and are not counts of independent security scenarios. Coverage excludes
 unreported/interface files; the aggregate includes script/test instrumentation. **Production branch coverage of
@@ -120,6 +125,7 @@ measured requirements, explicit interfaces and their own review; they are not in
 - A lawful operational procedure for company-owned land when directors are lost or the company is dissolved.
   The contracts provide no general registrar takeover or universal judicial executor.
 - Live-wallet frontend checks, monitored keepers, rehearsed transitions, verified address manifests and final
-  operational/legal sign-off. No public deployment or production-state fork is claimed by the local rehearsal.
+  operational/legal sign-off. The separately recorded public Sepolia demo is not a production-state fork or mainnet
+  rehearsal with real assets/controllers; the localhost production-script rehearsal remains synthetic.
 
 The external firm should independently evaluate these assumptions and report reproducible, revision-bound findings.

@@ -1,7 +1,7 @@
 # Deployment Outputs
 
 Foundry deployment scripts write network manifests into this directory. Live `*.json` files are intentionally ignored
-because addresses and provenance must be regenerated from the exact deployment transaction and audit-tagged source;
+because addresses and provenance must be regenerated from confirmed deployment transactions and revision-bound source;
 do not treat a developer's local manifest as protocol authority.
 
 The tracked schema examples live beside the frontend handoff documentation. Before a release, follow the relevant

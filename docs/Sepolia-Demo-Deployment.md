@@ -9,6 +9,67 @@ public repeal, and Congress counting. Election finalization may now require repe
 intermediate successful transaction is not a finalized election. Use the regenerated frontend ABIs for a fresh
 deployment. Earlier deployed demo addresses do not acquire these changes automatically.
 
+## Current public deployment
+
+Deployed on **8 September 2026**, Sepolia chain ID **11155111**, from source commit
+`33f501417b7fd5cbba1f43f044d9f8348acd1c7c`. All **92 transactions succeeded**, creating **51 contracts**
+(including the candidate registry's child ranking store), in blocks **11661434–11661650**.
+Transaction fees totaled **0.113412787493617145 Sepolia ETH**. This is a testnet demonstration with mock tokens
+and seeded records, not a production deployment or mainnet authorization.
+
+The generated `deployments/sepolia-demo.json` and `frontend-export/sepolia-demo.json` are identical and contain
+the current complete address/seed configuration. The handoff archive includes the public manifest and the
+on-chain/source checks separately under `deployment/`; historical live manifests are not included.
+
+| Contract | Current Sepolia address and source |
+| --- | --- |
+| ConstitutionKernel | [0xb23e1b6186cCF3E270bcab888467834Ba1e51818](https://sepolia.etherscan.io/address/0xb23e1b6186cCF3E270bcab888467834Ba1e51818#code) |
+| ActionTimelock | [0x412A0d1a0b54324ce53f74d694E513b166e01E32](https://sepolia.etherscan.io/address/0x412A0d1a0b54324ce53f74d694E513b166e01E32#code) |
+| GovernanceRouter | [0x0b0837206d59283f4e4dA5Cd9392d66249a5F6EE](https://sepolia.etherscan.io/address/0x0b0837206d59283f4e4dA5Cd9392d66249a5F6EE#code) |
+| OfficeRegistry | [0xa9a34da20AE49a1BCBaFdda4D850C619Ec2af811](https://sepolia.etherscan.io/address/0xa9a34da20AE49a1BCBaFdda4D850C619Ec2af811#code) |
+| DemoCitizenGateway / IdentityApp | [0xF79741031fEcf4b19143012347f3c03ff2457bDf](https://sepolia.etherscan.io/address/0xF79741031fEcf4b19143012347f3c03ff2457bDf#code) |
+| CivicAppealReview | [0x3a0beB2Bb9B2a0AC30fE0Cac1f666298d45FBDB9](https://sepolia.etherscan.io/address/0x3a0beB2Bb9B2a0AC30fE0Cac1f666298d45FBDB9#code) |
+| TreasuryVault | [0x25b155d0944b77B75261fe5Bdd781a888778aC56](https://sepolia.etherscan.io/address/0x25b155d0944b77B75261fe5Bdd781a888778aC56#code) |
+| LLMToken (public-mint demo token) | [0xd85512FEa2a3fC98d67D5a7A6c31f54b88611Ca3](https://sepolia.etherscan.io/address/0xd85512FEa2a3fC98d67D5a7A6c31f54b88611Ca3#code) |
+
+Post-deployment reads confirmed all 50 top-level manifest contract addresses, 63 kernel pointers, three configured
+router origins, all office appointments, the Finance clerk, stake backing, treasury prefunding, election timestamps
+and electorate readiness. Kernel, router and office-executor bootstrap authorities are zero; the temporary
+`DemoSetupAuthority` is no longer an authorized kernel module. The gateway/identity address equality and the
+civic committee's IdentityApp binding were checked on-chain.
+
+Etherscan exposes source matching the local files for all 51 contracts: **48 Exact Match and 3 Similar Match**.
+The outstanding exact-label conversions are:
+
+| Contract | Similar Match address |
+| --- | --- |
+| MockUSDC | [0xD6D6299565fC6ad520e543A525b2274CFbdEa1F3](https://sepolia.etherscan.io/address/0xD6D6299565fC6ad520e543A525b2274CFbdEa1F3#code) |
+| OfficePermissionPolicy | [0x2e34197fce34b2aa6fcb0b2a9fcfa46c291e0a31](https://sepolia.etherscan.io/address/0x2e34197fce34b2aa6fcb0b2a9fcfa46c291e0a31#code) |
+| LendingRiskParameterPolicy | [0x67ae34a03620221f6c5dbb04da05f456775aea37](https://sepolia.etherscan.io/address/0x67ae34a03620221f6c5dbb04da05f456775aea37#code) |
+
+Direct submissions returned Already Verified but retained those three Similar Match records. Etherscan documents
+an [approval process for Similar Match reverification](https://info.etherscan.com/update-on-similar-match-contract-verification/).
+This remains an explorer-verification action; do not describe all 51 as Exact Match. Separately, all creation
+bytecodes and constructor data were checked against confirmed transactions, and all deployed runtimes matched
+the local build outside compiler-designated immutable slots. Similar Match does not certify constructor values;
+the handoff records their actual transaction bytes rather than borrowing them from another deployment.
+
+The deployed reviewer order, checked through all five `reviewerAt(i)` reads, is:
+
+| Index | Reviewer |
+| --- | --- |
+| 0 | `0x3Eb08E01848c92C928C59e11f3a58Ac1f506EEC6` |
+| 1 | `0x36d56588B9387D46B87fFa45077497d1c7E66d13` |
+| 2 | `0x725151460Dd50c333A20D837a8aD9E58Cce19D65` |
+| 3 | `0xD5466f1ECC07f7e06d61eaea25c740AB5f7C3060` |
+| 4 | `0xd8A2082530f892Ef2b3597d2ED505b658a181705` |
+
+Finance, Identity and Land administration share deployer address
+`0x6319d5531045fdA2E91fe43f363eE80b8BCD7DDc`. Company Registry administration and the Finance clerk use
+`0x1d421beC4bD2BC2F9875928b1f3480b74C1039F5`. The two Finance officers remain distinct.
+These are configuration facts, not attestations of independent human control or reviewer signing readiness.
+Live-wallet frontend journeys have not been certified by these deployment checks.
+
 ## Civic review and officer readiness
 
 Set `CIVIC_REVIEWER_0` through `CIVIC_REVIEWER_4` before running this script. Both networks require five nonzero,
