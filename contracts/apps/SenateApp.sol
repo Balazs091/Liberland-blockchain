@@ -928,7 +928,9 @@ contract SenateApp is ISenateApp {
         view
         returns (uint256 count)
     {
-        uint32 seatCount = _currentSenatePowersPolicy().seatCount();
+        // The stable registry owns the fixed seat universe. A replacement rules policy must not hide valid seat
+        // votes or turn this bounded tally into an arbitrary-length loop by misreporting its compatibility getter.
+        uint32 seatCount = _senateSeatRegistry.totalSeats();
         for (uint32 seatIndex = 0; seatIndex < seatCount; ++seatIndex) {
             if (_isSupportActive(seatIndex, seatSupports[seatIndex], attemptNonce)) {
                 count += 1;

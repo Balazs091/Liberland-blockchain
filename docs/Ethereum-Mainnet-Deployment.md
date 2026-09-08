@@ -52,7 +52,10 @@ Set `GENESIS_CONGRESS_CYCLE_END_TIMESTAMP` to the absolute Unix timestamp at whi
 
 This deliberately means CET, not daylight-saving CEST. Ethereum contracts do not have a reliable civil-time/DST oracle. If the intended requirement is always 18:00 in a European local timezone, seasonal boundary updates need a separately governed design.
 
-After the continuity cycle, each newly created cycle has the full 90-day duration. Timely finalization preserves the prior boundary. Late finalization advances the next cycle start to the next daily `17:00 UTC` boundary, avoiding a permanent drift to an arbitrary transaction hour.
+After the continuity cycle, each newly created cycle has the full 90-day duration. Finalization completes only the
+pinned cycle; anyone separately calls `createNextElectionCycle()` when the current policy/electorate permit. Preview
+the window at creation: late creation advances the anchor to the next daily `17:00 UTC` boundary instead of drifting
+to an arbitrary transaction hour.
 
 ## Required environment
 
@@ -69,7 +72,8 @@ Copy `.env.example` to `.env` and configure:
 - exactly seven to nine ranked Congress candidates, with the first seven becoming incumbents;
 - `GENESIS_CONGRESS_CYCLE_END_TIMESTAMP`;
 - the genesis President and mandate hash; and
-- all four office admins, each explicitly set and different from the deployer.
+- all four office admins, each explicitly set and different from the deployer; and
+- all five independent `CIVIC_REVIEWER_0` through `CIVIC_REVIEWER_4` public addresses.
 
 Do not commit secrets or real genesis personal metadata to the repository.
 
@@ -178,7 +182,8 @@ contract and custody state still require an explicit migration plan if the pool 
 Debt uses one RAY-scaled global borrow index, and the effective rate/reserve inputs are checkpointed by elapsed
 interval. The risk policy rejects a threshold/bonus pair whose full-threshold liquidation could exceed all quoted
 collateral. A borrower's citizenship retained-stake floor is fixed when the lien begins and cleared only when the
-lien reaches zero.
+loan is explicitly closed after full debt repayment or bad-debt absorption, even if collateral/liquidation already
+reduced the lien to zero.
 
 The land deployment includes `LandRegistry`, `LandPartyPolicy`, and `LandRegistryApp`. Production title parties are
 stable identity/company/office IDs, while current signers are resolved at execution time. Use a reviewed EIP-1271
@@ -195,10 +200,21 @@ List every kernel pointer that must move. Many workflows have both an app pointe
 
 Treat `ReferendumApp` replacement as a special release: it is the only current referendum-creation path. A defective approved replacement cannot be repaired without an already functioning governance origin or a new trust root. Its full create, vote, finalize, enact, veto-integration, and module-routing lifecycle must pass on a production-state fork before the address is proposed.
 
+Optional Senate/review probes have a 100,000-gas budget and require exact canonical ABI responses. A genuine
+over-budget/reverting/malformed hook is ignored; deliberate caller underfunding reverts rather than bypassing a
+valid record. Replacement bytecode must fit that interface and budget.
+
 The incumbent Senate cannot cancel or hold open the active referendum proposing its exact `SENATE_APP` replacement,
 cannot cancel the resulting queued action, and its pending-cancellation hook is skipped only for that action. The
 constitutional-review pause hook is likewise skipped only for the exact `CONSTITUTIONAL_REVIEW` replacement. These
 liveness exceptions do not bypass the referendum vote, delay, pinned-target, or execution-window checks; release
 review remains mandatory.
+
+These are not complete recovery guarantees: the review module may block the Senate replacement while Senate
+blocks the review replacement, and broken referendum/policy/electorate dependencies can stop new replacement
+votes. The owner retained these political routes rather than adding another permanent ballot system. An action
+batch is atomic when submitted, but individually queued members remain independently executable. Review every
+intermediate state, not only the intended batch. See [Upgrade and Liveness](Upgrade-And-Liveness.md) for supported
+custody handoff, retired-loan settlement and the limits of arbitrary state migration.
 
 Before mainnet use, perform an independent external audit, verify every genesis input out of band, rehearse against a mainnet fork, and archive the compiler settings, deployment transaction bundle, output manifest, and verification evidence.

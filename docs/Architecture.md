@@ -51,7 +51,7 @@ Network parameters are intentionally separate:
 - `scripts/parameters/EthereumMainnetParameters.sol`: chain ID 1, seven Congress seats, 90-day recurring cycles
 - `scripts/parameters/SepoliaDemoParameters.sol`: chain ID 11155111, two Congress seats, 3-day recurring cycles
 
-Both anchor Congress election ends to `17:00 UTC` (18:00 fixed CET, not daylight-saving CEST). Production imports a configurable shortened continuity cycle from the pre-migration system. Later cycles are a full 90 days. Late finalization advances to the next occurrence of the established UTC boundary and therefore cannot permanently drift to the transaction hour.
+Both anchor Congress election ends to `17:00 UTC` (18:00 fixed CET, not daylight-saving CEST). Production imports a configurable shortened continuity cycle from the pre-migration system. Later cycles are a full 90 days. Late next-cycle creation advances to the next occurrence of the established UTC boundary and therefore cannot permanently drift to the transaction hour.
 
 Production genesis is two-stage. Preparation seeds citizens/stake, Senate, President and offices but parks Congress
 and referendum registry authority on setup. A separate `completeGenesis(address)` invocation after confirmed
@@ -66,7 +66,8 @@ active stake is pulled into `LLMStakingVault` before accounting is credited.
 - stake increases require an existing identity and exact ERC20 receipt
 - setup credits require already funded surplus
 - unstaking reduces aggregate active stake before the vault transfers LLM
-- `StakeRegistry.totalActiveStake()` must never exceed the vault's LLM balance
+- during ordinary operation, `StakeRegistry.totalActiveStake()` must not exceed the canonical vault's LLM balance;
+  an approved custody transition must complete the old-vault handoff before the successor is treated as operational
 - liquidations transfer active stake between person IDs and do not release liquid LLM
 
 `ElectorateRegistry` replaces population-sized snapshot loops:
@@ -110,7 +111,8 @@ Governance uses bounded action types and never unrestricted calldata execution.
 - the non-repointable core validates supported typed actions and targets, but does not freeze today's political origin/action matrix
 - current Congress and Senate apps expose no positive or unrestricted execution function; the current Senate remains limited to negative powers
 - treasury assets leave only through the authorized ERC20 path and an exact active budget commitment
-- independently approved actions can execute atomically as a batch, allowing an app pointer and its authority pointers to migrate without an inconsistent intermediate state
+- independently approved actions can execute atomically as a batch; each member remains separately executable,
+  so dependency/intermediate-state review remains necessary
 
 `ConstitutionKernel` assigns known IDs a module class:
 
@@ -123,12 +125,16 @@ Governance uses bounded action types and never unrestricted calldata execution.
   module-governance threshold
 - `Undefined`: new extension IDs require the double threshold both to register and to replace later
 
-State evolution requires a separately reviewed migration/deployment; a pointer vote does not copy storage or move custody. Brand-new modules use `ModuleRegistration`; every non-core replacement uses `ModulePointerUpdate`. Both pass through an exact-address referendum, the timelock, and bounded Senate cancellation, while state/policy/authority/extension targets use the constitutional double threshold. Application replacement deliberately relies on voters approving reviewed bytecode and a compatible state/migration plan. Router-origin apps (`ReferendumApp`, `CongressElectionApp`, `SenateApp`, and `OfficeExecutor`), the constitutional-review hook, and the direct office writers (`DecisionApp` and `CabinetApp`) are classified as authorities, so changing any protocol-wide action source or execution gate cannot use the ordinary app threshold. The router prevents unsupported or malformed action classes, but it does not permanently assign supported types to political branches. Current branch limits live in the audited apps; changing a router origin therefore remains possible, but only through the constitutional threshold. Treasury disbursements remain independently constrained by the active budget commitment even if an approved origin module changes.
+State evolution requires a separately reviewed migration/deployment; a pointer vote does not copy storage or move custody. `PAYOUT_QUEUE` is State-class because it stores requests. Same-ledger LLM vault handoff, exact-successor Treasury asset handoff, and retired-loan settlement are dedicated narrow operations, not generic state migration. Brand-new modules use `ModuleRegistration`; every non-core replacement uses `ModulePointerUpdate`. Both pass through an exact-address referendum, the timelock, and bounded Senate cancellation, while state/policy/authority/extension targets use the constitutional double threshold. Application replacement deliberately relies on voters approving reviewed bytecode and a compatible state/migration plan. Router-origin apps (`ReferendumApp`, `CongressElectionApp`, `SenateApp`, and `OfficeExecutor`), the constitutional-review hook, and the direct office writers (`DecisionApp` and `CabinetApp`) are classified as authorities, so changing any protocol-wide action source or execution gate cannot use the ordinary app threshold. The router prevents unsupported or malformed action classes, but it does not permanently assign supported types to political branches. Current branch limits live in the audited apps; changing a router origin therefore remains possible, but only through the constitutional threshold. Treasury disbursements remain independently constrained by the active budget commitment even if an approved origin module changes.
 
-Optional negative-power hooks are fail-open only when the Senate/review module is absent or interface-incompatible; otherwise active cancellation, suspension, veto, and review records remain enforced. This prevents a breaking-but-approved Senate interface from freezing all future governance. A replacement of `ReferendumApp` itself still requires exceptional care: approving defective bytecode can disable the only current referendum-creation path, and avoiding that absolutely would require another permanent trust root. Production procedure therefore forbids unreviewed upgradeable proxies and requires bytecode, interface, migration, and fork-rehearsal review before an exact address is proposed.
+Optional negative-power hooks receive a bounded 100,000-gas static call with fixed return buffers and exact canonical
+ABI validation. Absent, reverting, over-budget or malformed hooks are ignored; valid active cancellation,
+suspension, veto and review records remain enforced. Caller underfunding reverts rather than bypassing a valid
+hook. Replacement interfaces must fit this gas budget. A defective `ReferendumApp`, voting/policy dependency or
+unrecoverable electorate can still disable the only public module-replacement voting route. The owner retained
+that route and its existing political checks; no permanent second ballot or recovery administrator was added.
 
-Two exact self-replacement liveness exceptions prevent an incumbent negative-power hook from making itself
-irreplaceable:
+Two exact self-replacement exceptions remove each incumbent hook's direct control over its own replacement:
 
 - the incumbent Senate app cannot cancel or hold open the active referendum that proposes a `SENATE_APP`
   replacement, cannot directly cancel the resulting queued action, and the timelock does not consult that app's
@@ -136,13 +142,17 @@ irreplaceable:
 - the constitutional-review pause hook is not consulted for the exact `CONSTITUTIONAL_REVIEW` pointer replacement.
 
 These exceptions do not bypass the referendum threshold, queue delay, pinned target, or any other validation.
+They do not prevent cross-lock: constitutional review can block the Senate replacement while Senate blocks the
+review replacement. Atomic batches cannot resolve a cycle in which either first action is blocked. See
+[Upgrade and Liveness](Upgrade-And-Liveness.md) for explicit recovery limits and dependency/migration review.
 
 New workflows resolve their live policy/app pointers through the kernel. Once a referendum or Congress election is
 created, it stores the exact policy bundle and voting-power snapshot block used for that process, so a later module
 replacement cannot change an active vote's rules. Immutable references are reserved for stable registries, custody
 assets, or the internally consistent dependencies of one immutable policy bundle.
 
-Senate negative-control processes intentionally read the current `SenatePowersPolicy`, so a properly approved policy
+Senate tally iteration uses the stable registry's fixed 100-seat capacity, not a replaceable policy's self-reported
+seat count. Negative-control thresholds and durations intentionally read the current `SenatePowersPolicy`, so a properly approved policy
 replacement has immediate effect on their thresholds and durations. This keeps the negative-control implementation
 stateless with respect to policy versions, but replacement proposals and frontends must disclose the impact on open
 Senate processes.
@@ -210,6 +220,11 @@ at most 32 scores and consider at most 32 ranked candidates per call, continuing
 Scores/ties are immutable after voting; current qualification is checked during selection and before activation.
 Disqualified candidates do not re-enter that count. Only elected/runner-up ordinal ranks are materialized.
 
+Election finalization completes only its pinned cycle. The default `finalizeElection(uint256)` workload is 32;
+`finalizeElection(uint256,uint256)` accepts 1..32 to lower per-call work. Heap operations remain O(log N), and
+selected outcomes are revalidated. Anyone explicitly creates the next cycle when current policy/electorate
+readiness permits; failed future scheduling cannot undo an already completed count.
+
 Congress decisions are bound to the Congress term that prepared them. ERC20 transfer and ministry-funding decisions also require the source to authorize the exact decision ID; an allowance alone is not decision consent.
 
 ## Money, offices, and lending
@@ -224,6 +239,13 @@ Treasury spending uses an explicit per-asset policy allowlist. Budget approvals 
 revalidates both appointments and the proposer's spending policy; known wallets of one person cannot approve twice. At execution, `TreasuryVault` independently matches the
 request ID, budget ID, amount, and asset against the stable budget registry commitment and rejects tokens whose
 recipient balance delta is not the exact requested amount.
+
+The stable `BudgetEnvelopeRegistry.isRequestExecuted(requestId)` marker prevents paid-ID reuse through replacement
+queues/vaults that retain the ledger. Only the current TreasuryVault marks execution, atomically with the exact token
+transfer. Its vault-local receipt remains for original-queue reconciliation; queue state and committed-to-spent
+accounting may lag execution until permissionless synchronization. Current and original commitment writers cannot
+release paid capacity or mark unexecuted commitments spent. A registry migration must preserve consumed IDs.
+`OfficeExecutor` pins its queue immutably; a queue pointer alone does not redirect that executor or copy proposals.
 
 An authorized office may cancel a proposed payout directly. For a routed payout, `OfficeExecutor` first cancels its
 timelock action, then `PayoutQueue` records cancellation and releases the budget commitment. Permissionless
@@ -252,13 +274,23 @@ growth, while `totalBorrows` and `borrowIndex` expose stored values until `accru
 pool interaction checkpoints them.
 
 Stake liens raise the required active-stake floor and slashing cannot bypass that floor. The citizenship floor is
-snapshotted when a person's lien begins and cleared with the final lien, preventing a later policy increase from
+snapshotted when a person's loan begins and cleared only when its owning pool explicitly closes the loan, even
+if liquidation previously exhausted the lien. This prevents a later policy increase from
 retroactively freezing liquidation. Risk-policy construction also enforces
 `liquidationThreshold * (1 + liquidationBonus) <= 100%`. Liquidation transfers active stake to the liquidator.
-`absorbBadDebt` rejects a write-off only while the available surplus can liquidate the smallest asset repayment that
-actually reduces scaled debt; protected/retained floor stake is deliberately excluded from recoverable collateral.
+`absorbBadDebt` rejects a write-off only while recoverable collateral can liquidate the smallest asset repayment that
+actually reduces scaled debt. The active pool uses surplus stake; retired books additionally cap collateral at their
+remaining recorded lien. Protected/retained floors are deliberately excluded from recoverable collateral.
 Eligible residual debt uses the explicit reserve/treasury backstop described in `docs/Lending-And-Treasury.md`. The
 fixed launch oracle is intentionally suitable only for the governed launch price model, not as a market-price feed.
+
+Loan ownership is pool-specific. Only the jointly selected current pool may increase liens; retired books can settle
+their own existing borrowers through bounded lien-registry operations, without general stake-transfer authority.
+Retired settlement cannot seize plus retain more than its prior lien. New origination also requires the pool's
+immutable identity/stake/lien references to match canonical ledgers.
+A replacement pool cannot originate another loan for that person until the old loan closes. Debt and LP claims stay
+in the old pool. Budget commitments similarly retain their original accounting writer for bounded finalization or
+release after queue replacement, without granting the retired writer new reservation rights.
 
 Pending companies cannot accumulate directors, share classes, shares, or filings. Those child-state mutations are
 limited to `Active` or `ComplianceWarning` companies so rejection/resubmission cannot inherit hidden pre-approval

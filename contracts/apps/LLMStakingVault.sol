@@ -47,6 +47,42 @@ contract LLMStakingVault is ILLMStakingVault, KernelModule, ReentrancyGuard {
     }
 
     /// @inheritdoc ILLMStakingVault
+    function identityRegistry() external view returns (address registryAddress) {
+        return address(_identityRegistry);
+    }
+
+    /// @inheritdoc ILLMStakingVault
+    function handoffBacking() external nonReentrant returns (uint256 amount) {
+        address successor = _kernel.getModule(KernelModuleIds.LLM_STAKING_VAULT);
+        if (
+            successor == address(this)
+                || _kernel.getModule(KernelModuleIds.IDENTITY_REGISTRY) != address(_identityRegistry)
+                || _kernel.getModule(KernelModuleIds.STAKE_REGISTRY) != address(_stakeRegistry)
+        ) revert IncompatibleVaultSuccessor(successor);
+        ILLMStakingVault nextVault = ILLMStakingVault(successor);
+        if (
+            nextVault.kernel() != address(_kernel) || nextVault.token() != address(_token)
+                || nextVault.identityRegistry() != address(_identityRegistry)
+                || nextVault.stakeRegistry() != address(_stakeRegistry)
+        ) revert IncompatibleVaultSuccessor(successor);
+
+        // The constitutional pointer vote chooses the receiver; anyone may finish the custody handoff.
+        // Canonical person records, stake checkpoints, liens and withdrawal rules are untouched.
+        amount = _token.balanceOf(address(this));
+        _requireAmount(amount);
+        uint256 recipientBefore = _token.balanceOf(successor);
+        _token.safeTransfer(successor, amount);
+        uint256 recipientAfter = _token.balanceOf(successor);
+        uint256 received = recipientAfter - recipientBefore;
+        if (received != amount) revert StakeTransferAmountMismatch(amount, received);
+        uint256 activeStake = _stakeRegistry.totalActiveStake();
+        if (recipientAfter < activeStake) {
+            revert BackingInvariantViolated(recipientAfter, activeStake);
+        }
+        emit BackingHandedOff(successor, amount, activeStake);
+    }
+
+    /// @inheritdoc ILLMStakingVault
     function backingSurplus() public view returns (uint256 amount) {
         uint256 balance = _token.balanceOf(address(this));
         uint256 activeStake = _stakeRegistry.totalActiveStake();
@@ -58,6 +94,7 @@ contract LLMStakingVault is ILLMStakingVault, KernelModule, ReentrancyGuard {
 
     /// @inheritdoc ILLMStakingVault
     function fundBacking(uint256 amount) external nonReentrant {
+        _requireCurrentVault();
         _requireAmount(amount);
         _pullExact(msg.sender, amount);
         emit BackingFunded(msg.sender, amount, _token.balanceOf(address(this)));
@@ -65,6 +102,7 @@ contract LLMStakingVault is ILLMStakingVault, KernelModule, ReentrancyGuard {
 
     /// @inheritdoc ILLMStakingVault
     function stakeFor(bytes32 personId, uint256 amount) external nonReentrant {
+        _requireCurrentVault();
         _requireAmount(amount);
         _requireIdentity(personId);
         _pullExact(msg.sender, amount);
@@ -76,6 +114,7 @@ contract LLMStakingVault is ILLMStakingVault, KernelModule, ReentrancyGuard {
 
     /// @inheritdoc ILLMStakingVault
     function creditBackedStake(bytes32 personId, uint256 amount) external nonReentrant {
+        _requireCurrentVault();
         if (
             !_isActiveSetupAuthority(msg.sender)
                 && !_isModuleCaller(KernelModuleIds.STAKE_REGISTRY_AUTHORITY, msg.sender)
@@ -96,12 +135,14 @@ contract LLMStakingVault is ILLMStakingVault, KernelModule, ReentrancyGuard {
 
     /// @inheritdoc ILLMStakingVault
     function unstake() external nonReentrant returns (uint256 releasedAmount, uint64 welfareUntil) {
+        _requireCurrentVault();
         bytes32 personId = _requireActiveWallet(msg.sender);
         return _unstakeTo(personId, msg.sender);
     }
 
     /// @inheritdoc ILLMStakingVault
     function unstakeFor(address wallet) external nonReentrant returns (uint256 releasedAmount, uint64 welfareUntil) {
+        _requireCurrentVault();
         if (!_isModuleCaller(KernelModuleIds.STAKE_USER_GATEWAY_AUTHORITY, msg.sender)) {
             revert UnauthorizedStakeGateway(msg.sender);
         }
@@ -160,6 +201,12 @@ contract LLMStakingVault is ILLMStakingVault, KernelModule, ReentrancyGuard {
     function _requireAmount(uint256 amount) private pure {
         if (amount == 0) {
             revert InvalidStakeAmount(amount);
+        }
+    }
+
+    function _requireCurrentVault() private view {
+        if (!_isModuleCaller(KernelModuleIds.LLM_STAKING_VAULT, address(this))) {
+            revert InactiveStakingVault(address(this));
         }
     }
 

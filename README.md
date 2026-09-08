@@ -34,6 +34,7 @@ The implemented contract surface includes:
 - `docs/README.md`
 - `docs/Architecture.md`
 - `docs/Governance.md`
+- `docs/Upgrade-And-Liveness.md`
 - `docs/Protocol-Parameters.md`
 - `docs/Internal-Audit-Report.md`
 - `docs/Audit-Scope.md`
@@ -82,7 +83,7 @@ git submodule update --init --recursive
 forge fmt --check
 forge build --sizes
 forge test -vvv
-forge coverage --report summary
+forge coverage --report summary --no-match-test test_Governance_OpenAdmissionFinalizes1000CandidatesInBoundedChunks
 python3 scripts/check-docs.py --check-abis
 python3 scripts/check-slither-baseline.py
 ```
@@ -90,6 +91,9 @@ python3 scripts/check-slither-baseline.py
 The Slither helper prints the full unsuppressed report and requires fresh manual triage if severity counts or
 normalized finding identities change. The pinned constitutional PDF is verified by `scripts/verify-constitution-source.sh`. After the
 candidate commit exists, run the complete clean-tree gate with `bash scripts/audit-freeze-check.sh`.
+
+The coverage-only exclusion avoids the instrumentation budget of the 1,000-candidate setup; that stress test
+remains mandatory in the optimized full suite. Coverage exercises the same count path with 100 candidates.
 
 ## Deployment Outputs
 
@@ -123,6 +127,11 @@ The demo deployment is transaction-heavy and should be rehearsed against a Sepol
 The source is an audit candidate, not mainnet-approved. The approved civic appeal, two-officer Finance and direct-majority
 Senate rules are implemented. Independent external review, verified deployment inputs and production-state fork/migration
 rehearsal remain launch requirements. See `docs/Governance.md`.
+
+Non-Core pointers are replaceable, but recovery is conditional on working governance dependencies. The current
+political routes deliberately retain sole-referendum-path and cross-hook-veto deadlock risks; there is no general
+record/custody migration executor. Supported same-ledger LLM handoff and retired-loan settlement are narrow paths,
+not an absolute no-freeze guarantee. See [Upgrade and Liveness](docs/Upgrade-And-Liveness.md).
 
 Start an independent review with [Auditor Handoff](docs/Auditor-Handoff.md).
 

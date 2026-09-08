@@ -468,7 +468,7 @@ contract TreasuryAndOfficesTest is Test {
         assertEq(budgetEnvelopeRegistry.availableAmount(OPERATIONS_BUDGET_ID), 9_000 * ONE_USDC);
     }
 
-    function test_ExecutedPayoutCanSyncAfterTreasuryVaultReplacement() public {
+    function test_ExecutedPayoutCanSyncAfterTreasuryAndAccountingWriterReplacement() public {
         vm.prank(MINISTER_OF_FINANCE);
         officeExecutor.assignClerk(FINANCE_OFFICE_ID, FINANCE_CLERK);
 
@@ -520,6 +520,11 @@ contract TreasuryAndOfficesTest is Test {
         assertTrue(treasuryVault.isDisbursementExecuted(PAYOUT_REQUEST_ID));
         assertFalse(replacementVault.isDisbursementExecuted(PAYOUT_REQUEST_ID));
 
+        PayoutQueue replacementQueue = new PayoutQueue(address(kernel), address(budgetEnvelopeRegistry));
+        _replaceTreasuryModule(KernelModuleIds.PAYOUT_QUEUE, address(replacementQueue));
+        _replaceTreasuryModule(KernelModuleIds.BUDGET_ENVELOPE_ACCOUNTING_AUTHORITY, address(replacementQueue));
+        assertEq(treasuryVault.handoffAsset(address(usdc)), 9_000 * ONE_USDC);
+
         payoutQueue.syncPayoutState(PAYOUT_REQUEST_ID);
 
         TreasuryTypes.BudgetEnvelope memory budgetEnvelope =
@@ -530,6 +535,44 @@ contract TreasuryAndOfficesTest is Test {
         );
         assertEq(budgetEnvelope.committedAmount, 0);
         assertEq(budgetEnvelope.spentAmount, 1_000 * ONE_USDC);
+        assertEq(budgetEnvelopeRegistry.commitmentAuthority(PAYOUT_REQUEST_ID), address(0));
+    }
+
+    function test_RetiredQueueCanReconcileExpiredPayoutAfterVaultAndWriterReplacement() public {
+        _proposeReviewedOperations();
+        _approvePayoutBySecondOfficer(PAYOUT_REQUEST_ID);
+        vm.prank(MINISTER_OF_FINANCE);
+        bytes32 actionId = officeExecutor.routePayout(FINANCE_OFFICE_ID, PAYOUT_REQUEST_ID);
+        TreasuryVault replacementVault = new TreasuryVault(address(kernel));
+        PayoutQueue replacementQueue = new PayoutQueue(address(kernel), address(budgetEnvelopeRegistry));
+        _replaceTreasuryModule(KernelModuleIds.TREASURY_VAULT, address(replacementVault));
+        _replaceTreasuryModule(KernelModuleIds.PAYOUT_QUEUE, address(replacementQueue));
+        _replaceTreasuryModule(KernelModuleIds.BUDGET_ENVELOPE_ACCOUNTING_AUTHORITY, address(replacementQueue));
+        treasuryVault.handoffAsset(address(usdc));
+        vm.warp(uint256(timelock.getAction(actionId).expiresAt) + 1);
+        assertEq(
+            uint256(payoutQueue.syncPayoutState(PAYOUT_REQUEST_ID)), uint256(TreasuryTypes.DisbursementState.Expired)
+        );
+        assertEq(budgetEnvelopeRegistry.getBudgetEnvelope(OPERATIONS_BUDGET_ID).committedAmount, 0);
+        assertEq(budgetEnvelopeRegistry.getBudgetEnvelope(OPERATIONS_BUDGET_ID).spentAmount, 0);
+        assertEq(usdc.balanceOf(address(replacementVault)), 10_000 * ONE_USDC);
+    }
+
+    function _replaceTreasuryModule(bytes32 moduleId, address successor) private {
+        bytes32 actionId = mockReferendumApp.routeAction(
+            GovernanceTypes.ActionRequest({
+                actionType: GovernanceTypes.ActionType.ModulePointerUpdate,
+                origin: GovernanceTypes.ActionOrigin.Referendum,
+                originReference: keccak256(abi.encode("treasury replacement", moduleId, successor)),
+                policyReference: bytes32(0),
+                targetModule: moduleId,
+                payload: abi.encode(GovernanceTypes.ModuleUpdatePayload({newModuleAddress: successor})),
+                requestedExecutionTime: 0,
+                expiresAt: 0
+            })
+        );
+        _warpToActionDeadline(actionId);
+        timelock.executeAction(actionId);
     }
 
     function test_SenateCanVetoQueuedPayoutAndReleaseBudgetCommitment() public {

@@ -319,7 +319,7 @@ contract StakeRegistry is IStakeRegistry, KernelModule {
             return;
         }
 
-        if (_isModuleCaller(KernelModuleIds.STAKE_LIQUIDATION_AUTHORITY, caller)) {
+        if (_isModuleCaller(KernelModuleIds.STAKE_LIEN_REGISTRY, caller)) {
             return;
         }
 
@@ -343,21 +343,31 @@ contract StakeRegistry is IStakeRegistry, KernelModule {
 
         IStakeLienRegistry stakeLienRegistry = IStakeLienRegistry(stakeLienRegistryAddress);
         uint256 lienedStake = 0;
-        uint256 retainedStakeFloor = 0;
         try stakeLienRegistry.lienedStakeOf(personId) returns (uint256 amount) {
             lienedStake = amount;
         } catch {
             revert StakeLienRegistryUnavailable(personId);
         }
+        address loanBook;
+        try stakeLienRegistry.loanBookOf(personId) returns (address pool) {
+            loanBook = pool;
+        } catch {
+            revert StakeLienRegistryUnavailable(personId);
+        }
+        if (loanBook == address(0)) {
+            if (lienedStake != 0) revert StakeLienRegistryUnavailable(personId);
+            return requiredStakeFloor;
+        }
+        uint256 retainedStakeFloor;
         try stakeLienRegistry.retainedStakeFloorOf(personId) returns (uint256 amount) {
             retainedStakeFloor = amount;
         } catch {
             revert StakeLienRegistryUnavailable(personId);
         }
 
-        // The minimum retained stake only binds active borrowers. A person without a lien can
-        // fully exit down to their own protected floor.
-        if (lienedStake > 0 && retainedStakeFloor > requiredStakeFloor) {
+        // Exhausted collateral is still an outstanding loan until explicitly repaid/written off. Preserve its
+        // captured floor and sole loan-book ownership even when its remaining lien is zero.
+        if (retainedStakeFloor > requiredStakeFloor) {
             requiredStakeFloor = retainedStakeFloor;
         }
         requiredStakeFloor += lienedStake;

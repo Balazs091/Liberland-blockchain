@@ -75,7 +75,7 @@ anvil --silent --chain-id 11155111
 PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 \
 forge script scripts/DeployDemo.s.sol:DeployDemo \
   --rpc-url http://127.0.0.1:8545 \
-  --broadcast \
+  --broadcast --slow --gas-estimate-multiplier 200 \
   -q
 
 jq '.transactions | length' broadcast/DeployDemo.s.sol/11155111/run-latest.json
@@ -91,13 +91,17 @@ The demo deployment is intentionally faster than the production configuration:
 - total Congress election cycle: 72 hours
 - Congress voting start may be scheduled up to 72 hours ahead
 
-The seeded election and every recurring demo election end at exactly `17:00 UTC`. The seed calculation leaves between 24 and 48 hours of active voting time, depending on the deployment hour. Late finalization advances to the next `17:00 UTC` boundary, so future cycles cannot drift to the transaction time.
+The seeded election and every recurring demo election end at exactly `17:00 UTC`. The seed calculation leaves between 24 and 48 hours of active voting time, depending on the deployment hour. Late next-cycle creation advances to the next `17:00 UTC` boundary, so future cycles cannot drift to the transaction time.
 
-The election contracts enforce one unfinalized cycle at a time. When anyone finalizes the latest ended cycle through `CongressElectionApp.finalizeElection(cycleId)`, the same transaction creates the next deterministic recurring cycle.
+The election contracts enforce one unfinalized cycle at a time. Finalization advances only the ended cycle;
+after it reaches canonical Finalized status, anyone explicitly calls `createNextElectionCycle()` when the current
+policy and certified electorate permit. A failed next-cycle creation cannot undo the completed result.
 
-The EVM cannot call itself at a timestamp, so a public finalization transaction is still necessary. If finalization is on time, the next cycle uses the previous cycle's `votingEnd` as its anchor. If finalization is late, it advances to the next occurrence of the same UTC time-of-day so the established end-hour is preserved:
+The EVM cannot call itself at a timestamp, so counting and next-cycle creation require public transactions. If
+creation is on the prior boundary, the next cycle uses that `votingEnd` as its anchor. A later creation advances
+to the next occurrence of the same UTC time-of-day. Always preview immediately before creation:
 
-- `nominationStart = previousCycle.votingEnd`, or the next matching UTC daily boundary after a late finalization
+- `nominationStart = previousCycle.votingEnd`, or the next matching UTC daily boundary after late next-cycle creation
 - `votingStart = nominationStart + minimumNominationDuration()`
 - `votingEnd = nominationStart + cycleDuration()`
 
@@ -160,19 +164,21 @@ The demo deployment seeds Congress cycle `1` as an active voting cycle:
 
 For election screens, use `CongressCandidateRegistry.latestCycleId()` as the main cycle pointer. `CongressElectionApp.currentCongressCycleId()` returns the active office term and remains `0` until an election is finalized.
 
-After the seeded cycle ends, anyone can call `CongressElectionApp.finalizeElection(1)`. That resolves the Congress seats and creates cycle `2` with:
+After the seeded cycle ends, anyone advances `CongressElectionApp.finalizeElection(uint256)` with cycle `1` until
+the registry reports Finalized. The overload `finalizeElection(uint256,uint256)` accepts a workload of 1..32;
+the original selector defaults to 32. Read ranking-store progress, estimate gas and lower the workload if needed.
+Next, preview the window and explicitly call `createNextElectionCycle()`; newly active Congress members are
+automatically registered for the new cycle unless they withdraw during nomination. Late creation changes the
+previewed anchor, so do not assume `cycle1.votingEnd` remains the next nomination start.
 
-- `nominationStart = cycle1.votingEnd`
-- `votingStart = cycle1.votingEnd + 24 hours`
-- `votingEnd = cycle1.votingEnd + 72 hours`
-- the newly active Congress members automatically registered as cycle `2` candidates unless they withdraw during nomination
-
-Eligible live demo users can still join the election as voters after onboarding:
+New live demo users cannot acquire voting weight in an already-snapshotted election merely by onboarding:
 
 1. User self-registers through `DemoCitizenGateway`
 2. Registrar confirms citizenship
 3. User mints and stakes enough demo `LLM`
-4. User calls `CongressElectionApp.castBallot(cycleId, candidates, allocations)` during the voting window
+4. Wait for a new election whose completed-block snapshot includes the citizen and their active stake
+5. User calls `CongressElectionApp.castBallot(cycleId, candidates, allocations)` during that election's voting window,
+   while still in current good standing
 
 `castBallot` stores a ballot only for the supplied cycle. A later call in that cycle replaces the entire ballot, and `clearBallot(cycleId)` removes it. Nothing carries into later cycles. Read `getBallotReceipt(cycleId, wallet)` and `getBallotAllocationAt(cycleId, wallet, index)`.
 
@@ -228,7 +234,7 @@ To change it after deployment:
 2. Keep the non-timing parameters equal to the current policy: candidate eligibility policy, voting power policy, seat count, runner-up count, max candidate count, and candidate bond requirement
 3. Create a policy referendum using `ReferendumApp.createCitizenCongressElectionPolicyReferendum(...)` or `ReferendumApp.createCongressElectionPolicyReferendum(...)`
 4. If the referendum passes, `ReferendumApp.finalizeReferendum(...)` queues a bounded `ModulePointerUpdate` for `CONGRESS_ELECTION_POLICY`
-5. After the timelock delay, execute the queued action through `GovernanceRouter`
+5. After the timelock delay and applicable negative-power checks, call `ActionTimelock.executeAction(actionId)`
 6. Future election cycles read the new policy from the kernel module pointer
 
 This path changes the election timing policy without giving referenda arbitrary calldata execution.
@@ -258,25 +264,23 @@ forge script scripts/DeployDemo.s.sol:DeployDemo \
   -vvvv
 ```
 
-Broadcast:
+Broadcast and verify once, after reviewing the simulation:
 
 ```bash
 forge script scripts/DeployDemo.s.sol:DeployDemo \
   --rpc-url "$SEPOLIA_RPC_URL" \
   --broadcast \
-  -vvvv
-```
-
-Verify:
-
-```bash
-forge script scripts/DeployDemo.s.sol:DeployDemo \
-  --rpc-url "$SEPOLIA_RPC_URL" \
-  --broadcast \
+  --slow --gas-estimate-multiplier 200 \
   --verify \
   --etherscan-api-key "$ETHERSCAN_API_KEY" \
   -vvvv
 ```
+
+Do not rerun this non-idempotent deployment merely to verify existing addresses. Use address-specific verification
+or the reviewed existing broadcast bundle. For a partial broadcast, inspect confirmed receipts and the exact
+Foundry `--resume` bundle before resuming; do not blindly deploy again. The gas-estimate margin and sequential
+broadcast account for real separate-block checkpoint allocation, but each transaction still needs target-chain
+gas-limit review. Simulation also writes a manifest, which is not evidence of a broadcast.
 
 ## Output
 

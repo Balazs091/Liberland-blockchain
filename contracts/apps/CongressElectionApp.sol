@@ -191,6 +191,18 @@ contract CongressElectionApp is ICongressElectionApp {
 
     /// @inheritdoc ICongressElectionApp
     function finalizeElection(uint256 cycleId) external {
+        _finalizeElection(cycleId, 32);
+    }
+
+    /// @inheritdoc ICongressElectionApp
+    function finalizeElection(uint256 cycleId, uint256 maximumCandidates) external {
+        if (maximumCandidates == 0 || maximumCandidates > 32) {
+            revert InvalidFinalizationBatchSize(maximumCandidates);
+        }
+        _finalizeElection(cycleId, maximumCandidates);
+    }
+
+    function _finalizeElection(uint256 cycleId, uint256 maximumCandidates) private {
         ElectionTypes.CongressCycleRecord memory cycleRecord = _getCycleOrRevert(cycleId);
         if (block.timestamp < cycleRecord.votingEnd) {
             revert ElectionNotEnded(cycleId, cycleRecord.votingEnd, uint64(block.timestamp));
@@ -199,25 +211,26 @@ contract CongressElectionApp is ICongressElectionApp {
 
         // At most 32 candidates enter the durable heap per transaction; nomination and scores are closed.
         ICongressRankingStore ranking = ICongressRankingStore(_congressCandidateRegistry.rankingStore());
-        ranking.process(cycleId, 32);
+        ranking.process(cycleId, maximumCandidates);
         ElectionTypes.FinalizationProgress memory progress = ranking.progress(cycleId);
         if (progress.processedCount != progress.candidateCount) return;
 
         // Stake is not newly locked. A provisional candidate must still qualify before seat activation.
         uint256 selectedCount = progress.selectedCount;
-        uint256 index;
-        while (index < selectedCount) {
+        // Remove from the end so later rejected entries are never shifted repeatedly. The relative rank of every
+        // retained entry is unchanged, and each provisional person is still checked exactly once per call.
+        uint256 index = selectedCount;
+        while (index != 0) {
+            --index;
             (, bytes32 personId) = ranking.selectedAt(cycleId, index);
-            if (_eligiblePerson(policy, personId)) {
-                ++index;
-            } else {
+            if (!_eligiblePerson(policy, personId)) {
                 ranking.removeSelected(cycleId, index);
                 --selectedCount;
             }
         }
         uint256 outcomeSlots = uint256(cycleRecord.seatCount) + cycleRecord.runnerUpCount;
         uint256 considered;
-        while (selectedCount < outcomeSlots && considered < 32) {
+        while (selectedCount < outcomeSlots && considered < maximumCandidates) {
             (address candidate, bytes32 personId) = ranking.peek(cycleId);
             if (candidate == address(0)) break;
             bool eligible = _eligiblePerson(policy, personId);
@@ -229,11 +242,8 @@ contract CongressElectionApp is ICongressElectionApp {
         if (selectedCount < outcomeSlots && progress.remainingRanked != 0) return;
         _congressCandidateRegistry.completeRankedCycle(cycleId);
 
-        if (_congressCandidateRegistry.latestCycleId() == cycleId) {
-            ICongressElectionPolicy nextPolicy = _currentElectionPolicy();
-            (uint64 nominationStart, uint64 votingStart, uint64 votingEnd) = _nextElectionWindow(cycleId, nextPolicy);
-            _createElectionCycle(cycleId, nominationStart, votingStart, votingEnd, nextPolicy);
-        }
+        // New-cycle readiness must not undo this cycle's pinned outcome. Anyone may separately call
+        // createNextElectionCycle once the currently governed policy/electorate bundle is ready.
     }
 
     function _eligiblePerson(ICongressElectionPolicy policy, bytes32 personId) private view returns (bool) {
@@ -307,13 +317,14 @@ contract CongressElectionApp is ICongressElectionApp {
 
         for (uint256 index = term.nextRunnerUpIndex; index < runnerUpCount; ++index) {
             address candidate = _congressCandidateRegistry.getRunnerUpAt(cycleId, index);
-            ElectionTypes.CongressCandidateRecord memory candidateRecord =
-                _congressCandidateRegistry.getCandidate(cycleId, candidate);
-            address currentCandidate = _identityRegistry.activeWalletOf(candidateRecord.personId);
+            // Succession uses identity and score facts only; do not load the candidate's metadata URI.
+            (int256 voteTotal,, bytes32 personId) =
+                _congressCandidateRegistry.getCandidateRankingData(cycleId, candidate);
+            address currentCandidate = _identityRegistry.activeWalletOf(personId);
             if (currentCandidate == address(0) || _congressCandidateRegistry.isActiveCongressMember(currentCandidate)) {
                 continue;
             }
-            if (policy.isEligibleCandidate(currentCandidate) && candidateRecord.voteTotal >= 0) {
+            if (policy.isEligibleCandidate(currentCandidate) && voteTotal >= 0) {
                 return (true, index);
             }
         }

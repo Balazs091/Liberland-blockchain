@@ -72,7 +72,7 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
     ///      at construction, so governance can move from the launch manual oracle to a Uniswap V4 TWAP oracle by
     ///      repointing that module without redeploying this pool. Every resolution re-checks that the oracle prices
     ///      this pool's own USDC (`_priceOracle`), so a mis-scaled or wrong-asset oracle can never be used. The current
-    ///      citizenship floor applies when a lien begins and is snapshotted until that lien is cleared, so a later
+    ///      citizenship floor applies when a loan begins and is snapshotted until that loan is closed, so a later
     ///      floor increase cannot retroactively freeze liquidation.
     constructor(
         address kernelAddress,
@@ -225,6 +225,9 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
 
     /// @inheritdoc IUSDCLendingPoolApp
     function maxBorrowable(bytes32 personId) external view returns (uint256 amount) {
+        if (!_isCurrentLoanOrigin()) return 0;
+        address loanBook = _stakeLienRegistry.loanBookOf(personId);
+        if (loanBook != address(0) && loanBook != address(this)) return 0;
         address wallet = _identityRegistry.activeWalletOf(personId);
         if (!ICitizenEligibilityPolicy(_kernel.getModule(KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY))
                 .isCitizenInGoodStanding(wallet)) {
@@ -324,9 +327,11 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
     /// @inheritdoc IUSDCLendingPoolApp
     function borrow(uint256 amount) external nonReentrant {
         _requireAmount(amount);
+        if (!_isCurrentLoanOrigin()) revert RetiredLendingPool();
         _accrueInterest();
 
         bytes32 personId = _requireActivePerson(msg.sender);
+        _requireAvailableLoanBook(personId);
         if (!ICitizenEligibilityPolicy(_kernel.getModule(KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY))
                 .isCitizenInGoodStanding(msg.sender)) {
             revert BorrowerNotEligible(personId);
@@ -402,9 +407,7 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         uint256 releasedLien = 0;
         if (quote.remainingDebt == 0) {
             releasedLien = _stakeLienRegistry.lienedStakeOf(personId);
-            if (releasedLien != 0) {
-                _stakeLienRegistry.decreaseLien(personId, releasedLien);
-            }
+            _stakeLienRegistry.closeLoan(personId);
         }
         _checkpointAccrualConfiguration(true);
 
@@ -449,7 +452,7 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         seizedStake = oracle.quoteAssetToLlm(repaymentWithBonus);
 
         StakeTypes.StakeRecord memory stakeRecord = _stakeRegistry.getStakeRecord(borrowerPersonId);
-        uint256 seizableStake = _surplusStakeForRecord(borrowerPersonId, stakeRecord);
+        uint256 seizableStake = _positionCollateralForRecord(borrowerPersonId, stakeRecord);
         if (seizedStake > seizableStake) {
             revert InsufficientLiquidationCollateral(borrowerPersonId, seizableStake, seizedStake);
         }
@@ -458,9 +461,7 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
 
         _setScaledDebt(borrowerPersonId, quote.scaledDebt);
 
-        uint256 targetLien = quote.remainingDebt == 0 ? 0 : seizableStake - seizedStake;
-        _syncLienTo(borrowerPersonId, targetLien);
-        _stakeRegistry.transferActiveStake(borrowerPersonId, liquidatorPersonId, seizedStake);
+        _settleLiquidation(borrowerPersonId, liquidatorPersonId, seizedStake, seizableStake, quote.remainingDebt);
         _checkpointAccrualConfiguration(true);
 
         emit StakeBackedPositionLiquidated(
@@ -491,7 +492,7 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         // collateral dust that cannot satisfy the exact rounded-up seizure required by `liquidate`, including the
         // case where one asset unit is too small to change a heavily accrued scaled balance.
         StakeTypes.StakeRecord memory stakeRecord = _stakeRegistry.getStakeRecord(borrowerPersonId);
-        uint256 seizableStake = _surplusStakeForRecord(borrowerPersonId, stakeRecord);
+        uint256 seizableStake = _positionCollateralForRecord(borrowerPersonId, stakeRecord);
         ILendingRiskParameterPolicy.RiskParameters memory riskParams = _riskParameters();
         ILLMPriceOraclePolicy oracle = _priceOracle();
         uint256 minimumEffectiveRepayment = _minimumEffectiveRepayment(borrowerPersonId, debt);
@@ -513,10 +514,7 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
 
         _totalReserves -= coveredByReserves;
 
-        uint256 residualLien = _stakeLienRegistry.lienedStakeOf(borrowerPersonId);
-        if (residualLien != 0) {
-            _stakeLienRegistry.decreaseLien(borrowerPersonId, residualLien);
-        }
+        _stakeLienRegistry.closeLoan(borrowerPersonId);
         _checkpointAccrualConfiguration(true);
 
         emit BadDebtAbsorbed(
@@ -697,7 +695,7 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
 
         StakeTypes.StakeRecord memory stakeRecord = _stakeRegistry.getStakeRecord(personId);
         uint256 liquidationValue = Math.mulDiv(
-            oracle.quoteLlmToAsset(_surplusStakeForRecord(personId, stakeRecord)), liquidationThresholdBps, BPS
+            oracle.quoteLlmToAsset(_positionCollateralForRecord(personId, stakeRecord)), liquidationThresholdBps, BPS
         );
 
         return Math.mulDiv(liquidationValue, HEALTH_FACTOR_SCALE, debt);
@@ -713,6 +711,20 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
 
     function _interestRatePolicy() private view returns (IInterestRatePolicy policy) {
         return IInterestRatePolicy(_kernel.getModule(KernelModuleIds.USDC_INTEREST_RATE_POLICY));
+    }
+
+    function _isCurrentLoanOrigin() private view returns (bool active) {
+        return _kernel.getModule(KernelModuleIds.USDC_LENDING_POOL_APP) == address(this)
+            && _kernel.getModule(KernelModuleIds.STAKE_LIEN_REGISTRY_AUTHORITY) == address(this)
+            && _kernel.getModule(KernelModuleIds.STAKE_LIQUIDATION_AUTHORITY) == address(this)
+            && _kernel.getModule(KernelModuleIds.IDENTITY_REGISTRY) == address(_identityRegistry)
+            && _kernel.getModule(KernelModuleIds.STAKE_REGISTRY) == address(_stakeRegistry)
+            && _kernel.getModule(KernelModuleIds.STAKE_LIEN_REGISTRY) == address(_stakeLienRegistry);
+    }
+
+    function _requireAvailableLoanBook(bytes32 personId) private view {
+        address loanBook = _stakeLienRegistry.loanBookOf(personId);
+        if (loanBook != address(0) && loanBook != address(this)) revert ForeignLoanBook(personId, loanBook);
     }
 
     /// @dev Resolves the LLM/USDC price oracle live from the kernel so governance can swap the launch manual oracle
@@ -739,8 +751,19 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         return stakeRecord.activeStake - retainedStake;
     }
 
+    /// @dev Current loans retain the existing all-active-surplus model. Retirement cannot acquire rights over later
+    ///      unpledged stake: health, liquidation, and bad-debt closure share the same remaining-lien bound.
+    function _positionCollateralForRecord(bytes32 personId, StakeTypes.StakeRecord memory stakeRecord)
+        private
+        view
+        returns (uint256 amount)
+    {
+        amount = _surplusStakeForRecord(personId, stakeRecord);
+        if (!_isCurrentLoanOrigin()) amount = Math.min(amount, _stakeLienRegistry.lienedStakeOf(personId));
+    }
+
     /// @dev The retained floor is the greater of the person's protected floor and the citizenship floor snapshotted
-    ///      when their current lien began. With no lien, the lien registry returns the current policy minimum.
+    ///      when their current loan began. With no outstanding loan, the registry returns the current policy minimum.
     function _retainedStakeFloor(bytes32 personId, uint256 protectedStakeFloor) private view returns (uint256 amount) {
         uint256 citizenshipFloor = _stakeLienRegistry.retainedStakeFloorOf(personId);
         return protectedStakeFloor > citizenshipFloor ? protectedStakeFloor : citizenshipFloor;
@@ -755,6 +778,19 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         }
 
         return targetLien;
+    }
+
+    function _settleLiquidation(
+        bytes32 personId,
+        bytes32 recipientPersonId,
+        uint256 seizedStake,
+        uint256 seizableStake,
+        uint256 remainingDebt
+    ) private {
+        uint256 targetLien = remainingDebt == 0
+            ? 0
+            : Math.min(_stakeLienRegistry.lienedStakeOf(personId), seizableStake - seizedStake);
+        _stakeLienRegistry.settleLiquidation(personId, recipientPersonId, seizedStake, targetLien, remainingDebt == 0);
     }
 
     function _convertToShares(uint256 assets, uint256 managedAssets, Math.Rounding rounding)

@@ -218,6 +218,7 @@ contract ConstitutionKernel is IConstitutionKernel {
                 || moduleId == KernelModuleIds.OFFICE_REGISTRY || moduleId == KernelModuleIds.PRESIDENT_REGISTRY
                 || moduleId == KernelModuleIds.EXECUTIVE_REGISTRY || moduleId == KernelModuleIds.ELECTORATE_REGISTRY
                 || moduleId == KernelModuleIds.USDC_LENDING_POOL_APP || moduleId == KernelModuleIds.MINISTRY_TREASURY
+                || moduleId == KernelModuleIds.PAYOUT_QUEUE
         ) {
             return GovernanceTypes.ModuleClass.State;
         }
@@ -264,7 +265,7 @@ contract ConstitutionKernel is IConstitutionKernel {
         }
         if (
             moduleId == KernelModuleIds.COMPANY_REGISTRY_APP || moduleId == KernelModuleIds.HEAD_OF_STATE_APP
-                || moduleId == KernelModuleIds.LAND_REGISTRY_APP || moduleId == KernelModuleIds.PAYOUT_QUEUE
+                || moduleId == KernelModuleIds.LAND_REGISTRY_APP
         ) {
             return GovernanceTypes.ModuleClass.Application;
         }

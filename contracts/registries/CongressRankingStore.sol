@@ -158,7 +158,8 @@ contract CongressRankingStore is ICongressRankingStore {
     }
 
     function _insert(Entry[] storage heap, Entry memory entry) private {
-        heap.push(entry);
+        // Reserve the new leaf. Each displaced parent or final entry is then written exactly once.
+        heap.push();
         uint256 position = heap.length - 1;
         while (position != 0) {
             uint256 parent = (position - 1) / 2;

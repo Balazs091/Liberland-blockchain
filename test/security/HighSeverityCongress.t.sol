@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.36;
 
-import {CongressElectionsTest} from "../apps/CongressElections.t.sol";
+import {CongressElectionFixture} from "../apps/CongressElections.t.sol";
 import {ElectionTypes} from "../../contracts/types/ElectionTypes.sol";
 import {IdentityTypes} from "../../contracts/types/IdentityTypes.sol";
 import {ICongressCandidateRegistry} from "../../contracts/interfaces/ICongressCandidateRegistry.sol";
 import {CongressElectionPolicy} from "../../contracts/policies/CongressElectionPolicy.sol";
 import {KernelModuleIds} from "../../contracts/libraries/KernelModuleIds.sol";
 
-contract HighSeverityCongressTest is CongressElectionsTest {
+contract HighSeverityCongressTest is CongressElectionFixture {
     function test_Security_ReassignedWalletCannotEraseAnotherPersonsBallotByCasting() public {
         (uint256 cycle, ElectionTypes.CongressCycleRecord memory record) = _createCycle();
         vm.warp(record.nominationStart);
@@ -50,7 +50,7 @@ contract HighSeverityCongressTest is CongressElectionsTest {
         vm.warp(record.votingEnd);
         vm.cool(address(congressCandidateRegistry));
         (bool ok,) = address(congressElectionApp).call{gas: 16_000_000}(
-            abi.encodeCall(congressElectionApp.finalizeElection, (cycle))
+            abi.encodeWithSignature("finalizeElection(uint256)", cycle)
         );
         assertTrue(ok);
     }
@@ -87,7 +87,7 @@ contract HighSeverityCongressTest is CongressElectionsTest {
         vm.cool(address(congressCandidateRegistry));
         uint256 beforeGas = gasleft();
         (bool ok,) = address(congressElectionApp).call{gas: 16_000_000}(
-            abi.encodeCall(congressElectionApp.finalizeElection, (cycle))
+            abi.encodeWithSignature("finalizeElection(uint256)", cycle)
         );
         assertTrue(ok);
         emit log_named_uint("nine maximum-size candidate records, cold finalization gas", beforeGas - gasleft());

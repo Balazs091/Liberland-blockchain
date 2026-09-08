@@ -147,7 +147,9 @@ copy records.
 
 ## Deployment compatibility
 
-This is a breaking replacement of the earlier land ABI and storage model. Existing deployments do not acquire it by
-upgrading only `LandRegistryApp`. Deploy a new `LandRegistry`, `LandPartyPolicy`, and `LandRegistryApp`, migrate and
-verify records, then activate the app, authority, policy, and state pointers in one reviewed atomic action batch.
-Fresh Sepolia and mainnet deployments wire the complete set directly.
+Fresh deployments wire `LandRegistry`, `LandPartyPolicy` and `LandRegistryApp` together. A compatible app-only
+replacement can keep stable registry facts, but app-domain signatures, pending transfer nonces and every authority
+pointer still need review. A registry-model change requires a separately built and reconciled record migration plus
+replacement of all immutable dependents; the current timelock has no generic import/copy action. Activate approved
+pointers with a reviewed action batch and assess individually executable members' intermediate states. See
+[Upgrade and Liveness](Upgrade-And-Liveness.md); a pointer vote alone cannot migrate a cadastre.

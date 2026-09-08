@@ -14,7 +14,9 @@ a migration history or evidence that any deployed address uses this source.
 - Keep a process's pinned policy and completed-block snapshot. Do not replace them with the latest policy when
   displaying a live vote. Senate negative-control processes intentionally use their current policy.
 - Use atomic typed action batches for paired app/authority changes, with a reviewed migration. No arbitrary executor
-  exists. Constitutional review and Senate have narrowly scoped self-replacement liveness exceptions.
+  exists. Members remain individually executable, so intermediate states still require review. Constitutional review
+  and Senate have narrowly scoped self-replacement exceptions, not protection against mutual blocking or a broken
+  referendum/policy/electorate. See [Upgrade and Liveness](../docs/Upgrade-And-Liveness.md).
 
 ## Identity, stake and authority continuity
 
@@ -41,8 +43,13 @@ a migration history or evidence that any deployed address uses this source.
   qualification. Handle `BallotWalletOwnedByAnotherPerson`; old live receipts cannot be overwritten by reassignment.
 - Ballots are cycle-scoped; recasting replaces that cycle's entire ballot. A clear operation follows the current
   person's prior receipt. Do not carry preferences into the next cycle without a new user submission.
-- Counting is resumable. Read the immutable ranking-store address and its progress/events. Intermediate success
-  is not finality; refresh `latestCycleId` only with canonical state, and render chain-returned election timestamps.
+- Counting is resumable. Read ranking-store progress/events; intermediate success is not finality. The original
+  `finalizeElection(uint256)` defaults to 32; the overload accepts a workload of 1..32. Select explicit overloaded
+  signatures and estimate mandatory final activation/revalidation too. After Finalized, separately call
+  `createNextElectionCycle()` when current policy/electorate permit; render chain-returned/previewed timestamps.
+- New voters need historical eligibility/stake at the process snapshot, not just current onboarding/eligibility.
+- Optional Senate/review probes require canonical ABI and fit within 100,000 gas. Deliberately underfunded callers
+  revert; valid active records cannot be bypassed by lowering transaction gas.
 - Two public signatures initiate a repeal referendum; they are neither referendum votes nor final repeal. Show the
   vote, queue delay, action execution and registry result. Failed/canceled rounds need fresh petition signatures.
 - Senate suspensions/renewals require a supporting seat index and published reason hash. Read `requiredSupport()`:
@@ -53,11 +60,18 @@ a migration history or evidence that any deployed address uses this source.
 
 - Payouts need an enacted budget and exact current permissions. Finance contribution rewards are LLM-only,
   admin-proposed, distinct-officer-approved and evidence-backed (`DisbursementType.ContributionReward == 7`); there is no Treasury mint path.
-- Show proposer, approver and their appointment IDs; call `approvePayout` before routing. A clerk may review or route
+- Show proposer, approver and their appointment IDs; call `approvePayout(officeId, requestId)` before routing. A clerk may review or route
   a sensitive admin proposal. Revalidate the original proposer's class/limits, not just the routing signer's role.
   Removing an officer after routing does not cancel the action; use the cancellation path.
-- Reconcile payouts with `syncPayoutState` after execution/cancellation/expiry. Pool positions are keyed by office
-  and pool; support `poolSharesAt`/`withdrawFromPoolAt` for retired pools.
+- Reconcile payouts with `syncPayoutState` on their original queue after execution/cancellation/expiry. The stable
+  budget-ledger `isRequestExecuted(requestId)` marker may already be true while queue state remains Queued; the
+  pinned old vault receipt remains the synchronization evidence. Preserve consumed IDs across any budget-ledger
+  migration and do not treat a replacement vault's false local receipt as proof that an old request was unpaid.
+- Pool positions are keyed by office and pool; support `poolSharesAt`/`withdrawFromPoolAt` for retired pools. Read `loanBookOf(personId)` and keep old
+  loans tied to their originating pool until explicit closure, even if its lien reaches zero. Retired health,
+  liquidation and bad-debt collateral are capped at the remaining lien; do not count later unpledged stake.
+  New origination requires matching canonical identity/stake/lien registries and all three authority pointers.
+  There is no debt/LP import.
 - `currentDebtOf` previews interest; `totalBorrows`, `borrowIndex` and managed assets are stored checkpoints.
   `maxBorrowable` includes pending interest/reserves and scaled-debt rounding for the same state;
   still simulate before submission because other transactions or elapsed time can change capacity. There is no reserve claim.

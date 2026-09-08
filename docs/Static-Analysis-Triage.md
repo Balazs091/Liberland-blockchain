@@ -3,8 +3,8 @@
 Reviewed September 8, 2026 for this local audit candidate. This is AI-assisted internal triage, not independent
 acceptance or a list of confirmed vulnerabilities. The external firm should challenge every disposition.
 
-Slither 0.11.5 analyzed 155 contracts with 101 detectors, without suppressions: **423 results — 6 High, 60 Medium,
-265 Low, 92 Informational**. The full JSON and text output accompany the audit package. The checked-in fingerprint
+Slither 0.11.5 analyzed 156 contracts with 101 detectors, without suppressions: **432 results — 6 High, 66 Medium,
+266 Low, 94 Informational**. The full JSON and text output accompany the audit package. The checked-in fingerprint
 multiset retains descriptions, detector, severity, confidence and multiplicity while ignoring whitespace and line
 movement. A matching baseline is a drift check, not proof of safety.
 
@@ -21,21 +21,21 @@ movement. A matching baseline is a drift check, not proof of safety.
 | Detector | Count | Internal disposition and limits |
 | --- | ---: | --- |
 | divide-before-multiply | 9 | All nine are in pinned OpenZeppelin Math.mulDiv/invMod: exact removal of factors of two, modular-inverse refinement and Euclidean division. Multiplying first or replacing modular arithmetic would change the algorithm. No local dependency patch or warning suppression was made. |
-| incorrect-equality | 24 | Includes exact identity/appointment IDs, nonces, enum states, zero debt and custody/accounting matches. Newly added officer comparisons intentionally reject the same known person and stale/zero appointment IDs. These are exact authorization checks, not price equality. |
-| reentrancy-no-eth | 8 | Value-moving lending entrypoints use nonReentrant; repayment's private helper is entered only through guarded public functions. The newly changed descriptions include the shared reserve-preview helper in the call graph, not a new unguarded value path. Registry references are immutable/trusted reviewed code; callback reads may observe transient state and must not be used as external pricing oracles. Other reports retain typed, state-checked module interactions. Review all external/module/token trust assumptions independently. |
-| uninitialized-local | 2 | CivicAppealReview's fixed memory array and per-iteration boolean are Solidity zero-initialized. Only entries below the counted support are read; the maximum is five. No uninitialized storage pointer or assembly memory read exists. Distinct reviewer and matching-ruling tests exercise the vote count. |
-| unused-return | 17 | Intentionally unused typed outputs or returned sub-record fields; callers validate the required state/status independently. Successful calls are not treated as proof of final election completion. Review return-value drift with interface changes. |
+| incorrect-equality | 26 | Exact identity/appointment IDs, nonces, enum states, zero debt and custody/accounting matches. The two added zero-amount checks reject empty custody handoffs; removing them permits meaningless replays, not improved arithmetic. These are exact state checks, not market-price equality. |
+| reentrancy-no-eth | 9 | Lending financial entrypoints and both custody vaults use nonReentrant. Repayment's private helper is reached only through guarded public methods. New TreasuryVault marking calls the canonical budget registry before the vault-local receipt; the reviewed registry makes no external state-changing callback, requires the current vault and permanently consumes an active request. Token transfer failure rolls back both receipts. Typed lien settlement holds its own guard across the canonical stake transfer. The unguarded accrueInterest cannot accrue more elapsed time in same-timestamp callbacks; the outer operation refreshes its final configuration. Reentrancy/transient read assumptions remain in scope; external callers must not treat mid-call quotes as pricing oracles. |
+| uninitialized-local | 4 | CivicAppealReview's fixed memory array/per-iteration boolean are Solidity zero-initialized and bounded to five entries. StakeRegistry's loanBook and retainedStakeFloor locals are assigned by successful typed reads or the function reverts; a no-book branch returns before reading the floor. No uninitialized storage pointer exists. Broken-policy/no-loan and retained-zero-lien regressions cover both branches. |
+| unused-return | 18 | Intentionally unused typed outputs or sub-record fields. Election progress uses canonical ranking status, not the ignored informational boolean from consider/removeSelected; runner-up reads intentionally discard unneeded ranking fields. Reference-order fuzzing and explicit finalization/next-cycle tests exercise these decisions. Review return-value drift with interface changes. |
 
 ## Low and informational detector labels
 
 | Detector | Count | Internal disposition and limits |
 | --- | ---: | --- |
 | shadowing-local | 1 | Local naming warning; no authority/storage alias inferred. |
-| calls-loop | 114 | Includes five fixed civic reviewers, bounded Senate seats, bounded election chunks/selection, and caller-provided atomic action batches. Batch failure is atomic; caller gas cost is not a protocol-wide lock. The election heap grows logarithmically; the 1,000-candidate campaign is evidence, not an unlimited-population gas proof. |
+| calls-loop | 115 | Includes five fixed civic reviewers, fixed registry-bounded Senate seats, bounded election chunks/selection, and caller-provided atomic action batches. New overload call graphs share the same internal finalizer; reverse revalidation and narrow runner-up reads are measured improvements, not loop elimination. A batch is atomic when called, but its members can be executed individually. Heap cost grows logarithmically; finite stress tests do not prove unlimited-population liveness. |
 | reentrancy-benign | 6 | State/authorization-checked cross-module workflows. Inspect callback order and the separately guarded asset paths; benign is a detector label, not an exemption from review. |
 | reentrancy-events | 27 | Includes CivicAppealReview.executeRuling emitting after the exact immutable app call. Votes are deleted first; the app closes/resolves the case before returning, and its ruling path makes no external state-changing callback. No arbitrary executor exists. |
 | timestamp | 117 | Delays, expiries, cadence and term-based authorization are intentionally time-dependent. Civic filing/ruling deadlines are strict; timeout is inclusive, and upheld cases retain the later of notice and post-ruling delay. Boundary tests exist. Small timestamp variation and operator responsiveness remain assumptions. |
-| assembly | 51 | Primarily pinned cryptography/math/memory utilities plus reviewed callback gas handling. Not changed to satisfy scan labels. |
+| assembly | 53 | Primarily pinned cryptography/math/memory utilities and callback handling. The two new hook-reader blocks use fixed-size allocated output buffers, bounded staticcall gas and indexed words only within the exact validated record size. Gas-underfunding, malformed-width/bool/length, oversized-return and live-hook tests exercise these boundaries. Future gas repricing remains a compatibility risk. |
 | pragma | 1 | Dependency version ranges differ; first-party Solidity and compiler are pinned to 0.8.36. |
 | costly-loop | 17 | Bounded/genesis/explicit batch writes and incremental ranking. Whole-genesis gas and large-population costs need deployment/operational sizing. |
 | cyclomatic-complexity | 5 | Constructor/workflow maintainability warning. Registry/ranking helper split creates headroom without adding authority. |
@@ -44,11 +44,15 @@ movement. A matching baseline is a drift check, not proof of safety.
 | naming-convention | 3 | Style warnings; do not affect dispatch or authorization. |
 | too-many-digits | 7 | Pinned library masks/constants; preserve audited bit patterns. |
 
-The obsolete Senate vote-option helper was removed after proxy entry points were deleted. No detector suppression
-was added. Compared with the preceding baseline, new findings principally describe civic-review loops/deadlines,
-exact appointment checks and zero-initialized vote-count locals; removed proxy paths and the unused helper explain
-the corresponding removals. Do not update counts/fingerprints for a future change without reviewing the complete
-new JSON and recording the new disposition here.
+No detector suppression was added. Compared with `8b6798f`, the net nine added results arise from two zero-amount
+checks, two assigned-or-reverting locals, one unused-return label, one extra loop-call label, two assembly blocks
+and the treasury receipt call. Changed lending/election call-graph descriptions were also reviewed, not silently
+accepted because severity totals happened to match. The four high ERC20-send findings and dependency math labels
+are unchanged; no newly confirmed High implementation defect is inferred from these scanner labels.
+
+The baseline contains every normalized finding with multiplicity. A scanner can miss the confirmed custody,
+retired-book, cross-hook and partial-migration problems in the internal report; a matching baseline is therefore
+not a release-safety verdict. Do not refresh it without reviewing the entire new JSON and documenting dispositions.
 
 Residual assumptions—independent signer control, lawful evidence/notice, token upgrade risks, fixed oracle economics,
 and reviewed state/custody migrations—are launch requirements in [Internal Review](Internal-Audit-Report.md).

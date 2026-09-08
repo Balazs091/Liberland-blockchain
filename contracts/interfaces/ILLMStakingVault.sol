@@ -14,8 +14,11 @@ interface ILLMStakingVault is IKernelModule {
     error UnknownActiveWallet(address wallet);
     error UnauthorizedBackingCredit(address caller);
     error UnauthorizedStakeGateway(address caller);
+    error InactiveStakingVault(address vault);
+    error IncompatibleVaultSuccessor(address successor);
 
     event BackingFunded(address indexed source, uint256 amount, uint256 newTokenBalance);
+    event BackingHandedOff(address indexed successor, uint256 amount, uint256 activeStake);
     event BackedStakeCredited(
         bytes32 indexed personId, address indexed source, uint256 amount, uint256 newActiveStake, uint64 timestamp
     );
@@ -36,6 +39,16 @@ interface ILLMStakingVault is IKernelModule {
 
     /// @notice Returns the canonical stake registry backed by the vault.
     function stakeRegistry() external view returns (address registryAddress);
+
+    /// @notice Returns the identity registry used to resolve current withdrawal recipients.
+    function identityRegistry() external view returns (address registryAddress);
+
+    /// @notice Transfers this retired vault's complete LLM balance to the current governed vault.
+    /// @dev Permissionless completion of an already-approved same-ledger custody replacement. The recipient is
+    ///      never caller-selected and must report the identical kernel, token, identity and stake registries.
+    ///      It does not migrate facts, reassign balances or permit a different ledger/token. Reviewed successor
+    ///      bytecode is still a governance trust requirement; interface getters cannot certify its behavior.
+    function handoffBacking() external returns (uint256 amount);
 
     /// @notice Returns token backing in excess of aggregate active stake.
     function backingSurplus() external view returns (uint256 amount);

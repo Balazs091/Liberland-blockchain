@@ -1,111 +1,156 @@
-# Current Internal Code Review
+# Internal Audit: Upgrade Safety and Release Readiness
 
-Review date: September 8, 2026. Target: the local audit candidate built from the working tree on
-`agent/frontend-howto-audit-build`, incorporating the owner's approved remediation.
-The packaged `PROVENANCE.json` identifies the exact frozen commit, tree, tag and dependencies.
-**Verdict: prepared for independent human-led audit; not approved for mainnet.**
+Review date: September 8, 2026. Baseline: `8b6798f9f4a92d171c15560c090ef53f9f82c645`.
+This report describes the subsequent local remediation candidate. Its exact commit, tree and dependency revisions
+are recorded in the package's `PROVENANCE.json`; baseline findings must not be mistaken for unfixed findings in that candidate.
 
-This is AI-assisted internal engineering work, not an independent security certification. Source tracing,
-regression tests, stateful fuzzing, static-analysis comparison, documentation/ABI checks and a synthetic local
-deployment were used. A passing suite does not prove absence of vulnerabilities. External report claims are not
-accepted merely because they appear in a report, and this document makes no claim about another firm's authorship.
+**Disposition: candidate for independent human-led audit, not mainnet approval or an “unfreezable” certification.**
+The owner explicitly chose to retain existing governance routes after considering an additional permanent citizen
+upgrade ballot. No such ballot, administrator, generic executor or broad negative-power exemption was added.
 
-## Remediation disposition
+This is AI-assisted internal engineering, including parallel source review and cross-review, executable regression
+tests, stateful fuzzing, unsuppressed static analysis, gas measurements and documentation checks. It is not an
+independent audit. Neither writing style nor automated detection can establish who wrote another firm's report;
+this review makes no unsupported authorship claim.
 
-| Area | Current implementation and evidence |
+## Findings against the baseline and remediation
+
+Severity below is contextual impact, not an assertion that an arbitrary outsider can trigger every fault.
+
+| ID | Baseline finding and precondition | Disposition and executable evidence |
+| --- | --- | --- |
+| U-01 — High, conditional liveness | An approved optional Senate/review hook can return successfully with malformed ABI data or consume nearly all forwarded gas. Ordinary `try/catch` does not protect the caller's return decoder, and repeated gas-burning hooks could stop otherwise executable actions. | Fixed with one bounded fixed-buffer reader, exact response length, canonical integer/bool validation and a 100,000-gas allowance. Callers must supply the full allowance; underfunding reverts. `UpgradeLivenessAudit.t.sol` checks empty/invalid/oversized returns, gas exhaustion, direct referendum finalization and valid negative powers. |
+| U-02 — High, lending accounting | Rotating lending writer/liquidator authorities can make old debt impossible to fully repay/liquidate. A successor can lend against collateral backing outstanding old debt; an old pool can top up without touching its revoked lien writer if its computed lien is unchanged. | Fixed with one stable owning loan book per person and all-three-pointer authorization for new debt. Ownership and the captured floor persist until explicit debt closure, even with zero remaining lien. Historical repayment/typed liquidation continue without granting old pools general transfer authority. `WorkflowLivenessAudit.t.sol` and strengthened `LendingInvariant.t.sol`. |
+| U-03 — High, custody activation | Repointing a vault does not move ERC20 custody. The staking successor can inherit withdrawal authority over a shared ledger without receiving backing; a retired treasury has no ordinary way to move its entire reserve into its successor. | Narrow permissionless `handoffBacking()` and `handoffAsset(asset)` transfer only to the already-governed compatible successor, require exact receipt and preserve existing ledgers/receipts. Retired staking operations and Treasury disbursement are blocked; Treasury deposits remain handoff-recoverable. These helpers do not migrate arbitrary state. `StakingVaultUpgrade.t.sol`, `TreasuryUpgrade.t.sol`. |
+| U-04 — Medium, election completion | Finalizing the old election also creates the next using live policy/electorate state. Failure of that unrelated future process rolls back the completed old result. | Finalization and `createNextElectionCycle()` are explicit separate operations. Existing cadence and incumbent registration remain in next-cycle creation. A 1–32 workload overload and simpler counting paths reduce cost without changing election rules. `EfficiencyAudit.t.sol`, Congress unit/invariant suites. |
+| U-05 — Medium, payout accounting | Replacing a payout queue/accounting writer can strand the original queue's outstanding commitment even after its pinned action executes, expires or is canceled. The queue itself stores requests but was classified Application. | Commitments retain their original writer for settlement only; retired writers cannot reserve new amounts or reconcile another writer's new commitment. Queue is now State-class under the existing constitutional threshold. Historical execution remains checked against the original vault. `TreasuryAndOffices.t.sol`, `TreasuryUpgrade.t.sol`. |
+| U-06 — Medium, successor consistency | Senate tally loops use live policy seat count, although canonical occupancy is a fixed registry fact. A successor policy reporting a different count can omit real votes or make tallying unbounded. | Tally uses the registry's fixed total seats. Regression policies reporting zero, one and the maximum uint32 leave legitimate direct-seat support intact. `SenateAndPublicVeto.t.sol`. |
+| U-07 — Medium, upgrade replay continuity | A fresh queue, executor and vault can reuse a paid request ID after old commitment settlement. Fresh officer approvals remain necessary, but request-ID deduplication is lost. | Stable one-shot execution receipts bind consumed IDs in the retained budget registry, independently of the current queue or vault. Current-vault-only recording is atomic with token transfer; historical queue reconciliation remains separate. Different IDs for the same invoice still require off-chain checks; registry replacement requires receipt migration. `TreasuryUpgrade.t.sol`. |
+| U-08 — Documentation | Current-facing guides included stale deployment assertions, wrong Finance call arguments/execution target, misleading seed-voter instructions, double-broadcast verification guidance and overbroad upgrade continuity statements. | Every maintained first-party Markdown document was reviewed. Stale passages were removed or corrected, current ABI contracts are regenerated, and a dedicated dependency/recovery guide was added. The pinned constitutional source is retained as provenance, not rewritten as current protocol law. |
+| U-09 — High, conditional ledger mismatch | A partial registry replacement can leave a pool writing liens into its pinned old ledger while canonical unstaking consults a fresh ledger. New debt can therefore lack the encumbrance observed by withdrawals. | New origination requires matching canonical identity, stake and lien registries; detached lien registries cannot originate liens. This blocks new mismatched lending, not loss of preexisting records through a bad migration. `LoanRetirementIndependentAudit.t.sol`. |
+
+Cross-review also tightened the newly introduced retirement mechanism before freeze: retired health, liquidation
+and bad-debt calculations use the smaller of active surplus and recorded lien, and every retired settlement requires
+`seizedStake + remainingLien <= priorLien`. A reproduced intermediate implementation could seize 14,375 LLM after
+new staking despite an old 5,000 LLM lien; the final regression prevents that extension of historical authority.
+Current-pool all-active-surplus economics remain unchanged. Repayment/closure and additional unpledged stake are
+tested together; a zero numerical lien cannot lock a retired bad-debt position forever.
+
+The malformed-return behavior is documented by [Solidity's exception rules](https://docs.soliditylang.org/en/latest/control-structures.html#try-catch).
+The caller-gas check accounts for [EIP-150's forwarding rule](https://eips.ethereum.org/EIPS/eip-150).
+These sources explain EVM/compiler behavior; the repository tests are the evidence for this implementation.
+
+## Retained recovery limitations — launch decisions, not resolved defects
+
+**R-01: governance can still freeze.** Broken approved referendum code, its required identity/stake/policy dependencies,
+or unavailable certified electorate state can prevent creating the vote needed to replace them. Kernel/router/timelock
+are permanent execution roots. Even citizen-policy activation invokes an electorate rebuild hook. A recoverable
+missed callback is not the same as a defective registry or policy.
+
+**R-02: two negative-power modules can cross-lock replacements.** The exact Senate self-replacement exemption does
+not exempt constitutional review, and the exact review self-replacement exemption does not exempt Senate. Both
+distinct blocking modules and both action-batch orders are exercised in `UpgradeLivenessAudit.t.sol`. The owner
+chose to keep these rules. This is a high-impact conditional architectural limitation, not an issue declared fixed.
+
+**R-03: pointer replacement is not universal migration.** Most app/registry relationships include immutable references
+or app-local pending state. Supported custody/loan/commitment continuity does not supply an importer for identity,
+land, company, electorate, civic cases, debt or LP records. State migration requires a separately designed,
+independently reviewed and reconciled procedure. Exact successor getters are compatibility checks, not proof that
+successor bytecode is safe. Existing deployments do not acquire these fixes without a reviewed transition.
+
+**R-04: independently executable transitions.** `executeActions` is atomic for that transaction, but its individual
+approved actions can also be executed separately. Review every intermediate pointer configuration and overlapping
+execution window; operator batching alone is not an on-chain dependency lock.
+
+**R-05: compatibility of optional hooks.** Failed, over-budget or malformed optional negative-power reads are treated
+as absent. Correct active records remain enforced. The immutable core cannot distinguish accidental failure from an
+intentionally incompatible replacement. Future hook bytecode must fit the fixed ABI/gas contract, including after
+chain gas repricing. This is explicitly documented, not concealed by a catch-all “safe upgrade” claim.
+
+See [Upgrade and Liveness](Upgrade-And-Liveness.md) for the module-by-module map and activation procedure.
+No administrator override was added to resolve these limitations.
+
+## Verification of the remediation candidate
+
+Toolchain: Forge 1.7.1, Solidity 0.8.36, Slither 0.11.5; Osaka, optimizer 200, no via-IR in deployable builds.
+Normal runtime/creation/transaction limits were retained. These final-source checks supersede intermediate runs;
+the packager additionally requires a clean, exact-commit freeze gate before producing the release ZIP.
+
+| Check | Final result |
 | --- | --- |
-| Binding civic appeals | Seven-day notice, one appeal, a pinned purpose-limited 3-of-5 committee, exact case/outcome/evidence digest, 30-day deadline, dismissal on timeout, and the later of notice expiry or two days after an upheld ruling. Subjects cannot withdraw their own case by becoming an officer. Identity unit tests and IdentityLifecycleInvariant exercise these boundaries. |
-| Identity consent and replay | Initial destination consent; exact nonce-bound migration consent; two-officer exceptional recovery. Current appointment IDs are rechecked at finalization; same-block revocation/regrant and office reactivation cannot revive approvals. Known aliases cannot act as distinct proposing/approving officers. Renunciation retires the one-time citizenship grant, so reinstatement cannot bypass the civic process. |
-| Finance separation | Every payout has an actual proposer and distinct current approving officer. Routing rechecks both appointment IDs and the original proposer's spending policy/limits. Sensitive payouts require an admin proposal; a clerk may independently approve or route. Approval withdrawal works only before routing; already-routed actions use the cancellation path. TreasuryAndOffices tests cover aliases, reappointment, expiry and policy checks. |
-| Senate concentration | Every negative power uses strict occupied-seat majority, a floor of two direct seats and any higher policy minimum. President proxy entry points/storage are removed. Occupancy-bound support and live thresholds are rechecked. Senate tests include occupied-seat fuzzing and obsolete-entrypoint rejection. |
-| Borrow quote correctness | One preview index supplies personal/global capacity and pending reserve-adjusted liquidity. The quote inverts scaled-debt rounding rather than subtracting rounded asset debts. Unknown/ineligible borrowers quote zero. Lending regressions/fuzzing check the exact quote and quote-plus-one boundaries; the stateful handler flags failed positive same-state quotes. |
-| Election assurance and size | Final outcome assembly moves to the existing immutable ranking helper; the canonical registry still revalidates and records facts. Dedicated count invariants cover policy replacement, migration, disqualification and independent sorting. Optimized tests exercise 100 and 1,000 candidates in bounded chunks and maximum-length candidate metadata. |
-| Handoff consistency | Current-only docs, 52 regenerated ABIs, committee manifest/schema fields, mandatory five-reviewer deployment inputs, pinned static baseline and repeatable verification tooling. No live manifest or old review verdict is treated as source authority. |
+| Optimized full suite | **529 passed, 0 failed, 0 skipped**, 46 suites |
+| Extended stateful campaign | **23 invariants plus 2 non-vacuity tests passed**, 7 suites; 256 runs at depth 256, seed `0x709`; each invariant reported 65,536 handler calls and zero handler-level reverts |
+| Coverage campaign | **528 passed, 0 failed**, 46 suites; one 1,000-candidate stress instance excluded only from instrumentation, required in the optimized suite; the 100-candidate fixture covers the same count path |
+| Aggregate instrumented coverage | Lines **81.53% (7,914/9,707)**; statements **84.32% (9,193/10,903)**; branches **47.83% (762/1,593)**; functions **88.47% (1,251/1,414)** |
+| First-party production coverage | Summed over 52 reported `contracts/` files excluding mocks: lines **83.63% (6,241/7,463)**; statements **86.81% (7,438/8,568)**; branches **45.91% (611/1,331)**; functions **87.66% (980/1,118)**. Unreported/interface files are not invented coverage |
+| Build and formatting | All deployable runtimes below 24,576 bytes and creation code below the normal limit; formatting and whitespace checks pass |
+| Documentation and interfaces | **22 maintained Markdown documents**, **52 ABI exports**, exact compiled-source parity |
+| Verification-tool tests | **11 passed**; documentation/ABI inventory and static-fingerprint tests |
+| Unsuppressed static analysis | **432 labels**, 427 distinct normalized fingerprints: 6 High, 66 Medium, 266 Low, 94 Informational; full JSON reviewed, all High/Medium findings cross-reviewed independently within the AI-assisted team |
+| Constitutional provenance | Pinned source PDF SHA-256 verified, without replacing the legal source or certifying constitutional validity |
+| Production-script rehearsal | Fresh localhost-only two-stage mock-token/synthetic-genesis deployment passed: seven incumbents, continuity cycle, five case-review accounts, exact committee/app binding, sealed setup and retired kernel/router/office bootstrap |
 
-These changes build on the existing custody, electorate, source-consent, public repeal, land, treasury-reconciliation,
-module-classification and two-stage genesis hardening. Their full surface remains in scope for independent review,
-not just the latest edits. See [External Scope](Audit-Scope.md) and [Governance](Governance.md).
+The production branch coverage is an explicit human-audit assurance gap, not obscured by script/test coverage.
+The package contains final test, coverage, invariant, size, ABI/docs, static and rehearsal evidence plus paired gas
+measurements. The before/after cross-review logs are diagnostic history, not additional release source versions.
 
-## Verified evidence
+Test-instance counts include inherited cases and are not counts of independent security scenarios. Congress fixtures
+and lending fixtures were separated from tests to remove repeated inheritance; counts are not directly comparable
+to the baseline's.
+Coverage includes script/test instrumentation and remains an incomplete assurance measure. Stateful handlers catch
+expected rejected operations; failure flags and non-vacuity tests are needed to detect silent absence of progress.
+Neither a finite fuzz campaign nor a clean static-baseline comparison proves absence of vulnerabilities.
 
-Toolchain: Forge 1.7.1, Solidity 0.8.36, Slither 0.11.5; Osaka, optimizer 200. Deployable builds use no via-IR,
-code-size override or transaction-gas-cap bypass.
+## Measured efficiency and remaining simplification opportunities
 
-| Check | Result |
-| --- | --- |
-| Full optimized suite | **498 passed, 0 failed, 0 skipped**, 36 suites; inherited test instances are included, not 498 independent scenarios |
-| Extended stateful campaign | **23 invariants plus 2 deterministic non-vacuity tests passed**; 7 suites, 256 runs at depth 256, seed `0x709`; each invariant reports 65,536 handler calls and zero handler-level reverts |
-| Coverage campaign | **496 passed, 0 failed**; the two inherited 1,000-candidate stress instances are explicitly filtered only from coverage because instrumented fixture setup exceeds the harness gas budget. The optimized full suite requires them; the 100-candidate fixture instruments the same counting path |
-| Aggregate coverage | Lines **80.41% (7,392/9,193)**; statements **83.36% (8,599/10,316)**; branches **46.51% (726/1,561)**; functions **87.73% (1,165/1,328)** |
-| Optimized build | All deployable runtimes below 24,576 bytes and creation code below the normal limit |
-| Frontend interfaces | **52 exports** regenerated and checked against compiled source |
-| Verification-tool tests | **11 passed**; link/ABI inventory and finding-fingerprint regression checks |
-| Static analysis | **423 unsuppressed results**, 418 distinct normalized fingerprints: 6 High, 60 Medium, 265 Low, 92 Informational; see [Triage](Static-Analysis-Triage.md) |
-| Constitutional input | Pinned PDF SHA-256 verified; no substitution or claim of legal certification |
-| Production-script rehearsal | Fresh two-stage **localhost-only** mock-token/synthetic-genesis deployment; seven incumbents, continuity cycle, committee/app binding, five reviewer manifest entries, sealed setup, retired kernel/router/office bootstrap |
+The paired election measurements use setup in a separate transaction; measuring immediately after constructing
+a fixture undercounts cold persisted-state costs.
 
-Coverage includes test/script instrumentation; it is not production-only coverage. Branch coverage remains an
-assurance gap for the external firm. Stateful handlers catch expected rejected actions, so zero handler reverts
-does not mean every attempted protocol operation succeeded; separate failure flags and non-vacuity tests help
-detect vacuous campaigns. Randomized testing is bounded, not exhaustive or formal verification.
-
-The optimized 1,000-candidate fixture verifies each measured finalization call below 12 million execution gas,
-with no admission quota; this is a finite-size test, not a proof for arbitrary population or economic keeper
-incentives. Cold-state and real-chain transaction overhead must be remeasured on the intended deployment.
-
-Principal packaged evidence: full-suite, extended-invariant, coverage, optimized-size, ABI/docs, tooling and static
-logs, the full Slither JSON, local rehearsal outputs and the clean-tree freeze-gate result. The initial failed
-coverage stress attempt is not a passing check; the documented filtered coverage command is the reproducible one.
-The package records checksums so evidence cannot silently be paired with another source revision.
-
-## Runtime headroom and further code improvements
-
-| Contract | Runtime bytes | Remaining bytes |
+| Persisted-state scenario | Baseline gas | Candidate gas |
 | --- | ---: | ---: |
-| CongressCandidateRegistry | 23,904 | **672** |
-| SenateApp | 20,215 | 4,361 |
-| IdentityApp | 19,339 | 5,237 |
-| USDCLendingPoolApp | 15,565 | 9,011 |
-| OfficeExecutor | 10,741 | 13,835 |
-| CivicAppealReview | 3,792 | 20,784 |
+| 32 inserts into a 960-entry heap | 4,843,729 | 4,813,154 |
+| One-candidate adaptive batch | — | 363,554 |
+| Revalidate 31 disqualified provisional candidates | 3,824,595 | 2,936,510 |
+| Scan 31 retained runner-ups with maximum metadata | 6,579,049 | 1,627,332 |
+| Maximum supported 31-seat + 1-runner activation | — | 14,431,650 |
 
-The registry's headroom is improved but still narrow. Treat 672 bytes as a maintenance constraint, not a resolved
-long-term sizing problem. The authority-free immutable ranking helper is worth retaining; further decomposition
-should follow measured needs and separate review, without moving canonical facts or adding a mutable executor.
-A wholesale rewrite is not recommended.
+Changes: reserve an empty heap leaf instead of writing twice; remove ineligible provisional entries in reverse order;
+read person/score facts instead of up to 2,048 bytes of irrelevant metadata; separate finalized results from future
+scheduling. These preserve the voting rules. The insertion batch is adjustable, but outcome revalidation/activation
+still has its own bounded cost. These are finite workload measurements, not arbitrary-population, future gas-price
+or keeper-incentive guarantees.
 
-Other non-blocking implementation opportunities include paginated election UI reads and a nonce-bound correction/
-cancellation workflow for an unaccepted initial-wallet proposal. They are not silently added to this candidate.
+CongressCandidateRegistry remains 23,904 runtime bytes: only **672 bytes below the 24,576-byte limit** specified by
+[EIP-170](https://eips.ethereum.org/EIPS/eip-170). Retain this as a maintenance constraint. A wholesale state-registry
+rewrite would enlarge the audit surface; isolate future additions only when measured requirements justify it.
+Senate support aggregation remains a bounded live scan: cached totals would complicate occupancy/reappointment
+invalidation. Paginated UI reads and UX cancellation of unaccepted initial-wallet proposals remain possible later
+work, not silently included features.
 
-## Explicit retained risks and launch requirements
+## Other current controls and audit scope
 
-- **Independent authority is partly operational.** Distinct addresses and known-person checks do not prove distinct
-  real controllers, guardians or recovery paths. Office admins can appoint clerks. Verify disjoint controlling
-  signers, responsive Identity/Finance officers and five independently controlled review accounts. Generic office
-  appointments are wallet-bound; audit known/historical aliases and off-chain conflicts, not just active addresses.
-- **Civic due process is not truth verification.** Hashes do not prove evidence availability, lawful grounds, notice
-  delivery or reasoned judgment. Publish procedures and retain documents. Timeout intentionally dismisses unanswered
-  appeals. Fixed reviewer rotation does not transfer existing notices; replacing IdentityApp requires state/process
-  migration. Owner approval is not independent constitutional/legal approval.
-- **Finance separation is scoped to treasury payouts.** Existing ministry balance spending and explicitly sourced
-  Congress/ministry decisions retain their separately documented policies; they do not acquire a new universal
-  two-signature requirement. After routing, revoking an officer is not action cancellation.
-- **Economics and external assets remain launch blockers.** The fixed 1 LLM = 2 USDC oracle can become economically
-  wrong. Mainnet uses 30% LTV, 40% liquidation threshold, 15% bonus/reserves and the documented caps; these values are
-  not economic certification. Verify exact token bytecode/proxy powers, real liquidity/liquidators, bad debt and
-  funding reserves on a production-state fork.
-- **Module replacement remains trusted governance.** An exact-address vote does not migrate state/custody or prove
-  compatible behavior. Current negative-hook fail-open conditions and exact self-replacement exceptions are
-  deliberate boundaries. Defective approved referendum code can impair liveness; no recovery backdoor was added.
-- **Land/company lifecycle and omitted law remain explicit.** Prevent a company from losing its operational
-  directors/status while it holds land until a lawful recovery/disposition procedure is agreed. The candidate
-  has no general court, arbitrary registrar seizure, broad slashing authority or universal emergency executor.
-- **No operational launch is claimed.** No public deployment, frontend live-wallet smoke test, production-state fork,
-  real genesis verification or external human audit was performed here. Existing public addresses are not upgraded
-  by these changes. Human findings, accepted residual risks and final operational/legal sign-off must precede launch.
+The full current source remains in scope, including the previous approved civic due-process rules, independent
+3-of-5 case committee, seven-day notice, one appeal, 30-day dismissal timeout and two-day post-upheld delay;
+consent/nonces and current office-appointment checks; two distinct current Finance officers; direct occupied-seat
+Senate majority with at least two votes and no President proxy; source-authorized decisions; land consent and
+versioning; interest/reserve/rounding arithmetic; electorate snapshot maintenance; and two-stage sealed genesis.
+These controls are not certified simply because their regression tests pass.
 
-## Auditor starting point
+## Remaining mainnet requirements
 
-Use [Auditor Handoff](Auditor-Handoff.md), verify the archive/commit provenance, and independently challenge the
-state machines and assumptions above. Run the checked-in freeze gate on the clean repository, or the equivalent
-commands documented for the source archive. The package is a candidate for that review, not its conclusion.
+- Independent human audit of every production source and deployment path, including fresh fixes and known recovery
+  limits; independent remediation verification and explicit residual-risk acceptance.
+- Real token/proxy/admin review and a production-state fork. The fixed oracle can become economically wrong; verify
+  liquidity, interest, collateral, bad debt, liquidator incentives and all current deployment caps.
+- Verified real genesis records and stake backing; independent controlling signers for offices and five reviewers;
+  key loss, rotation, conflict and incident procedures. Distinct addresses do not prove independent people.
+- Lawful notice/evidence publication and legal/constitutional approval. Hashes do not prove truth or availability;
+  owner-approved protocol choices are not external legal certification.
+- Resolve operational land/company signer continuity. A dissolved or directorless company holding land has no
+  invented registrar takeover or universal court executor in this code.
+- Frontend live-wallet/end-to-end checks, monitored keepers, rehearsed transitions, reproducible build/address
+  manifests and operational sign-off. Local mock genesis is not a public deployment or production-state fork.
+
+Nothing in this preparation pushes GitHub changes or upgrades a public chain. Start independent review with
+[Auditor Handoff](Auditor-Handoff.md), [External Scope](Audit-Scope.md) and the complete unsuppressed
+[Static Triage](Static-Analysis-Triage.md).

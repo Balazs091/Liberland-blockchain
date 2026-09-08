@@ -3,6 +3,7 @@ pragma solidity 0.8.36;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 import {KernelModule} from "../base/KernelModule.sol";
 import {IBudgetEnvelopeRegistry} from "../interfaces/IBudgetEnvelopeRegistry.sol";
@@ -15,7 +16,7 @@ import {TreasuryTypes} from "../types/TreasuryTypes.sol";
 /// @notice Minimal ERC20 treasury vault executed only through the governance timelock.
 /// @dev System money is ERC20 (LLM and stablecoins); native ETH is gas-only and is deliberately not accepted, so
 ///      the vault has no payable path at all.
-contract TreasuryVault is ITreasuryVault, KernelModule {
+contract TreasuryVault is ITreasuryVault, KernelModule, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
     mapping(bytes32 requestId => bool executed) private _executedRequests;
@@ -33,7 +34,7 @@ contract TreasuryVault is ITreasuryVault, KernelModule {
     }
 
     /// @inheritdoc ITreasuryVault
-    function receiveTokenDeposit(address asset, uint256 amount, bytes32 depositReference) external {
+    function receiveTokenDeposit(address asset, uint256 amount, bytes32 depositReference) external nonReentrant {
         if (asset == address(0) || asset.code.length == 0) {
             revert InvalidTreasuryDepositAsset(asset);
         }
@@ -53,7 +54,28 @@ contract TreasuryVault is ITreasuryVault, KernelModule {
     }
 
     /// @inheritdoc ITreasuryVault
-    function executeDisbursement(GovernanceTypes.TreasuryDisbursementPayload calldata payload) external {
+    function handoffAsset(address asset) external nonReentrant returns (uint256 amount) {
+        address successor = _kernel.getModule(KernelModuleIds.TREASURY_VAULT);
+        if (successor == address(this) || ITreasuryVault(successor).kernel() != address(_kernel)) {
+            revert IncompatibleTreasurySuccessor(successor);
+        }
+        if (asset == address(0) || asset.code.length == 0) revert InvalidTreasuryDepositAsset(asset);
+
+        IERC20 token = IERC20(asset);
+        amount = token.balanceOf(address(this));
+        if (amount == 0) revert InvalidTreasuryDeposit(amount);
+        uint256 balanceBefore = token.balanceOf(successor);
+        token.safeTransfer(successor, amount);
+        uint256 received = token.balanceOf(successor) - balanceBefore;
+        if (received != amount) revert UnexpectedDisbursementAmount(amount, received);
+        emit TreasuryAssetHandedOff(successor, asset, amount);
+    }
+
+    /// @inheritdoc ITreasuryVault
+    function executeDisbursement(GovernanceTypes.TreasuryDisbursementPayload calldata payload) external nonReentrant {
+        if (_kernel.getModule(KernelModuleIds.TREASURY_VAULT) != address(this)) {
+            revert InactiveTreasuryVault(address(this));
+        }
         if (msg.sender != _kernel.getModule(KernelModuleIds.ACTION_TIMELOCK)) {
             revert UnauthorizedTreasuryCaller(msg.sender);
         }
@@ -88,6 +110,9 @@ contract TreasuryVault is ITreasuryVault, KernelModule {
             revert InsufficientTreasuryBalance(payload.asset, balance, payload.amount);
         }
 
+        // The stable ledger keeps replay protection even when this vault and the accounting queue are replaced.
+        // A downstream token failure reverts both this global marker and the historical vault-local receipt.
+        budgetRegistry.markExecution(payload.requestId);
         _executedRequests[payload.requestId] = true;
         emit TreasuryDisbursementExecuted(
             payload.requestId,

@@ -12,7 +12,9 @@ exact `cap()`. The Treasury is a holder and spender, never an issuer: it has no 
 - `TreasurySpendingPolicy` is an explicit per-asset allowlist with per-asset clerk limits.
 - Referendum proposal fees are pulled in the policy's fee asset into the treasury.
 - Treasury disbursements execute only through the typed router/timelock path.
-- The vault independently requires the payload request ID, budget ID, amount, and asset to match an active stable-registry budget commitment.
+- The current vault independently requires the payload request ID, budget ID, amount, and asset to match an active
+  stable-registry budget commitment. It marks `BudgetEnvelopeRegistry.isRequestExecuted(requestId)` before the
+  transfer; token failure rolls back both this permanent marker and the vault-local execution receipt.
 - Outbound transfers require the recipient's balance to increase by the exact requested amount; fee-on-transfer and
   otherwise non-exact assets revert instead of silently underpaying the recipient.
 - `ContributionReward` payouts are LLM-only, Finance-admin-proposed, independently officer-approved, evidence-backed, and use the sensitive queue delay.
@@ -21,6 +23,37 @@ exact `cap()`. The Treasury is a holder and spender, never an issuer: it has no 
 - Anyone may call `syncPayoutState` to reconcile an executed, Senate-canceled, or expired timelock action. For
   execution, it checks `isDisbursementExecuted(requestId)` on the vault address pinned into that action rather than
   a replacement live vault pointer.
+
+### Execution receipts and deferred reconciliation
+
+Execution and queue accounting are separate observable stages:
+
+| Stage | Stable execution marker | Budget accounting / queue |
+| --- | --- | --- |
+| Routed, not executed | False | Amount committed; request Queued |
+| Executed, not synchronized | True | Amount remains committed; request may still read Queued |
+| Executed and synchronized | True permanently | Amount becomes spent; request Executed |
+| Canceled/expired and synchronized without payment | False | Commitment released; request canceled/vetoed/expired |
+
+`BudgetEnvelopeRegistry.isRequestExecuted(requestId)` prevents a paid ID from being reserved or paid again through
+replacement queues and vaults that retain this ledger. It is request-ID replay protection, not proof that two
+different IDs do not refer to the same real invoice. Canceled unexecuted IDs are not permanently consumed at the
+ledger level, but each queue's own uniqueness rules still apply. Frontends must not call `markExecution` directly;
+only the current vault records it as part of the atomic payment.
+
+Call `syncPayoutState(requestId)` on the queue that actually owns the request. That queue checks the action's pinned
+vault-local receipt before moving committed budget to spent. Replacement vaults may correctly return false for an
+old payment while the stable ledger returns true. Commitments retain their original accounting writer for bounded
+settlement after writer rotation; only the current accounting authority can make new reservations. Both the current
+and original writer must obey the stable execution receipt: `releaseBudget` rejects a paid commitment, while
+`recordDisbursement` requires payment. Paid committed capacity can become spent, never released for reuse.
+
+Before queue/executor/vault replacement, inventory proposed and routed requests. `OfficeExecutor` immutably pins
+its queue, so moving only the kernel `PAYOUT_QUEUE` ID does not redirect it. Prefer completing/canceling requests
+before transition. Unexecuted actions pinned to a replaced vault cannot silently execute on its successor; cancel
+through an available authorized route or wait for expiry, then synchronize the original queue. Pending proposals
+and officer approvals are not copied into a new queue. A budget-registry migration must separately preserve consumed
+request IDs as well as envelopes and commitments.
 
 ### Contribution rewards
 
@@ -46,9 +79,12 @@ LLM. Finance clerks cannot propose this class but may supply the independent app
 - `StakeRegistry.totalActiveStake()` is the aggregate accounting side of the backing invariant
 - liquidation transfers active stake between person IDs and never releases liquid LLM
 
-The invariant is:
+The ordinary-operation backing invariant is:
 
 `LLM.balanceOf(stakingVault) >= StakeRegistry.totalActiveStake()`
+
+During a reviewed pointer/handoff transition, backing may temporarily remain in the retired vault. Complete and
+verify handoff before treating the successor as operational; a pointer vote alone does not establish its backing.
 
 ## Stake-backed lending pool
 
@@ -88,19 +124,48 @@ accepted launch risk. Governance can replace the oracle policy after review with
 threshold cannot require more collateral, including bonus, than the position's full quoted collateral value.
 
 When a person's first lien is created, `StakeLienRegistry` snapshots the current citizenship retained-stake floor.
-That value remains fixed until the lien reaches zero, then is cleared. A later citizenship-policy increase therefore
+That value and the pool's loan ownership remain until explicit loan closure after full repayment or bad-debt
+absorption. Liquidation can exhaust the lien while debt remains; a zero lien alone does not clear ownership or the floor. A later citizenship-policy increase therefore
 does not retroactively make the old position impossible to liquidate. The ordinary protected stake floor still
 applies if it is higher, and protected-floor updates cannot raise the effective required floor above active stake.
 
 Liquidation moves seized collateral to the liquidator as active stake. `absorbBadDebt(personId)` first computes the
 smallest asset repayment that actually reduces the borrower's scaled debt at the current index, applies the
 liquidation bonus and oracle conversion with the same conservative rounding as liquidation, and rejects the
-write-off while the available surplus stake can cover that seizure. The protected/retained floor is not available
-to a liquidator and is therefore not treated as recoverable collateral. Once surplus stake cannot fund that minimum
+write-off while the position's recoverable collateral can cover that seizure. The active pool uses the existing
+all-active-surplus model; a retired pool caps recoverable collateral at its remaining recorded lien. The protected/retained floor is not available
+to a liquidator and is therefore not treated as recoverable collateral. Once that recoverable collateral cannot fund that minimum
 effective liquidation, absorption clears the residual scaled debt: protocol reserves absorb loss first, and any
-remaining deficit lowers LP share value until a governed treasury transfer restores the pool.
+remaining deficit lowers LP share value; an independently approved treasury backstop could recapitalize it but is
+not guaranteed or automatic.
 
 Protocol reserves accrue from borrow interest and remain locked in the pool as first-loss capital. There is no reserve-withdrawal entrypoint. A future withdrawal would require a new bounded governance action and separate review.
+
+## Retirement and custody transitions
+
+`StakeLienRegistry.loanBookOf(personId)` identifies the sole pool for an open loan. Only the pool jointly selected
+by the current pool, lien-authority and liquidation-authority IDs may add borrowing, and its immutable
+identity/stake/lien registries must match the canonical ledger IDs. Retired pools cannot originate
+or top up loans; `maxBorrowable` returns zero for retirement or an open loan owned by another pool. A successor must
+wait for the old book to close. Debt and LP shares remain in their original pool rather than migrating.
+
+Retired owners can repay, liquidate or absorb their own old positions through typed lien-registry settlement.
+A retired origin's settlement requires `seizedStake + remainingLien <= priorLien` and checks retained/protected
+floors before the atomic collateral transfer. Its health/liquidation/bad-debt calculations use at most the lesser of
+current surplus and recorded lien, so newly added unpledged stake cannot revive or enlarge old liquidation rights.
+The active pool's prior all-active-surplus collateral economics are unchanged.
+Pools have no general direct stake-transfer permission. Old deposits/withdrawals remain callable, subject to
+liquidity, token and policy constraints. Do not market a retired pool as the current source of new loans.
+
+After approved same-ledger LLM vault replacement, anyone may call the retired vault's `handoffBacking()` to send its
+complete balance to the exact current governed successor, with matching kernel, token and identity/stake ledgers,
+exact receipt and aggregate-backing checks. Treasury `handoffAsset(asset)` similarly has one exact same-kernel
+successor and exact token receipt; its historical disbursement receipts remain in the old vault. Neither operation
+imports facts, debt, LP shares or cases. Original budget accounting writers can reconcile only their own existing
+commitments after replacement, not reserve new budget capacity.
+
+See [Upgrade and Liveness](Upgrade-And-Liveness.md) for dependency closure, temporary transition availability,
+individually executable batch members and the retained governance recovery limits.
 
 ## Ministry treasury
 

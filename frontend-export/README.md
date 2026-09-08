@@ -37,9 +37,10 @@ Production uses Ethereum mainnet (`chainId: 1`) and `deployments/ethereum-mainne
 - `LLMToken.decimals()` is `18` and `cap()` is `70_000_000e18`; multiply user-entered whole LLM by `1e18` for on-chain calls and divide on-chain base-unit balances by `1e18` for display
 - The demo uses the production-like 30-day unstake welfare period and a fast 72-hour Congress election cycle
 - The seeded demo election and all later demo elections end at `17:00 UTC`; production uses the same fixed endpoint with a 90 day recurring duration
-- Late finalization advances the next full cycle to the next `17:00 UTC` boundary, so refresh or preview timestamps instead of deriving them from transaction time
-- Congress counting may need repeated bounded transactions. Final activation of the latest cycle creates the next
-  deterministic cycle in that final transaction; intermediate success is not finality.
+- Late next-cycle creation advances the next full cycle to the next `17:00 UTC` boundary, so refresh or preview timestamps instead of deriving them from transaction time
+- Congress counting may need repeated transactions. `finalizeElection(uint256)` defaults to 32;
+  `finalizeElection(uint256,uint256)` accepts workloads of 1..32. Final activation completes only its pinned cycle;
+  explicitly call `createNextElectionCycle()` afterwards when current policy/electorate readiness permits
 - Congress ballots are cycle-scoped. Recasting replaces the full ballot only in that cycle; no allocation carries forward.
 - `stakingVault` is the canonical LLM custody address and `electorateRegistry` provides bounded constitutional snapshot totals
 - live referendum/election creation verifies
@@ -53,10 +54,14 @@ Production uses Ethereum mainnet (`chainId: 1`) and `deployments/ethereum-mainne
 - Router origins (`ReferendumApp`, `CongressElectionApp`, `SenateApp`, and `OfficeExecutor`) and the
   constitutional-review hook use the constitutional module threshold; only bounded apps without routing/review power
   use the ordinary module threshold
-- Coordinated app/authority upgrades use `ActionTimelock.executeActions(actionIds)` so pointer activation is atomic
+- Coordinated app/authority upgrades use `ActionTimelock.executeActions(actionIds)` for atomic submission; members
+  remain individually executable, so reviewed intermediate states are necessary
 - the incumbent Senate cannot cancel or hold open the active referendum for its exact `SENATE_APP` replacement or
   cancel the resulting action; its queue hook is skipped only there. Constitutional review is skipped only for its
   own exact pointer replacement; all normal vote and queue checks still apply
+- optional negative-power hooks have a 100,000-gas budget and canonical ABI requirement. Underfunded calls revert;
+  genuinely reverting/over-budget/malformed probes are ignored. Mutual Senate/review blocking and broken referendum
+  dependencies remain recovery limits; see `../docs/Upgrade-And-Liveness.md`
 - Official contribution rewards are LLM-only Finance-admin-proposed, distinct-officer-approved payouts from a referendum-approved budget and require a displayed evidence hash/URI; the Treasury never mints LLM
 - Senate treasury suspensions and renewals require a published-document hash submitted by a current supporting seat holder; display `DisbursementSuspension.reasonHash` with the active deadline
 - `DecisionApp`, `MinistryTreasury`, and lending are deployed by both manifests; production uses external USDC and
@@ -117,8 +122,9 @@ Production uses Ethereum mainnet (`chainId: 1`) and `deployments/ethereum-mainne
   - `OfficeExecutor`
   - `PayoutQueue`
   - `TreasuryVault`
-  - call `syncPayoutState(requestId)` after timelock execution/cancellation/expiry; do not infer queue state solely
-    from the timelock
+  - call `syncPayoutState(requestId)` on the original queue after execution/cancellation/expiry; do not infer queue
+    state solely from the timelock. `BudgetEnvelopeRegistry.isRequestExecuted(requestId)` is the stable paid-ID
+    marker across queue/vault replacements, while the original vault receipt remains synchronization evidence
 - land and company reads
   - `LandPartyPolicy`
   - `LandRegistry`
@@ -133,9 +139,11 @@ Production uses Ethereum mainnet (`chainId: 1`) and `deployments/ethereum-mainne
   - use `currentDebtOf(personId)` for current debt; `totalBorrows()` and `borrowIndex()` are stored checkpoints
   - do not expose a protocol-reserve claim action; reserves are locked first-loss capital
   - expose `absorbBadDebt(personId)` only as permissionless loss reconciliation: it rejects while the smallest
-    repayment that reduces scaled debt remains liquidatable from surplus stake; protected/retained floor stake is
-    not recoverable collateral
+    repayment that reduces scaled debt remains liquidatable. Active pools use surplus stake; retired pools cap
+    collateral at their remaining recorded lien. Protected/retained floors are not recoverable collateral
   - ministry positions are keyed by office and pool; expose `poolSharesAt`/`withdrawFromPoolAt` for retired pools
+  - show `loanBookOf(personId)` and route existing-loan operations to that originating pool; a replacement cannot
+    originate another loan for the same person until explicit closure. Debt/LP shares are not migrated
 
 ## ABI guidance
 
@@ -174,8 +182,9 @@ The intended public demo flow is:
 5. User approves `DemoCitizenGateway` to spend the same whole-number `LLM` amount
 6. User calls `stake` or the discrete `unstake` flow
 7. The election screen reads the latest Congress cycle from `CongressCandidateRegistry.latestCycleId()`
-8. Eligible citizens can apply during nomination windows, vote during voting windows, and finalize ended cycles
-9. After finalization, refresh `latestCycleId()` because the next recurring cycle may already have been created
+8. Citizens may apply during nomination; voting also requires eligibility/stake at that cycle's stored snapshot.
+   Newly onboarded users cannot vote in an earlier-snapshotted seed cycle merely because they are eligible now
+9. Continue bounded finalization until canonical Finalized status, then explicitly create the next cycle once ready
 10. For the ballot UI, read `getBallotReceipt(cycleId, wallet)` and `getBallotAllocationAt(cycleId, wallet, index)`; discard it when moving to another cycle
 11. After candidate wallet migration, retain the original application address as the stable ballot target and treat
     a still-linked current active wallet as an alias of that candidate

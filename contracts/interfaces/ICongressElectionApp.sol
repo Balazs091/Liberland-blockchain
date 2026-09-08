@@ -8,6 +8,7 @@ interface ICongressElectionApp {
     error CandidateRegistrationClosed(uint256 cycleId, uint64 nominationStart, uint64 votingStart, uint64 currentTime);
     error ElectionNotEnded(uint256 cycleId, uint64 votingEnd, uint64 currentTime);
     error InvalidBallotLength(uint256 candidateCount, uint256 allocationCount);
+    error InvalidFinalizationBatchSize(uint256 maximumCandidates);
     error InvalidPolicy(address policyAddress);
     error InvalidRegistry(address registryAddress);
     error InvalidElectionWindow(uint64 nominationStart, uint64 votingStart, uint64 votingEnd);
@@ -72,6 +73,8 @@ interface ICongressElectionApp {
         returns (uint256 cycleId);
 
     /// @notice Creates the next recurring Congress election cycle using the policy-defined cadence.
+    /// @dev Permissionless. Call after finalizing the previous cycle; current policy/electorate readiness affects
+    ///      this new process only and cannot roll back the completed election.
     /// @return cycleId The created cycle identifier.
     function createNextElectionCycle() external returns (uint256 cycleId);
 
@@ -109,7 +112,15 @@ interface ICongressElectionApp {
     /// @param cycleId The cycle identifier to finalize.
     /// @dev Permissionless and resumable: repeat until the registry cycle status is Finalized. Each call ranks
     ///      at most 32 candidates and considers at most 32; an intermediate successful call is not finality.
+    ///      Next-cycle creation is a separate permissionless call to `createNextElectionCycle`.
     function finalizeElection(uint256 cycleId) external;
+
+    /// @notice Advances a completed election with a caller-selected bounded workload.
+    /// @param cycleId The cycle identifier to finalize.
+    /// @param maximumCandidates Maximum candidates to rank and then consider in this call, from 1 through 32.
+    /// @dev Lower batches accommodate deeper heaps or tighter transaction gas budgets. Up to 32 previously selected
+    ///      outcomes are still revalidated; the chosen batch never changes ordering, eligibility, or seat counts.
+    function finalizeElection(uint256 cycleId, uint256 maximumCandidates) external;
 
     /// @notice Vacates the caller's current seat and promotes the next eligible runner-up when available.
     /// @return seatIndex The vacated seat index.

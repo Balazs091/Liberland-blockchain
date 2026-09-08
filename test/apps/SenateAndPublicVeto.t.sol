@@ -73,6 +73,29 @@ contract MockReferendumAppForSenate {
     }
 }
 
+/// @notice Preserves the current Senate rules while deliberately misreporting its redundant seat-count getter.
+contract MiscountedSenatePolicyForEfficiency {
+    ISenatePowersPolicy private immutable _rules;
+    uint32 public immutable seatCount;
+
+    constructor(ISenatePowersPolicy rules, uint32 reportedSeats) {
+        _rules = rules;
+        seatCount = reportedSeats;
+    }
+
+    function minimumActionCancellationSupport() external view returns (uint32) {
+        return _rules.minimumActionCancellationSupport();
+    }
+
+    function disbursementSuspensionPeriod() external view returns (uint64) {
+        return _rules.disbursementSuspensionPeriod();
+    }
+
+    function isActionCancellationAllowed(GovernanceTypes.ActionRecord calldata record) external view returns (bool) {
+        return _rules.isActionCancellationAllowed(record);
+    }
+}
+
 /// @title SenateAndPublicVetoTest
 /// @notice Covers v1 Senate succession, bounded Senate cancellation, and headcount-based public repeal.
 contract SenateAndPublicVetoTest is Test {
@@ -184,6 +207,26 @@ contract SenateAndPublicVetoTest is Test {
         senateApp.supportActionCancellation(id, 0);
         _finalizeActionCancellationAtDeadline(id);
         assertFalse(senateApp.getActionCancellationRecord(id).canceled);
+    }
+
+    function test_EfficiencyAudit_SuccessorPolicyCannotHideSeatsOrExpandTallyLoop() public {
+        bytes32 actionId = _queueModuleUpdate();
+        vm.prank(WALLET_ONE);
+        senateApp.supportActionCancellation(actionId, 0);
+        vm.prank(WALLET_THREE);
+        senateApp.supportActionCancellation(actionId, 1);
+        uint32[3] memory misreportedCounts = [uint32(0), uint32(1), type(uint32).max];
+        for (uint256 i; i < misreportedCounts.length; ++i) {
+            MiscountedSenatePolicyForEfficiency successor =
+                new MiscountedSenatePolicyForEfficiency(senatePowersPolicy, misreportedCounts[i]);
+            // Isolate post-governance behavior; the exact-address queue route is independently covered elsewhere.
+            vm.prank(address(timelock));
+            kernel.governanceUpdateModule(KernelModuleIds.SENATE_POWERS_POLICY, address(successor));
+            assertEq(senateApp.actionCancellationSupportCount(actionId), 2);
+            assertEq(senateApp.requiredSupport(), 2);
+        }
+        _finalizeActionCancellationAtDeadline(actionId);
+        assertTrue(senateApp.getActionCancellationRecord(actionId).canceled);
     }
 
     function test_PresidentHasNoProxySubstitutionEntrypoints() public {

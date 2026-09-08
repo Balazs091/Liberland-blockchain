@@ -8,6 +8,7 @@ The pinned constitutional PDF is retained because it is an active design input, 
 | --- | --- |
 | [Architecture](Architecture.md) | Components, authority boundaries, custody and module evolution |
 | [Governance](Governance.md) | Current identity, appeal, public repeal, election and office rules |
+| [Upgrade and Liveness](Upgrade-And-Liveness.md) | Replaceability, dependency closure, supported custody/loan retirement and recovery limits |
 | [Protocol Parameters](Protocol-Parameters.md) | Production/demo values and units |
 | [Internal Review](Internal-Audit-Report.md) | Current findings, verification and release blockers |
 | [Auditor Handoff](Auditor-Handoff.md) | Exact target, trust boundaries and reproduction |

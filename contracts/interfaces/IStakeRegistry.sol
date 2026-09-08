@@ -148,7 +148,8 @@ interface IStakeRegistry is IKernelModule {
     /// @param amount The amount to recover.
     function recoverStake(bytes32 personId, uint256 amount) external;
 
-    /// @notice Transfers active political stake between person identifiers through an authorized liquidation path.
+    /// @notice Transfers active stake through the canonical lien registry's typed settlement or general stake authority.
+    /// @dev Lending pools, current or retired, have no direct transfer authority.
     /// @param fromPersonId The person identifier losing active stake.
     /// @param toPersonId The person identifier receiving active stake.
     /// @param amount The active stake amount to transfer.

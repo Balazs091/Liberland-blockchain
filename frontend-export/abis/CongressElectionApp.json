@@ -193,6 +193,24 @@
   },
   {
     "type": "function",
+    "name": "finalizeElection",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maximumCandidates",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "identityRegistry",
     "inputs": [],
     "outputs": [
@@ -479,6 +497,17 @@
         "name": "votingEnd",
         "type": "uint64",
         "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidFinalizationBatchSize",
+    "inputs": [
+      {
+        "name": "maximumCandidates",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },

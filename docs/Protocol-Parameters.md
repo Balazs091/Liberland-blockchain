@@ -12,7 +12,7 @@ suffix is shown. The executable sources remain `scripts/parameters/EthereumMainn
 | Congress seats | 7 | 2 |
 | Runner-up slots | 2 | 2 |
 | Candidate admission cap | None (`maxCandidateCount = 0`) | None (`maxCandidateCount = 0`) |
-| Candidates ranked/considered per finalization call | At most 32 / 32 | At most 32 / 32 |
+| Candidates ranked/considered per finalization call | Default 32 / 32; selectable 1..32 | Default 32 / 32; selectable 1..32 |
 | Nomination minimum | 2 days | 1 day |
 | Voting minimum | 3 days | 2 days |
 | Maximum scheduling lead | 14 days | 3 days |
@@ -23,7 +23,10 @@ The boundary is 18:00 in fixed CET (UTC+1), not daylight-saving CEST. Production
 pre-migration cycle through `GENESIS_CONGRESS_CYCLE_END_TIMESTAMP`; it must be in the future, preserve the complete
 nomination/voting minimums, be no more than one 90-day cycle away, and land at 17:00 UTC. All seven production seats
 are populated from the first seven of seven-to-nine ranked genesis candidates. Later cycles use the full 90 days.
-Late finalization advances to the next 17:00 UTC boundary and does not drift to the transaction hour.
+Late next-cycle creation advances to the next 17:00 UTC boundary and does not drift to the transaction hour.
+
+Finalization completes only the pinned election. A separate permissionless `createNextElectionCycle()` transaction
+uses the current policy and certified electorate. Preview the window immediately before creation.
 
 ## LLM, identity, and stake
 
@@ -106,6 +109,7 @@ fresh signatures and a fresh nonce. See `Governance.md` for operational limits.
 | Legislation enactment delay | 1 day |
 | Treasury disbursement delay | 2 days |
 | Default execution window | 7 days |
+| Optional Senate/review hook gas budget | 100,000 gas per probe; canonical exact-length ABI required |
 | Standard office payout pre-route delay | 6 hours |
 | Sensitive payout pre-route delay | 1 day |
 
@@ -140,8 +144,9 @@ smallest unit. Sepolia seeds these per-payout clerk limits:
 The fixed oracle is an intentional launch decision. It has no market-feed manipulation or staleness mechanism, but
 the configured price can become economically wrong. The initial 30% LTV means approximately 333% collateralization
 at borrowing; the 40% threshold corresponds to 250% collateralization at liquidation. Oracle, interest, and risk
-policies can be replaced by governance. Replacing the state-bearing pool itself requires a reviewed custody/debt
-migration; changing its kernel pointer does not migrate state.
+policies can be replaced by governance. Replacing the state-bearing pool requires a reviewed retirement or
+migration plan; existing debt/LP shares remain in the old pool. Its limited own-loan settlement rights survive,
+while only the jointly selected current pool may add loans. Changing a pointer does not copy state.
 
 The 15% bonus makes a fixed-price liquidation break even at an external LLM price of approximately 1.74 USDC before
 gas, execution risk, and the active-stake release delay. It does not make the fixed oracle react to a market decline:
@@ -151,10 +156,11 @@ The risk-policy constructor also requires
 `liquidationThreshold * (1 + liquidationBonus) <= 100%`; the configured values satisfy it at 46%. Debt is stored as
 per-person scaled debt under one global `1e27` borrow index. The rate and reserve factor effective for an elapsed
 interval are checkpointed, so later cash donations or policy replacement do not retroactively reprice that interval.
-The citizenship retained-stake floor is snapshotted when a lien first becomes nonzero and cleared when that lien is
-fully repaid. For bad-debt absorption, protected/retained floor stake is not recoverable collateral.
-`absorbBadDebt` rejects only while the available surplus can cover the rounded seizure for the smallest asset
-repayment that actually reduces scaled debt.
+The citizenship retained-stake floor and originating pool are retained until explicit loan closure after full
+repayment or bad-debt absorption, even if liquidation already exhausted the lien. For bad-debt absorption, protected/retained floor stake is not recoverable collateral.
+`absorbBadDebt` rejects only while recoverable collateral can cover the rounded seizure for the smallest asset
+repayment that actually reduces scaled debt. The active pool uses surplus stake; retired-book health, liquidation
+and bad-debt calculations additionally cap collateral at the remaining recorded lien.
 
 ## Production values supplied at deployment
 
@@ -162,6 +168,8 @@ These are not safe defaults and must be independently signed off before broadcas
 
 - exact LLM and USDC addresses and bytecode/proxy status;
 - four nonzero, pairwise-distinct office-admin wallets, all different from the deployer;
+- `CIVIC_REVIEWER_0` through `CIVIC_REVIEWER_4`: five distinct independently controlled public addresses, different
+  from the deployer and all office admins;
 - treasury asset allowlist and per-asset clerk limits;
 - seven or more genesis citizens, every person/wallet/metadata record, and exact stake backing;
 - Senate occupants, seven-to-nine ranked Congress candidates, President, and mandate hash;

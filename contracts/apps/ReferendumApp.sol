@@ -15,7 +15,7 @@ import {ILegislationRegistry} from "../interfaces/ILegislationRegistry.sol";
 import {IReferendumApp} from "../interfaces/IReferendumApp.sol";
 import {IReferendumPolicy} from "../interfaces/IReferendumPolicy.sol";
 import {IReferendumRegistry} from "../interfaces/IReferendumRegistry.sol";
-import {ISenateApp} from "../interfaces/ISenateApp.sol";
+import {BoundedGovernanceHook} from "../libraries/BoundedGovernanceHook.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
 import {IVotingPowerPolicy} from "../interfaces/IVotingPowerPolicy.sol";
@@ -1027,19 +1027,14 @@ contract ReferendumApp is IReferendumApp {
             return;
         }
 
-        // This is an optional negative-power hook. A future audited Senate implementation may intentionally use a
-        // different interface; that must disable the hook, not brick referendum finalization and therefore module
-        // governance itself.
-        try ISenateApp(senateAppAddress).getReferendumVetoRecord(referendumId) returns (
-            SenateTypes.ReferendumVetoRecord memory vetoRecord
+        SenateTypes.ReferendumVetoRecord memory vetoRecord =
+            BoundedGovernanceHook.referendumVeto(senateAppAddress, referendumId);
+        if (
+            vetoRecord.exists && !vetoRecord.finalized && vetoRecord.deadline != 0
+                && block.timestamp >= vetoRecord.deadline
         ) {
-            if (
-                vetoRecord.exists && !vetoRecord.finalized && vetoRecord.deadline != 0
-                    && block.timestamp >= vetoRecord.deadline
-            ) {
-                revert SenateVetoPending(referendumId, vetoRecord.deadline);
-            }
-        } catch {}
+            revert SenateVetoPending(referendumId, vetoRecord.deadline);
+        }
     }
 
     function _isSenateSelfReplacement(ReferendumTypes.ReferendumRecord memory referendumRecord)

@@ -15,9 +15,9 @@ from pathlib import Path
 # Current manual triage and verification: docs/Internal-Audit-Report.md.
 EXPECTED_COUNTS = {
     "High": 6,
-    "Medium": 60,
-    "Low": 265,
-    "Informational": 92,
+    "Medium": 66,
+    "Low": 266,
+    "Informational": 94,
     "Optimization": 0,
 }
 

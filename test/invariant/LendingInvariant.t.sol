@@ -295,6 +295,7 @@ contract LendingInvariantTest is Test {
         uint256 activeStake = stakeRegistry.activeStakeOf(personId);
         assertLe(stakeRegistry.requiredActiveStakeFloorOf(personId), activeStake);
         assertLe(lienRegistry.lienedStakeOf(personId), activeStake);
+        assertEq(lienRegistry.loanBookOf(personId), pool.currentDebtOf(personId) == 0 ? address(0) : address(pool));
     }
 
     function _registerCitizen(bytes32 personId, address wallet, uint256 stakeAmount) private {

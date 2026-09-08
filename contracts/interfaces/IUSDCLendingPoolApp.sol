@@ -26,6 +26,8 @@ interface IUSDCLendingPoolApp {
     error UnexpectedAssetAmount(uint256 expectedAmount, uint256 actualAmount);
     error WalletNotActive(address wallet);
     error ZeroShares();
+    error RetiredLendingPool();
+    error ForeignLoanBook(bytes32 personId, address pool);
 
     event USDCDeposited(address indexed supplier, address indexed receiver, uint256 assets, uint256 shares);
 
@@ -103,7 +105,8 @@ interface IUSDCLendingPoolApp {
     function currentDebtOf(bytes32 personId) external view returns (uint256 amount);
 
     /// @notice Returns the maximum additional USDC that a person identifier can borrow now.
-    /// @dev Includes pending interest/reserves and scaled-debt rounding. Returns zero for ineligible people.
+    /// @dev Includes pending interest/reserves and scaled-debt rounding. Returns zero for ineligible people,
+    ///      retired/unpaired pools, noncanonical immutable registry bindings, or collateral owned by another loan book.
     ///      This is a same-state quote, not a guarantee against intervening transactions or elapsed time.
     /// @param personId The canonical person identifier.
     /// @return amount The additional borrow amount available.
@@ -129,7 +132,7 @@ interface IUSDCLendingPoolApp {
     /// @return shares The burned LP shares.
     function withdraw(uint256 assets, address receiver) external returns (uint256 shares);
 
-    /// @notice Borrows USDC against the caller's active LLM stake above the retained floor.
+    /// @notice Borrows only through the current jointly authorized pool against unencumbered or its own collateral.
     /// @param amount The USDC amount to borrow.
     function borrow(uint256 amount) external;
 
@@ -153,8 +156,9 @@ interface IUSDCLendingPoolApp {
         external
         returns (uint256 repaidAmount, uint256 seizedStake);
 
-    /// @notice Writes off the unrecoverable debt of a position whose seizable collateral is fully exhausted.
-    /// @dev Callable once liquidators have seized all surplus stake (only the untouchable citizenship floor remains).
+    /// @notice Writes off residual debt when recoverable collateral cannot fund the smallest effective liquidation.
+    /// @dev The protected/captured retained floor and unliquidatable rounding dust are not recoverable collateral.
+    ///      A retired pool can recover at most its remaining recorded lien; later unpledged stake does not block closure.
     ///      Protocol reserves absorb the write-off first; any remainder lowers LP share value until governance
     ///      restores it with a treasury disbursement to this pool.
     /// @param borrowerPersonId The borrower person identifier to write off.

@@ -5,6 +5,9 @@ import {SenateTypes} from "../types/SenateTypes.sol";
 
 /// @title ISenateApp
 /// @notice User-facing interface for Senate seat succession and bounded negative-control action cancellation.
+/// @dev The timelock and referendum app read the three optional negative-power record getters with a 100,000-gas
+///      budget and require canonical, exact-length ABI responses. Over-budget, reverting or malformed hooks are
+///      ignored; an underfunded caller instead reverts before the hook call and cannot bypass an active record.
 interface ISenateApp {
     /// @notice Returns the current strict occupied-seat majority, with a minimum of two direct approvals.
     function requiredSupport() external view returns (uint256 count);

@@ -76,7 +76,7 @@ coverage should be expanded during remediation.
 - the imported continuity cycle uses an explicit future 17:00 UTC end, preserves full nomination/voting minimums,
   and cannot exceed one ordinary cycle;
 - Sepolia has two seats and 3-day recurring cycles;
-- late finalization advances to the next 17:00 UTC boundary and cannot permanently drift; and
+- late next-cycle creation advances to the next 17:00 UTC boundary and cannot permanently drift; and
 - production seals `InitialSetupAuthority` and disables kernel, router, and office bootstrap authorities.
 
 ## Pre-audit focus and disposition
@@ -100,12 +100,18 @@ coverage should be expanded during remediation.
    review powers use the ordinary module threshold.
    Active referenda and elections pin their starting policies. Senate negative-control processes intentionally use
    the live Senate policy, so a policy replacement may immediately affect their threshold or duration. Atomic action
-   batches support coordinated pointer changes. A pointer does not migrate storage/custody, and defective approved
+   batches support coordinated pointer changes, but members remain independently executable; review every
+   intermediate state, not only the intended batch. A pointer does not migrate storage/custody, and defective approved
    `ReferendumApp` bytecode can disable the only current referendum path. The project rejects a permanent recovery
    admin and requires bytecode, interface, paired-pointer, state/custody migration, and fork review instead. The
    incumbent Senate cannot cancel or hold open the active referendum for its exact replacement, and its queued-action
    cancellation hook is skipped only for the resulting `SENATE_APP` replacement. The review-pause hook is skipped
-   only for the exact `CONSTITUTIONAL_REVIEW` replacement, so neither module can make itself irreplaceable.
+   only for the exact `CONSTITUTIONAL_REVIEW` replacement. These isolated exceptions do not prevent cross-hook
+   deadlock: review can pause Senate replacement while Senate blocks review replacement. The owner retained existing
+   routes; there is no permanent secondary upgrade ballot. Broken referendum/policy/electorate dependencies remain
+   an explicit recovery limit. Optional hooks now use 100,000-gas bounded probes and validate fixed-size canonical
+   ABI responses; genuine hook failure is fail-open, but caller-induced underfunding reverts. Independently review
+   these limits in [Upgrade and Liveness](Upgrade-And-Liveness.md).
 3. **Electorate checkpoint liveness — hardened operational model.** Constitutional totals are O(1). A citizen-policy
    replacement begins a bounded permissionless rebuild. A failed best-effort source callback makes `isReady()` false
    through aggregate mutation-count mismatch; `syncPerson` or bounded `rebuild` catches up the affected state. New
@@ -118,11 +124,12 @@ coverage should be expanded during remediation.
    LTV, 40% liquidation threshold, 15% bonus, 15% reserves, 1,000,000 USDC aggregate cap, and 100,000 USDC
    per-person cap. There is no market-feed manipulation or staleness path, but the price can become economically
    wrong. Debt uses one compounded RAY index; effective interest/reserve inputs are checkpointed by interval, and a
-   lien snapshots its citizenship floor until cleared. Risk-policy construction requires
+   loan snapshots its citizenship floor until explicit loan closure, even if liquidation already exhausted its lien. Risk-policy construction requires
    `threshold * (1 + bonus) <= 100%`. Independently review rounding, delayed accrual, donations, policy changes,
    economics, real USDC bytecode, liquidation/bad-debt edges, and fork rehearsal. In particular, `absorbBadDebt`
-   remains blocked only while surplus stake can cover the rounded seizure for the smallest repayment that reduces
-   scaled debt; protected/retained floor stake is not recoverable collateral. The oracle/risk/rate policies are
+   remains blocked only while recoverable collateral can cover the rounded seizure for the smallest repayment that
+   reduces scaled debt. Active pools use surplus stake; retired pools cap it at their remaining recorded lien.
+   Protected/retained floors and later unpledged stake beyond a retired lien are not recoverable collateral. The oracle/risk/rate policies are
    replaceable; replacing the pool itself requires state/custody migration.
 5. **Production deployment parity — resolved in code; retain script review.** Both manifests deploy `DecisionApp`,
    `MinistryTreasury`, and lending. Production requires a six-decimal `USDC_TOKEN`, registers the pool as lien and
@@ -161,6 +168,17 @@ coverage should be expanded during remediation.
    migration from any earlier land storage. Structural operations reject expired leaseholds, and encumbrance events
    retain the caller-supplied transaction ID. Also review operational prevention/recovery for a company that loses
    its final director or reaches terminal dissolution while still holding title.
+
+Dedicated retirement review must cover same-ledger LLM backing handoff to the exact governed successor, Treasury
+asset handoff with historical receipts retained in the old vault, original-writer-only reconciliation of old budget
+commitments, and retired pools' own-loan settlement without direct general stake-transfer authority. Retired
+settlement enforces `seizedStake + remainingLien <= priorLien`, while new loan origination requires matching
+canonical identity/stake/lien registries as well as the three authority pointers. Stable budget-ledger execution
+markers prevent paid-request replay through fresh queues/vaults; they are distinct from delayed payout-accounting
+synchronization and must be preserved during any ledger migration. `PAYOUT_QUEUE`
+is State-class. These are narrow continuity mechanisms, not generic state/debt migration. Election counting now
+finalizes only the pinned cycle, supports workloads of 1..32 and requires separate explicit next-cycle creation;
+review policy failures and electorate unavailability between those operations.
 
 The stateful invariant suite independently exercises governance queue lifecycle, stake/electorate synchronization,
 treasury conservation and replay resistance, land provenance/active-title consistency, and lending accounting,

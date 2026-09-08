@@ -12,12 +12,14 @@ contract BudgetEnvelopeRegistry is IBudgetEnvelopeRegistry, KernelModule {
     struct BudgetCommitment {
         bytes32 budgetId;
         uint256 amount;
+        address accountingAuthority;
         bool active;
     }
 
     mapping(bytes32 budgetId => TreasuryTypes.BudgetEnvelope envelope) private _budgetEnvelopes;
     mapping(bytes32 requestId => BudgetCommitment commitment) private _budgetCommitments;
     bytes32[] private _budgetIds;
+    mapping(bytes32 requestId => bool executed) private _executedRequests;
 
     constructor(address kernelAddress) KernelModule(kernelAddress) {}
 
@@ -80,6 +82,30 @@ contract BudgetEnvelopeRegistry is IBudgetEnvelopeRegistry, KernelModule {
     {
         BudgetCommitment storage commitment = _budgetCommitments[requestId];
         return (commitment.budgetId, commitment.amount, commitment.active);
+    }
+
+    /// @inheritdoc IBudgetEnvelopeRegistry
+    function commitmentAuthority(bytes32 requestId) external view returns (address authority) {
+        return _budgetCommitments[requestId].accountingAuthority;
+    }
+
+    /// @inheritdoc IBudgetEnvelopeRegistry
+    function isRequestExecuted(bytes32 requestId) external view returns (bool executed) {
+        return _executedRequests[requestId];
+    }
+
+    /// @inheritdoc IBudgetEnvelopeRegistry
+    function markExecution(bytes32 requestId) external {
+        if (msg.sender != _kernel.getModule(KernelModuleIds.TREASURY_VAULT)) {
+            revert UnauthorizedBudgetEnvelopeRegistryCaller(msg.sender);
+        }
+        if (_executedRequests[requestId]) revert BudgetRequestAlreadyExecuted(requestId);
+        BudgetCommitment storage commitment = _budgetCommitments[requestId];
+        if (!commitment.active) revert BudgetRequestCommitmentMissing(requestId);
+        _executedRequests[requestId] = true;
+        emit TreasuryExecutionMarked(
+            requestId, commitment.budgetId, commitment.amount, msg.sender, uint64(block.timestamp)
+        );
     }
 
     /// @inheritdoc IBudgetEnvelopeRegistry
@@ -147,6 +173,7 @@ contract BudgetEnvelopeRegistry is IBudgetEnvelopeRegistry, KernelModule {
         if (requestId == bytes32(0)) {
             revert InvalidBudgetRequest(requestId);
         }
+        if (_executedRequests[requestId]) revert BudgetRequestAlreadyExecuted(requestId);
         if (amount == 0) {
             revert InvalidBudgetAmount(amount);
         }
@@ -172,6 +199,7 @@ contract BudgetEnvelopeRegistry is IBudgetEnvelopeRegistry, KernelModule {
         envelope.committedAmount += amount;
         commitment.budgetId = budgetId;
         commitment.amount = amount;
+        commitment.accountingAuthority = msg.sender;
         commitment.active = true;
 
         emit BudgetCommitmentRecorded(
@@ -181,12 +209,13 @@ contract BudgetEnvelopeRegistry is IBudgetEnvelopeRegistry, KernelModule {
 
     /// @inheritdoc IBudgetEnvelopeRegistry
     function releaseBudget(bytes32 requestId) external {
-        _requireAccountingAuthority(msg.sender);
+        _requireSettlementAuthority(requestId, msg.sender);
 
         BudgetCommitment storage commitment = _budgetCommitments[requestId];
         if (!commitment.active) {
             revert BudgetRequestCommitmentMissing(requestId);
         }
+        if (_executedRequests[requestId]) revert BudgetRequestAlreadyExecuted(requestId);
 
         TreasuryTypes.BudgetEnvelope storage envelope = _budgetEnvelopes[commitment.budgetId];
         envelope.committedAmount -= commitment.amount;
@@ -205,12 +234,13 @@ contract BudgetEnvelopeRegistry is IBudgetEnvelopeRegistry, KernelModule {
 
     /// @inheritdoc IBudgetEnvelopeRegistry
     function recordDisbursement(bytes32 requestId) external {
-        _requireAccountingAuthority(msg.sender);
+        _requireSettlementAuthority(requestId, msg.sender);
 
         BudgetCommitment storage commitment = _budgetCommitments[requestId];
         if (!commitment.active) {
             revert BudgetRequestCommitmentMissing(requestId);
         }
+        if (!_executedRequests[requestId]) revert BudgetRequestNotExecuted(requestId);
 
         TreasuryTypes.BudgetEnvelope storage envelope = _budgetEnvelopes[commitment.budgetId];
         envelope.committedAmount -= commitment.amount;
@@ -236,6 +266,15 @@ contract BudgetEnvelopeRegistry is IBudgetEnvelopeRegistry, KernelModule {
 
     function _requireAccountingAuthority(address caller) private view {
         if (caller != _kernel.getModule(KernelModuleIds.BUDGET_ENVELOPE_ACCOUNTING_AUTHORITY)) {
+            revert UnauthorizedBudgetEnvelopeRegistryCaller(caller);
+        }
+    }
+
+    function _requireSettlementAuthority(bytes32 requestId, address caller) private view {
+        if (
+            caller != _kernel.getModule(KernelModuleIds.BUDGET_ENVELOPE_ACCOUNTING_AUTHORITY)
+                && caller != _budgetCommitments[requestId].accountingAuthority
+        ) {
             revert UnauthorizedBudgetEnvelopeRegistryCaller(caller);
         }
     }

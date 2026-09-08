@@ -2,6 +2,8 @@
 
 This is a local release candidate for independent human-led audit, not production authorization.
 Preparation and internal triage were AI-assisted. Do not rely on internal dispositions without reproducing them.
+The review baseline was `8b6798f9f4a92d171c15560c090ef53f9f82c645`; this package contains the subsequent
+remediation candidate, not an unchanged copy of that commit. The earlier archive/tag remain distinct.
 
 ## Exact target
 
@@ -17,13 +19,14 @@ that a new repository initialization reproduces that commit.
 
 ## Scope and reading order
 
-1. [External Scope](Audit-Scope.md), [Architecture](Architecture.md) and [Governance](Governance.md).
+1. [External Scope](Audit-Scope.md), [Architecture](Architecture.md), [Governance](Governance.md) and
+   [Upgrade and Liveness](Upgrade-And-Liveness.md).
 2. [Internal Review](Internal-Audit-Report.md) for actual verification, corrections and retained risks.
 3. [Static Triage](Static-Analysis-Triage.md); full unsuppressed JSON is in package evidence.
 4. [Constitution Alignment](Constitution-Alignment.md) and the pinned PDF, independently of internal legal assumptions.
 5. Both deployment scripts/manifests and [Frontend Checklist](../frontend-export/INTEGRATION-CHECKLIST.md).
 
-Review every production source and deployment path, not only new committee, payout, Senate and lending changes.
+Review every production source and deployment path, not only the new upgrade/custody/lending/hook changes.
 Mocks/demo modules are in scope for separation and misuse risks, but they are not production assets or authorities.
 
 ## Trust boundaries to challenge
@@ -34,13 +37,20 @@ Mocks/demo modules are in scope for separation and misuse risks, but they are no
 - Civic proposer/approver versus independent fixed review committee; exact case binding, conflicts, lost keys,
   deadline edges, competing rulings, timeout, committee rotation and app migration.
 - Treasury budget commitments versus office approvals, routed historical actions and independent vault execution.
+- Exact successor custody handoff versus ledger migration, stable one-shot payout receipts versus queue/vault
+  replacement, and retired original-writer commitment reconciliation versus new reservation authority.
 - Lending scaled-debt/reserve arithmetic, token custody, current/historical stake floors, quote execution, bad debt,
-  donations, policy replacement and fixed-price economic failure.
+  donations, policy replacement, retired-book collateral bounds and fixed-price economic failure.
 - Atomic land consent/version transitions versus company lifecycle, director loss and off-chain legal evidence.
 - Prepared production genesis versus confirmed-block completion and irreversible bootstrap retirement.
 
 No permanent superadmin, generic delegatecall executor, unrestricted referendum calldata or committee asset
 custody is intended. Prove that every reachable path respects these boundaries.
+
+The owner explicitly chose to retain existing governance routes instead of adding a permanent recovery ballot.
+Sole-route dependency failure and Senate/review cross-lock therefore remain disclosed recovery limits. Challenge
+these as launch assumptions; do not accept an assertion that all contracts are impossible to freeze. Also review
+intermediate pointer states: an atomic execution batch does not prevent someone executing a ready member alone.
 
 ## Reproduction
 
@@ -63,7 +73,7 @@ python3 scripts/check-slither-baseline.py
 ```
 
 The coverage-only exclusion is deliberate and visible: instrumentation exhausts the harness budget while setting up
-1,000 candidates. The optimized full test suite requires those two inherited stress instances; coverage uses the
+1,000 candidates. The optimized full test suite requires that stress instance; coverage uses the
 100-candidate fixture for the same code path. Broad coverage percentages include test/script instrumentation.
 Run additional seeds, property models and adversarial cases; this bounded campaign is not formal verification.
 

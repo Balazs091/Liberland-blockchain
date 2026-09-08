@@ -77,8 +77,10 @@ arbitrary-call surface. The registry's kernel-approved writer controls both regi
 `CongressElectionApp.finalizeElection` workflow, not the ranking-store mutators.
 
 - Voting closes under the pinned cycle window. Finalization freezes the candidate set and reads fixed-width scores.
-- Each app call processes at most 32 candidates into a durable maximum heap, then considers at most 32 heap heads
+- `finalizeElection(uint256)` processes at most 32 candidates into a durable maximum heap, then considers at most 32 heap heads
   once insertion is complete. Each heap insertion/removal is O(log N); the seat/runner-up set is separately bounded.
+  The overload `finalizeElection(uint256,uint256)` accepts a workload of 1 through 32 for each phase; use a smaller
+  workload when gas estimates require it. Selected outcomes are still revalidated before completion.
 - Ordering is net votes descending, application time ascending, then canonical application address ascending.
   Negative-score candidates receive no seat. Only elected and runner-up ordinal ranks are materialized; other
   unselected candidates read as Lost with rank zero.
@@ -87,8 +89,9 @@ arbitrary-call surface. The registry's kernel-approved writer controls both regi
   candidacy for this cycle.
 - A successful intermediate transaction is progress, not finality. Read `rankingStore()` on the candidate registry
   and `progress(cycleId)` on that helper, and continue until the canonical cycle is Finalized.
-- Final activation automatically creates the next cycle when applicable. The current electorate must be ready
-  with a certified completed-block snapshot; synchronize/rebuild it when needed.
+- Final activation completes only the pinned cycle. Anyone then explicitly calls `createNextElectionCycle()` once
+  current policy and electorate are ready with a certified completed-block snapshot. A failed future-cycle creation
+  cannot roll back the completed outcome; synchronize/rebuild the electorate when needed.
 - Missing identity wiring fails closed instead of granting authority to a historical seat wallet.
 
 The multi-transaction count needs independent adversarial review, including interrupted counting, policy changes,
@@ -115,9 +118,14 @@ All Senate negative powers require `max(2, configuredMinimum, floor(occupiedSeat
 The current implementation counts each occupied seat once and has no President proxy substitution entry points.
 At 100 occupied seats, 51 direct approvals are required; at two occupied seats, both are required. Transfers and
 vacancies invalidate the previous occupancy's receipt. Thresholds and occupancy are rechecked at finalization
-or suspension/renewal; records/events retain the support and required threshold used.
+or suspension/renewal; records/events retain the support and required threshold used. Tally iteration is bounded by
+the stable registry's 100 seats, not a replaceable policy's reported seat count.
 
 ## Compatibility and release
+
+The owner retained the existing governance routes: no permanent second upgrade ballot and no general exemption
+from negative powers. Optional hooks have bounded gas/canonical ABI handling, but broken referendum dependencies
+and mutual Senate/review blocking remain recovery limits. See [Upgrade and Liveness](Upgrade-And-Liveness.md).
 
 This state-bearing revision requires a fresh deployment or separately reviewed state/custody/process migration.
 Committee pointers, appointment nonces, payout approvals and changed Senate interfaces must be included in the

@@ -96,13 +96,14 @@ the civic process rather than `setCitizenship`. Show stale appointment IDs after
 ### Deployment-only demo authority
 
 `demoAuthority` is the address of a `DemoSetupAuthority` contract, not a wallet with its own private key. Its
-immutable `owner()` is the Sepolia deployment wallet from `PRIVATE_KEY` (the current manifest's
-`0x6319d5531045fdA2E91fe43f363eE80b8BCD7DDc`). The repository does not identify a human custodian beyond that
-wallet; the deployment operator must document custody off-chain.
+immutable `owner()` is the wallet used for that deployment. Resolve it from the verified deployed contract and
+confirmed transaction provenance; no historical address in a manual proves the current owner. The deployment
+operator must document real custody off-chain.
 
-This contract was authorized only while seeded demo state was being written. Final deployment wiring replaces all
-of its registry-authority module pointers, and the kernel, router, and office bootstrap authorities are zero. It
-therefore gates no live frontend action and cannot seed more state on this deployment even if its owner signs. Do
+The script authorizes this contract only while writing seeded demo state. A completed deployment must replace all
+its registry-authority pointers and retire kernel, router and office bootstrap. Verify those conditions on-chain
+before enabling clients; generated manifest fields alone do not prove completion. Once verified, it gates no live
+frontend action and cannot seed more state even if its owner signs. Do
 not expose it as an admin or recovery control.
 
 ## Governance timing rule
@@ -118,6 +119,10 @@ Do not hardcode timelock delays in the UI.
 - the incumbent Senate cannot cancel or hold open the active referendum that replaces `SENATE_APP`, cannot cancel
   the resulting action, and the timelock skips that app's pending-cancellation hook only for the same action
 - the constitutional-review pause hook is skipped only for the exact `CONSTITUTIONAL_REVIEW` replacement
+- optional hooks use a 100,000-gas cap, fixed output buffers and canonical ABI checks; an underfunded caller reverts
+  rather than bypassing a valid record. Estimate transaction gas with these callback budgets included
+- do not display an absolute recovery guarantee: mutual Senate/review blocking and broken referendum dependencies
+  can still halt replacement. Batch members remain independently executable. See `../docs/Upgrade-And-Liveness.md`
 
 ## Page 1: Finances
 
@@ -179,14 +184,14 @@ The demo uses the same 30-day welfare policy as production. `unstake()` immediat
   - `identityApp.approveWalletMigration(personId, requestId)` from an Identity Office admin or clerk
   - `identityApp.finalizeWalletMigration(personId)` after `migrationDelay()`
   - `identityApp.cancelWalletMigration(personId)` from the old wallet or an Identity Office officer
-- mint demo merits:
+- production staking (also available against a correctly wired demo vault):
+  - `llmToken.approve(stakingVault, amount)`
+  - `llmStakingVault.stakeFor(personId, amount)`
+  - active wallet calls `llmStakingVault.unstake()` for the policy-defined discrete portion
+- separate Sepolia sandbox conveniences, never production minting:
   - `llmToken.mint(wallet, amount)`
-- approve:
   - `llmToken.approve(demoCitizenGateway, amount)`
-- stake:
-  - `demoCitizenGateway.stake(amount)`
-- unstake the policy-defined portion:
-  - `demoCitizenGateway.unstake()`
+  - `demoCitizenGateway.stake(amount)` or `demoCitizenGateway.unstake()`
 
 The same Sepolia address may also expose demo-only `registerSelf` and `confirmCitizenship` functions. They are not
 part of the audit/client onboarding flow. Do not treat the equal `identityApp` and `demoCitizenGateway` manifest
@@ -226,7 +231,7 @@ For v1, build the history from events:
   - `StakeIncreased`
   - `UnstakeExecuted`
 
-If you want a simple first pass, show token transfers and gateway events only.
+Production staking history uses vault/registry and token events; gateway-only history omits the production path.
 
 ## Page 2: Election
 
@@ -302,8 +307,10 @@ Important:
   - `congressElectionApp.castBallot(cycleId, candidates, allocations)`
 - clear ballot:
   - `congressElectionApp.clearBallot(cycleId)`
-- finalize an ended cycle:
-  - `congressElectionApp.finalizeElection(cycleId)`
+- advance/finalize an ended cycle:
+  - `congressElectionApp.finalizeElection(uint256)` with `cycleId` (default workload 32)
+  - `congressElectionApp.finalizeElection(uint256,uint256)` with `cycleId, maximumCandidates` (1..32)
+  - use the explicit overloaded signature when the client library requires disambiguation
 - resign an active Congress seat:
   - `congressElectionApp.resignSeat()`
 - recover a seat whose person has no active wallet:
@@ -315,15 +322,19 @@ Important:
 
 ### Cycle creation
 
-Anyone can repeatedly call `finalizeElection` after voting ends. Each successful intermediate transaction ranks at
-most 32 candidates and considers at most 32; do NOT label it finalized until `getCycle(cycleId).status == Finalized`.
+Anyone can repeatedly call `finalizeElection` after voting ends. The original selector uses 32 candidates; the
+two-argument overload accepts 1..32 for both score insertion and heap-head consideration. Heap work is O(log N),
+and selected candidates still require bounded revalidation; smaller workload does not eliminate final activation
+cost. Estimate gas before submission. Do NOT label a cycle finalized until `getCycle(cycleId).status == Finalized`.
 Read progress from `CongressRankingStore(congressCandidateRegistry.rankingStore()).progress(cycleId)` and index its
 `CongressRankingProgress`/`CongressCandidateConsidered` events. `maxCandidateCount() == 0` means open admission, not
-zero permitted candidates. The legacy constructor argument is ignored. Final activation creates the next cycle.
+zero permitted candidates. The legacy constructor argument is ignored. Final activation completes only that cycle;
+next-cycle creation is a separate explicit permissionless transaction.
 Current eligibility is rechecked while selecting and immediately before activation; disqualified candidates do not
 re-enter that count. Only the elected/runner-up outcome has persisted ordinal ranks; unselected losers have rank 0.
 
-The EVM cannot wake up by itself at a timestamp, so a public transaction is still required. The important contract guarantee is that the next cycle timing is deterministic and cannot drift because of late finalization.
+The EVM cannot wake up by itself. Counting and next-cycle creation require separate public transactions. The
+completed result is retained if current policy/electorate problems prevent the next cycle from being created.
 
 The fast demo policy is a `72 hour` cycle:
 
@@ -333,15 +344,17 @@ The fast demo policy is a `72 hour` cycle:
 - voting may be scheduled up to `72 hours` ahead
 - all seeded and recurring voting endpoints are anchored to `17:00 UTC`
 
-For recurring cycles after the first one, the contract enforces a full policy duration. Exact-boundary finalization uses the previous endpoint; late finalization advances to the next occurrence of the same UTC time-of-day:
+For recurring cycles after the first one, the contract enforces a full policy duration. Creation at the previous
+endpoint preserves that anchor; later creation advances to the next occurrence of the same UTC time-of-day:
 
-- `nominationStart = previousCycle.votingEnd`, or the next matching daily UTC boundary after late finalization
+- `nominationStart = previousCycle.votingEnd`, or the next matching daily UTC boundary after late next-cycle creation
 - `votingStart = nominationStart + minimumNominationDuration()`
 - `votingEnd = nominationStart + cycleDuration()`
 
-Both network manifests currently anchor endpoints to `17:00 UTC`: demo cycles recur every 3 days and production cycles every 90 days. Do not calculate the next timestamps from the finalization transaction time. Use `previewNextElectionWindow()` or read the cycle created by `finalizeElection(...)`.
+Both network manifests currently anchor endpoints to `17:00 UTC`: demo cycles recur every 3 days and production cycles every 90 days. Do not calculate the next timestamps from the finalization transaction time. Use `previewNextElectionWindow()` immediately before `createNextElectionCycle()` and then read the new cycle.
 
-Use `previewNextElectionWindow()` to show these exact timestamps. Use `createNextElectionCycle()` for the initial/catch-up path when the latest cycle is finalized but finalization did not create a new one. Use `createElectionCycle(...)` only when the UI intentionally supplies the exact window; after a previous cycle exists, any non-matching recurring window reverts.
+Use `previewNextElectionWindow()` to show these exact timestamps. Use `createNextElectionCycle()` for initial scheduling and after every finalized latest cycle, once the current
+policy and completed-block electorate are ready. Use `createElectionCycle(...)` only when the UI intentionally supplies the exact window; after a previous cycle exists, any non-matching recurring window reverts.
 
 Before showing the create-cycle form, read:
 
@@ -355,9 +368,10 @@ Before showing the create-cycle form, read:
 - `congressElectionPolicy.runnerUpCount()`
 - `congressElectionPolicy.maxCandidateCount()`
 
-Hide or disable create-cycle when the latest cycle exists and is not `Finalized`. Show finalization when `now >= votingEnd` and the cycle is not finalized; after a successful finalization, refresh `latestCycleId()` because the next cycle may already exist.
+Hide or disable create-cycle when the latest cycle exists and is not `Finalized`. Show finalization when `now >= votingEnd` and the cycle is not finalized; after canonical Finalized status, refresh live state and offer the explicit next-cycle creation action.
 
-If no eligible candidates remain at finalization, the cycle still finalizes and the next cycle is scheduled when applicable. In that case active Congress can have zero occupied seats until a later cycle elects eligible members. This is intentional to avoid a permanent election deadlock.
+If no eligible candidates remain at finalization, the cycle still finalizes. Anyone may then explicitly create
+the next cycle when current policy/electorate readiness permits. In that case active Congress can have zero occupied seats until a later cycle elects eligible members. This is intentional to avoid a permanent election deadlock.
 
 For the first explicit cycle only, use timestamps where:
 
@@ -451,7 +465,7 @@ For display:
 - cycle actions
   - preview / create deterministic next cycle when the latest cycle is finalized
   - apply / withdraw during nomination
-  - finalize after voting end, which also creates the next cycle for the latest election
+  - advance/finalize after voting end, then separately create the next cycle when ready
 - ballot builder
   - select candidates
   - assign signed allocations
@@ -580,17 +594,24 @@ may call `finalizeReferendum(referendumId)`. If it passes, follow
 - Senate suspension and renewal forms must hash the published reason document and call `suspendDisbursement(actionId, supportingSeatIndex, reasonHash)` or `renewDisbursementSuspension(actionId, supportingSeatIndex, reasonHash)` from the holder of that currently supporting seat; display the stored `reasonHash` with the suspension deadline
 - Senate transfer and successor forms must resolve the recipient identity and require current `Citizen` status; a non-citizen recipient reverts with `SenateSeatRecipientNotCitizen`
 - use `computeBudgetId(officeId, sequence)` for deterministic budget ids when the frontend proposes a new budget id
-- every payout needs `approvePayout(requestId)` by a distinct current officer before routing; known wallets of one
+- every payout needs `approvePayout(officeId, requestId)` by a distinct current officer before routing; known wallets of one
   person are not two officers. Routing revalidates both appointment IDs and the original proposer's spending policy.
-  Proposer/approver may call `revokePayoutApproval(requestId)` before routing. Later revocation of office does not
+  Proposer/approver may call `revokePayoutApproval(officeId, requestId)` before routing. Later revocation of office does not
   cancel an already routed action; use `cancelPayout` and reconcile through `syncPayoutState`
 - vault execution revalidates the exact active budget commitment; read `budgetEnvelopeRegistry.getBudgetCommitment(requestId)` when diagnosing a failed execution
+- read `budgetEnvelopeRegistry.isRequestExecuted(requestId)` for stable paid-ID protection across queue/vault
+  replacement. A true marker may precede queue/budget synchronization; it is not permission to call `markExecution`
+  from a client. A token-transfer failure rolls back the stable and vault-local receipts
 - `officeExecutor.cancelPayout(officeId, requestId)` also cancels a routed timelock action before queue cancellation
   releases the budget; do not try to cancel only the queue record
 - call permissionless `payoutQueue.syncPayoutState(requestId)` after the action executes, is Senate-canceled, or
   expires. Queue state may legitimately lag timelock state until synchronization
 - synchronization verifies execution on `getAction(actionId).targetModuleAddress`, the pinned Treasury Vault, not a
-  later live kernel pointer
+  later live kernel pointer. Send `syncPayoutState` to the original queue; the successor has no copied request.
+  `OfficeExecutor` immutably pins its queue, so queue replacement requires a reviewed executor/authority bundle
+- if a queued action's vault pointer changes before execution, it cannot follow the balance to the successor.
+  Resolve authorized cancellation or expiry and synchronize the original queue before rebuilding the request;
+  pending proposals and officer approvals do not migrate automatically
 - vault and ministry transfers also require the recipient to receive the exact amount; treat
   `UnexpectedDisbursementAmount`/`UnexpectedAssetAmount` as an unsupported-token failure
 - use `actionTimelock.getAction(actionId)` to show when queued payouts become executable
@@ -650,9 +671,9 @@ early ballots rather than keeping a successor election open during an incumbent 
 
 For lending:
 
-- client-demo scope: slides/read-only tier, not a live borrow/supply storyline. The current Sepolia pool has no
-  liquidity, LP shares, borrows, or reserves, so a transactional screen would demonstrate setup rather than a real
-  position. A compact read-only page may show the live parameters and zero state
+- a fresh demo seeds no LP position or loan, but later transactions can change balances. Read and verify the actual
+  pool's liquidity, shares, debt and reserves on-chain; this manual does not assert any live Sepolia state.
+  Read-only and transactional screens must match the selected network and deployed source
 - the deployed fixed oracle returns `2_000_000` USDC base units per whole LLM: `1 LLM = 2 USDC`
 - current risk parameters are 30% max LTV, 40% liquidation threshold, 15% liquidation bonus, 15% reserve factor,
   1,000,000 USDC total borrow cap, and no per-person cap on the Sepolia demo
@@ -660,10 +681,16 @@ For lending:
 - `totalBorrows()` and `borrowIndex()` return stored checkpoints; refresh them after `accrueInterest()` or another
   mutating pool transaction and do not expect a time-only block to change them
 - interest uses global RAY-scaled debt and the effective rate/reserve configuration for the elapsed interval
-- display `StakeLienRegistry.retainedStakeFloorOf(personId)`; a nonzero lien keeps the floor captured when it began
+- display `StakeLienRegistry.retainedStakeFloorOf(personId)` and `loanBookOf(personId)`; ownership/floor persist
+  until the originating pool explicitly closes the loan, even if liquidation previously reduced its lien to zero
+- retired pools cannot add borrowing; the current pool cannot take another pool's open loan. New origination also
+  requires the pool's immutable identity/stake/lien registries to equal canonical ledger IDs. Show old-pool repay,
+  liquidation, bad-debt and LP withdrawal paths against the original address, subject to liquidity/policy constraints
 - reject a risk-policy form unless `liquidationThreshold * (1 + liquidationBonus) <= 100%`
-- `absorbBadDebt(personId)` is permissionless but rejects while surplus stake can cover the rounded seizure for the
-  smallest repayment that actually reduces scaled debt. Protected/retained floor stake is not recoverable
+- `absorbBadDebt(personId)` is permissionless but rejects while recoverable collateral can cover the rounded seizure
+  for the smallest repayment that actually reduces scaled debt. The active pool uses surplus stake; retired-pool
+  health, liquidation and bad-debt calculations cap it at the remaining recorded lien. Newly unpledged stake must
+  not be displayed as additional retired-book collateral. Protected/retained floor stake is not recoverable
   collateral; do not label such floor stake as liquidation capacity
 
 ## Minimal implementation order
@@ -684,7 +711,7 @@ For lending:
 14. Decision read/write pages for office admins, clerks, and Congress members
 15. Land/company registry read-only pages
 16. Public Veto and President election-state pages
-17. Lending parameter/state page in the slides/read-only tier
+17. Verified lending state and network-appropriate supply/borrow/repay/retired-position screens
 
 ## Practical notes
 

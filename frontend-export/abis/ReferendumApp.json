@@ -1085,6 +1085,22 @@
   },
   {
     "type": "error",
+    "name": "InsufficientHookGas",
+    "inputs": [
+      {
+        "name": "available",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "required",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InvalidAdoptionDelay",
     "inputs": [
       {

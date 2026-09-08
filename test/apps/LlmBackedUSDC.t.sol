@@ -54,9 +54,8 @@ contract ConstantInterestRatePolicy is IInterestRatePolicy {
     }
 }
 
-/// @title LlmBackedUSDCTest
-/// @notice Covers USDC lending backed by already-staked LLM above the 5,000 retained floor.
-contract LlmBackedUSDCTest is Test {
+/// @notice Shared deployment, citizen, and funding fixture; contains no test entrypoints.
+abstract contract LlmBackedUSDCFixture is Test {
     uint256 internal constant ONE_LLM = 1e18;
     uint256 internal constant MINIMUM_RETAINED_STAKE = 5_000 * ONE_LLM;
     uint256 internal constant USDC_UNIT = 1_000_000;
@@ -86,7 +85,7 @@ contract LlmBackedUSDCTest is Test {
     LendingRiskParameterPolicy internal riskParameterPolicy;
     USDCLendingPoolApp internal lendingPool;
 
-    function setUp() public {
+    function setUp() public virtual {
         kernel = new ConstitutionKernel(address(this));
 
         identityAuthority = new MockModule(keccak256("identity-authority"));
@@ -153,6 +152,60 @@ contract LlmBackedUSDCTest is Test {
         _fundAndDeposit(LP, 10_000 * USDC_UNIT);
     }
 
+    function _assertExactBorrowQuote(bytes32 personId, address borrower) internal {
+        uint256 quoted = lendingPool.maxBorrowable(personId);
+        assertGt(quoted, 0);
+        // One more unit must fail, but the quote itself must be executable before an explicit checkpoint.
+        vm.prank(borrower);
+        vm.expectRevert();
+        lendingPool.borrow(quoted + 1);
+        vm.prank(borrower);
+        lendingPool.borrow(quoted);
+        assertEq(lendingPool.maxBorrowable(personId), 0);
+    }
+
+    /// @notice A person with no lien exits down to their own protected floor, ignoring the retained minimum.
+
+    /// @notice H2: a person cannot obtain a second active wallet, blocking cross-wallet self-liquidation.
+
+    function _fundAndDeposit(address liquidityProvider, uint256 amount) internal {
+        usdc.mint(liquidityProvider, amount);
+
+        vm.startPrank(liquidityProvider);
+        usdc.approve(address(lendingPool), amount);
+        lendingPool.deposit(amount, liquidityProvider);
+        vm.stopPrank();
+    }
+
+    function _registerCitizen(bytes32 personId, address wallet, uint256 stakeAmount) internal {
+        vm.prank(address(identityAuthority));
+        identityRegistry.setIdentityRecord(personId, _defaultIdentityInput());
+
+        vm.prank(address(identityAuthority));
+        identityRegistry.setWalletLink(personId, wallet, IdentityTypes.WalletLinkStatus.Active);
+
+        vm.prank(address(stakeAuthority));
+        stakeRegistry.increaseStake(personId, stakeAmount);
+
+        vm.prank(address(stakeAuthority));
+        stakeRegistry.setProtectedStakeFloor(personId, MINIMUM_RETAINED_STAKE);
+    }
+
+    function _defaultIdentityInput() internal pure returns (IdentityTypes.IdentityRecordInput memory input) {
+        input = IdentityTypes.IdentityRecordInput({
+            metadataHash: keccak256("metadata"),
+            metadataURI: "ipfs://metadata",
+            verificationStatus: IdentityTypes.VerificationStatus.Verified,
+            citizenshipStatus: IdentityTypes.CitizenshipStatus.Citizen,
+            ageClass: IdentityTypes.AgeClass.Adult,
+            correctionFlag: false,
+            finalSuspension: false
+        });
+    }
+}
+
+/// @notice Covers USDC lending backed by active LLM above the captured retained floor.
+contract LlmBackedUSDCTest is LlmBackedUSDCFixture {
     function test_MaxBorrowableUsesAccruedAggregateCapBeforeCheckpoint() public {
         vm.startPrank(address(stakeAuthority));
         stakeRegistry.increaseStake(BORROWER_PERSON_ID, 4_000_000 * ONE_LLM);
@@ -230,18 +283,6 @@ contract LlmBackedUSDCTest is Test {
         lendingPool.borrow(BORROW_CAP - 100_000 * USDC_UNIT);
         skip(bound(uint256(elapsed), 1, 30 days));
         _assertExactBorrowQuote(LIQUIDATOR_PERSON_ID, LIQUIDATOR);
-    }
-
-    function _assertExactBorrowQuote(bytes32 personId, address borrower) internal {
-        uint256 quoted = lendingPool.maxBorrowable(personId);
-        assertGt(quoted, 0);
-        // One more unit must fail, but the quote itself must be executable before an explicit checkpoint.
-        vm.prank(borrower);
-        vm.expectRevert();
-        lendingPool.borrow(quoted + 1);
-        vm.prank(borrower);
-        lendingPool.borrow(quoted);
-        assertEq(lendingPool.maxBorrowable(personId), 0);
     }
 
     function test_InterfacesExposeSelectors() public pure {
@@ -470,7 +511,6 @@ contract LlmBackedUSDCTest is Test {
         assertEq(stakeLienRegistry.lienedStakeOf(BORROWER_PERSON_ID), 0);
     }
 
-    /// @notice A person with no lien exits down to their own protected floor, ignoring the retained minimum.
     function test_NonBorrowerCanUnstakeBelowRetainedFloor() public {
         // Drop the borrower's protected floor to zero while they hold no lien.
         vm.prank(address(stakeAuthority));
@@ -730,7 +770,6 @@ contract LlmBackedUSDCTest is Test {
         lendingPool.borrow(100 * USDC_UNIT);
     }
 
-    /// @notice H2: a person cannot obtain a second active wallet, blocking cross-wallet self-liquidation.
     function test_SamePersonCannotHoldSecondActiveWalletForSelfLiquidation() public {
         address secondBorrowerWallet = address(0xB0AB);
 
@@ -827,40 +866,5 @@ contract LlmBackedUSDCTest is Test {
         assertGt(reserves, 0);
         assertEq(lendingPool.totalReserves(), reserves);
         assertEq(lendingPool.availableLiquidity(), usdc.balanceOf(address(lendingPool)) - reserves);
-    }
-
-    function _fundAndDeposit(address liquidityProvider, uint256 amount) internal {
-        usdc.mint(liquidityProvider, amount);
-
-        vm.startPrank(liquidityProvider);
-        usdc.approve(address(lendingPool), amount);
-        lendingPool.deposit(amount, liquidityProvider);
-        vm.stopPrank();
-    }
-
-    function _registerCitizen(bytes32 personId, address wallet, uint256 stakeAmount) internal {
-        vm.prank(address(identityAuthority));
-        identityRegistry.setIdentityRecord(personId, _defaultIdentityInput());
-
-        vm.prank(address(identityAuthority));
-        identityRegistry.setWalletLink(personId, wallet, IdentityTypes.WalletLinkStatus.Active);
-
-        vm.prank(address(stakeAuthority));
-        stakeRegistry.increaseStake(personId, stakeAmount);
-
-        vm.prank(address(stakeAuthority));
-        stakeRegistry.setProtectedStakeFloor(personId, MINIMUM_RETAINED_STAKE);
-    }
-
-    function _defaultIdentityInput() internal pure returns (IdentityTypes.IdentityRecordInput memory input) {
-        input = IdentityTypes.IdentityRecordInput({
-            metadataHash: keccak256("metadata"),
-            metadataURI: "ipfs://metadata",
-            verificationStatus: IdentityTypes.VerificationStatus.Verified,
-            citizenshipStatus: IdentityTypes.CitizenshipStatus.Citizen,
-            ageClass: IdentityTypes.AgeClass.Adult,
-            correctionFlag: false,
-            finalSuspension: false
-        });
     }
 }

@@ -1161,6 +1161,22 @@
   },
   {
     "type": "error",
+    "name": "ForeignLoanBook",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "pool",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InsufficientLiquidationCollateral",
     "inputs": [
       {
@@ -1345,6 +1361,11 @@
   {
     "type": "error",
     "name": "ReentrancyGuardReentrantCall",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RetiredLendingPool",
     "inputs": []
   },
   {

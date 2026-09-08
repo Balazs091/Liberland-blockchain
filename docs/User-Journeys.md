@@ -48,10 +48,13 @@ Evidence: `test/apps/IdentityApp.t.sol`, `test/apps/DemoCitizenGateway.t.sol`, a
 - An eligible voter submits one person-keyed signed-allocation ballot for that cycle. Recasting replaces the whole
   ballot and wallet migration cannot create a second ballot.
 - There is no first-come candidate cap. Anyone may repeatedly call `finalizeElection` after voting closes;
-  intermediate successful calls are progress, not finality. Frozen candidate scores are ranked in chunks of 32.
-  Up to 32 ranked candidates are considered per call until the fixed seat/runner-up set is filled or exhausted.
+  intermediate successful calls are progress, not finality. `finalizeElection(uint256)` defaults to 32 candidates;
+  `finalizeElection(uint256,uint256)` accepts 1..32 for both insertion and heap-head consideration. Heap operations
+  remain O(log N), and selected outcomes still require bounded revalidation before activation.
   Current eligibility is checked on selection and again before activation. Disqualified candidates do not re-enter
   that count; losing eligibility while counting can forfeit candidacy. Stake is not separately locked.
+- After canonical Finalized status, anyone explicitly calls `createNextElectionCycle()` when the current policy and
+  certified electorate permit. Failure to create a future cycle does not undo the completed election.
 - A member may resign. Anyone may recall a member who has lost candidate eligibility, after which the next eligible
   runner-up fills the vacancy.
 - If a seated person's identity has no active wallet, anyone may call
@@ -116,7 +119,9 @@ Evidence: `test/apps/CabinetApp.t.sol`, `test/apps/MinistryTreasury.t.sol`,
 - An authorized office can cancel a proposal. If already routed, `OfficeExecutor.cancelPayout` first cancels the
   timelock action, then records queue cancellation and releases the budget. Anyone may call
   `PayoutQueue.syncPayoutState` after execution, Senate cancellation, or expiry; executed state is verified against
-  the vault address pinned in the action.
+  the vault address pinned in the action. Call synchronization on the original queue, not a replacement that has
+  no request record. The budget ledger's permanent `isRequestExecuted(requestId)` marker prevents paid-ID replay
+  across queue/vault replacements; it may already be true while queue state still awaits synchronization.
 
 Evidence: `test/apps/LandRegistry.t.sol`, `test/apps/CompanyRegistry.t.sol`, and
 `test/apps/TreasuryAndOffices.t.sol`.
@@ -167,13 +172,19 @@ Evidence: `test/apps/SenateAndPublicVeto.t.sol` and `test/apps/HeadOfStateApp.t.
 - Any account may deposit USDC and receive pool shares; share owners may withdraw available liquidity.
 - A currently eligible citizen with surplus active LLM may borrow within the live oracle/risk limits. The pool
   records a stake lien and releases it when debt is fully repaid (not proportionally on partial repayment). The citizenship retained-stake floor is fixed when the
-  lien begins and is cleared with the final lien.
+  loan begins and persists until that owning pool explicitly closes the loan after full repayment or bad-debt
+  absorption; a zero lien alone does not prove that the debt is closed.
 - Anyone may repay for a person ID, which preserves recovery if the borrower's wallet is revoked or lost.
 - Anyone may liquidate an unhealthy position under the policy limits. Irrecoverable collateral dust follows the
   explicit bad-debt path, with reserves acting as first-loss capital.
 - Debt compounds through one RAY-scaled global borrow index. `currentDebtOf` previews pending interest; displayed
   `totalBorrows` and `borrowIndex` are stored checkpoints until someone calls `accrueInterest` or performs another
   state-changing pool operation.
+- Read `StakeLienRegistry.loanBookOf(personId)` before switching pool UI. Existing debt remains with its originating
+  pool until closure. Retired pools cannot add borrowing, and their health/liquidation/bad-debt collateral is capped
+  at the remaining recorded lien as well as current surplus; newly unpledged stake does not increase old rights.
+  They settle only their own borrowers through the lien registry, with seized plus remaining collateral bounded
+  by the prior lien. The successor cannot take over that open position; no debt or LP-share import occurs.
 - A minister's pool position is keyed by both office and pool. After governance replaces the live lending pool, the
   admin uses `poolSharesAt` and `withdrawFromPoolAt` to recover that office's shares from the retired pool.
 
@@ -185,7 +196,7 @@ Evidence: `test/apps/LlmBackedUSDC.t.sol`.
 
 ## Upgrade and migration operations
 
-- Core router and timelock pointers are immutable.
+- Core router and timelock pointers are immutable; the kernel has no replacement mechanism.
 - Stable fact/custody modules are canonically replaceable under the constitutional double threshold, but require a
   reviewed migration because changing a pointer does not copy storage or move assets.
 - Router origins (`ReferendumApp`, `CongressElectionApp`, `SenateApp`, and `OfficeExecutor`) and the
@@ -198,14 +209,21 @@ Evidence: `test/apps/LlmBackedUSDC.t.sol`.
   threshold. A full breaking replacement uses constitutional module governance; neither route has weaker approval.
 - When an app and one or more authority pointers must move together, approve each typed action and call
   `ActionTimelock.executeActions(actionIds)`. The transaction updates all pointers or reverts all of them.
-- Optional Senate and constitutional-review hooks cannot permanently freeze the queue merely by being absent or
-  interface-incompatible. Active veto/suspension records from the current compatible Senate app remain enforced.
+- Optional Senate and constitutional-review probes use a 100,000-gas cap and canonical exact-length ABI validation.
+  Absent, reverting, over-budget or malformed hooks fail open, but caller underfunding reverts. Valid active records
+  remain enforced. This technical protection does not eliminate governance deadlocks.
 - The incumbent Senate cannot cancel or hold open the active referendum for its exact replacement, cannot cancel the
   resulting `SENATE_APP` action, and its cancellation hook is not consulted for that action. The
   constitutional-review hook cannot pause the exact action replacing `CONSTITUTIONAL_REVIEW`. All other referendum,
   threshold, delay, target, and execution checks still apply.
 
-An approved but defective Referendum app can still disable future referendum creation. Preventing that under all
+A review module can pause the Senate replacement while Senate blocks review replacement. An approved but defective
+Referendum app, voting/policy dependency or unrecoverable electorate can disable future module-replacement voting. Preventing that under all
 possible bytecode would require a permanent recovery authority or a second immutable voting system, both of which
 would broaden the trust root. The project instead treats exact-address review, non-proxy bytecode verification,
 fork rehearsal, interface/migration review, and coordinated atomic pointer activation as mandatory release work.
+The owner retained these routes rather than adding a permanent second ballot. Batch members can still be executed
+individually, so review intermediate states. Same-ledger LLM backing handoff, exact-successor Treasury handoff,
+original-writer budget reconciliation, stable paid-request markers and retired-loan settlement have narrow continuity
+checks; they do not copy
+arbitrary storage. See [Upgrade and Liveness](Upgrade-And-Liveness.md).

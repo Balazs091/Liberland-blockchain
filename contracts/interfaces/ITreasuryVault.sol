@@ -15,6 +15,10 @@ interface ITreasuryVault is IKernelModule {
     error InvalidTreasuryDepositAsset(address asset);
     error UnexpectedDisbursementAmount(uint256 expectedAmount, uint256 receivedAmount);
     error UnauthorizedTreasuryCaller(address caller);
+    error IncompatibleTreasurySuccessor(address successor);
+    error InactiveTreasuryVault(address vault);
+
+    event TreasuryAssetHandedOff(address indexed successor, address indexed asset, uint256 amount);
 
     event TreasuryTokenDepositReceived(
         address indexed sender,
@@ -50,7 +54,15 @@ interface ITreasuryVault is IKernelModule {
     /// @param depositReference Caller-supplied reference for off-chain deposit classification.
     function receiveTokenDeposit(address asset, uint256 amount, bytes32 depositReference) external;
 
-    /// @notice Executes an exact, active budget commitment through the canonical timelock.
+    /// @notice Moves this retired vault's entire balance of one ERC20 to the governed, same-kernel successor.
+    /// @dev Permissionless, but neither recipient nor amount is caller-selected. No execution receipts are copied.
+    ///      Successor code and any associated ledger migration still require independent governance review.
+    /// @param asset The ERC20 asset to hand off; native ETH is not supported.
+    /// @return amount The exact amount received by the canonical successor.
+    function handoffAsset(address asset) external returns (uint256 amount);
+
+    /// @notice Executes an exact, active budget commitment once through the canonical timelock.
+    /// @dev A permanent receipt in the stable budget registry prevents replay across vault/queue replacement.
     /// @param payload The disbursement terms, which must match the stable budget registry commitment.
     function executeDisbursement(GovernanceTypes.TreasuryDisbursementPayload calldata payload) external;
 }

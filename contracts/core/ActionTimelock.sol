@@ -3,16 +3,15 @@ pragma solidity 0.8.36;
 
 import {IActionTimelock} from "../interfaces/IActionTimelock.sol";
 import {IBudgetEnvelopeRegistry} from "../interfaces/IBudgetEnvelopeRegistry.sol";
-import {IConstitutionalReview} from "../interfaces/IConstitutionalReview.sol";
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
 import {ILegislationRegistry} from "../interfaces/ILegislationRegistry.sol";
-import {ISenateApp} from "../interfaces/ISenateApp.sol";
 import {ITreasuryVault} from "../interfaces/ITreasuryVault.sol";
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
 import {LegislationTypes} from "../types/LegislationTypes.sol";
 import {SenateTypes} from "../types/SenateTypes.sol";
 import {TreasuryTypes} from "../types/TreasuryTypes.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
+import {BoundedGovernanceHook} from "../libraries/BoundedGovernanceHook.sol";
 
 /// @title ActionTimelock
 /// @notice Delayed execution queue for explicit privileged governance actions.
@@ -648,17 +647,11 @@ contract ActionTimelock is IActionTimelock {
             return (false, 0);
         }
 
-        // Optional negative-power hooks fail open when a future audited Senate module intentionally changes its
-        // interface. Otherwise that replacement could brick every queued action, including its own replacement.
-        try ISenateApp(senateAppAddress).getActionCancellationRecord(actionId) returns (
-            SenateTypes.ActionCancellationRecord memory cancellationRecord
-        ) {
-            deadline = cancellationRecord.deadline;
-            pending = cancellationRecord.exists && !cancellationRecord.finalized && deadline != 0
-                && block.timestamp >= deadline;
-        } catch {
-            return (false, 0);
-        }
+        SenateTypes.ActionCancellationRecord memory cancellationRecord =
+            BoundedGovernanceHook.actionCancellation(senateAppAddress, actionId);
+        deadline = cancellationRecord.deadline;
+        pending =
+            cancellationRecord.exists && !cancellationRecord.finalized && deadline != 0 && block.timestamp >= deadline;
     }
 
     function _requireNoActiveSenateSuspension(bytes32 actionId) private view {
@@ -684,15 +677,11 @@ contract ActionTimelock is IActionTimelock {
             return (false, 0);
         }
 
-        try ISenateApp(senateAppAddress).getDisbursementSuspension(actionId) returns (
-            SenateTypes.DisbursementSuspension memory suspension
-        ) {
-            suspendedUntil = suspension.suspendedUntil;
-            // Auto-lapses once suspendedUntil passes: no un-suspend call is required for execution to resume.
-            active = suspension.exists && block.timestamp < suspendedUntil;
-        } catch {
-            return (false, 0);
-        }
+        SenateTypes.DisbursementSuspension memory suspension =
+            BoundedGovernanceHook.disbursementSuspension(senateAppAddress, actionId);
+        suspendedUntil = suspension.suspendedUntil;
+        // Auto-lapses once suspendedUntil passes: no un-suspend call is required for execution to resume.
+        active = suspension.exists && block.timestamp < suspendedUntil;
     }
 
     function _requireNotUnderConstitutionalReview(bytes32 actionId) private view {
@@ -717,11 +706,7 @@ contract ActionTimelock is IActionTimelock {
             return false;
         }
 
-        try IConstitutionalReview(reviewAddress).isActionExecutionPaused(actionId) returns (bool actionPaused) {
-            return actionPaused;
-        } catch {
-            return false;
-        }
+        return BoundedGovernanceHook.executionPaused(reviewAddress, actionId);
     }
 
     function _isExactModulePointerUpdate(bytes32 actionId, bytes32 targetModule) private view returns (bool exact) {
