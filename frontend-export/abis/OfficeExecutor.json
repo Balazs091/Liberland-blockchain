@@ -37,6 +37,24 @@
   },
   {
     "type": "function",
+    "name": "approvePayout",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "assignClerk",
     "inputs": [
       {
@@ -300,6 +318,24 @@
   },
   {
     "type": "function",
+    "name": "revokePayoutApproval",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "routePayout",
     "inputs": [
       {
@@ -400,6 +436,17 @@
   },
   {
     "type": "error",
+    "name": "DistinctPayoutOfficerRequired",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InvalidBootstrapAuthority",
     "inputs": [
       {
@@ -433,6 +480,33 @@
         "name": "actualOfficeId",
         "type": "bytes32",
         "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "PayoutApprovalRequired",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "StalePayoutAuthorization",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "officer",
+        "type": "address",
+        "internalType": "address"
       }
     ]
   },

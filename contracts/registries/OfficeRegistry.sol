@@ -15,8 +15,30 @@ contract OfficeRegistry is IOfficeRegistry, KernelModule {
     mapping(bytes32 officeId => uint64 clerkEpoch) private _clerkEpochs;
     mapping(bytes32 officeId => mapping(address member => uint64 clerkEpoch)) private _clerkMembershipEpochs;
     bytes32[] private _officeIds;
+    mapping(address admin => bytes32 officeId) private _adminOfficeByWallet;
+    mapping(bytes32 personId => bytes32 officeId) private _adminOfficeByPerson;
+    mapping(bytes32 officeId => bytes32 personId) private _adminSeparationPerson;
+    mapping(bytes32 officeId => mapping(address member => uint256 nonce)) private _appointmentNonces;
+    mapping(bytes32 officeId => uint256 nonce) private _activityNonces;
 
     constructor(address kernelAddress) KernelModule(kernelAddress) {}
+
+    /// @inheritdoc IOfficeRegistry
+    function authorizationId(bytes32 officeId, address account) external view returns (bytes32 id) {
+        OfficeTypes.OfficeRole role = roleOf(officeId, account);
+        if (role == OfficeTypes.OfficeRole.None) return bytes32(0);
+        return keccak256(
+            abi.encode(
+                address(this),
+                officeId,
+                account,
+                role,
+                _clerkEpochs[officeId],
+                _appointmentNonces[officeId][account],
+                _activityNonces[officeId]
+            )
+        );
+    }
 
     /// @inheritdoc IOfficeRegistry
     function getOfficeRecord(bytes32 officeId) external view returns (OfficeTypes.OfficeRecord memory officeRecord) {
@@ -105,6 +127,7 @@ contract OfficeRegistry is IOfficeRegistry, KernelModule {
         if (officeExists(officeId)) {
             revert OfficeAlreadyRegistered(officeId);
         }
+        _claimAdminSlot(officeId, admin, bytes32(0));
 
         uint64 currentTimestamp = uint64(block.timestamp);
         _officeRecords[officeId] = OfficeTypes.OfficeRecord({
@@ -160,6 +183,7 @@ contract OfficeRegistry is IOfficeRegistry, KernelModule {
 
         uint64 currentTimestamp = uint64(block.timestamp);
         address previousAdmin = officeRecord.admin;
+        _releaseAdminSlot(officeId);
         officeRecord.admin = address(0);
         officeRecord.adminPersonId = bytes32(0);
         officeRecord.adminAuthorizationEndsAt = 0;
@@ -182,6 +206,7 @@ contract OfficeRegistry is IOfficeRegistry, KernelModule {
         if (newAdmin == address(0)) {
             revert InvalidOfficeAdmin(newAdmin);
         }
+        _claimAdminSlot(officeId, newAdmin, adminPersonId);
 
         uint64 currentTimestamp = uint64(block.timestamp);
         address previousAdmin = officeRecord.admin;
@@ -212,8 +237,49 @@ contract OfficeRegistry is IOfficeRegistry, KernelModule {
         }
 
         IIdentityRegistry identityRegistry = IIdentityRegistry(_kernel.getModule(KernelModuleIds.IDENTITY_REGISTRY));
+        bytes32 walletOffice = _adminOfficeByWallet[account];
+        if (walletOffice != bytes32(0) && walletOffice != officeRecord.officeId && _hasReservedAdmin(walletOffice)) {
+            return false;
+        }
         return identityRegistry.hasActiveWalletLink(account)
             && identityRegistry.resolveWalletToPersonId(account) == officeRecord.adminPersonId;
+    }
+
+    function _claimAdminSlot(bytes32 officeId, address admin, bytes32 personId) private {
+        if (personId == bytes32(0)) {
+            try _kernel.getModule(KernelModuleIds.IDENTITY_REGISTRY) returns (address registry) {
+                if (IIdentityRegistry(registry).hasActiveWalletLink(admin)) {
+                    personId = IIdentityRegistry(registry).resolveWalletToPersonId(admin);
+                }
+            } catch {}
+        }
+        bytes32 walletOffice = _adminOfficeByWallet[admin];
+        if (walletOffice != bytes32(0) && walletOffice != officeId && _hasReservedAdmin(walletOffice)) {
+            revert OfficeAdminAlreadyAppointed(admin, walletOffice);
+        }
+        bytes32 personOffice = _adminOfficeByPerson[personId];
+        if (
+            personId != bytes32(0) && personOffice != bytes32(0) && personOffice != officeId
+                && _hasReservedAdmin(personOffice)
+        ) revert OfficeAdminAlreadyAppointed(admin, personOffice);
+        _releaseAdminSlot(officeId);
+        _adminOfficeByWallet[admin] = officeId;
+        if (personId != bytes32(0)) _adminOfficeByPerson[personId] = officeId;
+        _adminSeparationPerson[officeId] = personId;
+    }
+
+    function _releaseAdminSlot(bytes32 officeId) private {
+        address admin = _officeRecords[officeId].admin;
+        if (_adminOfficeByWallet[admin] == officeId) delete _adminOfficeByWallet[admin];
+        bytes32 personId = _adminSeparationPerson[officeId];
+        if (_adminOfficeByPerson[personId] == officeId) delete _adminOfficeByPerson[personId];
+        delete _adminSeparationPerson[officeId];
+    }
+
+    function _hasReservedAdmin(bytes32 officeId) private view returns (bool) {
+        OfficeTypes.OfficeRecord storage office = _officeRecords[officeId];
+        // Inactive generic offices can be reactivated by their appointee and therefore retain the reservation.
+        return office.admin != address(0) && !_isAdministrationExpired(office);
     }
 
     function _isAdministrationExpired(OfficeTypes.OfficeRecord storage officeRecord)
@@ -242,6 +308,7 @@ contract OfficeRegistry is IOfficeRegistry, KernelModule {
         membership.role = OfficeTypes.OfficeRole.Clerk;
         membership.active = active;
         _clerkMembershipEpochs[officeId][clerk] = _clerkEpochs[officeId];
+        ++_appointmentNonces[officeId][clerk];
 
         uint64 currentTimestamp = uint64(block.timestamp);
         if (active) {
@@ -289,6 +356,7 @@ contract OfficeRegistry is IOfficeRegistry, KernelModule {
         }
 
         uint64 currentTimestamp = uint64(block.timestamp);
+        if (officeRecord.active != active) ++_activityNonces[officeId];
         officeRecord.active = active;
         officeRecord.lastUpdatedAt = currentTimestamp;
 

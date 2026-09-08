@@ -86,5 +86,9 @@ library TreasuryTypes {
         uint64 createdAt;
         uint64 routeAfter;
         bytes32 actionId;
+        address proposer;
+        address approver;
+        bytes32 proposerAuthorizationId;
+        bytes32 approverAuthorizationId;
     }
 }

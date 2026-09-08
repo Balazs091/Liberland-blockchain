@@ -12,6 +12,19 @@
   },
   {
     "type": "function",
+    "name": "MAX_APPLICATION_URI_LENGTH",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "clearBallot",
     "inputs": [
       {
@@ -23,6 +36,19 @@
         "name": "voter",
         "type": "address",
         "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "completeRankedCycle",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [],
@@ -363,6 +389,40 @@
             "internalType": "uint32"
           }
         ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getCandidateRankingData",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "votes",
+        "type": "int256",
+        "internalType": "int256"
+      },
+      {
+        "name": "appliedAt",
+        "type": "uint64",
+        "internalType": "uint64"
+      },
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "stateMutability": "view"
@@ -750,6 +810,19 @@
   },
   {
     "type": "function",
+    "name": "rankingStore",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "recordBallot",
     "inputs": [
       {
@@ -1065,6 +1138,31 @@
   },
   {
     "type": "event",
+    "name": "CongressCandidateConsidered",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "candidate",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "selected",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "CongressCandidateRanked",
     "inputs": [
       {
@@ -1304,6 +1402,31 @@
   },
   {
     "type": "event",
+    "name": "CongressRankingProgress",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "processed",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "total",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "CongressSeatAssigned",
     "inputs": [
       {
@@ -1421,6 +1544,43 @@
   },
   {
     "type": "error",
+    "name": "ApplicationURITooLong",
+    "inputs": [
+      {
+        "name": "length",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maximum",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "BallotWalletOwnedByAnotherPerson",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "CandidateAlreadyExists",
     "inputs": [
       {
@@ -1480,6 +1640,17 @@
   },
   {
     "type": "error",
+    "name": "CycleInputsFrozen",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "DuplicateBallotCandidate",
     "inputs": [
       {
@@ -1534,12 +1705,34 @@
   },
   {
     "type": "error",
+    "name": "FinalizationNotReady",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InvalidApplicationHash",
     "inputs": [
       {
         "name": "applicationHash",
         "type": "bytes32",
         "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidBatchSize",
+    "inputs": [
+      {
+        "name": "count",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },

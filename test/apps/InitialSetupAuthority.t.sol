@@ -65,6 +65,8 @@ contract InitialSetupAuthorityTest is Test {
             new CitizenEligibilityPolicy(address(identityRegistry), address(stakeRegistry), MINIMUM_CITIZEN_STAKE);
         ElectorateRegistry electorateRegistry =
             new ElectorateRegistry(address(kernel), address(identityRegistry), address(stakeRegistry));
+        kernel.bootstrapSetModule(KernelModuleIds.ELECTORATE_REGISTRY, address(electorateRegistry));
+        kernel.bootstrapSetModule(KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY, address(citizenEligibilityPolicy));
         VotingPowerPolicy votingPowerPolicy = new VotingPowerPolicy(
             address(identityRegistry),
             address(stakeRegistry),
@@ -171,6 +173,14 @@ contract InitialSetupAuthorityTest is Test {
         members[1] = WALLET_TWO;
         uint64 continuityEnd = uint64(block.timestamp + 3 days);
 
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                InitialSetupAuthority.GenesisSnapshotNotCompleted.selector, block.number, block.number
+            )
+        );
+        setupAuthority.seedCongressContinuityTerm(members, continuityEnd);
+        vm.roll(block.number + 1);
+
         (uint256 officeTermCycleId, uint256 continuityCycleId) =
             setupAuthority.seedCongressContinuityTerm(members, continuityEnd);
 
@@ -183,6 +193,7 @@ contract InitialSetupAuthorityTest is Test {
         assertEq(cycle.votingStart, block.timestamp + 1 days);
         assertEq(cycle.votingEnd, continuityEnd);
         assertEq(cycle.candidateCount, 2);
+        assertEq(cycle.votingPowerSnapshotBlock, block.number - 1);
     }
 
     function test_SeedCongressContinuityTerm_RejectsCycleLongerThanPolicyCadence() public {
@@ -192,6 +203,8 @@ contract InitialSetupAuthorityTest is Test {
         address[] memory members = new address[](2);
         members[0] = WALLET_ONE;
         members[1] = WALLET_TWO;
+
+        vm.roll(block.number + 1);
 
         vm.expectRevert(InitialSetupAuthority.InvalidSetupInput.selector);
         setupAuthority.seedCongressContinuityTerm(members, uint64(block.timestamp + 3 days + 1));
@@ -215,6 +228,7 @@ contract InitialSetupAuthorityTest is Test {
     }
 
     function _wireSetupAuthority() private {
+        kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY, address(identityRegistry));
         kernel.bootstrapSetModule(KernelModuleIds.INITIAL_SETUP_AUTHORITY, address(setupAuthority));
         kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, address(setupAuthority));
         kernel.bootstrapSetModule(KernelModuleIds.STAKE_REGISTRY_AUTHORITY, address(setupAuthority));

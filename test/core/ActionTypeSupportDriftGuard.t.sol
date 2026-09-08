@@ -25,7 +25,7 @@ contract ActionTypeSupportDriftGuardTest is Test {
         kernel = new ConstitutionKernel(address(this));
         timelock = new ActionTimelock(address(kernel), _defaultDelayConfig());
         router = new GovernanceRouter(address(kernel), address(this));
-        senatePowersPolicy = new SenatePowersPolicy(1, 3 days);
+        senatePowersPolicy = new SenatePowersPolicy(2, 3 days);
     }
 
     /// @notice Every `ActionType` must be classified identically by all three timelock-flow gates, and that shared
@@ -47,8 +47,8 @@ contract ActionTypeSupportDriftGuardTest is Test {
             }
         }
 
-        // Guards against the canonical helper silently accepting more/fewer members than the intended five.
-        assertEq(supportedSeen, 5, "canonical supported-set cardinality changed");
+        // Six bounded types, including the approved typed Law-tier repeal.
+        assertEq(supportedSeen, 6, "canonical supported-set cardinality changed");
         assertFalse(_isCanonicallySupported(GovernanceTypes.ActionType.Undefined), "Undefined must never be supported");
     }
 
@@ -58,6 +58,7 @@ contract ActionTypeSupportDriftGuardTest is Test {
             || actionType == GovernanceTypes.ActionType.ModuleRegistration
             || actionType == GovernanceTypes.ActionType.TreasuryBudgetApproval
             || actionType == GovernanceTypes.ActionType.LegislationEnactment
+            || actionType == GovernanceTypes.ActionType.LegislationRepeal
             || actionType == GovernanceTypes.ActionType.TreasuryDisbursement;
     }
 

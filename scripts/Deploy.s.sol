@@ -12,6 +12,7 @@ import {CongressElectionApp} from "../contracts/apps/CongressElectionApp.sol";
 import {DecisionApp} from "../contracts/apps/DecisionApp.sol";
 import {HeadOfStateApp} from "../contracts/apps/HeadOfStateApp.sol";
 import {IdentityApp} from "../contracts/apps/IdentityApp.sol";
+import {CivicAppealReview} from "../contracts/apps/CivicAppealReview.sol";
 import {InitialSetupAuthority} from "../contracts/apps/InitialSetupAuthority.sol";
 import {LandRegistryApp} from "../contracts/apps/LandRegistryApp.sol";
 import {LLMStakingVault} from "../contracts/apps/LLMStakingVault.sol";
@@ -142,6 +143,7 @@ contract Deploy is DeploymentScriptBase {
     HeadOfStateApp internal _headOfStateApp;
     CabinetApp internal _cabinetApp;
     IdentityApp internal _identityApp;
+    CivicAppealReview internal _civicAppealReview;
     LandRegistryApp internal _landRegistryApp;
     CompanyRegistryApp internal _companyRegistryApp;
     PayoutQueue internal _payoutQueue;
@@ -213,6 +215,7 @@ contract Deploy is DeploymentScriptBase {
         address headOfStateApp;
         address cabinetApp;
         address identityApp;
+        address civicAppealReview;
         address landRegistryApp;
         address companyRegistryApp;
         address payoutQueue;
@@ -247,11 +250,13 @@ contract Deploy is DeploymentScriptBase {
         _identityOfficeAdmin = vm.envAddress("IDENTITY_ADMIN");
         _landOfficeAdmin = vm.envAddress("LAND_ADMIN");
         _companyRegistryOfficeAdmin = vm.envAddress("COMPANY_REGISTRY_ADMIN");
+        _readCivicReviewers();
         require(
             _financeOfficeAdmin != deployer && _identityOfficeAdmin != deployer && _landOfficeAdmin != deployer
                 && _companyRegistryOfficeAdmin != deployer,
             "office admins must differ from deployer"
         );
+        _requireSeparateOfficeAdmins();
 
         // System money is ERC20: LLM (governance/merit) plus the configured treasury spending assets (stablecoins
         // such as USDC/USDS). Native ETH is gas-only and has no treasury role, so both inputs are mandatory.
@@ -269,15 +274,87 @@ contract Deploy is DeploymentScriptBase {
         _registerModules();
         _configureOriginAuthorities();
         _seedGenesisState();
-        _activateStandingCongressAuthority();
-        _assertReadyForBootstrapDisable();
-        _sealAndDisableBootstrap();
         vm.stopBroadcast();
 
         deployment = _snapshot(deployer);
 
         _writeDeploymentJson(deployment);
         _logDeployment(deployment);
+        console2.log("GENESIS PREPARED ONLY: wait for confirmed blocks, then call completeGenesis(address).");
+    }
+
+    /// @notice Completes a prepared production genesis in a separate invocation after citizen checkpoints mature.
+    /// @param kernelAddress Exact kernel from the reviewed preparation manifest.
+    function completeGenesis(address kernelAddress) external {
+        require(block.chainid == EthereumMainnetParameters.CHAIN_ID, "production deployment requires Ethereum mainnet");
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        address deployer = vm.addr(deployerPrivateKey);
+        _loadGenesisCompletionState(kernelAddress);
+        require(
+            _kernel.bootstrapAuthority() == deployer && _initialSetupAuthority.owner() == deployer,
+            "wrong genesis operator"
+        );
+        require(!_initialSetupAuthority.isSealed(), "genesis already sealed");
+        GenesisCitizen[] memory citizens = _readSeededCitizens();
+        vm.startBroadcast(deployerPrivateKey);
+        _seedGenesisCongressTerm(citizens);
+        _activateStandingCongressAuthority();
+        _activateStandingReferendumAuthority();
+        _assertReadyForBootstrapDisable();
+        _sealAndDisableBootstrap();
+        vm.stopBroadcast();
+        // Keep activation evidence separate: preparation is not a completed-deployment certificate.
+        string memory key = "production-genesis-activation";
+        vm.serializeAddress(key, "kernel", kernelAddress);
+        vm.serializeUint(key, "genesisCongressSeatCount", _genesisCongressSeatCount);
+        vm.serializeUint(key, "genesisCongressContinuityCycleId", _genesisCongressContinuityCycleId);
+        vm.serializeUint(key, "genesisCongressContinuityEnd", _genesisCongressContinuityEnd);
+        string memory json = vm.serializeBool(key, "genesisComplete", true);
+        vm.createDir(string.concat(vm.projectRoot(), "/deployments"), true);
+        vm.writeJson(json, string.concat(vm.projectRoot(), "/deployments/ethereum-mainnet-activation.json"));
+        string memory manifestPath = string.concat(vm.projectRoot(), "/deployments/ethereum-mainnet.json");
+        if (vm.exists(manifestPath)) {
+            require(
+                vm.parseJsonAddress(vm.readFile(manifestPath), ".constitutionKernel") == kernelAddress,
+                "preparation manifest kernel mismatch"
+            );
+            vm.writeJson(vm.toString(_genesisCongressSeatCount), manifestPath, ".genesisCongressSeatCount");
+            vm.writeJson(
+                vm.toString(_genesisCongressContinuityCycleId), manifestPath, ".genesisCongressContinuityCycleId"
+            );
+            vm.writeJson(vm.toString(_genesisCongressContinuityEnd), manifestPath, ".genesisCongressContinuityEnd");
+            vm.writeJson("true", manifestPath, ".genesisComplete");
+        }
+    }
+
+    function _loadGenesisCompletionState(address kernelAddress) internal {
+        _kernel = ConstitutionKernel(kernelAddress);
+        _router = GovernanceRouter(_kernel.getModule(KernelModuleIds.GOVERNANCE_ROUTER));
+        _initialSetupAuthority = InitialSetupAuthority(_kernel.getModule(KernelModuleIds.INITIAL_SETUP_AUTHORITY));
+        _identityRegistry = IdentityRegistry(_kernel.getModule(KernelModuleIds.IDENTITY_REGISTRY));
+        _stakeRegistry = StakeRegistry(_kernel.getModule(KernelModuleIds.STAKE_REGISTRY));
+        _senateSeatRegistry = SenateSeatRegistry(_kernel.getModule(KernelModuleIds.SENATE_SEAT_REGISTRY));
+        _presidentRegistry = PresidentRegistry(_kernel.getModule(KernelModuleIds.PRESIDENT_REGISTRY));
+        _congressElectionApp = CongressElectionApp(_kernel.getModule(KernelModuleIds.CONGRESS_ELECTION_APP));
+        _referendumApp = ReferendumApp(_kernel.getModule(KernelModuleIds.REFERENDUM_APP));
+        _officeExecutor = OfficeExecutor(_kernel.getModule(KernelModuleIds.OFFICE_EXECUTOR));
+        _lendingPool = USDCLendingPoolApp(_kernel.getModule(KernelModuleIds.USDC_LENDING_POOL_APP));
+        _decisionApp = DecisionApp(_kernel.getModule(KernelModuleIds.DECISION_APP));
+        _genesisCitizenCount = _identityRegistry.totalIdentityCount();
+        _genesisSenateSeatCount = _senateSeatRegistry.occupiedSeatCount();
+        require(_genesisCitizenCount == vm.envUint("GENESIS_CITIZEN_COUNT"), "genesis roll count changed");
+    }
+
+    function _readSeededCitizens() internal view returns (GenesisCitizen[] memory citizens) {
+        citizens = new GenesisCitizen[](_genesisCitizenCount);
+        for (uint256 index; index < citizens.length; ++index) {
+            bytes32 personId = _identityRegistry.identityIdAt(index);
+            citizens[index] = GenesisCitizen({
+                personId: personId,
+                wallet: _identityRegistry.activeWalletOf(personId),
+                activeStake: _stakeRegistry.activeStakeOf(personId)
+            });
+        }
     }
 
     /// @dev Reads the governed treasury spending asset set (TREASURY_ASSET_COUNT plus indexed ADDRESS and clerk
@@ -345,6 +422,9 @@ contract Deploy is DeploymentScriptBase {
     }
 
     function _deployPoliciesAndApps(address deployer) internal {
+        _validateCivicReviewers(
+            deployer, [_financeOfficeAdmin, _identityOfficeAdmin, _landOfficeAdmin, _companyRegistryOfficeAdmin]
+        );
         _validateLlmToken();
         _validateUsdcToken();
         _stakingVault = new LLMStakingVault(
@@ -419,7 +499,6 @@ contract Deploy is DeploymentScriptBase {
             address(_identityRegistry),
             address(_senateSeatRegistry),
             address(_senatePowersPolicy),
-            address(_presidentRegistry),
             address(_router),
             address(_timelock),
             address(_referendumApp)
@@ -441,6 +520,7 @@ contract Deploy is DeploymentScriptBase {
         _identityApp = new IdentityApp(
             address(_identityRegistry), address(_officeRegistry), IDENTITY_OFFICE_ID, IDENTITY_MIGRATION_DELAY
         );
+        _civicAppealReview = new CivicAppealReview(address(_identityApp), _civicReviewers);
         _landRegistryApp = new LandRegistryApp(
             address(_landRegistry),
             address(_officeRegistry),
@@ -497,7 +577,7 @@ contract Deploy is DeploymentScriptBase {
     }
 
     function _registerModules() internal {
-        (bytes32[] memory moduleIds, address[] memory moduleAddresses) = _allocateModuleBatch(60);
+        (bytes32[] memory moduleIds, address[] memory moduleAddresses) = _allocateModuleBatch(61);
         uint256 index;
 
         // Standing identity authority: the IdentityApp becomes the sole live mutator of the identity registry.
@@ -660,13 +740,17 @@ contract Deploy is DeploymentScriptBase {
             moduleIds, moduleAddresses, index++, KernelModuleIds.LEGISLATION_REGISTRY_AUTHORITY, address(_timelock)
         );
         _setModuleBatchEntry(
-            moduleIds, moduleAddresses, index++, KernelModuleIds.REFERENDUM_REGISTRY_AUTHORITY, address(_referendumApp)
+            moduleIds,
+            moduleAddresses,
+            index++,
+            KernelModuleIds.REFERENDUM_REGISTRY_AUTHORITY,
+            address(_initialSetupAuthority)
         );
         _setModuleBatchEntry(
             moduleIds, moduleAddresses, index++, KernelModuleIds.SENATE_SEAT_REGISTRY_AUTHORITY, address(_senateApp)
         );
         _setModuleBatchEntry(
-            moduleIds, moduleAddresses, index++, KernelModuleIds.LEGISLATION_REPEAL_AUTHORITY, address(_publicVetoApp)
+            moduleIds, moduleAddresses, index++, KernelModuleIds.LEGISLATION_REPEAL_AUTHORITY, address(_timelock)
         );
         _setModuleBatchEntry(
             moduleIds, moduleAddresses, index++, KernelModuleIds.BUDGET_ENVELOPE_REGISTRY_AUTHORITY, address(_timelock)
@@ -744,6 +828,10 @@ contract Deploy is DeploymentScriptBase {
             address(_decisionApp)
         );
 
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.CIVIC_APPEAL_AUTHORITY, address(_civicAppealReview)
+        );
+
         _validateModuleBatch(moduleIds, moduleAddresses);
         _kernel.bootstrapSetModules(moduleIds, moduleAddresses);
     }
@@ -765,12 +853,20 @@ contract Deploy is DeploymentScriptBase {
         _kernel.bootstrapSetModule(KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY_AUTHORITY, address(_congressElectionApp));
     }
 
+    /// @dev No citizen may freeze a partial genesis electorate into a referendum. Activate only after seeding.
+    function _activateStandingReferendumAuthority() internal {
+        require(
+            _kernel.getModule(KernelModuleIds.REFERENDUM_REGISTRY_AUTHORITY) == address(_initialSetupAuthority),
+            "unexpected genesis referendum authority"
+        );
+        _kernel.bootstrapSetModule(KernelModuleIds.REFERENDUM_REGISTRY_AUTHORITY, address(_referendumApp));
+    }
+
     function _seedGenesisState() internal {
         IERC20(_llmTokenAddress).forceApprove(address(_stakingVault), type(uint256).max);
         GenesisCitizen[] memory citizens = _seedGenesisCitizens();
         IERC20(_llmTokenAddress).forceApprove(address(_stakingVault), 0);
         _seedGenesisSenateSeats(citizens);
-        _seedGenesisCongressTerm(citizens);
         _seedGenesisPresident(citizens);
         _seedGenesisOffices();
     }
@@ -837,7 +933,10 @@ contract Deploy is DeploymentScriptBase {
     function _seedGenesisCongressTerm(GenesisCitizen[] memory citizens) internal {
         uint256 congressMemberCount = vm.envUint("GENESIS_CONGRESS_MEMBER_COUNT");
         require(congressMemberCount >= CONGRESS_SEAT_COUNT, "genesis congress below seats");
-        require(congressMemberCount <= CONGRESS_MAX_CANDIDATE_COUNT, "too many genesis congress candidates");
+        require(
+            congressMemberCount <= uint256(CONGRESS_SEAT_COUNT) + CONGRESS_RUNNER_UP_COUNT,
+            "too many genesis congress candidates"
+        );
         _genesisCongressSeatCount = CONGRESS_SEAT_COUNT;
 
         address[] memory members = new address[](congressMemberCount);
@@ -889,6 +988,7 @@ contract Deploy is DeploymentScriptBase {
     }
 
     function _seedGenesisOffices() internal {
+        _requireSeparateOfficeAdmins();
         _initialSetupAuthority.createOffice(
             FINANCE_OFFICE_ID, OfficeTypes.OfficeKind.MinistryOfFinance, "Ministry of Finance", _financeOfficeAdmin
         );
@@ -906,6 +1006,17 @@ contract Deploy is DeploymentScriptBase {
         );
     }
 
+    function _requireSeparateOfficeAdmins() internal view {
+        address[4] memory admins =
+            [_financeOfficeAdmin, _identityOfficeAdmin, _landOfficeAdmin, _companyRegistryOfficeAdmin];
+        for (uint256 i; i < admins.length; ++i) {
+            require(admins[i] != address(0), "office admin must be nonzero");
+            for (uint256 j; j < i; ++j) {
+                require(admins[i] != admins[j], "office admins must be pairwise distinct");
+            }
+        }
+    }
+
     /// @dev Seals the one-time setup authority and only then disables the bootstrap authorities.
     function _sealAndDisableBootstrap() internal {
         _initialSetupAuthority.seal();
@@ -919,6 +1030,10 @@ contract Deploy is DeploymentScriptBase {
     }
 
     function _assertReadyForBootstrapDisable() internal view {
+        require(
+            _kernel.getModule(KernelModuleIds.REFERENDUM_REGISTRY_AUTHORITY) == address(_referendumApp),
+            "standing referendum authority not registered"
+        );
         require(
             _kernel.getModule(KernelModuleIds.INITIAL_SETUP_AUTHORITY) == address(_initialSetupAuthority),
             "initial setup authority not registered"
@@ -1068,6 +1183,7 @@ contract Deploy is DeploymentScriptBase {
         deployment.headOfStateApp = address(_headOfStateApp);
         deployment.cabinetApp = address(_cabinetApp);
         deployment.identityApp = address(_identityApp);
+        deployment.civicAppealReview = address(_civicAppealReview);
         deployment.landRegistryApp = address(_landRegistryApp);
         deployment.companyRegistryApp = address(_companyRegistryApp);
         deployment.payoutQueue = address(_payoutQueue);
@@ -1093,6 +1209,7 @@ contract Deploy is DeploymentScriptBase {
 
     function _writeDeploymentJson(Deployment memory deployment) internal {
         string memory deploymentKey = "deployment";
+        vm.serializeBool(deploymentKey, "genesisComplete", false);
 
         vm.serializeUint(deploymentKey, "chainId", block.chainid);
         vm.serializeAddress(deploymentKey, "deployer", deployment.deployer);
@@ -1139,6 +1256,12 @@ contract Deploy is DeploymentScriptBase {
         vm.serializeAddress(deploymentKey, "headOfStateApp", deployment.headOfStateApp);
         vm.serializeAddress(deploymentKey, "cabinetApp", deployment.cabinetApp);
         vm.serializeAddress(deploymentKey, "identityApp", deployment.identityApp);
+        vm.serializeAddress(deploymentKey, "civicAppealReview", deployment.civicAppealReview);
+        for (uint256 i; i < 5; ++i) {
+            vm.serializeAddress(
+                deploymentKey, string.concat("civicReviewer", vm.toString(i)), _civicAppealReview.reviewerAt(i)
+            );
+        }
         vm.serializeAddress(deploymentKey, "landRegistryApp", deployment.landRegistryApp);
         vm.serializeAddress(deploymentKey, "companyRegistryApp", deployment.companyRegistryApp);
         vm.serializeAddress(deploymentKey, "payoutQueue", deployment.payoutQueue);
@@ -1163,6 +1286,7 @@ contract Deploy is DeploymentScriptBase {
             vm.serializeAddress(deploymentKey, "companyRegistryOfficeAdmin", deployment.companyRegistryOfficeAdmin);
 
         string memory path = string.concat(vm.projectRoot(), "/deployments/ethereum-mainnet.json");
+        vm.createDir(string.concat(vm.projectRoot(), "/deployments"), true);
         vm.writeJson(json, path);
     }
 
@@ -1204,6 +1328,7 @@ contract Deploy is DeploymentScriptBase {
         console2.log("HeadOfStateApp:", deployment.headOfStateApp);
         console2.log("CabinetApp:", deployment.cabinetApp);
         console2.log("IdentityApp:", deployment.identityApp);
+        console2.log("CivicAppealReview:", deployment.civicAppealReview);
         console2.log("LandRegistryApp:", deployment.landRegistryApp);
         console2.log("CompanyRegistryApp:", deployment.companyRegistryApp);
         console2.log("OfficeExecutor:", deployment.officeExecutor);

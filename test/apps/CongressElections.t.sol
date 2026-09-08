@@ -9,6 +9,7 @@ import {ICandidateEligibilityPolicy} from "../../contracts/interfaces/ICandidate
 import {ICitizenEligibilityPolicy} from "../../contracts/interfaces/ICitizenEligibilityPolicy.sol";
 import {ICongressCandidateRegistry} from "../../contracts/interfaces/ICongressCandidateRegistry.sol";
 import {ICongressElectionApp} from "../../contracts/interfaces/ICongressElectionApp.sol";
+import {ICongressRankingStore} from "../../contracts/interfaces/ICongressRankingStore.sol";
 import {ICongressElectionPolicy} from "../../contracts/interfaces/ICongressElectionPolicy.sol";
 import {IIdentityRegistry} from "../../contracts/interfaces/IIdentityRegistry.sol";
 import {IStakeRegistry} from "../../contracts/interfaces/IStakeRegistry.sol";
@@ -432,6 +433,28 @@ contract CongressElectionsTest is Test {
 
     /// @notice A person who migrates wallets mid-cycle cannot double-vote the same stake; the old cycle ballot is
     ///         dropped when the person re-votes from the new wallet.
+    function test_Audit_BallotRemovalFollowsPersonAfterMigrationAndAddressReassignment() public {
+        (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycleRecord) = _createCycle();
+        vm.warp(cycleRecord.nominationStart);
+        _applyAllDefaultCandidates(cycleId);
+        vm.warp(cycleRecord.votingStart);
+        _castFullWeightBallot(WALLET_ONE, cycleId, WALLET_THREE);
+        _setWalletLink(PERSON_ONE_ID, WALLET_ONE, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(PERSON_ONE_ID, WALLET_ONE_NEW, IdentityTypes.WalletLinkStatus.Active);
+        vm.prank(WALLET_ONE);
+        vm.expectRevert(abi.encodeWithSelector(ICongressCandidateRegistry.InvalidVoter.selector, WALLET_ONE));
+        congressElectionApp.clearBallot(cycleId);
+        _setWalletLink(PERSON_TWO_ID, WALLET_TWO, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(PERSON_TWO_ID, WALLET_ONE, IdentityTypes.WalletLinkStatus.Active);
+        vm.prank(WALLET_ONE);
+        vm.expectRevert(abi.encodeWithSelector(ICongressCandidateRegistry.VoteNotFound.selector, cycleId, WALLET_ONE));
+        congressElectionApp.clearBallot(cycleId);
+        assertEq(congressCandidateRegistry.getCandidate(cycleId, WALLET_THREE).voteTotal, 9_000);
+        vm.prank(WALLET_ONE_NEW);
+        congressElectionApp.clearBallot(cycleId);
+        assertEq(congressCandidateRegistry.getCandidate(cycleId, WALLET_THREE).voteTotal, 0);
+    }
+
     function test_CastBallot_WalletMigrationCannotDoubleVote() public {
         (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycleRecord) = _createCycle();
 
@@ -802,6 +825,190 @@ contract CongressElectionsTest is Test {
         assertEq(arbitraryExecutionCount, 0);
     }
 
+    function test_Governance_OpenAdmissionFinalizes100CandidatesInBoundedChunks() public {
+        _assertOpenAdmissionCount(100);
+    }
+
+    function test_Governance_OpenAdmissionFinalizes1000CandidatesInBoundedChunks() public {
+        _assertOpenAdmissionCount(1000);
+    }
+
+    function _assertOpenAdmissionCount(uint256 count) private {
+        for (uint256 i; i < count; ++i) {
+            _registerCitizen(bytes32(1000 + i), address(uint160(1000 + i)), 6_000);
+        }
+        vm.roll(block.number + 1);
+        (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycle) = _createCycle();
+        vm.warp(cycle.nominationStart);
+        // Reverse admission order exercises heap ordering; timestamp ties resolve by canonical address.
+        for (uint256 i = count; i > 0; --i) {
+            _applyCandidate(cycleId, address(uint160(999 + i)), "open candidate");
+        }
+        assertEq(congressCandidateRegistry.getCycleCandidateCount(cycleId), count);
+        assertEq(congressCandidateRegistry.getCycle(cycleId).maxCandidateCount, 0);
+        vm.warp(cycle.votingEnd);
+        uint256 rounds;
+        while (congressCandidateRegistry.getCycle(cycleId).status != ElectionTypes.ElectionStatus.Finalized) {
+            uint256 beforeCount = _rankingProgress(cycleId).processedCount;
+            vm.cool(address(congressCandidateRegistry));
+            vm.cool(address(identityRegistry));
+            vm.cool(address(stakeRegistry));
+            uint256 gasBefore = gasleft();
+            congressElectionApp.finalizeElection(cycleId);
+            uint256 gasUsed = gasBefore - gasleft();
+            assertLt(gasUsed, 12_000_000, "bounded finalization chunk must fit a capped transaction");
+            emit log_named_uint("finalization chunk execution gas", gasUsed);
+            uint256 afterCount = _rankingProgress(cycleId).processedCount;
+            assertLe(afterCount - beforeCount, 32);
+            ++rounds;
+            assertLe(rounds, (count + 31) / 32 + 2);
+        }
+        assertEq(rounds, (count + 31) / 32);
+        assertEq(congressCandidateRegistry.getElectedCandidateAt(cycleId, 0), address(1000));
+        assertEq(congressCandidateRegistry.getElectedCandidateAt(cycleId, 1), address(1001));
+        assertEq(congressCandidateRegistry.getRunnerUpAt(cycleId, 0), address(1002));
+        assertEq(congressCandidateRegistry.getCycleCandidateCount(cycleId + 1), SEAT_COUNT);
+        ElectionTypes.CongressCycleRecord memory next = congressCandidateRegistry.getCycle(cycleId + 1);
+        vm.warp(next.nominationStart);
+        for (uint256 i = 2; i < 20; ++i) {
+            _applyCandidate(cycleId + 1, address(uint160(1000 + i)), "challenger");
+        }
+        assertEq(congressCandidateRegistry.getCycleCandidateCount(cycleId + 1), 20);
+    }
+
+    function test_Governance_CountFreezesVotesAndSkipsCurrentlyDisqualifiedCandidates() public {
+        for (uint256 i; i < 70; ++i) {
+            _registerCitizen(bytes32(1000 + i), address(uint160(1000 + i)), 6_000);
+        }
+        vm.roll(block.number + 1);
+        (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycle) = _createCycle();
+        vm.warp(cycle.nominationStart);
+        for (uint256 i; i < 70; ++i) {
+            _applyCandidate(cycleId, address(uint160(1000 + i)), "candidate");
+        }
+        vm.warp(cycle.votingEnd);
+        congressElectionApp.finalizeElection(cycleId);
+        assertEq(_rankingProgress(cycleId).processedCount, 32);
+        vm.prank(address(1000));
+        vm.expectRevert();
+        congressElectionApp.castBallot(cycleId, _asAddressArray(address(1000)), _asIntArray(6000));
+        vm.prank(address(1000));
+        vm.expectRevert();
+        congressElectionApp.withdrawCandidacy(cycleId);
+        IdentityTypes.IdentityRecordInput memory suspended = _defaultIdentityInput();
+        suspended.finalSuspension = true;
+        for (uint256 i; i < 65; ++i) {
+            _setIdentityRecord(bytes32(1000 + i), suspended);
+        }
+        vm.roll(block.number + 1);
+        uint256 calls;
+        while (congressCandidateRegistry.getCycle(cycleId).status != ElectionTypes.ElectionStatus.Finalized) {
+            congressElectionApp.finalizeElection(cycleId);
+            assertLe(++calls, 6);
+        }
+        assertEq(congressCandidateRegistry.getElectedCandidateAt(cycleId, 0), address(1065));
+        assertEq(congressCandidateRegistry.getElectedCandidateAt(cycleId, 1), address(1066));
+        assertEq(
+            uint8(congressCandidateRegistry.getCandidate(cycleId, address(1000)).status),
+            uint8(ElectionTypes.CandidateStatus.Disqualified)
+        );
+    }
+
+    function testFuzz_Governance_HeapMatchesReferenceVoteOrdering(uint256 seed) public {
+        uint256 count = 40;
+        address[] memory expected = new address[](count);
+        int256[] memory scores = new int256[](count);
+        for (uint256 i; i < count; ++i) {
+            expected[i] = address(uint160(1000 + i));
+            scores[i] = 6000 + int256(uint256(keccak256(abi.encode(seed, i))) % 6000);
+            _registerCitizen(bytes32(1000 + i), expected[i], uint256(scores[i]));
+        }
+        vm.roll(block.number + 1);
+        (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycle) = _createCycle();
+        vm.warp(cycle.nominationStart);
+        for (uint256 i; i < count; ++i) {
+            _applyCandidate(cycleId, expected[i], "candidate");
+        }
+        vm.warp(cycle.votingStart);
+        for (uint256 i; i < count; ++i) {
+            if (scores[i] != 0) {
+                _castBallot(expected[i], cycleId, _asAddressArray(expected[i]), _asIntArray(scores[i]));
+            }
+        }
+        for (uint256 i = 1; i < count; ++i) {
+            address candidate = expected[i];
+            int256 score = scores[i];
+            uint256 pos = i;
+            while (
+                pos > 0 && (score > scores[pos - 1] || (score == scores[pos - 1] && candidate < expected[pos - 1]))
+            ) {
+                scores[pos] = scores[pos - 1];
+                expected[pos] = expected[pos - 1];
+                --pos;
+            }
+            scores[pos] = score;
+            expected[pos] = candidate;
+        }
+        vm.warp(cycle.votingEnd);
+        congressElectionApp.finalizeElection(cycleId);
+        congressElectionApp.finalizeElection(cycleId);
+        for (uint256 i; i < SEAT_COUNT; ++i) {
+            assertEq(congressCandidateRegistry.getElectedCandidateAt(cycleId, i), expected[i]);
+        }
+        for (uint256 i; i < RUNNER_UP_COUNT; ++i) {
+            assertEq(congressCandidateRegistry.getRunnerUpAt(cycleId, i), expected[SEAT_COUNT + i]);
+        }
+    }
+
+    function test_Governance_RankingStoreRejectsUnauthorisedMutation() public {
+        (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycle) = _createCycle();
+        vm.warp(cycle.votingEnd);
+        ICongressRankingStore store_ = ICongressRankingStore(congressCandidateRegistry.rankingStore());
+        assertEq(store_.registry(), address(congressCandidateRegistry));
+        vm.expectRevert(ICongressRankingStore.RegistryOnly.selector);
+        store_.process(cycleId, 32);
+        vm.expectRevert(ICongressRankingStore.RegistryOnly.selector);
+        store_.consider(cycleId, true);
+        vm.expectRevert(ICongressRankingStore.RegistryOnly.selector);
+        store_.removeSelected(cycleId, 0);
+        assertFalse(store_.progress(cycleId).started);
+    }
+
+    function test_Governance_ProvisionalWinnersAreRecheckedBeforeActivation() public {
+        for (uint256 i; i < 70; ++i) {
+            _registerCitizen(bytes32(1000 + i), address(uint160(1000 + i)), 6_000);
+        }
+        vm.roll(block.number + 1);
+        (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycle) = _createCycle();
+        vm.warp(cycle.nominationStart);
+        for (uint256 i; i < 70; ++i) {
+            _applyCandidate(cycleId, address(uint160(1000 + i)), "candidate");
+        }
+        IdentityTypes.IdentityRecordInput memory suspended = _defaultIdentityInput();
+        suspended.finalSuspension = true;
+        for (uint256 i = 3; i < 65; ++i) {
+            _setIdentityRecord(bytes32(1000 + i), suspended);
+        }
+        vm.roll(block.number + 1);
+        vm.warp(cycle.votingEnd);
+        congressElectionApp.finalizeElection(cycleId);
+        congressElectionApp.finalizeElection(cycleId);
+        congressElectionApp.finalizeElection(cycleId);
+        assertEq(_rankingProgress(cycleId).selectedCount, 3);
+        _setIdentityRecord(bytes32(uint256(1000)), suspended);
+        vm.roll(block.number + 1);
+        for (
+            uint256 i;
+            i < 3 && congressCandidateRegistry.getCycle(cycleId).status != ElectionTypes.ElectionStatus.Finalized;
+            ++i
+        ) {
+            congressElectionApp.finalizeElection(cycleId);
+        }
+        assertEq(congressCandidateRegistry.getElectedCandidateAt(cycleId, 0), address(1001));
+        assertEq(congressCandidateRegistry.getElectedCandidateAt(cycleId, 1), address(1002));
+        assertFalse(congressElectionApp.isCongressMember(address(1000)));
+    }
+
     function _createCycle() internal returns (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycleRecord) {
         uint64 nominationStart = uint64(block.timestamp + 1 days);
         uint64 votingStart = nominationStart + MINIMUM_NOMINATION_DURATION;
@@ -809,6 +1016,10 @@ contract CongressElectionsTest is Test {
 
         cycleId = congressElectionApp.createElectionCycle(nominationStart, votingStart, votingEnd);
         cycleRecord = congressCandidateRegistry.getCycle(cycleId);
+    }
+
+    function _rankingProgress(uint256 cycleId) internal view returns (ElectionTypes.FinalizationProgress memory) {
+        return ICongressRankingStore(congressCandidateRegistry.rankingStore()).progress(cycleId);
     }
 
     function _finalizeDefaultCongressTerm() internal returns (uint256 cycleId) {

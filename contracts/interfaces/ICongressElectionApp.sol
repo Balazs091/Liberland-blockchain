@@ -107,6 +107,8 @@ interface ICongressElectionApp {
 
     /// @notice Finalizes a completed election cycle and stores the ranked outcome.
     /// @param cycleId The cycle identifier to finalize.
+    /// @dev Permissionless and resumable: repeat until the registry cycle status is Finalized. Each call ranks
+    ///      at most 32 candidates and considers at most 32; an intermediate successful call is not finality.
     function finalizeElection(uint256 cycleId) external;
 
     /// @notice Vacates the caller's current seat and promotes the next eligible runner-up when available.

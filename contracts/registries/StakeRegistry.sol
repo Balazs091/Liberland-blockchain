@@ -15,6 +15,7 @@ import {StakeTypes} from "../types/StakeTypes.sol";
 /// @title StakeRegistry
 /// @notice Stable fact registry for political stake, discrete unstaking, welfare, and slash accounting.
 contract StakeRegistry is IStakeRegistry, KernelModule {
+    error InsufficientElectorateSyncGas(uint256 available, uint256 required);
     using Checkpoints for Checkpoints.Trace208;
 
     uint256 private constant _ELECTORATE_SYNC_GAS_LIMIT = 500_000;
@@ -255,6 +256,10 @@ contract StakeRegistry is IStakeRegistry, KernelModule {
     }
 
     function _advanceElectorateSource(bytes32 personId) private {
+        uint256 requiredGas = _ELECTORATE_SYNC_GAS_LIMIT + _ELECTORATE_SYNC_GAS_RESERVE;
+        if (gasleft() < requiredGas) {
+            revert InsufficientElectorateSyncGas(gasleft(), requiredGas);
+        }
         uint256 personRevision = ++_electorateRevisions[personId];
         uint256 mutationCount = ++_electorateMutationCount;
         emit ElectorateSourceRevisionAdvanced(personId, personRevision, mutationCount);
@@ -267,16 +272,12 @@ contract StakeRegistry is IStakeRegistry, KernelModule {
         }
 
         uint256 availableGas = gasleft();
-        if (availableGas <= _ELECTORATE_SYNC_GAS_RESERVE) {
-            emit ElectorateSynchronizationDeferred(personId, electorateRegistryAddress);
-            return;
-        }
-        uint256 forwardedGas = availableGas - _ELECTORATE_SYNC_GAS_RESERVE;
-        if (forwardedGas > _ELECTORATE_SYNC_GAS_LIMIT) {
-            forwardedGas = _ELECTORATE_SYNC_GAS_LIMIT;
+        // Require the full callback budget; underfunding must roll back the source mutation, not readiness.
+        if (availableGas < requiredGas) {
+            revert InsufficientElectorateSyncGas(availableGas, requiredGas);
         }
 
-        (bool synchronized,) = electorateRegistryAddress.call{gas: forwardedGas}(
+        (bool synchronized,) = electorateRegistryAddress.call{gas: _ELECTORATE_SYNC_GAS_LIMIT}(
             abi.encodeCall(IElectorateRegistry.syncPerson, (personId))
         );
         if (!synchronized) {

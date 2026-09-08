@@ -167,6 +167,45 @@ contract LandRegistryTest is Test {
         assertEq(title.anchor.lineageHash, active.versionHash);
     }
 
+    function test_Audit_ParcelRevisionInvalidatesPreviouslySignedTitleTransfer() public {
+        _activateParcelWithTitle(PARCEL_ID, TITLE_ID, "parcel.one", _personParty(SELLER_PERSON_ID));
+        LandTypes.TitleTransferRequest memory request = _transferRequest(TITLE_ID, _personParty(BUYER_PERSON_ID));
+        (bytes memory sellerSignature, bytes memory buyerSignature) = _signTransfer(request, SELLER_KEY, BUYER_KEY);
+        LandTypes.ParcelRecord memory parcel = landRegistry.getParcel(PARCEL_ID);
+        LandTypes.ParcelInput memory revised = _parcelInput("parcel.one", "audit.revised", parcel.versionHash);
+        revised.areaSquareMeters = parcel.areaSquareMeters + 100;
+        vm.prank(LAND_ADMIN);
+        landRegistryApp.reviseParcel(PARCEL_ID, parcel.revision, revised, keccak256("audit.revise"));
+        assertEq(landRegistry.getTitle(TITLE_ID).versionHash, request.expectedVersionHash);
+        bytes32 revisedVersionHash = landRegistry.getParcel(PARCEL_ID).versionHash;
+        vm.prank(LAND_ADMIN);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ILandRegistryApp.StaleTransferParcelVersion.selector,
+                PARCEL_ID,
+                request.expectedParcelVersionHash,
+                revisedVersionHash
+            )
+        );
+        landRegistryApp.transferTitle(request, seller, sellerSignature, buyer, buyerSignature);
+        assertEq(landRegistryApp.titleTransferNonce(TITLE_ID), 0);
+        request.expectedParcelVersionHash = revisedVersionHash;
+        vm.prank(LAND_ADMIN);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ILandRegistryApp.InvalidSignature.selector,
+                keccak256(abi.encode(request.newHolder.namespace, SELLER_PERSON_ID)),
+                seller
+            )
+        );
+        landRegistryApp.transferTitle(request, seller, sellerSignature, buyer, buyerSignature);
+        request = _transferRequest(TITLE_ID, _personParty(BUYER_PERSON_ID));
+        (sellerSignature, buyerSignature) = _signTransfer(request, SELLER_KEY, BUYER_KEY);
+        vm.prank(LAND_ADMIN);
+        landRegistryApp.transferTitle(request, seller, sellerSignature, buyer, buyerSignature);
+        assertEq(landRegistry.getTitle(TITLE_ID).holder.id, BUYER_PERSON_ID);
+    }
+
     function test_TitleTransferRequiresCurrentSellerAndBuyerSignaturesAndCannotReplay() public {
         _activateParcelWithTitle(PARCEL_ID, TITLE_ID, "parcel.one", _personParty(SELLER_PERSON_ID));
         LandTypes.TitleTransferRequest memory request = _transferRequest(TITLE_ID, _personParty(BUYER_PERSON_ID));
@@ -601,6 +640,7 @@ contract LandRegistryTest is Test {
         request = LandTypes.TitleTransferRequest({
             titleId: titleId,
             expectedVersionHash: title.versionHash,
+            expectedParcelVersionHash: landRegistry.getParcel(title.parcelId).versionHash,
             newHolder: newHolder,
             anchor: _anchor("title.transfer", title.versionHash),
             transactionId: keccak256(abi.encodePacked("tx.transfer", titleId, newHolder.namespace, newHolder.id)),

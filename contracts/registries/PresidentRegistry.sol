@@ -17,6 +17,7 @@ contract PresidentRegistry is IPresidentRegistry, KernelModule {
     bytes32 private _currentMandateHash;
     uint64 private _termStart;
     uint64 private _termEnd;
+    uint64 private _presidencyNonce;
 
     address[VICE_PRESIDENT_SLOT_COUNT] private _vicePresidents;
     bytes32[VICE_PRESIDENT_SLOT_COUNT] private _vicePresidentPersonIds;
@@ -37,6 +38,11 @@ contract PresidentRegistry is IPresidentRegistry, KernelModule {
     /// @inheritdoc IPresidentRegistry
     function currentMandateHash() external view returns (bytes32 mandateHash) {
         return _currentMandateHash;
+    }
+
+    /// @inheritdoc IPresidentRegistry
+    function presidencyNonce() external view returns (uint64 nonce) {
+        return _presidencyNonce;
     }
 
     /// @inheritdoc IPresidentRegistry
@@ -83,6 +89,7 @@ contract PresidentRegistry is IPresidentRegistry, KernelModule {
         }
 
         address previousPresident = _currentPresident;
+        _presidencyNonce += 1;
         _currentPresident = president;
         _currentPresidentPersonId = personId;
         _currentMandateHash = mandateHash;
@@ -102,6 +109,7 @@ contract PresidentRegistry is IPresidentRegistry, KernelModule {
         _requireRegistryAuthority(msg.sender);
 
         address previousPresident = _currentPresident;
+        _presidencyNonce += 1;
         _currentPresident = address(0);
         _currentPresidentPersonId = bytes32(0);
         _currentMandateHash = bytes32(0);

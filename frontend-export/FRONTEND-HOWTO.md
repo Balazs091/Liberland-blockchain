@@ -50,8 +50,11 @@ On both the production deployment and the Sepolia audit UI, the Identity Office 
    `officeRegistry.getOfficeRecord(identityOfficeId)`; do not hardcode the admin wallet.
 2. The admin calls `identityApp.registerIdentity(personId, input)`, where `input` contains `metadataHash`,
    `metadataURI`, `verificationStatus`, `citizenshipStatus`, `ageClass`, `correctionFlag`, and `finalSuspension`.
-3. The admin calls `identityApp.linkWallet(personId, wallet, WalletLinkStatus.Active)`.
-4. Later citizenship-only changes use `identityApp.setCitizenship(personId, status)`.
+   This creates a NEW record only: initial citizenship is None/EResident and finalSuspension must be false.
+3. The admin calls `identityApp.linkWallet(personId, wallet, WalletLinkStatus.Active)` to propose the first wallet.
+   The proposed wallet must call `identityApp.acceptInitialWallet(personId)` before it becomes active.
+4. `setCitizenship(personId, Citizen)` only grants a verified adult non-citizen citizenship. It cannot suspend,
+   revoke, or reverse final suspension. Use the separate civic-change notice workflow below for civic edits.
 
 Only the Identity Office admin may register identities, link wallets, or set citizenship. Identity Office clerks may
 approve/cancel wallet migrations, but they cannot onboard a person. The public UI should poll
@@ -65,12 +68,30 @@ selectors are test/demo conveniences and are outside the client/audit UI contrac
 Wallet migration is the citizen-facing on-chain identity flow:
 
 - old active wallet: `requestWalletMigration(newWallet)`
-- Identity Office admin or clerk: `approveWalletMigration(personId)`
+- read `requestId = walletMigrationId(personId)` and display the full person/old/new/nonce/evidence tuple
+- destination wallet: `acceptWalletMigration(personId, requestId)`
+- Identity Office admin or clerk: `approveWalletMigration(personId, requestId)`
 - anyone after `migrationDelay()`: `finalizeWalletMigration(personId)`
 - old wallet or Identity Office officer: `cancelWalletMigration(personId)`
 - status read: `getWalletMigration(personId)`
 
 The new wallet must be unlinked, and the person's stake remains attached to `personId` throughout migration.
+
+Lost-key recovery uses `proposeWalletRecovery(personId, newWallet, evidenceHash)` from the admin, destination
+acceptance, a DIFFERENT officer's approval, and seven days after approval. The old wallet may cancel but is not
+needed to finalize. `getWalletMigration` now includes nonce, consent, recovery flag, proposer/approver and evidence.
+Never reuse an old request ID after cancellation. A current destination may also cancel its consent/request.
+
+For civic changes, use `proposeCivicChange(personId, proposedCivicFields, evidenceHash)`, a different officer's
+`approveCivicChange(personId, requestId)`, then `finalizeCivicChange(personId, requestId)` after seven days.
+Read `getCivicChange` for the pinned committee, notice and appeal state. The affected active wallet can submit one
+`appealCivicChange(personId, requestId, evidenceHash)` strictly before notice expiry, staying execution. Three of five
+independent `CivicAppealReview` accounts approve the identical request/outcome/reason hash using `castRulingVote`;
+anyone can `executeRuling` after sufficient support. Dismissal deletes the case. Upholding preserves the original
+notice and adds two days after ruling. At 30 days without an executed ruling, anyone calls `expireCivicAppeal`
+to dismiss. Officers may withdraw a case, but never the subject, even if also an officer. `correctMetadata` only
+changes hash/URI. Self-renunciation remains immediate and invalidates pending civic edits; reinstatement requires
+the civic process rather than `setCitizenship`. Show stale appointment IDs after officer revocation/regrant.
 
 ### Deployment-only demo authority
 
@@ -150,10 +171,12 @@ The demo uses the same 30-day welfare policy as production. `unstake()` immediat
 - office-mediated onboarding for the audit/client build:
   - `identityApp.registerIdentity(personId, input)` from the Identity Office admin
   - `identityApp.linkWallet(personId, wallet, WalletLinkStatus.Active)` from the Identity Office admin
-  - `identityApp.setCitizenship(personId, status)` for later status-only changes
+  - `identityApp.acceptInitialWallet(personId)` from the proposed destination
+  - `identityApp.setCitizenship(personId, Citizen)` for a qualifying citizenship grant; not adverse changes
 - citizen wallet migration:
   - `identityApp.requestWalletMigration(newWallet)`
-  - `identityApp.approveWalletMigration(personId)` from an Identity Office admin or clerk
+  - destination calls `identityApp.acceptWalletMigration(personId, requestId)`
+  - `identityApp.approveWalletMigration(personId, requestId)` from an Identity Office admin or clerk
   - `identityApp.finalizeWalletMigration(personId)` after `migrationDelay()`
   - `identityApp.cancelWalletMigration(personId)` from the old wallet or an Identity Office officer
 - mint demo merits:
@@ -292,7 +315,13 @@ Important:
 
 ### Cycle creation
 
-Anyone can call `finalizeElection` after a cycle has ended. If the finalized cycle is the latest cycle, that same transaction also creates the next recurring election cycle.
+Anyone can repeatedly call `finalizeElection` after voting ends. Each successful intermediate transaction ranks at
+most 32 candidates and considers at most 32; do NOT label it finalized until `getCycle(cycleId).status == Finalized`.
+Read progress from `CongressRankingStore(congressCandidateRegistry.rankingStore()).progress(cycleId)` and index its
+`CongressRankingProgress`/`CongressCandidateConsidered` events. `maxCandidateCount() == 0` means open admission, not
+zero permitted candidates. The legacy constructor argument is ignored. Final activation creates the next cycle.
+Current eligibility is rechecked while selecting and immediately before activation; disqualified candidates do not
+re-enter that count. Only the elected/runner-up outcome has persisted ordinal ranks; unselected losers have rank 0.
 
 The EVM cannot wake up by itself at a timestamp, so a public transaction is still required. The important contract guarantee is that the next cycle timing is deterministic and cannot drift because of late finalization.
 
@@ -353,7 +382,7 @@ The recurring election cadence is changeable without redeploying `CongressElecti
 4. If the referendum passes, finalization queues a bounded `ModulePointerUpdate` for `CONGRESS_ELECTION_POLICY`.
 5. After the timelock executes, `congressElectionApp.congressElectionPolicy()` points at the new policy, and future cycles use the new `cycleDuration()`.
 
-That dedicated route is intentionally timing-only and uses the ordinary policy vote. For a breaking replacement that changes seat count, eligibility, ballot rules, or other non-timing fields, use `createCitizenModuleGovernanceReferendum(...)` or `createCongressModuleGovernanceReferendum(...)` with target `CONGRESS_ELECTION_POLICY`; it uses the constitutional double threshold.
+The dedicated route now also uses the constitutional double threshold: matching metadata does not prove that new bytecode changes timing only. Display the stored electorate snapshot and required headcount. For changes to the checked metadata, use `createCitizenModuleGovernanceReferendum(...)` or `createCongressModuleGovernanceReferendum(...)` with target `CONGRESS_ELECTION_POLICY`.
 
 ### Candidacy
 
@@ -544,13 +573,17 @@ may call `finalizeReferendum(referendumId)`. If it passes, follow
 
 - budget approvals are referendum/timelock actions, not office-only actions
 - contribution rewards use `DisbursementType.ContributionReward` (`7`) and must reference an active LLM-denominated budget
-- only the Finance Office admin may propose or route a contribution reward; clerks cannot use this class
+- only the Finance Office admin may propose a contribution reward; a distinct current officer must approve it,
+  and a permitted clerk or admin may route the approved request
 - require a nonzero `noteHash` and nonempty `noteURI`, and display the referenced contribution evidence before signing
 - read the required token from `treasurySpendingPolicy.llmAsset()`; the reward source is existing `TreasuryVault` LLM, never a mint
 - Senate suspension and renewal forms must hash the published reason document and call `suspendDisbursement(actionId, supportingSeatIndex, reasonHash)` or `renewDisbursementSuspension(actionId, supportingSeatIndex, reasonHash)` from the holder of that currently supporting seat; display the stored `reasonHash` with the suspension deadline
 - Senate transfer and successor forms must resolve the recipient identity and require current `Citizen` status; a non-citizen recipient reverts with `SenateSeatRecipientNotCitizen`
 - use `computeBudgetId(officeId, sequence)` for deterministic budget ids when the frontend proposes a new budget id
-- payout routing revalidates the current office role and treasury spending policy at route time, so a stale proposed payout can fail if permissions or policy changed
+- every payout needs `approvePayout(requestId)` by a distinct current officer before routing; known wallets of one
+  person are not two officers. Routing revalidates both appointment IDs and the original proposer's spending policy.
+  Proposer/approver may call `revokePayoutApproval(requestId)` before routing. Later revocation of office does not
+  cancel an already routed action; use `cancelPayout` and reconcile through `syncPayoutState`
 - vault execution revalidates the exact active budget commitment; read `budgetEnvelopeRegistry.getBudgetCommitment(requestId)` when diagnosing a failed execution
 - `officeExecutor.cancelPayout(officeId, requestId)` also cancels a routed timelock action before queue cancellation
   releases the budget; do not try to cancel only the queue record
@@ -569,9 +602,9 @@ may call `finalizeReferendum(referendumId)`. If it passes, follow
 - land titles use `PartyRef(namespace,id)`, not wallet holders; show the stable party and resolve current signers from
   `LandPartyPolicy`
 - clerks can call only `submitParcelDraft` and `updateParcelDraft`; registrar/admin controls all live record changes
-- title transfer is a registrar-submitted dual-consent EIP-712 flow. Fetch the current title version and nonce, build
-  an anchor whose lineage is that version, call `hashTitleTransferAuthorization`, collect both signatures, and
-  submit them before the deadline
+- title transfer is a registrar-submitted dual-consent EIP-712 flow. Fetch the current title version, the current parcel version
+  (`expectedParcelVersionHash`), and the nonce. Build an anchor whose lineage is the title version, call `hashTitleTransferAuthorization`, collect both signatures, and
+  submit them before the deadline. A parcel revision requires new consent from both parties
 - refresh authorization immediately before submission because a person-wallet migration, company-director change,
   or office-administrator change invalidates the previous signer authority
 - block/warn before removing a company's final director or finalizing dissolution while it still owns land; the
@@ -605,9 +638,12 @@ exist; do not simulate them as if the current contracts enforced them.
 ## Page 4: Senate, Public Veto, President, and lending deltas
 
 For Public Veto screens, use `currentPublicVetoSupportCount(measureId)` and
-`remainingRepealSupport(measureId)` while the measure is pending. `getPublicVetoRecord` returns a dynamically filtered
-support count before repeal. The next `castPublicVeto` prunes ineligible receipts and emits
-`PublicVetoEligibilityExpired`; after repeal, the stored final count is historical.
+`remainingRepealSupport(measureId)` while collecting petition signatures. Despite the legacy getter name, this is
+support needed to INITIATE a referendum, not to repeal. Two signatures create `getPublicVetoRecord(...).referendumId`;
+do not display a repeal yet. Petition signatures are not referendum votes. Display the ordinary vote, passage and
+adoption delay, then the typed `LegislationRepeal` timelock action. The next `castPublicVeto` prunes stale eligible
+receipts before submission; submitted signatures are historical. `resetPublicPetition` permits fresh signatures
+after defeat/cancellation or a canceled/expired unexecuted action. The next round has a fresh petition/referendum ID.
 
 Disable `HeadOfStateApp.voteForPresident` while `PresidentRegistry.isPresidentInTerm()` is true. The contract rejects
 early ballots rather than keeping a successor election open during an incumbent term.
@@ -637,7 +673,7 @@ For lending:
 3. Finances read-only card
 4. Off-chain application status plus Identity Office `registerIdentity` / `linkWallet` panel
 5. Mint / approve / stake and discrete unstake / welfare flows
-6. Wallet migration request / approve / finalize flow
+6. Wallet migration request / destination consent / bound officer approval / finalize, and separate recovery
 7. Election read-only page
 8. Cycle preview, finalization, and candidacy actions
 9. Ballot builder and `castBallot`
@@ -659,3 +695,22 @@ For lending:
 - for a stored process, use its pinned snapshot block and policy rather than current stake or the latest policy
 - treat the canonical candidacy address and current active wallet as aliases of one person within a cycle
 - do not hardcode office or finance rules into these pages
+
+## Authority continuity and signing requirements
+
+- `DecisionApp` and `CabinetApp` are authority-class module IDs. Their replacement requires the constitutional
+  headcount and stake threshold. Read the kernel classification instead of treating every named app as ordinary.
+- Congress decision supports and Cabinet ballots remain keyed by the casting wallet and also bind its person ID.
+  A migrated member recasts from the current wallet. Another person assigned the old address inherits no support.
+  Cabinet and presidential candidate ballots bind the candidate's person ID as well; recast after candidate migration.
+  Raw ballot getters retain the recorded wallet; use the live tally getters to display effective support.
+- Congress election `clearBallot(cycleId)` uses the caller's active person link to remove that person's ballot,
+  including a receipt cast from a prior wallet. Read old receipts as historical wallet records, not authority.
+- New ministry decisions use the current minister wallet after migration. Prepared decisions keep their exact
+  original funding source; prepare a fresh decision after migrating instead of changing the source behind a signature.
+- Senate votes are direct and occupancy-bound. Read `SenateApp.requiredSupport()` for the live strict majority of
+  occupied seats, with a floor of two and any higher policy minimum. There are no President proxy votes or proxy
+  entry points. `PresidentRegistry.presidencyNonce()` still identifies presidential appointment lifecycles.
+- The land transfer request and EIP-712 type include `expectedParcelVersionHash` after `expectedVersionHash`.
+  Use the regenerated ABI and updated `docs/Land-Cadastre.md` signing schema. Previously prepared signatures must
+  be replaced. These are source changes for reviewed deployment; updating an ABI does not patch deployed contracts.

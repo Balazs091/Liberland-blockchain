@@ -1,0 +1,321 @@
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "consider",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "eligible",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "disqualified",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "finalizationInput",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "input",
+        "type": "tuple",
+        "internalType": "struct ElectionTypes.CongressFinalizationInput",
+        "components": [
+          {
+            "name": "rankedCandidates",
+            "type": "address[]",
+            "internalType": "address[]"
+          },
+          {
+            "name": "rankedVoteTotals",
+            "type": "int256[]",
+            "internalType": "int256[]"
+          },
+          {
+            "name": "electedCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          },
+          {
+            "name": "runnerUpCount",
+            "type": "uint32",
+            "internalType": "uint32"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "peek",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "process",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "progress",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "tuple",
+        "internalType": "struct ElectionTypes.FinalizationProgress",
+        "components": [
+          {
+            "name": "candidateCount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "processedCount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "remainingRanked",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "selectedCount",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "started",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "registry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "removeSelected",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "index",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "selectedAt",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "index",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "candidate",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "CongressCandidateConsidered",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "candidate",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "selected",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CongressRankingProgress",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "processed",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "total",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "FinalizationNotReady",
+    "inputs": [
+      {
+        "name": "cycleId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "RankingNotReady",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RegistryOnly",
+    "inputs": []
+  }
+]}

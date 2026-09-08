@@ -461,6 +461,11 @@
             "internalType": "bytes32"
           },
           {
+            "name": "expectedParcelVersionHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
             "name": "newHolder",
             "type": "tuple",
             "internalType": "struct LandTypes.PartyRef",
@@ -1412,6 +1417,11 @@
             "internalType": "bytes32"
           },
           {
+            "name": "expectedParcelVersionHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
             "name": "newHolder",
             "type": "tuple",
             "internalType": "struct LandTypes.PartyRef",
@@ -1748,6 +1758,27 @@
         "name": "expectedNonce",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "StaleTransferParcelVersion",
+    "inputs": [
+      {
+        "name": "parcelId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "expectedVersionHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "currentVersionHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ]
   },

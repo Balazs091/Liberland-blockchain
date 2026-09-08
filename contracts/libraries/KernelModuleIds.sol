@@ -28,6 +28,7 @@ library KernelModuleIds {
     bytes32 internal constant CONGRESS_CANDIDATE_REGISTRY_AUTHORITY =
         keccak256("authority.congress-candidate-registry");
     bytes32 internal constant IDENTITY_REGISTRY_AUTHORITY = keccak256("authority.identity-registry");
+    bytes32 internal constant CIVIC_APPEAL_AUTHORITY = keccak256("authority.civic-appeal");
     bytes32 internal constant INITIAL_SETUP_AUTHORITY = keccak256("authority.initial-setup");
     bytes32 internal constant LAND_REGISTRY_AUTHORITY = keccak256("authority.land-registry");
     bytes32 internal constant LEGISLATION_REGISTRY_AUTHORITY = keccak256("authority.legislation-registry");

@@ -27,7 +27,7 @@ library SenateTypes {
     struct ActionCancellationRecord {
         bytes32 actionId;
         uint32 supportSnapshot;
-        uint32 presidentProxySupportSnapshot;
+        uint32 requiredSupportSnapshot;
         uint64 createdAt;
         uint64 deadline;
         uint64 finalizedAt;
@@ -44,7 +44,7 @@ library SenateTypes {
         uint64 finalizedAt;
         uint64 vetoedAt;
         uint32 supportSnapshot;
-        uint32 presidentProxySupportSnapshot;
+        uint32 requiredSupportSnapshot;
         bool exists;
         bool finalized;
         bool vetoed;
@@ -59,7 +59,7 @@ library SenateTypes {
         uint64 finalizedAt;
         uint64 repealedAt;
         uint32 supportSnapshot;
-        uint32 presidentProxySupportSnapshot;
+        uint32 requiredSupportSnapshot;
         bool exists;
         bool finalized;
         bool repealed;
@@ -73,11 +73,6 @@ library SenateTypes {
         VoteOption option;
         uint64 attemptNonce;
         uint64 seatOccupancyNonce;
-        uint64 updatedAt;
-    }
-
-    struct PresidentProxyVote {
-        VoteOption option;
         uint64 updatedAt;
     }
 

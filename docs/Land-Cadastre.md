@@ -77,7 +77,7 @@ preparation; it cannot create a live parcel or change ownership.
 
 A title transfer requires all of the following in one registrar transaction:
 
-1. the title's current `versionHash`;
+1. the title's current `versionHash` and its parcel's current `versionHash`;
 2. a buyer that the live party policy currently permits to acquire land;
 3. an EIP-712 authorization signed by a current authorized signer for both the seller and buyer;
 4. a title-scoped nonce and deadline;
@@ -91,6 +91,7 @@ address. The signed struct is:
 TitleTransfer(
   bytes32 titleId,
   bytes32 expectedVersionHash,
+  bytes32 expectedParcelVersionHash,
   bytes32 sellerPartyKey,
   bytes32 newHolderPartyKey,
   bytes32 anchorHash,
@@ -103,7 +104,9 @@ TitleTransfer(
 Use `hashTitleTransferAuthorization(request)` to reproduce the digest and
 `titleTransferNonce(titleId)` immediately before signing. The seller party is derived from the current title; it is
 not caller-supplied. The same digest is signed by both sides. The registrar submits both signer addresses and
-signatures. EOAs and EIP-1271 wallets are supported.
+signatures. EOAs and EIP-1271 wallets are supported. `expectedParcelVersionHash` comes from
+`getParcel(getTitle(titleId).parcelId).versionHash`. Any parcel revision, including boundary adjustment, invalidates
+existing transfer intent even if the title itself is unchanged. Refresh both versions and obtain both signatures again.
 
 `sellerPartyKey` and `newHolderPartyKey` are `keccak256(abi.encode(namespace, id))`. `anchorHash` is
 `keccak256(abi.encode(schemaId, schemaVersion, contentHash, sourceDocumentHash, lineageHash))`. Frontends should call

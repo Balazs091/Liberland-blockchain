@@ -9,6 +9,7 @@ import {CongressElectionApp} from "../contracts/apps/CongressElectionApp.sol";
 import {DecisionApp} from "../contracts/apps/DecisionApp.sol";
 import {HeadOfStateApp} from "../contracts/apps/HeadOfStateApp.sol";
 import {IdentityApp} from "../contracts/apps/IdentityApp.sol";
+import {CivicAppealReview} from "../contracts/apps/CivicAppealReview.sol";
 import {LandRegistryApp} from "../contracts/apps/LandRegistryApp.sol";
 import {LLMStakingVault} from "../contracts/apps/LLMStakingVault.sol";
 import {MinistryTreasury} from "../contracts/apps/MinistryTreasury.sol";
@@ -163,6 +164,7 @@ contract DeployDemo is DeploymentScriptBase {
     HeadOfStateApp internal _headOfStateApp;
     CabinetApp internal _cabinetApp;
     IdentityApp internal _identityApp;
+    CivicAppealReview internal _civicAppealReview;
     LandRegistryApp internal _landRegistryApp;
     CompanyRegistryApp internal _companyRegistryApp;
     PayoutQueue internal _payoutQueue;
@@ -230,6 +232,7 @@ contract DeployDemo is DeploymentScriptBase {
         address headOfStateApp;
         address cabinetApp;
         address identityApp;
+        address civicAppealReview;
         address landRegistryApp;
         address companyRegistryApp;
         address payoutQueue;
@@ -261,7 +264,8 @@ contract DeployDemo is DeploymentScriptBase {
         _financeOfficeAdmin = vm.envOr("FINANCE_ADMIN", deployer);
         _identityOfficeAdmin = vm.envOr("IDENTITY_ADMIN", address(0xB0B));
         _landOfficeAdmin = vm.envOr("LAND_ADMIN", address(0xCAFE));
-        _companyRegistryOfficeAdmin = vm.envOr("COMPANY_REGISTRY_ADMIN", deployer);
+        _companyRegistryOfficeAdmin = vm.envAddress("COMPANY_REGISTRY_ADMIN");
+        _readCivicReviewers();
         _financeClerk = vm.envOr("FINANCE_CLERK", address(0xD00D));
         _treasuryPrefundUsdc = vm.envOr("TREASURY_PREFUND_USDC", uint256(0));
         _treasuryPrefundLlm = vm.envOr("TREASURY_PREFUND_LLM", uint256(0));
@@ -337,6 +341,9 @@ contract DeployDemo is DeploymentScriptBase {
     }
 
     function _deployPoliciesAndApps(address deployer) internal {
+        _validateCivicReviewers(
+            deployer, [_financeOfficeAdmin, _identityOfficeAdmin, _landOfficeAdmin, _companyRegistryOfficeAdmin]
+        );
         _citizenEligibilityPolicy =
             new CitizenEligibilityPolicy(address(_identityRegistry), address(_stakeRegistry), MINIMUM_CITIZEN_STAKE);
         _unstakingPolicy = new UnstakingPolicy(address(_stakeRegistry), WELFARE_PERIOD, ANNUAL_UNSTAKE_RATE_BPS);
@@ -352,6 +359,7 @@ contract DeployDemo is DeploymentScriptBase {
             IDENTITY_MIGRATION_DELAY
         );
         _identityApp = _demoCitizenGateway;
+        _civicAppealReview = new CivicAppealReview(address(_identityApp), _civicReviewers);
         _votingPowerPolicy = new VotingPowerPolicy(
             address(_identityRegistry),
             address(_stakeRegistry),
@@ -408,7 +416,6 @@ contract DeployDemo is DeploymentScriptBase {
             address(_identityRegistry),
             address(_senateSeatRegistry),
             address(_senatePowersPolicy),
-            address(_presidentRegistry),
             address(_router),
             address(_timelock),
             address(_referendumApp)
@@ -486,7 +493,7 @@ contract DeployDemo is DeploymentScriptBase {
     }
 
     function _registerBootstrapModules() internal {
-        (bytes32[] memory moduleIds, address[] memory moduleAddresses) = _allocateModuleBatch(57);
+        (bytes32[] memory moduleIds, address[] memory moduleAddresses) = _allocateModuleBatch(58);
         uint256 index;
 
         _setModuleBatchEntry(
@@ -651,7 +658,7 @@ contract DeployDemo is DeploymentScriptBase {
             moduleIds, moduleAddresses, index++, KernelModuleIds.SENATE_SEAT_REGISTRY_AUTHORITY, address(_senateApp)
         );
         _setModuleBatchEntry(
-            moduleIds, moduleAddresses, index++, KernelModuleIds.LEGISLATION_REPEAL_AUTHORITY, address(_publicVetoApp)
+            moduleIds, moduleAddresses, index++, KernelModuleIds.LEGISLATION_REPEAL_AUTHORITY, address(_timelock)
         );
         _setModuleBatchEntry(
             moduleIds,
@@ -713,6 +720,10 @@ contract DeployDemo is DeploymentScriptBase {
             index++,
             KernelModuleIds.MINISTRY_TREASURY_FUNDING_AUTHORITY,
             address(_decisionApp)
+        );
+
+        _setModuleBatchEntry(
+            moduleIds, moduleAddresses, index++, KernelModuleIds.CIVIC_APPEAL_AUTHORITY, address(_civicAppealReview)
         );
 
         _validateModuleBatch(moduleIds, moduleAddresses);
@@ -1165,6 +1176,7 @@ contract DeployDemo is DeploymentScriptBase {
         deployment.headOfStateApp = address(_headOfStateApp);
         deployment.cabinetApp = address(_cabinetApp);
         deployment.identityApp = address(_identityApp);
+        deployment.civicAppealReview = address(_civicAppealReview);
         deployment.landRegistryApp = address(_landRegistryApp);
         deployment.companyRegistryApp = address(_companyRegistryApp);
         deployment.payoutQueue = address(_payoutQueue);
@@ -1234,6 +1246,12 @@ contract DeployDemo is DeploymentScriptBase {
         vm.serializeAddress(deploymentKey, "headOfStateApp", deployment.headOfStateApp);
         vm.serializeAddress(deploymentKey, "cabinetApp", deployment.cabinetApp);
         vm.serializeAddress(deploymentKey, "identityApp", deployment.identityApp);
+        vm.serializeAddress(deploymentKey, "civicAppealReview", deployment.civicAppealReview);
+        for (uint256 i; i < 5; ++i) {
+            vm.serializeAddress(
+                deploymentKey, string.concat("civicReviewer", vm.toString(i)), _civicAppealReview.reviewerAt(i)
+            );
+        }
         vm.serializeAddress(deploymentKey, "landRegistryApp", deployment.landRegistryApp);
         vm.serializeAddress(deploymentKey, "companyRegistryApp", deployment.companyRegistryApp);
         vm.serializeAddress(deploymentKey, "payoutQueue", deployment.payoutQueue);
@@ -1308,6 +1326,7 @@ contract DeployDemo is DeploymentScriptBase {
         console2.log("HeadOfStateApp:", deployment.headOfStateApp);
         console2.log("CabinetApp:", deployment.cabinetApp);
         console2.log("IdentityApp:", deployment.identityApp);
+        console2.log("CivicAppealReview:", deployment.civicAppealReview);
         console2.log("LandRegistryApp:", deployment.landRegistryApp);
         console2.log("CompanyRegistryApp:", deployment.companyRegistryApp);
         console2.log("PayoutQueue:", deployment.payoutQueue);

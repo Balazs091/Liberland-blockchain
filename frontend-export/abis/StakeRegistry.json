@@ -712,6 +712,22 @@
   },
   {
     "type": "error",
+    "name": "InsufficientElectorateSyncGas",
+    "inputs": [
+      {
+        "name": "available",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "required",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InsufficientSlashableStake",
     "inputs": [
       {

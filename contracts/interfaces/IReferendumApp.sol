@@ -6,6 +6,10 @@ import {ReferendumTypes} from "../types/ReferendumTypes.sol";
 /// @title IReferendumApp
 /// @notice User-facing interface for bounded referendum proposal, voting, veto, and finalization flows.
 interface IReferendumApp {
+    error UnauthorizedPublicPetition(address caller);
+
+    /// @notice Creates a typed Law-tier repeal vote from a threshold-reaching public petition. PublicVetoApp only.
+    function createPublicRepealReferendum(bytes32 measureId, bytes32 petitionId) external returns (bytes32 referendumId);
     error InvalidLegislationTier(uint8 legislationTier);
     error InvalidProposedCongressElectionPolicy(address policyAddress);
     error InvalidProposerOrigin(address proposer, ReferendumTypes.ProposalOrigin proposalOrigin);

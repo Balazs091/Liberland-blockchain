@@ -57,6 +57,8 @@ contract CabinetApp is ICabinetApp {
 
     struct CongressBallot {
         address target;
+        bytes32 voterPersonId;
+        bytes32 targetPersonId;
         uint256 congressCycleId;
         uint64 ballotNonce;
         uint64 castAt;
@@ -307,8 +309,14 @@ contract CabinetApp is ICabinetApp {
         uint64 nonce = _appointmentNonce;
         uint64 castAt = uint64(block.timestamp);
 
-        _appointmentBallots[msg.sender] =
-            CongressBallot({target: candidate, congressCycleId: cycleId, ballotNonce: nonce, castAt: castAt});
+        _appointmentBallots[msg.sender] = CongressBallot({
+            target: candidate,
+            voterPersonId: _identityRegistry.resolveWalletToPersonId(msg.sender),
+            targetPersonId: _identityRegistry.resolveWalletToPersonId(candidate),
+            congressCycleId: cycleId,
+            ballotNonce: nonce,
+            castAt: castAt
+        });
 
         emit PrimeMinisterVoteCast(msg.sender, candidate, cycleId, nonce, castAt);
     }
@@ -358,7 +366,12 @@ contract CabinetApp is ICabinetApp {
         uint64 castAt = uint64(block.timestamp);
 
         _removalBallots[msg.sender] = CongressBallot({
-            target: sittingPrimeMinister, congressCycleId: cycleId, ballotNonce: nonce, castAt: castAt
+            target: sittingPrimeMinister,
+            voterPersonId: _identityRegistry.resolveWalletToPersonId(msg.sender),
+            targetPersonId: _executiveRegistry.getPrimeMinister().personId,
+            congressCycleId: cycleId,
+            ballotNonce: nonce,
+            castAt: castAt
         });
 
         emit PrimeMinisterRemovalVoteCast(msg.sender, sittingPrimeMinister, cycleId, nonce, castAt);
@@ -450,8 +463,14 @@ contract CabinetApp is ICabinetApp {
         uint64 nonce = _dismissalNonce[ministry];
         uint64 castAt = uint64(block.timestamp);
 
-        _dismissalBallots[ministry][msg.sender] =
-            CongressBallot({target: sittingMinister, congressCycleId: cycleId, ballotNonce: nonce, castAt: castAt});
+        _dismissalBallots[ministry][msg.sender] = CongressBallot({
+            target: sittingMinister,
+            voterPersonId: _identityRegistry.resolveWalletToPersonId(msg.sender),
+            targetPersonId: _executiveRegistry.getMinister(ministry).personId,
+            congressCycleId: cycleId,
+            ballotNonce: nonce,
+            castAt: castAt
+        });
 
         emit MinisterDismissalVoteCast(ministry, msg.sender, sittingMinister, cycleId, nonce, castAt);
     }
@@ -538,7 +557,11 @@ contract CabinetApp is ICabinetApp {
         address[] memory members = _congressCandidateRegistry.currentCongressMembers();
         for (uint256 index = 0; index < members.length; ++index) {
             CongressBallot memory ballot = _appointmentBallots[members[index]];
-            if (ballot.target == candidate && ballot.congressCycleId == cycleId && ballot.ballotNonce == nonce) {
+            if (
+                ballot.target == candidate && _isActiveWalletForPerson(candidate, ballot.targetPersonId)
+                    && _isActiveWalletForPerson(members[index], ballot.voterPersonId)
+                    && ballot.congressCycleId == cycleId && ballot.ballotNonce == nonce
+            ) {
                 voteCount += 1;
             }
         }
@@ -550,7 +573,10 @@ contract CabinetApp is ICabinetApp {
         address[] memory members = _congressCandidateRegistry.currentCongressMembers();
         for (uint256 index = 0; index < members.length; ++index) {
             CongressBallot memory ballot = _removalBallots[members[index]];
-            if (ballot.congressCycleId == cycleId && ballot.ballotNonce == nonce) {
+            if (
+                _isActiveWalletForPerson(members[index], ballot.voterPersonId) && ballot.congressCycleId == cycleId
+                    && ballot.ballotNonce == nonce
+            ) {
                 voteCount += 1;
             }
         }
@@ -562,7 +588,10 @@ contract CabinetApp is ICabinetApp {
         address[] memory members = _congressCandidateRegistry.currentCongressMembers();
         for (uint256 index = 0; index < members.length; ++index) {
             CongressBallot memory ballot = _dismissalBallots[ministry][members[index]];
-            if (ballot.congressCycleId == cycleId && ballot.ballotNonce == nonce) {
+            if (
+                _isActiveWalletForPerson(members[index], ballot.voterPersonId) && ballot.congressCycleId == cycleId
+                    && ballot.ballotNonce == nonce
+            ) {
                 voteCount += 1;
             }
         }

@@ -77,6 +77,19 @@
   },
   {
     "type": "function",
+    "name": "presidencyNonce",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "nonce",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "setPresident",
     "inputs": [
       {

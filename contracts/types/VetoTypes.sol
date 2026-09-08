@@ -11,6 +11,7 @@ library VetoTypes {
         uint64 createdAt;
         uint64 repealedAt;
         bool repealed;
+        bytes32 referendumId;
     }
 
     struct PublicVetoReceipt {

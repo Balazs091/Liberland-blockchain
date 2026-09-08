@@ -215,6 +215,7 @@ contract ReferendumPolicy is IReferendumPolicy {
         if (
             !requiresSupermajority
                 && (referendumClass == ReferendumTypes.ReferendumClass.Legislation
+                    || referendumClass == ReferendumTypes.ReferendumClass.LegislationRepeal
                     || referendumClass == ReferendumTypes.ReferendumClass.ModuleGovernance
                     || referendumClass == ReferendumTypes.ReferendumClass.CongressElectionPolicy
                     || referendumClass == ReferendumTypes.ReferendumClass.BudgetApproval)

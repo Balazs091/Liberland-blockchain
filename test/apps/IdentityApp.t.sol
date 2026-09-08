@@ -4,6 +4,8 @@ pragma solidity 0.8.36;
 import {Test} from "forge-std/Test.sol";
 
 import {IdentityApp} from "../../contracts/apps/IdentityApp.sol";
+import {CivicAppealReview} from "../../contracts/apps/CivicAppealReview.sol";
+import {ICivicAppealReview} from "../../contracts/interfaces/ICivicAppealReview.sol";
 import {ConstitutionKernel} from "../../contracts/core/ConstitutionKernel.sol";
 import {IIdentityApp} from "../../contracts/interfaces/IIdentityApp.sol";
 import {IIdentityRegistry} from "../../contracts/interfaces/IIdentityRegistry.sol";
@@ -44,6 +46,7 @@ contract IdentityAppTest is Test {
     StakeRegistry internal stakeRegistry;
     OfficeRegistry internal officeRegistry;
     IdentityApp internal identityApp;
+    CivicAppealReview internal civicReview;
 
     function setUp() public {
         kernel = new ConstitutionKernel(address(this));
@@ -52,6 +55,11 @@ contract IdentityAppTest is Test {
         officeRegistry = new OfficeRegistry(address(kernel));
         identityApp =
             new IdentityApp(address(identityRegistry), address(officeRegistry), IDENTITY_OFFICE_ID, MIGRATION_DELAY);
+        civicReview = new CivicAppealReview(
+            address(identityApp), [address(0xA001), address(0xA002), address(0xA003), address(0xA004), address(0xA005)]
+        );
+        kernel.bootstrapSetModule(KernelModuleIds.CIVIC_APPEAL_AUTHORITY, address(civicReview));
+        kernel.bootstrapSetModule(KernelModuleIds.ACTION_TIMELOCK, address(this));
 
         kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, address(identityApp));
         kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY, address(identityRegistry));
@@ -104,10 +112,7 @@ contract IdentityAppTest is Test {
     // --- A. Office-gated onboarding / management -------------------------------------------------------------
 
     function test_OfficeAdmin_RegistersLinksAndSetsCitizenshipPostGenesis() public {
-        vm.prank(IDENTITY_ADMIN);
-        identityApp.registerIdentity(PERSON_A, _citizenInput());
-        vm.prank(IDENTITY_ADMIN);
-        identityApp.linkWallet(PERSON_A, WALLET_A, IdentityTypes.WalletLinkStatus.Active);
+        _registerCitizen(PERSON_A, WALLET_A, _citizenInput());
 
         assertTrue(identityRegistry.hasActiveWalletLink(WALLET_A));
         assertEq(identityRegistry.resolveWalletToPersonId(WALLET_A), PERSON_A);
@@ -116,9 +121,15 @@ contract IdentityAppTest is Test {
             uint256(IdentityTypes.CitizenshipStatus.Citizen)
         );
 
-        // setCitizenship rewrites only citizenship, preserving every other field.
+        // Direct adverse edits are no longer an admin power.
         vm.prank(IDENTITY_ADMIN);
+        vm.expectRevert(abi.encodeWithSelector(IIdentityApp.UseCivicChangeProcedure.selector, PERSON_A));
         identityApp.setCitizenship(PERSON_A, IdentityTypes.CitizenshipStatus.Suspended);
+        bytes32 requestId = _proposeSuspension(false);
+        vm.prank(IDENTITY_CLERK);
+        identityApp.approveCivicChange(PERSON_A, requestId);
+        vm.warp(block.timestamp + 7 days);
+        identityApp.finalizeCivicChange(PERSON_A, requestId);
 
         IdentityTypes.IdentityRecord memory record = identityRegistry.getIdentityRecord(PERSON_A);
         assertEq(uint256(record.citizenshipStatus), uint256(IdentityTypes.CitizenshipStatus.Suspended));
@@ -201,7 +212,7 @@ contract IdentityAppTest is Test {
             uint256(IdentityTypes.CitizenshipStatus.None)
         );
 
-        // Re-granting citizenship requires an explicit office action; non-admins cannot flip it back.
+        // Reinstatement requires the two-officer civic process; the onboarding shortcut cannot be reused.
         vm.prank(OUTSIDER);
         vm.expectRevert(
             abi.encodeWithSelector(IIdentityApp.UnauthorizedIdentityOfficer.selector, OUTSIDER, IDENTITY_OFFICE_ID)
@@ -209,7 +220,21 @@ contract IdentityAppTest is Test {
         identityApp.setCitizenship(PERSON_A, IdentityTypes.CitizenshipStatus.Citizen);
 
         vm.prank(IDENTITY_ADMIN);
-        identityApp.setCitizenship(PERSON_A, IdentityTypes.CitizenshipStatus.Citizen);
+        bytes32 reinstatement = identityApp.proposeCivicChange(
+            PERSON_A,
+            IdentityTypes.CivicStatusInput({
+                verificationStatus: IdentityTypes.VerificationStatus.Verified,
+                citizenshipStatus: IdentityTypes.CitizenshipStatus.Citizen,
+                ageClass: IdentityTypes.AgeClass.Adult,
+                correctionFlag: false,
+                finalSuspension: false
+            }),
+            keccak256("reinstatement evidence")
+        );
+        vm.prank(IDENTITY_CLERK);
+        identityApp.approveCivicChange(PERSON_A, reinstatement);
+        skip(7 days);
+        identityApp.finalizeCivicChange(PERSON_A, reinstatement);
         assertEq(
             uint256(identityRegistry.getIdentityRecord(PERSON_A).citizenshipStatus),
             uint256(IdentityTypes.CitizenshipStatus.Citizen)
@@ -234,8 +259,9 @@ contract IdentityAppTest is Test {
         identityApp.finalizeWalletMigration(PERSON_A);
 
         // Approval by a clerk (admin-or-clerk gate) starts the timelock.
+        bytes32 requestId = _acceptMigration(PERSON_A, WALLET_B);
         vm.prank(IDENTITY_CLERK);
-        identityApp.approveWalletMigration(PERSON_A);
+        identityApp.approveWalletMigration(PERSON_A, requestId);
 
         uint64 readyAt = uint64(block.timestamp) + MIGRATION_DELAY;
 
@@ -300,19 +326,20 @@ contract IdentityAppTest is Test {
         _registerCitizen(PERSON_A, WALLET_A, _citizenInput());
         vm.prank(WALLET_A);
         identityApp.requestWalletMigration(WALLET_B);
+        bytes32 requestId = _acceptMigration(PERSON_A, WALLET_B);
 
         vm.prank(OUTSIDER);
         vm.expectRevert(
             abi.encodeWithSelector(IIdentityApp.UnauthorizedIdentityOfficer.selector, OUTSIDER, IDENTITY_OFFICE_ID)
         );
-        identityApp.approveWalletMigration(PERSON_A);
+        identityApp.approveWalletMigration(PERSON_A, requestId);
 
         // A double approval reverts as well.
         vm.prank(IDENTITY_ADMIN);
-        identityApp.approveWalletMigration(PERSON_A);
+        identityApp.approveWalletMigration(PERSON_A, requestId);
         vm.prank(IDENTITY_ADMIN);
         vm.expectRevert(abi.encodeWithSelector(IIdentityApp.MigrationAlreadyApproved.selector, PERSON_A));
-        identityApp.approveWalletMigration(PERSON_A);
+        identityApp.approveWalletMigration(PERSON_A, requestId);
     }
 
     function test_WalletMigration_CancelByOldWalletAndByOffice() public {
@@ -343,16 +370,399 @@ contract IdentityAppTest is Test {
         _registerCitizen(PERSON_A, WALLET_A, _citizenInput());
         vm.prank(WALLET_A);
         identityApp.requestWalletMigration(WALLET_B);
+        bytes32 requestId = _acceptMigration(PERSON_A, WALLET_B);
         vm.prank(IDENTITY_ADMIN);
-        identityApp.approveWalletMigration(PERSON_A);
+        identityApp.approveWalletMigration(PERSON_A, requestId);
         vm.warp(block.timestamp + MIGRATION_DELAY);
         identityApp.finalizeWalletMigration(PERSON_A);
 
         assertEq(identityRegistry.activeWalletCountOf(PERSON_A), 1);
         // Re-activating the revoked old wallet while the new wallet is active must revert (no 2 active wallets).
         vm.prank(IDENTITY_ADMIN);
-        vm.expectRevert(abi.encodeWithSelector(IIdentityRegistry.PersonAlreadyHasActiveWallet.selector, PERSON_A));
+        vm.expectRevert(abi.encodeWithSelector(IIdentityApp.InitialWalletOnly.selector, PERSON_A));
         identityApp.linkWallet(PERSON_A, WALLET_A, IdentityTypes.WalletLinkStatus.Active);
+    }
+
+    function test_Governance_NoRecordOverwriteOrDirectRebinding() public {
+        _registerCitizen(PERSON_A, WALLET_A, _citizenInput());
+        vm.startPrank(IDENTITY_ADMIN);
+        vm.expectRevert(abi.encodeWithSelector(IIdentityApp.IdentityAlreadyRegistered.selector, PERSON_A));
+        identityApp.registerIdentity(PERSON_A, _citizenInput());
+        vm.expectRevert(abi.encodeWithSelector(IIdentityApp.InitialWalletOnly.selector, PERSON_A));
+        identityApp.linkWallet(PERSON_A, WALLET_A, IdentityTypes.WalletLinkStatus.Revoked);
+        vm.expectRevert(abi.encodeWithSelector(IIdentityApp.InitialWalletOnly.selector, PERSON_A));
+        identityApp.linkWallet(PERSON_A, WALLET_B, IdentityTypes.WalletLinkStatus.Active);
+        vm.stopPrank();
+        assertEq(identityRegistry.activeWalletOf(PERSON_A), WALLET_A);
+    }
+
+    function test_Governance_InitialWalletRequiresConsent() public {
+        IdentityTypes.IdentityRecordInput memory input = _citizenInput();
+        input.citizenshipStatus = IdentityTypes.CitizenshipStatus.None;
+        vm.startPrank(IDENTITY_ADMIN);
+        identityApp.registerIdentity(PERSON_A, input);
+        identityApp.linkWallet(PERSON_A, WALLET_A, IdentityTypes.WalletLinkStatus.Active);
+        vm.expectRevert(abi.encodeWithSelector(IIdentityApp.DestinationConsentRequired.selector, PERSON_A));
+        identityApp.acceptInitialWallet(PERSON_A);
+        vm.stopPrank();
+        assertEq(identityRegistry.activeWalletOf(PERSON_A), address(0));
+        vm.prank(WALLET_A);
+        identityApp.acceptInitialWallet(PERSON_A);
+        assertEq(identityRegistry.activeWalletOf(PERSON_A), WALLET_A);
+    }
+
+    function test_Governance_MigrationConsentAndNoncePreventStaleApproval() public {
+        _registerCitizen(PERSON_A, WALLET_A, _citizenInput());
+        vm.prank(WALLET_A);
+        identityApp.requestWalletMigration(WALLET_B);
+        bytes32 firstId = identityApp.walletMigrationId(PERSON_A);
+        vm.prank(IDENTITY_CLERK);
+        vm.expectRevert(abi.encodeWithSelector(IIdentityApp.DestinationConsentRequired.selector, PERSON_A));
+        identityApp.approveWalletMigration(PERSON_A, firstId);
+        vm.prank(WALLET_A);
+        identityApp.cancelWalletMigration(PERSON_A);
+        vm.prank(WALLET_A);
+        identityApp.requestWalletMigration(WALLET_B);
+        bytes32 secondId = _acceptMigration(PERSON_A, WALLET_B);
+        assertNotEq(firstId, secondId);
+        vm.prank(IDENTITY_CLERK);
+        vm.expectRevert(abi.encodeWithSelector(IIdentityApp.StaleRequest.selector, secondId, firstId));
+        identityApp.approveWalletMigration(PERSON_A, firstId);
+        assertFalse(identityApp.getWalletMigration(PERSON_A).approved);
+    }
+
+    function test_Governance_RecoveryNeedsEvidenceSecondOfficerConsentAndSevenDays() public {
+        _registerCitizen(PERSON_A, WALLET_A, _citizenInput());
+        stakeRegistry.increaseStake(PERSON_A, 10_000);
+        vm.startPrank(IDENTITY_ADMIN);
+        vm.expectRevert(IIdentityApp.InvalidEvidenceHash.selector);
+        identityApp.proposeWalletRecovery(PERSON_A, WALLET_B, bytes32(0));
+        identityApp.proposeWalletRecovery(PERSON_A, WALLET_B, keccak256("lost key evidence"));
+        vm.stopPrank();
+        bytes32 requestId = _acceptMigration(PERSON_A, WALLET_B);
+        vm.prank(IDENTITY_ADMIN);
+        vm.expectRevert(IIdentityApp.DistinctOfficerRequired.selector);
+        identityApp.approveWalletMigration(PERSON_A, requestId);
+        vm.prank(IDENTITY_CLERK);
+        identityApp.approveWalletMigration(PERSON_A, requestId);
+        uint64 ready = uint64(block.timestamp + 7 days);
+        vm.warp(ready - 1);
+        vm.expectRevert(abi.encodeWithSelector(IIdentityApp.MigrationDelayNotElapsed.selector, PERSON_A, ready));
+        identityApp.finalizeWalletMigration(PERSON_A);
+        vm.warp(ready);
+        vm.prank(OUTSIDER); // No old-wallet signature is needed to recover a genuinely lost key.
+        identityApp.finalizeWalletMigration(PERSON_A);
+        assertEq(identityRegistry.activeWalletOf(PERSON_A), WALLET_B);
+        assertEq(identityRegistry.activeWalletCountOf(PERSON_A), 1);
+        assertEq(stakeRegistry.activeStakeOf(PERSON_A), 10_000);
+    }
+
+    function test_Governance_OldWalletCanChallengeRecovery() public {
+        _registerCitizen(PERSON_A, WALLET_A, _citizenInput());
+        vm.prank(IDENTITY_ADMIN);
+        identityApp.proposeWalletRecovery(PERSON_A, WALLET_B, keccak256("contested claim"));
+        bytes32 requestId = _acceptMigration(PERSON_A, WALLET_B);
+        vm.prank(IDENTITY_CLERK);
+        identityApp.approveWalletMigration(PERSON_A, requestId);
+        vm.prank(WALLET_A);
+        identityApp.cancelWalletMigration(PERSON_A);
+        vm.warp(block.timestamp + 7 days);
+        vm.expectRevert(abi.encodeWithSelector(IIdentityApp.MigrationNotFound.selector, PERSON_A));
+        identityApp.finalizeWalletMigration(PERSON_A);
+        assertEq(identityRegistry.activeWalletOf(PERSON_A), WALLET_A);
+    }
+
+    function test_Governance_RevokedOfficerCannotLeaveExecutableRecoveryApproval() public {
+        _registerCitizen(PERSON_A, WALLET_A, _citizenInput());
+        vm.prank(IDENTITY_ADMIN);
+        identityApp.proposeWalletRecovery(PERSON_A, WALLET_B, keccak256("lost key"));
+        bytes32 requestId = _acceptMigration(PERSON_A, WALLET_B);
+        vm.prank(IDENTITY_CLERK);
+        identityApp.approveWalletMigration(PERSON_A, requestId);
+        officeRegistry.setClerkStatus(IDENTITY_OFFICE_ID, IDENTITY_CLERK, false);
+        vm.warp(block.timestamp + 7 days);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IIdentityApp.UnauthorizedIdentityOfficer.selector, IDENTITY_CLERK, IDENTITY_OFFICE_ID
+            )
+        );
+        identityApp.finalizeWalletMigration(PERSON_A);
+    }
+
+    function test_Governance_CivicNoticeMetadataIsolationAndFinalSuspensionReversal() public {
+        _registerCitizen(PERSON_A, WALLET_A, _citizenInput());
+        bytes32 requestId = _proposeSuspension(true);
+        vm.prank(IDENTITY_ADMIN);
+        vm.expectRevert(IIdentityApp.DistinctOfficerRequired.selector);
+        identityApp.approveCivicChange(PERSON_A, requestId);
+        vm.prank(IDENTITY_CLERK);
+        identityApp.approveCivicChange(PERSON_A, requestId);
+        vm.prank(IDENTITY_ADMIN);
+        identityApp.correctMetadata(PERSON_A, keccak256("corrected metadata"), "ipfs://correction");
+        vm.expectRevert(abi.encodeWithSelector(IIdentityApp.CivicChangeNotReady.selector, PERSON_A));
+        identityApp.finalizeCivicChange(PERSON_A, requestId);
+        vm.warp(block.timestamp + 7 days);
+        identityApp.finalizeCivicChange(PERSON_A, requestId);
+        assertTrue(identityRegistry.getIdentityRecord(PERSON_A).finalSuspension);
+        assertEq(identityRegistry.getIdentityRecord(PERSON_A).metadataURI, "ipfs://correction");
+        vm.startPrank(IDENTITY_ADMIN);
+        vm.expectRevert(abi.encodeWithSelector(IIdentityApp.UseCivicChangeProcedure.selector, PERSON_A));
+        identityApp.setCitizenship(PERSON_A, IdentityTypes.CitizenshipStatus.Citizen);
+        bytes32 reversal = identityApp.proposeCivicChange(
+            PERSON_A,
+            IdentityTypes.CivicStatusInput({
+                verificationStatus: IdentityTypes.VerificationStatus.Verified,
+                citizenshipStatus: IdentityTypes.CitizenshipStatus.Citizen,
+                ageClass: IdentityTypes.AgeClass.Adult,
+                correctionFlag: false,
+                finalSuspension: false
+            }),
+            keccak256("reversal judgment")
+        );
+        vm.stopPrank();
+        vm.prank(IDENTITY_CLERK);
+        identityApp.approveCivicChange(PERSON_A, reversal);
+        vm.warp(block.timestamp + 7 days);
+        identityApp.finalizeCivicChange(PERSON_A, reversal);
+        assertFalse(identityRegistry.getIdentityRecord(PERSON_A).finalSuspension);
+    }
+
+    function test_CivicSubjectCannotDeleteOrReappealAnUpheldChange() public {
+        _registerCitizen(PERSON_A, WALLET_A, _citizenInput());
+        bytes32 requestId = _proposeSuspension(true);
+        vm.prank(IDENTITY_CLERK);
+        identityApp.approveCivicChange(PERSON_A, requestId);
+        skip(7 days - 1);
+        vm.prank(WALLET_A);
+        vm.expectPartialRevert(IIdentityApp.UnauthorizedIdentityOfficer.selector);
+        identityApp.cancelCivicChange(PERSON_A, requestId);
+        vm.prank(WALLET_A);
+        identityApp.appealCivicChange(PERSON_A, requestId, keccak256("appeal evidence"));
+        for (uint256 i; i < 3; ++i) {
+            vm.prank(civicReview.reviewerAt(i));
+            civicReview.castRulingVote(PERSON_A, requestId, true, keccak256("reasoned ruling"), true);
+        }
+        civicReview.executeRuling(PERSON_A, requestId, true, keccak256("reasoned ruling"));
+        vm.prank(WALLET_A);
+        vm.expectPartialRevert(IIdentityApp.CivicAppealNotOpen.selector);
+        identityApp.appealCivicChange(PERSON_A, requestId, keccak256("repeat"));
+        skip(2 days);
+        identityApp.finalizeCivicChange(PERSON_A, requestId);
+        assertTrue(identityRegistry.getIdentityRecord(PERSON_A).finalSuspension);
+    }
+
+    function test_Governance_OfficerWithdrawalAndRenunciationInvalidateStaleRequests() public {
+        _registerCitizen(PERSON_A, WALLET_A, _citizenInput());
+        bytes32 firstId = _proposeSuspension(true);
+        vm.prank(IDENTITY_CLERK);
+        identityApp.cancelCivicChange(PERSON_A, firstId);
+        bytes32 secondId = _proposeSuspension(true);
+        assertNotEq(firstId, secondId);
+        vm.prank(IDENTITY_CLERK);
+        identityApp.approveCivicChange(PERSON_A, secondId);
+        vm.prank(WALLET_A);
+        identityApp.renounceCitizenship();
+        vm.warp(block.timestamp + 7 days);
+        vm.expectRevert(abi.encodeWithSelector(IIdentityApp.StaleRequest.selector, bytes32(0), secondId));
+        identityApp.finalizeCivicChange(PERSON_A, secondId);
+        assertEq(
+            uint8(identityRegistry.getIdentityRecord(PERSON_A).citizenshipStatus),
+            uint8(IdentityTypes.CitizenshipStatus.None)
+        );
+    }
+
+    function test_CivicAppealNeedsThreeMatchingDistinctApprovals() public {
+        bytes32 id = _openAppeal();
+        bytes32 evidence = keccak256("ruling reasons");
+        for (uint256 i; i < 2; ++i) {
+            vm.prank(civicReview.reviewerAt(i));
+            civicReview.castRulingVote(PERSON_A, id, true, evidence, true);
+        }
+        vm.prank(civicReview.reviewerAt(0));
+        civicReview.castRulingVote(PERSON_A, id, true, evidence, true);
+        assertEq(civicReview.rulingSupport(PERSON_A, id, true, evidence), 2);
+        vm.expectRevert(abi.encodeWithSelector(ICivicAppealReview.InsufficientRulingSupport.selector, 2));
+        civicReview.executeRuling(PERSON_A, id, true, evidence);
+        vm.prank(civicReview.reviewerAt(2));
+        civicReview.castRulingVote(PERSON_A, id, false, evidence, true);
+        assertEq(civicReview.rulingSupport(PERSON_A, id, true, evidence), 2);
+        assertEq(civicReview.rulingSupport(PERSON_A, id, false, evidence), 1);
+        assertEq(civicReview.rulingSupport(PERSON_A, id, true, keccak256("different reasons")), 0);
+        vm.prank(civicReview.reviewerAt(2));
+        civicReview.castRulingVote(PERSON_A, id, true, evidence, true);
+        civicReview.executeRuling(PERSON_A, id, true, evidence);
+        vm.expectPartialRevert(ICivicAppealReview.InvalidAppeal.selector);
+        civicReview.executeRuling(PERSON_A, id, true, evidence);
+    }
+
+    function test_CivicAppealUpholdingNeverShortensOriginalNotice() public {
+        bytes32 id = _openAppeal();
+        uint64 originalReady = identityApp.getCivicChange(PERSON_A).readyAt;
+        _castRuling(id, true);
+        assertEq(identityApp.getCivicChange(PERSON_A).readyAt, originalReady);
+        vm.warp(originalReady - 1);
+        vm.expectPartialRevert(IIdentityApp.CivicChangeNotReady.selector);
+        identityApp.finalizeCivicChange(PERSON_A, id);
+        vm.warp(originalReady);
+        identityApp.finalizeCivicChange(PERSON_A, id);
+        assertTrue(identityRegistry.getIdentityRecord(PERSON_A).finalSuspension);
+    }
+
+    function test_CivicAppealTimeoutDismissesAndRejectsLateRulings() public {
+        bytes32 id = _openAppeal();
+        uint64 deadline = identityApp.getCivicChange(PERSON_A).appealDeadline;
+        vm.warp(deadline - 1);
+        vm.expectPartialRevert(IIdentityApp.CivicAppealNotOpen.selector);
+        identityApp.expireCivicAppeal(PERSON_A, id);
+        vm.warp(deadline);
+        vm.expectPartialRevert(IIdentityApp.CivicChangeNotReady.selector);
+        identityApp.finalizeCivicChange(PERSON_A, id);
+        vm.prank(civicReview.reviewerAt(0));
+        vm.expectPartialRevert(ICivicAppealReview.InvalidAppeal.selector);
+        civicReview.castRulingVote(PERSON_A, id, true, keccak256("late"), true);
+        vm.prank(OUTSIDER);
+        identityApp.expireCivicAppeal(PERSON_A, id);
+        assertEq(identityApp.getCivicChange(PERSON_A).requestId, bytes32(0));
+        assertFalse(identityRegistry.getIdentityRecord(PERSON_A).finalSuspension);
+    }
+
+    function test_CivicDismissalCannotBeReusedOnAReproposedCase() public {
+        bytes32 oldId = _openAppeal();
+        _castRuling(oldId, false);
+        assertFalse(identityRegistry.getIdentityRecord(PERSON_A).finalSuspension);
+        bytes32 newId = _proposeSuspension(true);
+        assertNotEq(oldId, newId);
+        vm.prank(IDENTITY_CLERK);
+        identityApp.approveCivicChange(PERSON_A, newId);
+        vm.prank(WALLET_A);
+        identityApp.appealCivicChange(PERSON_A, newId, keccak256("new appeal"));
+        assertEq(civicReview.rulingSupport(PERSON_A, newId, false, keccak256("ruling")), 0);
+        vm.expectPartialRevert(ICivicAppealReview.InvalidAppeal.selector);
+        civicReview.executeRuling(PERSON_A, oldId, false, keccak256("ruling"));
+    }
+
+    function test_CivicCommitteeReplacementCannotTakeOverAnExistingNotice() public {
+        bytes32 id = _openAppeal();
+        CivicAppealReview replacement = new CivicAppealReview(
+            address(identityApp), [address(0xB001), address(0xB002), address(0xB003), address(0xB004), address(0xB005)]
+        );
+        kernel.governanceUpdateModule(KernelModuleIds.CIVIC_APPEAL_AUTHORITY, address(replacement));
+        assertEq(identityApp.getCivicChange(PERSON_A).appealAuthority, address(civicReview));
+        vm.prank(replacement.reviewerAt(0));
+        vm.expectPartialRevert(ICivicAppealReview.InvalidAppeal.selector);
+        replacement.castRulingVote(PERSON_A, id, true, keccak256("ruling"), true);
+        _castRuling(id, false);
+    }
+
+    function test_CivicReviewerIndependenceIsRecheckedAtExecution() public {
+        bytes32 id = _openAppeal();
+        for (uint256 i; i < 3; ++i) {
+            vm.prank(civicReview.reviewerAt(i));
+            civicReview.castRulingVote(PERSON_A, id, true, keccak256("ruling"), true);
+        }
+        officeRegistry.setClerkStatus(IDENTITY_OFFICE_ID, civicReview.reviewerAt(0), true);
+        assertEq(civicReview.rulingSupport(PERSON_A, id, true, keccak256("ruling")), 2);
+        vm.expectRevert(abi.encodeWithSelector(ICivicAppealReview.InsufficientRulingSupport.selector, 2));
+        civicReview.executeRuling(PERSON_A, id, true, keccak256("ruling"));
+        vm.prank(civicReview.reviewerAt(3));
+        civicReview.castRulingVote(PERSON_A, id, true, keccak256("ruling"), true);
+        civicReview.executeRuling(PERSON_A, id, true, keccak256("ruling"));
+    }
+
+    function test_CivicReviewerCanWithdrawApproval() public {
+        bytes32 id = _openAppeal();
+        vm.startPrank(civicReview.reviewerAt(0));
+        civicReview.castRulingVote(PERSON_A, id, true, keccak256("ruling"), true);
+        civicReview.castRulingVote(PERSON_A, id, true, keccak256("ruling"), false);
+        vm.stopPrank();
+        assertEq(civicReview.rulingSupport(PERSON_A, id, true, keccak256("ruling")), 0);
+    }
+
+    function test_CivicAppealCannotBeFiledWithoutApprovalOrAtNoticeDeadline() public {
+        _registerCitizen(PERSON_A, WALLET_A, _citizenInput());
+        bytes32 id = _proposeSuspension(true);
+        vm.prank(WALLET_A);
+        vm.expectPartialRevert(IIdentityApp.CivicAppealNotOpen.selector);
+        identityApp.appealCivicChange(PERSON_A, id, keccak256("appeal"));
+        vm.prank(IDENTITY_CLERK);
+        identityApp.approveCivicChange(PERSON_A, id);
+        vm.prank(WALLET_A);
+        vm.expectRevert(IIdentityApp.InvalidEvidenceHash.selector);
+        identityApp.appealCivicChange(PERSON_A, id, bytes32(0));
+        vm.warp(identityApp.getCivicChange(PERSON_A).readyAt);
+        vm.prank(WALLET_A);
+        vm.expectPartialRevert(IIdentityApp.CivicAppealNotOpen.selector);
+        identityApp.appealCivicChange(PERSON_A, id, keccak256("late"));
+        identityApp.finalizeCivicChange(PERSON_A, id);
+    }
+
+    function test_CivicRulingCannotComeDirectlyFromAnOfficerOrReviewer() public {
+        bytes32 id = _openAppeal();
+        vm.prank(IDENTITY_ADMIN);
+        vm.expectPartialRevert(IIdentityApp.UnauthorizedCivicReviewer.selector);
+        identityApp.resolveCivicAppeal(PERSON_A, id, true, keccak256("ruling"));
+        vm.prank(civicReview.reviewerAt(0));
+        vm.expectPartialRevert(IIdentityApp.UnauthorizedCivicReviewer.selector);
+        identityApp.resolveCivicAppeal(PERSON_A, id, true, keccak256("ruling"));
+    }
+
+    function test_RecoveryApprovalCannotSurviveSameBlockReappointment() public {
+        _registerCitizen(PERSON_A, WALLET_A, _citizenInput());
+        vm.prank(IDENTITY_ADMIN);
+        identityApp.proposeWalletRecovery(PERSON_A, WALLET_B, keccak256("recovery"));
+        bytes32 id = _acceptMigration(PERSON_A, WALLET_B);
+        vm.prank(IDENTITY_CLERK);
+        identityApp.approveWalletMigration(PERSON_A, id);
+        officeRegistry.setClerkStatus(IDENTITY_OFFICE_ID, IDENTITY_CLERK, false);
+        officeRegistry.setClerkStatus(IDENTITY_OFFICE_ID, IDENTITY_CLERK, true);
+        skip(7 days);
+        vm.expectRevert(abi.encodeWithSelector(IIdentityApp.StaleOfficerAuthorization.selector, IDENTITY_CLERK));
+        identityApp.finalizeWalletMigration(PERSON_A);
+    }
+
+    function test_CivicApprovalCannotSurviveSameBlockReappointment() public {
+        bytes32 id = _openAppeal();
+        _castRuling(id, true);
+        officeRegistry.setClerkStatus(IDENTITY_OFFICE_ID, IDENTITY_CLERK, false);
+        officeRegistry.setClerkStatus(IDENTITY_OFFICE_ID, IDENTITY_CLERK, true);
+        skip(7 days);
+        vm.expectRevert(abi.encodeWithSelector(IIdentityApp.StaleOfficerAuthorization.selector, IDENTITY_CLERK));
+        identityApp.finalizeCivicChange(PERSON_A, id);
+    }
+
+    function test_CivicSubjectCannotWithdrawOwnCaseUsingAnOfficerAppointment() public {
+        bytes32 id = _openAppeal();
+        officeRegistry.setClerkStatus(IDENTITY_OFFICE_ID, WALLET_A, true);
+        vm.prank(WALLET_A);
+        vm.expectPartialRevert(IIdentityApp.CivicAppealNotOpen.selector);
+        identityApp.cancelCivicChange(PERSON_A, id);
+        assertEq(identityApp.getCivicChange(PERSON_A).requestId, id);
+    }
+
+    function test_RenunciationCannotReopenTheOneOfficerOnboardingGrant() public {
+        _registerCitizen(PERSON_A, WALLET_A, _citizenInput());
+        vm.prank(WALLET_A);
+        identityApp.renounceCitizenship();
+        vm.prank(IDENTITY_ADMIN);
+        vm.expectPartialRevert(IIdentityApp.UseCivicChangeProcedure.selector);
+        identityApp.setCitizenship(PERSON_A, IdentityTypes.CitizenshipStatus.Citizen);
+    }
+
+    function _openAppeal() internal returns (bytes32 id) {
+        _registerCitizen(PERSON_A, WALLET_A, _citizenInput());
+        id = _proposeSuspension(true);
+        vm.prank(IDENTITY_CLERK);
+        identityApp.approveCivicChange(PERSON_A, id);
+        vm.prank(WALLET_A);
+        identityApp.appealCivicChange(PERSON_A, id, keccak256("appeal"));
+    }
+
+    function _castRuling(bytes32 id, bool uphold) internal {
+        for (uint256 i; i < 3; ++i) {
+            vm.prank(civicReview.reviewerAt(i));
+            civicReview.castRulingVote(PERSON_A, id, uphold, keccak256("ruling"), true);
+        }
+        civicReview.executeRuling(PERSON_A, id, uphold, keccak256("ruling"));
     }
 
     // --- helpers ---------------------------------------------------------------------------------------------
@@ -360,10 +770,39 @@ contract IdentityAppTest is Test {
     function _registerCitizen(bytes32 personId, address wallet, IdentityTypes.IdentityRecordInput memory input)
         internal
     {
+        bool grant = input.citizenshipStatus == IdentityTypes.CitizenshipStatus.Citizen;
+        if (grant) input.citizenshipStatus = IdentityTypes.CitizenshipStatus.None;
         vm.prank(IDENTITY_ADMIN);
         identityApp.registerIdentity(personId, input);
         vm.prank(IDENTITY_ADMIN);
         identityApp.linkWallet(personId, wallet, IdentityTypes.WalletLinkStatus.Active);
+        vm.prank(wallet);
+        identityApp.acceptInitialWallet(personId);
+        if (grant) {
+            vm.prank(IDENTITY_ADMIN);
+            identityApp.setCitizenship(personId, IdentityTypes.CitizenshipStatus.Citizen);
+        }
+    }
+
+    function _acceptMigration(bytes32 personId, address destination) internal returns (bytes32 requestId) {
+        requestId = identityApp.walletMigrationId(personId);
+        vm.prank(destination);
+        identityApp.acceptWalletMigration(personId, requestId);
+    }
+
+    function _proposeSuspension(bool finalSuspension) internal returns (bytes32 requestId) {
+        vm.prank(IDENTITY_ADMIN);
+        return identityApp.proposeCivicChange(
+            PERSON_A,
+            IdentityTypes.CivicStatusInput({
+                verificationStatus: IdentityTypes.VerificationStatus.Verified,
+                citizenshipStatus: IdentityTypes.CitizenshipStatus.Suspended,
+                ageClass: IdentityTypes.AgeClass.Adult,
+                correctionFlag: false,
+                finalSuspension: finalSuspension
+            }),
+            keccak256("documented grounds")
+        );
     }
 
     function _citizenInput() internal pure returns (IdentityTypes.IdentityRecordInput memory input) {

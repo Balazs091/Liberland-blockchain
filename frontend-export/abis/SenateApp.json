@@ -18,11 +18,6 @@
         "internalType": "address"
       },
       {
-        "name": "presidentRegistryAddress",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
         "name": "governanceRouterAddress",
         "type": "address",
         "internalType": "address"
@@ -85,78 +80,6 @@
         "name": "holder",
         "type": "address",
         "internalType": "address"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "castPresidentActionCancellationProxyVote",
-    "inputs": [
-      {
-        "name": "actionId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "option",
-        "type": "uint8",
-        "internalType": "enum SenateTypes.VoteOption"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "castPresidentDisbursementSuspensionProxyVote",
-    "inputs": [
-      {
-        "name": "actionId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "option",
-        "type": "uint8",
-        "internalType": "enum SenateTypes.VoteOption"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "castPresidentReferendumVetoProxyVote",
-    "inputs": [
-      {
-        "name": "referendumId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "option",
-        "type": "uint8",
-        "internalType": "enum SenateTypes.VoteOption"
-      }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "castPresidentSubLegalMeasureRepealProxyVote",
-    "inputs": [
-      {
-        "name": "measureId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      },
-      {
-        "name": "option",
-        "type": "uint8",
-        "internalType": "enum SenateTypes.VoteOption"
       }
     ],
     "outputs": [],
@@ -229,37 +152,6 @@
   },
   {
     "type": "function",
-    "name": "getActionCancellationPresidentProxyVote",
-    "inputs": [
-      {
-        "name": "actionId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "proxyVote",
-        "type": "tuple",
-        "internalType": "struct SenateTypes.PresidentProxyVote",
-        "components": [
-          {
-            "name": "option",
-            "type": "uint8",
-            "internalType": "enum SenateTypes.VoteOption"
-          },
-          {
-            "name": "updatedAt",
-            "type": "uint64",
-            "internalType": "uint64"
-          }
-        ]
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "getActionCancellationRecord",
     "inputs": [
       {
@@ -285,7 +177,7 @@
             "internalType": "uint32"
           },
           {
-            "name": "presidentProxySupportSnapshot",
+            "name": "requiredSupportSnapshot",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -423,37 +315,6 @@
   },
   {
     "type": "function",
-    "name": "getReferendumVetoPresidentProxyVote",
-    "inputs": [
-      {
-        "name": "referendumId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "proxyVote",
-        "type": "tuple",
-        "internalType": "struct SenateTypes.PresidentProxyVote",
-        "components": [
-          {
-            "name": "option",
-            "type": "uint8",
-            "internalType": "enum SenateTypes.VoteOption"
-          },
-          {
-            "name": "updatedAt",
-            "type": "uint64",
-            "internalType": "uint64"
-          }
-        ]
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "getReferendumVetoRecord",
     "inputs": [
       {
@@ -499,7 +360,7 @@
             "internalType": "uint32"
           },
           {
-            "name": "presidentProxySupportSnapshot",
+            "name": "requiredSupportSnapshot",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -576,37 +437,6 @@
   },
   {
     "type": "function",
-    "name": "getSubLegalMeasureRepealPresidentProxyVote",
-    "inputs": [
-      {
-        "name": "measureId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "proxyVote",
-        "type": "tuple",
-        "internalType": "struct SenateTypes.PresidentProxyVote",
-        "components": [
-          {
-            "name": "option",
-            "type": "uint8",
-            "internalType": "enum SenateTypes.VoteOption"
-          },
-          {
-            "name": "updatedAt",
-            "type": "uint64",
-            "internalType": "uint64"
-          }
-        ]
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "getSubLegalMeasureRepealRecord",
     "inputs": [
       {
@@ -662,7 +492,7 @@
             "internalType": "uint32"
           },
           {
-            "name": "presidentProxySupportSnapshot",
+            "name": "requiredSupportSnapshot",
             "type": "uint32",
             "internalType": "uint32"
           },
@@ -796,19 +626,6 @@
   },
   {
     "type": "function",
-    "name": "presidentRegistry",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "registryAddress",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "referendumApp",
     "inputs": [],
     "outputs": [
@@ -933,6 +750,19 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "requiredSupport",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "count",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -1107,130 +937,6 @@
   },
   {
     "type": "event",
-    "name": "PresidentActionCancellationProxyVoteRecorded",
-    "inputs": [
-      {
-        "name": "actionId",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
-      },
-      {
-        "name": "president",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "option",
-        "type": "uint8",
-        "indexed": false,
-        "internalType": "enum SenateTypes.VoteOption"
-      },
-      {
-        "name": "recordedAt",
-        "type": "uint64",
-        "indexed": false,
-        "internalType": "uint64"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "PresidentDisbursementSuspensionProxyVoteRecorded",
-    "inputs": [
-      {
-        "name": "actionId",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
-      },
-      {
-        "name": "president",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "option",
-        "type": "uint8",
-        "indexed": false,
-        "internalType": "enum SenateTypes.VoteOption"
-      },
-      {
-        "name": "recordedAt",
-        "type": "uint64",
-        "indexed": false,
-        "internalType": "uint64"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "PresidentReferendumVetoProxyVoteRecorded",
-    "inputs": [
-      {
-        "name": "referendumId",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
-      },
-      {
-        "name": "president",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "option",
-        "type": "uint8",
-        "indexed": false,
-        "internalType": "enum SenateTypes.VoteOption"
-      },
-      {
-        "name": "recordedAt",
-        "type": "uint64",
-        "indexed": false,
-        "internalType": "uint64"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
-    "name": "PresidentSubLegalMeasureRepealProxyVoteRecorded",
-    "inputs": [
-      {
-        "name": "measureId",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
-      },
-      {
-        "name": "president",
-        "type": "address",
-        "indexed": true,
-        "internalType": "address"
-      },
-      {
-        "name": "option",
-        "type": "uint8",
-        "indexed": false,
-        "internalType": "enum SenateTypes.VoteOption"
-      },
-      {
-        "name": "recordedAt",
-        "type": "uint64",
-        "indexed": false,
-        "internalType": "uint64"
-      }
-    ],
-    "anonymous": false
-  },
-  {
-    "type": "event",
     "name": "SenateActionCanceled",
     "inputs": [
       {
@@ -1277,7 +983,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "presidentProxySupportCount",
+        "name": "requiredSupport",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1437,7 +1143,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "presidentProxySupportCount",
+        "name": "requiredSupport",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1653,7 +1359,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "presidentProxySupportCount",
+        "name": "requiredSupport",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1758,7 +1464,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "presidentProxySupportCount",
+        "name": "requiredSupport",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1994,17 +1700,6 @@
   },
   {
     "type": "error",
-    "name": "InvalidPresidentRegistry",
-    "inputs": [
-      {
-        "name": "registryAddress",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "InvalidReferendumApp",
     "inputs": [
       {
@@ -2069,17 +1764,6 @@
       },
       {
         "name": "claimant",
-        "type": "address",
-        "internalType": "address"
-      }
-    ]
-  },
-  {
-    "type": "error",
-    "name": "NotPresident",
-    "inputs": [
-      {
-        "name": "caller",
         "type": "address",
         "internalType": "address"
       }
@@ -2197,7 +1881,7 @@
         "internalType": "uint256"
       },
       {
-        "name": "presidentProxySupportCount",
+        "name": "requiredSupport",
         "type": "uint256",
         "internalType": "uint256"
       }

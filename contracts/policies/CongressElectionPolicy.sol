@@ -24,7 +24,6 @@ contract CongressElectionPolicy is ICongressElectionPolicy {
 
     uint32 private immutable _seatCount;
     uint32 private immutable _runnerUpCount;
-    uint32 private immutable _maxCandidateCount;
     uint256 private immutable _candidateBondRequirement;
     uint64 private immutable _minimumNominationDuration;
     uint64 private immutable _minimumVotingDuration;
@@ -35,7 +34,7 @@ contract CongressElectionPolicy is ICongressElectionPolicy {
     /// @param votingPowerPolicyAddress The voting power policy address.
     /// @param seatCount_ The number of Congress seats awarded per cycle.
     /// @param runnerUpCount_ The number of runner-up slots retained for vacancy filling.
-    /// @param maxCandidateCount_ The maximum number of active candidates permitted in a cycle.
+    /// @param maxCandidateCount_ Deprecated compatibility argument; ignored for admission. Getter returns zero.
     /// @param candidateBondRequirement_ The minimum active stake required to stand as a bonded candidate.
     /// @param minimumNominationDuration_ The minimum nomination duration enforced for a cycle.
     /// @param minimumVotingDuration_ The minimum voting duration enforced for a cycle.
@@ -59,9 +58,7 @@ contract CongressElectionPolicy is ICongressElectionPolicy {
         if (votingPowerPolicyAddress == address(0) || votingPowerPolicyAddress.code.length == 0) {
             revert InvalidPolicy(votingPowerPolicyAddress);
         }
-        if (
-            seatCount_ == 0 || runnerUpCount_ == 0 || maxCandidateCount_ < uint256(seatCount_) + uint256(runnerUpCount_)
-        ) {
+        if (seatCount_ == 0 || runnerUpCount_ == 0 || uint256(seatCount_) + uint256(runnerUpCount_) > 32) {
             revert InvalidCandidateCount(seatCount_, runnerUpCount_, maxCandidateCount_);
         }
         if (
@@ -90,7 +87,6 @@ contract CongressElectionPolicy is ICongressElectionPolicy {
         _votingPowerPolicy = IVotingPowerPolicy(votingPowerPolicyAddress);
         _seatCount = seatCount_;
         _runnerUpCount = runnerUpCount_;
-        _maxCandidateCount = maxCandidateCount_;
         _candidateBondRequirement = candidateBondRequirement_;
         _minimumNominationDuration = minimumNominationDuration_;
         _minimumVotingDuration = minimumVotingDuration_;
@@ -120,7 +116,8 @@ contract CongressElectionPolicy is ICongressElectionPolicy {
 
     /// @inheritdoc ICongressElectionPolicy
     function maxCandidateCount() external view returns (uint32 count) {
-        return _maxCandidateCount;
+        // Retained ABI field: zero means open admission. The legacy constructor argument is not an admission cap.
+        return 0;
     }
 
     /// @inheritdoc ICongressElectionPolicy

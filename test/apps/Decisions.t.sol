@@ -3,6 +3,7 @@ pragma solidity 0.8.36;
 
 import {Test} from "forge-std/Test.sol";
 
+import {IdentityApp} from "../../contracts/apps/IdentityApp.sol";
 import {DecisionApp} from "../../contracts/apps/DecisionApp.sol";
 import {LLMStakingVault} from "../../contracts/apps/LLMStakingVault.sol";
 import {MinistryTreasury} from "../../contracts/apps/MinistryTreasury.sol";
@@ -81,7 +82,91 @@ contract DecisionsTest is Test {
 
         _registerIdentity(RECIPIENT_PERSON_ID, TREASURY_RECIPIENT);
         _registerOffice(FINANCE_OFFICE_ID, OfficeTypes.OfficeKind.MinistryOfFinance, "Ministry of Finance");
+        kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY, address(identityRegistry));
+        _registerIdentity(bytes32(uint256(1)), CONGRESS_MEMBER_ONE);
+        _registerIdentity(bytes32(uint256(2)), CONGRESS_MEMBER_TWO);
+        _registerIdentity(bytes32(uint256(3)), CONGRESS_MEMBER_THREE);
+        _registerIdentity(bytes32(uint256(4)), CONGRESS_RUNNER_UP);
         _seedCongressTerm(1);
+    }
+
+    function test_Audit_CongressDecisionSupportCannotBeInheritedByReassignedWallet() public {
+        bytes32 decisionId = keccak256("audit.reassigned-congress-voter");
+        vm.prank(CONGRESS_MEMBER_ONE);
+        decisionApp.createCongressTokenTransferDecision(
+            decisionId, CONGRESS_SOURCE, address(usdc), TREASURY_RECIPIENT, 1e6, keccak256("audit"), ""
+        );
+        vm.startPrank(address(identityAuthority));
+        identityRegistry.setWalletLink(bytes32(uint256(1)), CONGRESS_MEMBER_ONE, IdentityTypes.WalletLinkStatus.Revoked);
+        identityRegistry.setWalletLink(bytes32(uint256(1)), address(0xA120), IdentityTypes.WalletLinkStatus.Active);
+        identityRegistry.setWalletLink(bytes32(uint256(2)), CONGRESS_MEMBER_TWO, IdentityTypes.WalletLinkStatus.Revoked);
+        identityRegistry.setWalletLink(bytes32(uint256(2)), CONGRESS_MEMBER_ONE, IdentityTypes.WalletLinkStatus.Active);
+        vm.stopPrank();
+        vm.prank(address(0xA120));
+        decisionApp.supportCongressDecision(decisionId);
+        vm.expectRevert(abi.encodeWithSelector(IDecisionApp.CongressDecisionNotApproved.selector, decisionId, 1, 2));
+        decisionApp.executeCongressDecision(decisionId);
+        assertFalse(decisionApp.hasCongressSupported(decisionId, CONGRESS_MEMBER_ONE));
+        vm.prank(CONGRESS_MEMBER_ONE);
+        decisionApp.supportCongressDecision(decisionId);
+        assertTrue(decisionApp.hasCongressSupported(decisionId, CONGRESS_MEMBER_ONE));
+        usdc.mint(CONGRESS_SOURCE, 1e6);
+        vm.startPrank(CONGRESS_SOURCE);
+        usdc.approve(address(decisionApp), 1e6);
+        decisionApp.authorizeCongressDecisionSource(decisionId);
+        vm.stopPrank();
+        decisionApp.executeCongressDecision(decisionId);
+        assertEq(usdc.balanceOf(TREASURY_RECIPIENT), 1e6);
+    }
+
+    function test_Audit_MigratedMinisterCanPrepareAndExecuteAllDecisionTypes() public {
+        bytes32 ministerPerson = keccak256("audit.minister");
+        address newWallet = address(0xF100);
+        _registerIdentity(ministerPerson, MINISTER_OF_FINANCE);
+        vm.prank(address(officeAuthority));
+        officeRegistry.transferOfficeAdminForTerm(
+            FINANCE_OFFICE_ID, MINISTER_OF_FINANCE, ministerPerson, uint64(block.timestamp + 30 days)
+        );
+        IdentityApp identityApp =
+            new IdentityApp(address(identityRegistry), address(officeRegistry), FINANCE_OFFICE_ID, 1 days);
+        kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, address(identityApp));
+        kernel.disableBootstrapAuthority();
+        vm.startPrank(MINISTER_OF_FINANCE);
+        identityApp.requestWalletMigration(newWallet);
+        vm.stopPrank();
+        bytes32 migrationId = identityApp.walletMigrationId(ministerPerson);
+        vm.prank(newWallet);
+        identityApp.acceptWalletMigration(ministerPerson, migrationId);
+        vm.prank(MINISTER_OF_FINANCE);
+        identityApp.approveWalletMigration(ministerPerson, migrationId);
+        vm.warp(block.timestamp + 1 days);
+        identityApp.finalizeWalletMigration(ministerPerson);
+        assertEq(uint256(officeRegistry.roleOf(FINANCE_OFFICE_ID, newWallet)), uint256(OfficeTypes.OfficeRole.Admin));
+        bytes32 clerkDecision = keccak256("audit.clerk");
+        bytes32 transferDecision = keccak256("audit.transfer");
+        bytes32 stakeDecision = keccak256("audit.stake");
+        usdc.mint(newWallet, 10e6);
+        llmToken.mint(newWallet, 10e18);
+        vm.startPrank(newWallet);
+        decisionApp.prepareMinistryClerkDecision(
+            FINANCE_OFFICE_ID, clerkDecision, FINANCE_CLERK, true, keccak256("audit"), "audit"
+        );
+        decisionApp.executeMinistryDecision(clerkDecision);
+        decisionApp.prepareMinistryTokenTransferDecision(
+            FINANCE_OFFICE_ID, transferDecision, address(usdc), TREASURY_RECIPIENT, 10e6, keccak256("audit"), "audit"
+        );
+        usdc.approve(address(decisionApp), 10e6);
+        decisionApp.executeMinistryDecision(transferDecision);
+        decisionApp.prepareMinistryLlmStakeDecision(
+            FINANCE_OFFICE_ID, stakeDecision, RECIPIENT_PERSON_ID, 10e18, keccak256("audit"), "audit"
+        );
+        llmToken.approve(address(decisionApp), 10e18);
+        decisionApp.executeMinistryDecision(stakeDecision);
+        vm.stopPrank();
+        assertEq(decisionApp.getDecision(clerkDecision).source, newWallet);
+        assertTrue(officeRegistry.isOfficeClerk(FINANCE_OFFICE_ID, FINANCE_CLERK));
+        assertEq(usdc.balanceOf(TREASURY_RECIPIENT), 10e6);
+        assertEq(stakeRegistry.activeStakeOf(RECIPIENT_PERSON_ID), 10e18);
     }
 
     function test_CongressDecision_TransfersERC20AfterMajoritySupport() public {

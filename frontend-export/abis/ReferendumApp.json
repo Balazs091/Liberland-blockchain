@@ -583,6 +583,30 @@
   },
   {
     "type": "function",
+    "name": "createPublicRepealReferendum",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "petitionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "referendumId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "finalizeReferendum",
     "inputs": [
       {
@@ -1342,6 +1366,17 @@
         "name": "deadline",
         "type": "uint64",
         "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedPublicPetition",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
       }
     ]
   },

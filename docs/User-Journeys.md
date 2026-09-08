@@ -1,27 +1,33 @@
 # User and Government Journeys
 
 This document maps the current user-facing workflows to the contracts that implement them. It describes the
-deployed v1 behavior; it is not a constitutional restriction on future audited replacement modules.
+current local source; it is not proof of deployment or a restriction on future audited replacement modules.
 
 ## Production onboarding and citizen self-service
 
 Production does not deploy the demo self-registration gateway. Onboarding is an Identity Office workflow:
 
-1. The Identity Office admin creates the person record with `IdentityApp.registerIdentity`.
-2. The admin links one active wallet with `IdentityApp.linkWallet` and grants the appropriate status with
-   `IdentityApp.setCitizenship`.
+1. The Identity Office admin onboards a new non-citizen with `IdentityApp.registerIdentity`; existing records cannot
+   be overwritten. Metadata-only corrections use `correctMetadata`.
+2. The admin proposes the first wallet with `IdentityApp.linkWallet`; that wallet calls `acceptInitialWallet`.
+   `setCitizenship` only grants citizenship to a verified adult non-citizen without final suspension.
 3. The person approves LLM to `LLMStakingVault` and calls `stakeFor(personId, amount)`. Eligibility follows the
    live citizen and voting-power policies.
-4. The citizen can later call `requestWalletMigration(newWallet)`. An Identity Office admin or clerk approves the
-   request, the configured delay elapses, and anyone may finalize it. Stake remains keyed to the person ID. Any
+4. The citizen can later call `requestWalletMigration(newWallet)`. The destination accepts the exact
+   `walletMigrationId(personId)`; an officer approves that same nonce-bound ID, two days elapse, and anyone may
+   finalize. Lost-key recovery instead needs an admin proposal, nonzero evidence hash, destination consent, a
+   distinct officer and seven days; the old wallet can cancel and is not needed to finalize. Stake stays person-keyed. Any
    current Congress, Senate, President, Prime Minister, minister, or term-bound ministry-office authority follows
    the new active wallet; the revoked wallet immediately loses that authority.
 5. A citizen may renounce citizenship without office consent. The wallet link remains active so the person can
    continue to manage and unstake their LLM.
 
-Only the Identity Office admin creates identities, links wallets, or changes citizenship in v1. Identity clerks
-approve or cancel wallet migrations. This split is intentional current policy, not a kernel limitation; replacing
-the identity authority app can change it.
+Adverse civic changes and reversals of final suspension use `proposeCivicChange`, distinct-officer
+ `approveCivicChange`, seven-day notice and `finalizeCivicChange`. The affected active wallet may file one
+evidence-backed `appealCivicChange` during notice. Three of five independent reviewers resolve the exact case;
+upholding preserves notice and adds a two-day post-ruling delay. An unanswered appeal is dismissed after 30 days.
+Officers can withdraw cases except their own; subjects cannot delete an upheld case. Renunciation remains immediate,
+but re-enrollment uses the civic procedure. See [Governance](Governance.md).
 
 Sepolia instead uses one combined `DemoCitizenGateway`: it inherits the standard `IdentityApp` office, migration,
 and renunciation workflows and adds public self-registration, registrar confirmation/rejection, and demo staking.
@@ -41,8 +47,11 @@ Evidence: `test/apps/IdentityApp.t.sol`, `test/apps/DemoCitizenGateway.t.sol`, a
   same canonical candidate.
 - An eligible voter submits one person-keyed signed-allocation ballot for that cycle. Recasting replaces the whole
   ballot and wallet migration cannot create a second ballot.
-- Anyone may finalize after voting closes. The top eligible, non-negatively supported candidates take the bounded
-  seats; runner-ups are stored for succession.
+- There is no first-come candidate cap. Anyone may repeatedly call `finalizeElection` after voting closes;
+  intermediate successful calls are progress, not finality. Frozen candidate scores are ranked in chunks of 32.
+  Up to 32 ranked candidates are considered per call until the fixed seat/runner-up set is filled or exhausted.
+  Current eligibility is checked on selection and again before activation. Disqualified candidates do not re-enter
+  that count; losing eligibility while counting can forfeit candidacy. Stake is not separately locked.
 - A member may resign. Anyone may recall a member who has lost candidate eligibility, after which the next eligible
   runner-up fills the vacancy.
 - If a seated person's identity has no active wallet, anyone may call
@@ -102,7 +111,7 @@ Evidence: `test/apps/CabinetApp.t.sol`, `test/apps/MinistryTreasury.t.sol`,
 - A pending company cannot receive directors, share classes, shares, or filings. Those child-state operations become
   available only in `Active` or `ComplianceWarning` status, preventing rejected/resubmitted applications from
   inheriting hidden pre-approval state.
-- Finance payouts require an enacted budget envelope, a policy-permitted request, a queued typed action, the
+- Finance payouts require an enacted budget envelope, a policy-permitted request, a distinct current officer's approval, a queued typed action, the
   timelock, and the Treasury Vault's independent exact-commitment check.
 - An authorized office can cancel a proposal. If already routed, `OfficeExecutor.cancelPayout` first cancels the
   timelock action, then records queue cancellation and releases the budget. Anyone may call
@@ -118,12 +127,14 @@ Evidence: `test/apps/LandRegistry.t.sol`, `test/apps/CompanyRegistry.t.sol`, and
    an evidence document.
 2. The Finance Office admin proposes an LLM `ContributionReward` against an active referendum-approved reward budget,
    supplying the evidence hash and URI.
-3. After the one-day sensitive office delay, the Finance admin routes the payout into the normal treasury timelock.
+3. A distinct current Finance officer approves the exact proposal. After the one-day sensitive office delay from
+   proposal, a permitted officer routes it into the normal treasury timelock; both appointments and the proposer's
+   spending policy must still be valid.
 4. Senate cancellation and temporary disbursement suspension remain available while the action is pending.
 5. Execution transfers existing LLM from `TreasuryVault` to the contributor's wallet. The contributor may stake it
    separately after an identity record exists.
 
-Finance clerks cannot issue contribution rewards. Neither the Finance Office nor `TreasuryVault` can mint LLM; the
+Finance clerks cannot propose contribution rewards; they may provide the second approval or route an approved admin proposal. Neither the Finance Office nor `TreasuryVault` can mint LLM; the
 vault must first receive a pre-existing institutional reserve. The contracts preserve evidence provenance but do not
 decide whether a contribution is genuine or what amount it merits.
 
@@ -140,9 +151,11 @@ Evidence: `test/apps/TreasuryAndOffices.t.sol`.
 - Senators elect the President. The President appoints two Vice Presidents from eligible Senate seat holders;
   resignation follows the recorded succession order. A Senate seat cannot cast a new presidential ballot while the
   incumbent remains in term; voting starts only after vacancy or term expiry.
-- A citizen may add or remove person-keyed Public Veto support for active Law-tier legislation. Before repeal,
+- A citizen may add or remove person-keyed Public Veto support for active Law-tier legislation. Before submission,
   support reads count only currently eligible persons; the next cast prunes stale receipts and emits
-  `PublicVetoEligibilityExpired`. A completed repeal preserves its final count.
+  `PublicVetoEligibilityExpired`. Two signatures initiate a typed ordinary repeal referendum; they do not cast
+  referendum votes or repeal the law. After passage and the normal delay, execute the queued repeal. Failed or
+  canceled rounds can be reset for fresh petition signatures.
 - The current Senate and Congress apps expose no unrestricted execution function. Core routing authenticates the
   currently approved module and typed action, so a future constitutional design can replace those apps without an
   obsolete branch matrix blocking it.
@@ -153,7 +166,7 @@ Evidence: `test/apps/SenateAndPublicVeto.t.sol` and `test/apps/HeadOfStateApp.t.
 
 - Any account may deposit USDC and receive pool shares; share owners may withdraw available liquidity.
 - A currently eligible citizen with surplus active LLM may borrow within the live oracle/risk limits. The pool
-  records a stake lien and releases it as debt is repaid. The citizenship retained-stake floor is fixed when the
+  records a stake lien and releases it when debt is fully repaid (not proportionally on partial repayment). The citizenship retained-stake floor is fixed when the
   lien begins and is cleared with the final lien.
 - Anyone may repay for a person ID, which preserves recovery if the borrower's wallet is revoked or lost.
 - Anyone may liquidate an unhealthy position under the policy limits. Irrecoverable collateral dust follows the
@@ -181,8 +194,8 @@ Evidence: `test/apps/LlmBackedUSDC.t.sol`.
   threshold.
 - A new unclassified extension requires the double threshold to register and to replace later. It is no longer
   permanently frozen after registration.
-- The dedicated Congress-election-policy referendum remains timing-only. A full breaking replacement, including
-  seat-count or eligibility changes, uses the constitutional module-governance path.
+- The dedicated Congress-election-policy referendum checks matching metadata but also requires the constitutional
+  threshold. A full breaking replacement uses constitutional module governance; neither route has weaker approval.
 - When an app and one or more authority pointers must move together, approve each typed action and call
   `ActionTimelock.executeActions(actionIds)`. The transaction updates all pointers or reverts all of them.
 - Optional Senate and constitutional-review hooks cannot permanently freeze the queue merely by being absent or

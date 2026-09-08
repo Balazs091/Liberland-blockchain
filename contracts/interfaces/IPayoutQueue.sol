@@ -33,6 +33,7 @@ interface IPayoutQueue is IKernelModule {
 
     event PayoutQueued(bytes32 indexed requestId, bytes32 indexed actionId, uint64 queuedAt, address indexed queuedBy);
     event PayoutCanceled(bytes32 indexed requestId, uint64 canceledAt, address indexed canceledBy);
+    event PayoutApprovalUpdated(bytes32 indexed requestId, address indexed approver, bytes32 authorizationId);
     event PayoutVetoed(bytes32 indexed requestId, bytes32 indexed actionId, uint64 vetoedAt, address indexed vetoedBy);
     event PayoutExecuted(
         bytes32 indexed requestId, bytes32 indexed actionId, uint64 executedAt, address indexed recordedBy
@@ -48,7 +49,15 @@ interface IPayoutQueue is IKernelModule {
     function requestExists(bytes32 requestId) external view returns (bool exists);
     function totalDisbursementRequestCount() external view returns (uint256 count);
     function disbursementRequestIdAt(uint256 index) external view returns (bytes32 requestId);
-    function proposePayout(TreasuryTypes.DisbursementRequestInput calldata input, uint64 routeAfter) external;
+    /// @notice Stores an immutable payout and its actual proposing officer and appointment, through OfficeExecutor.
+    function proposePayout(
+        TreasuryTypes.DisbursementRequestInput calldata input,
+        uint64 routeAfter,
+        address proposer,
+        bytes32 authorizationId
+    ) external;
+    /// @notice Records or clears the second officer approval while the payout is still proposed; executor only.
+    function setPayoutApproval(bytes32 requestId, address approver, bytes32 authorizationId) external;
     function prepareRouting(bytes32 requestId)
         external
         returns (GovernanceTypes.TreasuryDisbursementPayload memory payload);

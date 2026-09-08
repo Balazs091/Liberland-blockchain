@@ -123,6 +123,11 @@
             "name": "repealed",
             "type": "bool",
             "internalType": "bool"
+          },
+          {
+            "name": "referendumId",
+            "type": "bytes32",
+            "internalType": "bytes32"
           }
         ]
       }
@@ -242,6 +247,69 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "resetPublicPetition",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "PublicPetitionReset",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "oldReferendumId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "nextNonce",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "PublicRepealReferendumCreated",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "petitionId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "referendumId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",
@@ -460,6 +528,33 @@
   },
   {
     "type": "error",
+    "name": "PetitionAlreadySubmitted",
+    "inputs": [
+      {
+        "name": "measureId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "referendumId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "PetitionStillLive",
+    "inputs": [
+      {
+        "name": "referendumId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "PublicVetoAlreadyCast",
     "inputs": [
       {
@@ -489,6 +584,11 @@
         "internalType": "bytes32"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "ReentrancyGuardReentrantCall",
+    "inputs": []
   },
   {
     "type": "error",

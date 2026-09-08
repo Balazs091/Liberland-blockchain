@@ -41,14 +41,19 @@ fi
 
 echo "Audit target commit: $(git rev-parse HEAD)"
 bash scripts/verify-constitution-source.sh
+"$python_command" -m unittest discover -s scripts -p 'test_*.py'
+"$python_command" scripts/check-docs.py
 forge fmt --check
 forge build --sizes
 forge test -vvv
-forge coverage --report summary
-FOUNDRY_PROFILE=audit forge test --match-path 'test/invariant/*.t.sol' -vvv
+# The optimized 1,000-candidate stress fixture exceeds coverage instrumentation's test gas budget.
+# It remains mandatory above; coverage exercises the same count path with the 100-candidate fixture.
+forge coverage --report summary --no-match-test test_Governance_OpenAdmissionFinalizes1000CandidatesInBoundedChunks
+FOUNDRY_PROFILE=audit forge test --match-path 'test/invariant/*.t.sol' --fuzz-seed 0x709 -vvv
 forge test --match-path 'test/scripts/*.t.sol' -vvv
 bash scripts/export-frontend-abis.sh
 git diff --exit-code -- frontend-export/abis
+"$python_command" scripts/check-docs.py --check-abis
 "$python_command" scripts/check-slither-baseline.py
 
 echo "Audit-freeze verification passed for $(git rev-parse HEAD)."

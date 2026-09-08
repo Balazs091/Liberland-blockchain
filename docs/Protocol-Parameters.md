@@ -1,6 +1,6 @@
 # Protocol Parameters
 
-This is the boss-review manifest for the current code. Values are denominated in whole tokens unless a base-unit
+This is the parameter manifest for the current code. Values are denominated in whole tokens unless a base-unit
 suffix is shown. The executable sources remain `scripts/parameters/EthereumMainnetParameters.sol`,
 `scripts/parameters/SepoliaDemoParameters.sol`, and the immutable policy constructors referenced below.
 
@@ -11,7 +11,8 @@ suffix is shown. The executable sources remain `scripts/parameters/EthereumMainn
 | Chain ID | 1 | 11155111 |
 | Congress seats | 7 | 2 |
 | Runner-up slots | 2 | 2 |
-| Maximum candidates | 9 | 8 |
+| Candidate admission cap | None (`maxCandidateCount = 0`) | None (`maxCandidateCount = 0`) |
+| Candidates ranked/considered per finalization call | At most 32 / 32 | At most 32 / 32 |
 | Nomination minimum | 2 days | 1 day |
 | Voting minimum | 3 days | 2 days |
 | Maximum scheduling lead | 14 days | 3 days |
@@ -37,6 +38,12 @@ Late finalization advances to the next 17:00 UTC boundary and does not drift to 
 | Unstake welfare period | 30 days |
 | Annual unstake rate input | 1,064 bps |
 | Wallet-migration delay | 2 days |
+| Exceptional lost-key recovery delay | 7 days after destination consent and distinct-officer approval |
+| Civic adverse/reversal notice | 7 days after distinct-officer approval |
+| Civic review committee | 3 matching approvals from 5 appointed accounts |
+| Civic appeal filing | Once, strictly before notice expiry |
+| Civic ruling deadline | 30 days after appeal; unanswered appeals are dismissed |
+| Upheld civic execution delay | Later of original notice end and 2 days after ruling |
 
 The 1,064 bps annual input releases approximately 10% of the original stake over twelve 30-day unstake operations
 because each operation applies to the then-current balance. A protected or lending-lien floor can reduce the actual
@@ -58,8 +65,8 @@ release. LLM is not minted by Treasury; contribution rewards spend an existing T
 
 State-bearing modules, policies, authorities, and new extension IDs use the constitutional double threshold. Router
 origins and the constitutional-review hook are authorities. Only bounded workflow apps without routing or review
-power use the ordinary module-governance threshold. The dedicated Congress-election-policy referendum may change
-timing only; a breaking election-policy replacement uses constitutional module governance.
+power use the ordinary module-governance threshold. Every Congress-election-policy replacement, including the
+dedicated metadata-matching route, uses the constitutional threshold. Metadata cannot constrain arbitrary bytecode.
 Each referendum and election stores its starting policy and the last completed block used for individual historical
 stake weight. New creation requires the voting policy's immutable electorate pointer to match the current kernel
 electorate and `snapshotAtCurrentEpoch` to certify that block against the current policy epoch and live identity/stake
@@ -75,18 +82,20 @@ path; after setup, new live processes on both networks use the current-epoch las
 | Parameter | Both networks |
 | --- | ---: |
 | Senate capacity | 100 seats |
-| Minimum Senate cancellation support | 2 seats |
+| Senate negative-power support | Strict occupied-seat majority, at least 2 direct votes |
 | Disbursement suspension period | 30 days, bounded by action expiry |
-| Public veto threshold | 2 eligible citizens |
+| Public repeal petition threshold | 2 eligible citizens initiate a referendum; no immediate repeal |
 | President term | 1,825 days |
 | Prime Minister term | 1,825 days |
 | Minister term | 1,825 days |
 
-President proxy support is capped by direct Senate support: proxy votes may amplify participation but cannot create
-the required support alone. Production genesis must occupy at least two Senate seats. Political role authority
+The President cannot substitute votes for silent seats. Production genesis must occupy at least two Senate seats. Political role authority
 follows the person's current active wallet after an approved migration. President-election ballots cannot be cast
-while a President remains in term. Pending public-veto support counts only currently eligible supporters; a
-completed repeal retains its final count.
+while a President remains in term. Public-petition support counts currently eligible supporters until submission.
+The signatures then remain historical; repeal requires an ordinary citizen-origin referendum (10,000 LLM turnout,
+weighted For > Against), seven days of voting, the ordinary adoption delay and typed timelock execution. Only Law
+tier is eligible; Constitutional/Treaty and sub-legal exclusions remain. A failed/canceled petition may restart with
+fresh signatures and a fresh nonce. See `Governance.md` for operational limits.
 
 ## Timelocks and treasury
 
@@ -100,7 +109,8 @@ completed repeal retains its final count.
 | Standard office payout pre-route delay | 6 hours |
 | Sensitive payout pre-route delay | 1 day |
 
-Sensitive office payouts are grants, contribution rewards, and capital expenditure. Their earliest end-to-end
+Every Finance payout requires two distinct current officers, with appointment-bound approval. Sensitive office
+payouts are grants, contribution rewards, and capital expenditure; an admin must propose these payouts. Their earliest end-to-end
 execution is normally 3 days (1-day office delay plus 2-day treasury timelock); standard payouts are normally 54
 hours. Every asset is explicitly allowlisted, and production clerk limits are environment inputs in the asset's
 smallest unit. Sepolia seeds these per-payout clerk limits:
@@ -151,7 +161,7 @@ repayment that actually reduces scaled debt.
 These are not safe defaults and must be independently signed off before broadcast:
 
 - exact LLM and USDC addresses and bytecode/proxy status;
-- four office-admin wallets, all different from the deployer;
+- four nonzero, pairwise-distinct office-admin wallets, all different from the deployer;
 - treasury asset allowlist and per-asset clerk limits;
 - seven or more genesis citizens, every person/wallet/metadata record, and exact stake backing;
 - Senate occupants, seven-to-nine ranked Congress candidates, President, and mandate hash;

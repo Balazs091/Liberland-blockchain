@@ -4,6 +4,24 @@ Use `scripts/DeployDemo.s.sol` when you want a Sepolia deployment with seeded re
 
 The script is guarded to Sepolia chain ID `11155111` and reads its governance constants from `scripts/parameters/SepoliaDemoParameters.sol`.
 
+The current [governance rules](Governance.md) cover identity consent and recovery,
+public repeal, and Congress counting. Election finalization may now require repeated bounded transactions; an
+intermediate successful transaction is not a finalized election. Use the regenerated frontend ABIs for a fresh
+deployment. Earlier deployed demo addresses do not acquire these changes automatically.
+
+## Civic review and officer readiness
+
+Set `CIVIC_REVIEWER_0` through `CIVIC_REVIEWER_4` before running this script. Both networks require five nonzero,
+pairwise-distinct public addresses, each different from the deployer and all four office admins. No reviewer private
+key is needed for deployment. Verify disjoint real controllers, conflicts of interest, signing capability, notice
+publication and evidence retention off-chain; different addresses alone are not sufficient independence.
+
+The manifest exports `civicAppealReview` and `civicReviewer0` through `civicReviewer4`. Verify the kernel's
+`CIVIC_APPEAL_AUTHORITY` pointer, the committee's `identityApp()` binding and all five `reviewerAt(i)` values.
+Appoint operational, independently controlled Identity and Finance clerks through the normal authorized workflow
+before starting two-officer cases or payments. A Finance clerk may approve or route a sensitive admin proposal;
+no officer can provide both approvals. See [Governance](Governance.md) for ruling deadlines and rotation.
+
 ## What it seeds
 
 - 4 demo citizens with active wallet links and stake
@@ -48,7 +66,8 @@ production script.
 
 `DeployDemo.s.sol` is transaction-heavy. Rehearse it locally with the Sepolia chain ID before relying on a rate-limited public RPC. The script always sends one treasury prefund transaction that mints demo USDC covering the seeded finance budget; `TREASURY_PREFUND_USDC` and `TREASURY_PREFUND_LLM` can add optional prefunding.
 
-To re-check the count after changing the deploy script:
+Configure the required `COMPANY_REGISTRY_ADMIN` and all five `CIVIC_REVIEWER_*` public addresses first, using
+independent test signers for an interactive rehearsal. To re-check the count after changing the deploy script:
 
 ```bash
 anvil --silent --chain-id 11155111
@@ -84,14 +103,15 @@ The EVM cannot call itself at a timestamp, so a public finalization transaction 
 
 For the demo policy, this means a cycle ending at 17:00 UTC is followed by a cycle ending 72 hours later, also at 17:00 UTC.
 
-## Optional environment variables
+## Office configuration and optional environment variables
 
-The demo script accepts these optional overrides in addition to the normal `SEPOLIA_RPC_URL`, `PRIVATE_KEY`, and `ETHERSCAN_API_KEY` values:
+`COMPANY_REGISTRY_ADMIN` is now required and must differ from the other office administrators. The registry enforces
+distinct admin appointments. The following other values remain optional in addition to `SEPOLIA_RPC_URL`,
+`PRIVATE_KEY`, and `ETHERSCAN_API_KEY`:
 
 - `FINANCE_ADMIN`
 - `IDENTITY_ADMIN`
 - `LAND_ADMIN`
-- `COMPANY_REGISTRY_ADMIN`
 - `FINANCE_CLERK`
 - `TREASURY_PREFUND_USDC`
 - `TREASURY_PREFUND_LLM`
@@ -101,7 +121,7 @@ If you do not set them:
 - the deployer becomes the finance admin
 - `0x...0B0b` becomes the identity office admin
 - `0x...cafE` becomes the land registry office admin
-- the deployer becomes the company registry office admin
+- the company registry admin is the explicitly supplied distinct address
 - `0x...D00d` becomes the finance clerk
 - the treasury is prefunded with exactly the seeded demo budget amount of mock USDC and no extra LLM
 

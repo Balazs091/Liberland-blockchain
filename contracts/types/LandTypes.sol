@@ -114,6 +114,7 @@ library LandTypes {
     struct TitleTransferRequest {
         bytes32 titleId;
         bytes32 expectedVersionHash;
+        bytes32 expectedParcelVersionHash;
         PartyRef newHolder;
         RecordAnchor anchor;
         bytes32 transactionId;

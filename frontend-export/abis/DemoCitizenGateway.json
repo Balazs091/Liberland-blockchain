@@ -52,10 +52,144 @@
   },
   {
     "type": "function",
+    "name": "APPEAL_EXECUTION_DELAY",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "APPEAL_REVIEW_PERIOD",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "EXCEPTIONAL_DELAY",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "acceptInitialWallet",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "acceptWalletMigration",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "appealCivicChange",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "evidenceHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "approveCivicChange",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "approveWalletMigration",
     "inputs": [
       {
         "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "cancelCivicChange",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requestId",
         "type": "bytes32",
         "internalType": "bytes32"
       }
@@ -101,6 +235,65 @@
   },
   {
     "type": "function",
+    "name": "correctMetadata",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "metadataHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "metadataURI",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "expireCivicAppeal",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "finalizeCivicChange",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "finalizeWalletMigration",
     "inputs": [
       {
@@ -111,6 +304,119 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getCivicChange",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "request",
+        "type": "tuple",
+        "internalType": "struct IdentityTypes.CivicChangeRequest",
+        "components": [
+          {
+            "name": "requestId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "previousStateHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "evidenceHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "proposer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approver",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "readyAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "proposed",
+            "type": "tuple",
+            "internalType": "struct IdentityTypes.CivicStatusInput",
+            "components": [
+              {
+                "name": "verificationStatus",
+                "type": "uint8",
+                "internalType": "enum IdentityTypes.VerificationStatus"
+              },
+              {
+                "name": "citizenshipStatus",
+                "type": "uint8",
+                "internalType": "enum IdentityTypes.CitizenshipStatus"
+              },
+              {
+                "name": "ageClass",
+                "type": "uint8",
+                "internalType": "enum IdentityTypes.AgeClass"
+              },
+              {
+                "name": "correctionFlag",
+                "type": "bool",
+                "internalType": "bool"
+              },
+              {
+                "name": "finalSuspension",
+                "type": "bool",
+                "internalType": "bool"
+              }
+            ]
+          },
+          {
+            "name": "appealAuthority",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "appealEvidenceHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "appealDeadline",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "appealResolved",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "proposerAuthorizationId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "approverAuthorizationId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -157,6 +463,46 @@
             "name": "exists",
             "type": "bool",
             "internalType": "bool"
+          },
+          {
+            "name": "nonce",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "accepted",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "recovery",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "proposer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approver",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "evidenceHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "proposerAuthorizationId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "approverAuthorizationId",
+            "type": "bytes32",
+            "internalType": "bytes32"
           }
         ]
       }
@@ -285,6 +631,85 @@
   },
   {
     "type": "function",
+    "name": "proposeCivicChange",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "proposed",
+        "type": "tuple",
+        "internalType": "struct IdentityTypes.CivicStatusInput",
+        "components": [
+          {
+            "name": "verificationStatus",
+            "type": "uint8",
+            "internalType": "enum IdentityTypes.VerificationStatus"
+          },
+          {
+            "name": "citizenshipStatus",
+            "type": "uint8",
+            "internalType": "enum IdentityTypes.CitizenshipStatus"
+          },
+          {
+            "name": "ageClass",
+            "type": "uint8",
+            "internalType": "enum IdentityTypes.AgeClass"
+          },
+          {
+            "name": "correctionFlag",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "finalSuspension",
+            "type": "bool",
+            "internalType": "bool"
+          }
+        ]
+      },
+      {
+        "name": "evidenceHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "proposeWalletRecovery",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "newWallet",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "evidenceHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "registerIdentity",
     "inputs": [
       {
@@ -397,6 +822,34 @@
   },
   {
     "type": "function",
+    "name": "resolveCivicAppeal",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "uphold",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "rulingEvidenceHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "setCitizenship",
     "inputs": [
       {
@@ -492,6 +945,25 @@
     "stateMutability": "nonpayable"
   },
   {
+    "type": "function",
+    "name": "walletMigrationId",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
     "type": "event",
     "name": "CitizenshipRenounced",
     "inputs": [
@@ -512,6 +984,224 @@
         "type": "uint64",
         "indexed": false,
         "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CivicAppealAuthorityPinned",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "authority",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CivicAppealExpired",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CivicAppealResolved",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "upheld",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      },
+      {
+        "name": "rulingEvidenceHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "readyAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CivicChangeAppealed",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "evidenceHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "deadline",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CivicChangeApproved",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "approver",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "readyAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CivicChangeCancelled",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "caller",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CivicChangeFinalized",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "CivicChangeProposed",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "proposer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "evidenceHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
       }
     ],
     "anonymous": false
@@ -703,6 +1393,106 @@
   },
   {
     "type": "event",
+    "name": "InitialWalletAccepted",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "wallet",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "InitialWalletProposed",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "wallet",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MigrationConsent",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "destination",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MigrationProposalBound",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "nonce",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "recovery",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      },
+      {
+        "name": "evidenceHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "WalletMigrationApproved",
     "inputs": [
       {
@@ -823,6 +1613,93 @@
         "internalType": "address"
       }
     ]
+  },
+  {
+    "type": "error",
+    "name": "CivicAppealNotOpen",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CivicChangeNotReady",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "CivicChangePending",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "DestinationConsentRequired",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "DistinctOfficerRequired",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "IdentityAlreadyRegistered",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "IdentityNotRegistered",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InitialWalletOnly",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidEvidenceHash",
+    "inputs": []
   },
   {
     "type": "error",
@@ -1049,6 +1926,44 @@
   },
   {
     "type": "error",
+    "name": "StaleOfficerAuthorization",
+    "inputs": [
+      {
+        "name": "officer",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "StaleRequest",
+    "inputs": [
+      {
+        "name": "expected",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "supplied",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedCivicReviewer",
+    "inputs": [
+      {
+        "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "UnauthorizedIdentityOfficer",
     "inputs": [
       {
@@ -1072,6 +1987,17 @@
         "type": "address",
         "internalType": "address"
       },
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UseCivicChangeProcedure",
+    "inputs": [
       {
         "name": "personId",
         "type": "bytes32",

@@ -27,6 +27,7 @@ contract LegislationRepealTierScopeTest is Test {
         // This test acts as both the enactment authority and the bounded repeal authority.
         kernel.bootstrapSetModule(KernelModuleIds.LEGISLATION_REGISTRY_AUTHORITY, address(this));
         kernel.bootstrapSetModule(KernelModuleIds.LEGISLATION_REPEAL_AUTHORITY, address(this));
+        kernel.bootstrapSetModule(KernelModuleIds.ACTION_TIMELOCK, address(this));
         kernel.disableBootstrapAuthority();
 
         _enact(LAW_MEASURE_ID, LegislationTypes.LegislationTier.Law);

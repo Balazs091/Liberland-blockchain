@@ -88,7 +88,11 @@ contract CoreBootstrapTest is Test {
             state: TreasuryTypes.DisbursementState.Proposed,
             createdAt: 1,
             routeAfter: 2,
-            actionId: bytes32(uint256(25))
+            actionId: bytes32(uint256(25)),
+            proposer: address(0xA001),
+            approver: address(0xA002),
+            proposerAuthorizationId: bytes32(uint256(26)),
+            approverAuthorizationId: bytes32(uint256(27))
         });
 
         assertEq(identity.personId, bytes32(uint256(11)));
@@ -164,7 +168,7 @@ contract CoreBootstrapTest is Test {
             uint256(GovernanceTypes.ModuleClass.Authority)
         );
         assertEq(
-            uint256(kernel.moduleClass(KernelModuleIds.DECISION_APP)), uint256(GovernanceTypes.ModuleClass.Application)
+            uint256(kernel.moduleClass(KernelModuleIds.DECISION_APP)), uint256(GovernanceTypes.ModuleClass.Authority)
         );
     }
 

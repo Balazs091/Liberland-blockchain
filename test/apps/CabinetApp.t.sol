@@ -132,6 +132,43 @@ contract CabinetAppTest is Test {
         assertEq(congressCandidateRegistry.getCurrentOfficeTerm().occupiedSeatCount, 7);
     }
 
+    function test_Audit_CabinetVotesCannotBeInheritedByReassignedWallets() public {
+        _appointPmWithVotes(PM_CANDIDATE, 4);
+        _appointMinister(ExecutiveTypes.MinistryKind.Finance, MIN_A);
+        _voteForPm(CM1, PM_CANDIDATE_TWO);
+        _voteRemove(CM1);
+        _voteDismiss(CM1, ExecutiveTypes.MinistryKind.Finance);
+        _setWalletLink(bytes32(uint256(1)), CM1, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(bytes32(uint256(1)), CM1_NEW, IdentityTypes.WalletLinkStatus.Active);
+        _setWalletLink(bytes32(uint256(2)), CM2, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(bytes32(uint256(2)), CM1, IdentityTypes.WalletLinkStatus.Active);
+        assertEq(cabinetApp.appointmentVoteCount(PM_CANDIDATE_TWO), 0);
+        assertEq(cabinetApp.removalVoteCount(), 0);
+        assertEq(cabinetApp.dismissalVoteCount(ExecutiveTypes.MinistryKind.Finance), 0);
+        _voteForPm(CM1, PM_CANDIDATE_TWO);
+        _voteRemove(CM1);
+        _voteDismiss(CM1, ExecutiveTypes.MinistryKind.Finance);
+        assertEq(cabinetApp.appointmentVoteCount(PM_CANDIDATE_TWO), 1);
+        assertEq(cabinetApp.removalVoteCount(), 1);
+        assertEq(cabinetApp.dismissalVoteCount(ExecutiveTypes.MinistryKind.Finance), 1);
+    }
+
+    function test_Audit_PrimeMinisterCandidateIdentityCannotChangeUnderVotes() public {
+        for (uint256 index = 0; index < 4; ++index) {
+            _voteForPm(_firstMembers(4)[index], PM_CANDIDATE);
+        }
+        _setWalletLink(PID_PM, PM_CANDIDATE, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(PID_PM, PM_NEW_WALLET, IdentityTypes.WalletLinkStatus.Active);
+        _setWalletLink(bytes32(uint256(101)), PM_CANDIDATE_TWO, IdentityTypes.WalletLinkStatus.Revoked);
+        _setWalletLink(bytes32(uint256(101)), PM_CANDIDATE, IdentityTypes.WalletLinkStatus.Active);
+        assertEq(cabinetApp.appointmentVoteCount(PM_CANDIDATE), 0);
+        assertFalse(cabinetApp.canAppointPrimeMinister(PM_CANDIDATE));
+        vm.expectRevert(abi.encodeWithSelector(ICabinetApp.AppointmentMajorityNotReached.selector, PM_CANDIDATE, 0, 7));
+        cabinetApp.appointPrimeMinister(PM_CANDIDATE);
+        _appointPmWithVotes(PM_CANDIDATE, 4);
+        assertEq(executiveRegistry.getPrimeMinister().personId, bytes32(uint256(101)));
+    }
+
     function test_CabinetInterfacesExposeSelectors() public pure {
         assertTrue(ICabinetApp.voteForPrimeMinister.selector != bytes4(0));
         assertTrue(ICabinetApp.appointPrimeMinister.selector != bytes4(0));

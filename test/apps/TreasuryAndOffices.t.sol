@@ -238,6 +238,7 @@ contract TreasuryAndOfficesTest is Test {
         assertEq(request.noteURI, "ipfs://contribution-evidence");
 
         vm.warp(request.routeAfter);
+        _approvePayoutBySecondOfficer(requestId);
         vm.prank(MINISTER_OF_FINANCE);
         bytes32 actionId = officeExecutor.routePayout(FINANCE_OFFICE_ID, requestId);
         _warpToActionDeadline(actionId);
@@ -439,6 +440,7 @@ contract TreasuryAndOfficesTest is Test {
 
         vm.warp(request.routeAfter);
 
+        _approvePayoutBySecondOfficer(PAYOUT_REQUEST_ID);
         vm.prank(FINANCE_CLERK);
         bytes32 actionId = officeExecutor.routePayout(FINANCE_OFFICE_ID, PAYOUT_REQUEST_ID);
 
@@ -492,6 +494,7 @@ contract TreasuryAndOfficesTest is Test {
         TreasuryTypes.DisbursementRequest memory request = payoutQueue.getDisbursementRequest(PAYOUT_REQUEST_ID);
         vm.warp(request.routeAfter);
 
+        _approvePayoutBySecondOfficer(PAYOUT_REQUEST_ID);
         vm.prank(FINANCE_CLERK);
         bytes32 payoutActionId = officeExecutor.routePayout(FINANCE_OFFICE_ID, PAYOUT_REQUEST_ID);
         _warpToActionDeadline(payoutActionId);
@@ -555,6 +558,7 @@ contract TreasuryAndOfficesTest is Test {
         TreasuryTypes.DisbursementRequest memory request = payoutQueue.getDisbursementRequest(VETO_PAYOUT_REQUEST_ID);
         vm.warp(request.routeAfter);
 
+        _approvePayoutBySecondOfficer(VETO_PAYOUT_REQUEST_ID);
         vm.prank(FINANCE_CLERK);
         bytes32 actionId = officeExecutor.routePayout(FINANCE_OFFICE_ID, VETO_PAYOUT_REQUEST_ID);
 
@@ -602,6 +606,7 @@ contract TreasuryAndOfficesTest is Test {
 
         TreasuryTypes.DisbursementRequest memory request = payoutQueue.getDisbursementRequest(PAYOUT_REQUEST_ID);
         vm.warp(request.routeAfter);
+        _approvePayoutBySecondOfficer(PAYOUT_REQUEST_ID);
         vm.prank(FINANCE_CLERK);
         bytes32 actionId = officeExecutor.routePayout(FINANCE_OFFICE_ID, PAYOUT_REQUEST_ID);
 
@@ -646,6 +651,149 @@ contract TreasuryAndOfficesTest is Test {
         );
     }
 
+    function test_Governance_OfficeAdminsMustBePairwiseDistinctAndTransfersReleaseOldSlot() public {
+        vm.prank(IDENTITY_ADMIN);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IOfficeRegistry.OfficeAdminAlreadyAppointed.selector, MINISTER_OF_FINANCE, FINANCE_OFFICE_ID
+            )
+        );
+        officeExecutor.transferOfficeAdmin(IDENTITY_OFFICE_ID, MINISTER_OF_FINANCE);
+        address successor = address(0xF199);
+        vm.prank(IDENTITY_ADMIN);
+        officeExecutor.transferOfficeAdmin(IDENTITY_OFFICE_ID, successor);
+        vm.prank(LAND_ADMIN);
+        officeExecutor.transferOfficeAdmin(LAND_OFFICE_ID, IDENTITY_ADMIN);
+        assertTrue(officeRegistry.isOfficeAdmin(IDENTITY_OFFICE_ID, successor));
+        assertTrue(officeRegistry.isOfficeAdmin(LAND_OFFICE_ID, IDENTITY_ADMIN));
+    }
+
+    function test_Governance_DuplicateAdminCannotEnterThroughRegistryRegistration() public {
+        vm.prank(address(officeExecutor));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IOfficeRegistry.OfficeAdminAlreadyAppointed.selector, MINISTER_OF_FINANCE, FINANCE_OFFICE_ID
+            )
+        );
+        officeRegistry.registerOffice(
+            keccak256("duplicate admin office"),
+            OfficeTypes.OfficeKind.IdentityOffice,
+            "Another office",
+            MINISTER_OF_FINANCE
+        );
+    }
+
+    function test_PayoutNeedsASecondDistinctOfficer() public {
+        _proposeReviewedOperations();
+        vm.startPrank(MINISTER_OF_FINANCE);
+        vm.expectPartialRevert(IOfficeExecutor.DistinctPayoutOfficerRequired.selector);
+        officeExecutor.approvePayout(FINANCE_OFFICE_ID, PAYOUT_REQUEST_ID);
+        vm.expectPartialRevert(IOfficeExecutor.PayoutApprovalRequired.selector);
+        officeExecutor.routePayout(FINANCE_OFFICE_ID, PAYOUT_REQUEST_ID);
+        vm.stopPrank();
+        _approvePayoutBySecondOfficer(PAYOUT_REQUEST_ID);
+        vm.prank(FINANCE_CLERK);
+        bytes32 action = officeExecutor.routePayout(FINANCE_OFFICE_ID, PAYOUT_REQUEST_ID);
+        assertEq(uint256(timelock.getActionState(action)), uint256(GovernanceTypes.ActionState.Queued));
+        TreasuryTypes.DisbursementRequest memory request = payoutQueue.getDisbursementRequest(PAYOUT_REQUEST_ID);
+        assertEq(request.proposer, MINISTER_OF_FINANCE);
+        assertEq(request.approver, FINANCE_CLERK);
+    }
+
+    function test_PayoutApprovalCannotSurviveSameBlockRevocationAndRegrant() public {
+        _proposeReviewedOperations();
+        _approvePayoutBySecondOfficer(PAYOUT_REQUEST_ID);
+        bytes32 oldId = officeRegistry.authorizationId(FINANCE_OFFICE_ID, FINANCE_CLERK);
+        vm.startPrank(MINISTER_OF_FINANCE);
+        officeExecutor.revokeClerk(FINANCE_OFFICE_ID, FINANCE_CLERK);
+        officeExecutor.assignClerk(FINANCE_OFFICE_ID, FINANCE_CLERK);
+        assertNotEq(officeRegistry.authorizationId(FINANCE_OFFICE_ID, FINANCE_CLERK), oldId);
+        vm.expectPartialRevert(IOfficeExecutor.StalePayoutAuthorization.selector);
+        officeExecutor.routePayout(FINANCE_OFFICE_ID, PAYOUT_REQUEST_ID);
+        vm.stopPrank();
+        // A new explicit approval, not mere reappointment, restores the second officer's authorization.
+        _approvePayoutBySecondOfficer(PAYOUT_REQUEST_ID);
+        vm.prank(MINISTER_OF_FINANCE);
+        officeExecutor.routePayout(FINANCE_OFFICE_ID, PAYOUT_REQUEST_ID);
+    }
+
+    function test_PayoutApprovalCanBeWithdrawnButNotAfterRouting() public {
+        _proposeReviewedOperations();
+        _approvePayoutBySecondOfficer(PAYOUT_REQUEST_ID);
+        vm.prank(FINANCE_CLERK);
+        officeExecutor.revokePayoutApproval(FINANCE_OFFICE_ID, PAYOUT_REQUEST_ID);
+        vm.prank(MINISTER_OF_FINANCE);
+        vm.expectPartialRevert(IOfficeExecutor.PayoutApprovalRequired.selector);
+        officeExecutor.routePayout(FINANCE_OFFICE_ID, PAYOUT_REQUEST_ID);
+        _approvePayoutBySecondOfficer(PAYOUT_REQUEST_ID);
+        vm.prank(MINISTER_OF_FINANCE);
+        officeExecutor.routePayout(FINANCE_OFFICE_ID, PAYOUT_REQUEST_ID);
+        vm.prank(FINANCE_CLERK);
+        vm.expectPartialRevert(IPayoutQueue.PayoutRequestAlreadyFinalized.selector);
+        officeExecutor.revokePayoutApproval(FINANCE_OFFICE_ID, PAYOUT_REQUEST_ID);
+    }
+
+    function test_PayoutCannotUseTwoKnownWalletsOfOnePerson() public {
+        _registerCitizen(bytes32(uint256(99)), MINISTER_OF_FINANCE, 10_000);
+        vm.startPrank(address(identityAuthority));
+        identityRegistry.setWalletLink(
+            bytes32(uint256(99)), MINISTER_OF_FINANCE, IdentityTypes.WalletLinkStatus.Revoked
+        );
+        identityRegistry.setWalletLink(bytes32(uint256(99)), FINANCE_CLERK, IdentityTypes.WalletLinkStatus.Active);
+        vm.stopPrank();
+        _proposeReviewedOperations();
+        vm.prank(FINANCE_CLERK);
+        vm.expectPartialRevert(IOfficeExecutor.DistinctPayoutOfficerRequired.selector);
+        officeExecutor.approvePayout(FINANCE_OFFICE_ID, PAYOUT_REQUEST_ID);
+    }
+
+    function test_PayoutOfficeReactivationDoesNotReviveOldProposal() public {
+        _proposeReviewedOperations();
+        _approvePayoutBySecondOfficer(PAYOUT_REQUEST_ID);
+        vm.startPrank(MINISTER_OF_FINANCE);
+        officeExecutor.setOfficeActive(FINANCE_OFFICE_ID, false);
+        officeExecutor.setOfficeActive(FINANCE_OFFICE_ID, true);
+        vm.expectPartialRevert(IOfficeExecutor.StalePayoutAuthorization.selector);
+        officeExecutor.routePayout(FINANCE_OFFICE_ID, PAYOUT_REQUEST_ID);
+        vm.stopPrank();
+    }
+
+    function test_PayoutSecondApprovalCannotComeFromAnotherOffice() public {
+        _proposeReviewedOperations();
+        vm.prank(IDENTITY_ADMIN);
+        vm.expectPartialRevert(IOfficeExecutor.UnauthorizedOfficeAction.selector);
+        officeExecutor.approvePayout(FINANCE_OFFICE_ID, PAYOUT_REQUEST_ID);
+    }
+
+    function _proposeReviewedOperations() internal {
+        vm.prank(MINISTER_OF_FINANCE);
+        officeExecutor.assignClerk(FINANCE_OFFICE_ID, FINANCE_CLERK);
+        _approveBudget(OPERATIONS_BUDGET_ID, 10_000 * ONE_USDC);
+        vm.prank(MINISTER_OF_FINANCE);
+        officeExecutor.proposePayout(
+            FINANCE_OFFICE_ID,
+            TreasuryTypes.DisbursementRequestInput({
+                requestId: PAYOUT_REQUEST_ID,
+                budgetId: OPERATIONS_BUDGET_ID,
+                officeId: FINANCE_OFFICE_ID,
+                disbursementType: TreasuryTypes.DisbursementType.Operations,
+                asset: address(usdc),
+                recipient: TREASURY_RECIPIENT,
+                amount: 1_000 * ONE_USDC,
+                policyReference: bytes32(0),
+                noteHash: keccak256("approved invoice"),
+                noteURI: "ipfs://invoice"
+            })
+        );
+        vm.warp(payoutQueue.getDisbursementRequest(PAYOUT_REQUEST_ID).routeAfter);
+    }
+
+    function _approvePayoutBySecondOfficer(bytes32 requestId) internal {
+        address proposer = payoutQueue.getDisbursementRequest(requestId).proposer;
+        vm.prank(proposer == MINISTER_OF_FINANCE ? FINANCE_CLERK : MINISTER_OF_FINANCE);
+        officeExecutor.approvePayout(FINANCE_OFFICE_ID, requestId);
+    }
+
     function _deployFoundation() private {
         kernel = new ConstitutionKernel(address(this));
         timelock = new ActionTimelock(address(kernel), _defaultDelayConfig());
@@ -670,7 +818,6 @@ contract TreasuryAndOfficesTest is Test {
             address(identityRegistry),
             address(senateSeatRegistry),
             address(senatePowersPolicy),
-            address(presidentRegistry),
             address(router),
             address(timelock),
             address(mockReferendumApp)

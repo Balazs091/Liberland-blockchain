@@ -9,9 +9,9 @@ It is not a generic DAO and it must not rely on hidden super-admin powers, arbit
 The implemented contract surface includes:
 
 - core governance lifecycle with a bounded action timelock
-- identity, citizenship, stake, and voting-power foundations
-- referenda, Tier 1/Tier 2 enactment after adoption delay, Senate cancellation, Senate active-referendum veto, Senate sub-legal repeal, President proxy voting for non-voting senators, and public veto flows
-- Congress election cycles, deterministic recurring cadence, person-bound candidacy, cycle-scoped weighted signed ballots, finalization, runner-up succession, and zero-active-wallet seat recovery
+- consent-based identity onboarding/migration, two-officer recovery, delayed civic changes, stake, and voting power
+- referenda, Tier 1/Tier 2 enactment after adoption delay, Senate cancellation, Senate active-referendum veto, Senate sub-legal repeal, direct-majority Senate voting without proxy substitution, and public veto flows
+- open Congress candidacy, deterministic recurring cycles, person-bound signed-allocation ballots, bounded resumable counting, runner-up succession, and zero-active-wallet seat recovery
 - treasury, referendum-approved budget laws, budget-envelope, office, and payout routing flows
 - an office-authorized, versioned land cadastre with stable legal-party IDs, dual-consent transfers, atomic parcel
   operations, and a separate company registry with official directors, filings, and share ledgers
@@ -31,7 +31,9 @@ The implemented contract surface includes:
 
 ## Auditor orientation
 
+- `docs/README.md`
 - `docs/Architecture.md`
+- `docs/Governance.md`
 - `docs/Protocol-Parameters.md`
 - `docs/Internal-Audit-Report.md`
 - `docs/Audit-Scope.md`
@@ -81,11 +83,12 @@ forge fmt --check
 forge build --sizes
 forge test -vvv
 forge coverage --report summary
-python scripts/check-slither-baseline.py
+python3 scripts/check-docs.py --check-abis
+python3 scripts/check-slither-baseline.py
 ```
 
-The Slither helper prints the full unsuppressed report and requires a fresh manual triage if the reviewed severity
-counts change. The pinned constitutional PDF is verified by `scripts/verify-constitution-source.sh`. After the
+The Slither helper prints the full unsuppressed report and requires fresh manual triage if severity counts or
+normalized finding identities change. The pinned constitutional PDF is verified by `scripts/verify-constitution-source.sh`. After the
 candidate commit exists, run the complete clean-tree gate with `bash scripts/audit-freeze-check.sh`.
 
 ## Deployment Outputs
@@ -97,23 +100,31 @@ Deployment parameters are network-specific and intentionally kept in separate ma
 - `scripts/parameters/SepoliaDemoParameters.sol`: Sepolia demo, including 3-day Congress cycles
 - `scripts/parameters/EthereumMainnetParameters.sol`: Ethereum mainnet production, including seven Congress seats and 90-day cycles
 
-See `docs/Sepolia-Demo-Deployment.md` and `docs/Ethereum-Mainnet-Deployment.md` for operators. Frontend developers should start with `frontend-export/FRONTEND-CHANGES.md` and `frontend-export/FRONTEND-HOWTO.md`.
+See `docs/Sepolia-Demo-Deployment.md` and `docs/Ethereum-Mainnet-Deployment.md` for operators. Frontend developers should start with `frontend-export/INTEGRATION-CHECKLIST.md` and `frontend-export/FRONTEND-HOWTO.md`.
 
 For a public demo deployment, run `scripts/DeployDemo.s.sol`, then copy the generated `deployments/sepolia-demo.json` to `frontend-export/sepolia-demo.json` for the frontend handoff package.
 In the current demo, `identityApp` and `demoCitizenGateway` intentionally resolve to the same deployed contract:
 `DemoCitizenGateway` inherits the standard `IdentityApp` workflows so the demo has one standing identity-registry
 writer.
 
-For an Ethereum mainnet deployment, `scripts/Deploy.s.sol` registers `InitialSetupAuthority`, seeds deterministic genesis citizens, all seven Congress seats, Senate seats, President status, and offices from `.env`, imports the remaining pre-migration Congress cycle, checks readiness, then seals that setup authority before bootstrap is disabled. It writes `deployments/ethereum-mainnet.json`.
-The Congress candidate registry remains exclusively setup-controlled until the continuity term exists, then the
-script hands authority to `CongressElectionApp` before its readiness check and permanent seal.
+Ethereum mainnet setup requires two invocations. `Deploy.run()` prepares contracts and seeds citizens, stake,
+Senate, President and offices, leaving Congress/referendum writers with setup and `genesisComplete: false`.
+After confirmed seeding blocks, `completeGenesis(address)` imports the seven incumbents and live continuity cycle,
+activates standing writers, checks readiness, seals setup and retires all bootstrap authorities. Only the completed,
+on-chain-verified `deployments/ethereum-mainnet.json` is suitable for a frontend.
 
 Both network scripts deploy the bounded `DecisionApp`, `MinistryTreasury`, and lending stack. Production uses an
 explicit external six-decimal USDC address and the conservative fixed-price launch parameters; Sepolia uses mock
 assets and demo-only onboarding. See `docs/Audit-Scope.md` for the review boundary and
-`docs/Protocol-Parameters.md` for the complete boss-review table.
+`docs/Protocol-Parameters.md` for the current parameter table.
 
 The demo deployment is transaction-heavy and should be rehearsed against a Sepolia-compatible local node or fork before using a rate-limited public RPC.
+
+The source is an audit candidate, not mainnet-approved. The approved civic appeal, two-officer Finance and direct-majority
+Senate rules are implemented. Independent external review, verified deployment inputs and production-state fork/migration
+rehearsal remain launch requirements. See `docs/Governance.md`.
+
+Start an independent review with [Auditor Handoff](docs/Auditor-Handoff.md).
 
 Repository documentation is audit orientation, not an audit verdict. Revision-specific test, coverage, static
 analysis, and runtime-size evidence belongs in `docs/Internal-Audit-Report.md` and must be refreshed before the

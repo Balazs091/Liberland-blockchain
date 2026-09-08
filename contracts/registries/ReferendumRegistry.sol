@@ -107,6 +107,7 @@ contract ReferendumRegistry is IReferendumRegistry, KernelModule {
         }
         if (
             referendumInput.referendumClass != ReferendumTypes.ReferendumClass.Legislation
+                && referendumInput.referendumClass != ReferendumTypes.ReferendumClass.LegislationRepeal
                 && referendumInput.referendumClass != ReferendumTypes.ReferendumClass.ConstitutionalAmendment
                 && referendumInput.referendumClass != ReferendumTypes.ReferendumClass.CongressElectionPolicy
                 && referendumInput.referendumClass != ReferendumTypes.ReferendumClass.BudgetApproval
@@ -161,7 +162,8 @@ contract ReferendumRegistry is IReferendumRegistry, KernelModule {
                 revert InvalidLegislationTier(uint8(referendumInput.legislationTier));
             }
             if (
-                referendumInput.referendumClass == ReferendumTypes.ReferendumClass.Legislation
+                (referendumInput.referendumClass == ReferendumTypes.ReferendumClass.Legislation
+                        || referendumInput.referendumClass == ReferendumTypes.ReferendumClass.LegislationRepeal)
                     && !LegislationTypes.isLawTier(referendumInput.legislationTier)
             ) {
                 revert InvalidLegislationTier(uint8(referendumInput.legislationTier));

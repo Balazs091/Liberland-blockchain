@@ -14,6 +14,15 @@ interface IPublicVetoApp {
     error PublicVetoAlreadyCast(bytes32 measureId, bytes32 personId);
     error PublicVetoNotFound(bytes32 measureId, bytes32 personId);
     error UnknownPersonReference(address wallet);
+    error PetitionAlreadySubmitted(bytes32 measureId, bytes32 referendumId);
+    error PetitionStillLive(bytes32 referendumId);
+    event PublicRepealReferendumCreated(
+        bytes32 indexed measureId, bytes32 indexed petitionId, bytes32 indexed referendumId
+    );
+    event PublicPetitionReset(bytes32 indexed measureId, bytes32 indexed oldReferendumId, uint256 nextNonce);
+
+    /// @notice Restarts petition collection after a defeated/canceled vote or canceled/expired unexecuted repeal.
+    function resetPublicPetition(bytes32 measureId) external;
 
     event PublicVetoCast(
         bytes32 indexed measureId,

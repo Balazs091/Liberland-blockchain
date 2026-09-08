@@ -18,7 +18,7 @@ contract SenatePowersPolicy is ISenatePowersPolicy {
     /// @param minimumActionCancellationSupport_ The minimum equal-weight seat support required to cancel a queued action.
     /// @param disbursementSuspensionPeriod_ The auto-lapsing window a Senate treasury-disbursement suspension blocks for.
     constructor(uint32 minimumActionCancellationSupport_, uint64 disbursementSuspensionPeriod_) {
-        if (minimumActionCancellationSupport_ == 0 || minimumActionCancellationSupport_ > SEAT_COUNT) {
+        if (minimumActionCancellationSupport_ < 2 || minimumActionCancellationSupport_ > SEAT_COUNT) {
             revert InvalidActionCancellationSupport(minimumActionCancellationSupport_);
         }
         if (disbursementSuspensionPeriod_ == 0) {
@@ -55,6 +55,7 @@ contract SenatePowersPolicy is ISenatePowersPolicy {
                 || actionRecord.actionType == GovernanceTypes.ActionType.ModuleRegistration
                 || actionRecord.actionType == GovernanceTypes.ActionType.TreasuryBudgetApproval
                 || actionRecord.actionType == GovernanceTypes.ActionType.LegislationEnactment
+                || actionRecord.actionType == GovernanceTypes.ActionType.LegislationRepeal
                 || actionRecord.actionType == GovernanceTypes.ActionType.TreasuryDisbursement);
     }
 }

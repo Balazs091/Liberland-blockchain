@@ -2,6 +2,11 @@
 
 Liberland EVM is a modular, constitution-aligned governance system on the EVM. It is not a generic DAO.
 
+Current governance rules are recorded in `Governance.md`: consent/nonce-bound
+migration, separate documented two-officer recovery/civic notices, referendum-based public repeal, open candidate
+admission and resumable ranking, and distinct office-admin appointments. This is a breaking local deployment/state
+revision; it is not an upgrade already applied to existing deployments.
+
 ## Layers
 
 - `contracts/core`: canonical module registry, origin router, and explicit action timelock
@@ -18,7 +23,7 @@ Registries are the source of truth. Policies define rules. Apps coordinate typed
 - checkpointed electorate aggregates for O(1) constitutional snapshots
 - referenda, stake-weighted voting, constitutional double thresholds, adoption delays, and typed enactment
 - Congress elections with deterministic cadence, incumbent auto-candidacy, cycle-scoped signed weighted ballots, finalization, and runner-up succession
-- Senate queued-action cancellation, referendum veto, sub-legal repeal, documented temporary disbursement suspension, and bounded President-proxy participation
+- Senate queued-action cancellation, referendum veto, sub-legal repeal, documented temporary disbursement suspension, and direct occupied-seat majority voting
 - Senate-elected President and succession, plus Congress/Prime-Minister Cabinet workflows
 - treasury vault, referendum-approved budget envelopes, office permissions, and payout routing
 - office-mediated company facts and a versioned land cadastre with stable legal parties, dual-consent transfers,
@@ -30,6 +35,15 @@ Registries are the source of truth. Policies define rules. Apps coordinate typed
 The full review scope is defined in `docs/Audit-Scope.md`, including mocks and demo-only trust surfaces that the
 production script does not deploy.
 
+## Civic review authority
+
+`CivicAppealReview` is a purpose-limited 3-of-5 approval contract pinned to one IdentityApp. It can only uphold or
+dismiss an exact appealed civic request; it has no arbitrary execution or custody. Each approved notice pins its
+committee. The seven-day notice, single appeal, 30-day dismissal-on-timeout and two-day post-uphold execution delay
+are defined in [Governance](Governance.md). Committee replacement is Authority-class constitutional governance;
+replacing the app requires a reviewed state/process migration. Independent custody, conflicts and reasoned notice
+remain operational duties; the contract cannot prove that five addresses belong to five independent people.
+
 ## Network manifests
 
 Network parameters are intentionally separate:
@@ -39,7 +53,11 @@ Network parameters are intentionally separate:
 
 Both anchor Congress election ends to `17:00 UTC` (18:00 fixed CET, not daylight-saving CEST). Production imports a configurable shortened continuity cycle from the pre-migration system. Later cycles are a full 90 days. Late finalization advances to the next occurrence of the established UTC boundary and therefore cannot permanently drift to the transaction hour.
 
-The production deployment seeds all seven incumbents, Senate seats, the President, offices, identities, and stake before it permanently seals `InitialSetupAuthority` and disables every bootstrap authority. Genesis active stake is pulled from the deployer into `LLMStakingVault` before accounting is credited.
+Production genesis is two-stage. Preparation seeds citizens/stake, Senate, President and offices but parks Congress
+and referendum registry authority on setup. A separate `completeGenesis(address)` invocation after confirmed
+citizen-seeding blocks installs the seven incumbents and live continuity cycle, activates those standing writers,
+then seals setup and retires bootstrap. The live cycle uses a certified last-completed-block snapshot. Genesis
+active stake is pulled into `LLMStakingVault` before accounting is credited.
 
 ## Stake custody and electorate invariants
 
@@ -55,8 +73,9 @@ The production deployment seeds all seven incumbents, Senate seats, the Presiden
 
 - every electorate-relevant identity/stake mutation advances both a per-person revision and an aggregate source
   mutation counter
-- identity and stake registries attempt a bounded-gas, best-effort synchronization of the affected person; failure
-  defers electorate synchronization but never reverts or bricks the canonical identity/stake fact write
+- identity and stake registries require enough gas to offer the full bounded synchronization budget; caller-induced
+  underfunding reverts the canonical write atomically. A genuinely failing callback after receiving its complete
+  budget remains best-effort, deferring synchronization without bricking the source
 - unknown person IDs cannot be injected through permissionless synchronization
 - citizen-policy replacement starts a new epoch
 - anyone may rebuild a bounded identity-index range
@@ -98,12 +117,13 @@ Governance uses bounded action types and never unrestricted calldata execution.
 - `Core`: router and timelock; never repointable
 - `State`: registries and value/state-bearing apps; replaceable only through the constitutional double-threshold path and an externally reviewed state/custody migration
 - `Policy` and `Authority`: replaceable only through the constitutional double-threshold path; `Authority` includes
-  every router origin and the constitutional-review hook because replacing any of them changes protocol-wide power
-- `Application`: bounded workflow pointers that are neither router origins nor review hooks; ordinary
+  every router origin, the constitutional-review hook, and `DecisionApp`/`CabinetApp`, whose module pointers
+  directly authorize OfficeRegistry writes
+- `Application`: bounded workflow pointers without direct registry authority, routing power, or review hooks; ordinary
   module-governance threshold
 - `Undefined`: new extension IDs require the double threshold both to register and to replace later
 
-State evolution requires a separately reviewed migration/deployment; a pointer vote does not copy storage or move custody. Brand-new modules use `ModuleRegistration`; every non-core replacement uses `ModulePointerUpdate`. Both pass through an exact-address referendum, the timelock, and bounded Senate cancellation, while state/policy/authority/extension targets use the constitutional double threshold. Application replacement deliberately relies on voters approving reviewed bytecode and a compatible state/migration plan. Router-origin apps (`ReferendumApp`, `CongressElectionApp`, `SenateApp`, and `OfficeExecutor`) and the constitutional-review hook are classified as authorities, so changing any protocol-wide action source or execution gate cannot use the ordinary app threshold. The router prevents unsupported or malformed action classes, but it does not permanently assign supported types to political branches. Current branch limits live in the audited apps; changing a router origin therefore remains possible, but only through the constitutional threshold. Treasury disbursements remain independently constrained by the active budget commitment even if an approved origin module changes.
+State evolution requires a separately reviewed migration/deployment; a pointer vote does not copy storage or move custody. Brand-new modules use `ModuleRegistration`; every non-core replacement uses `ModulePointerUpdate`. Both pass through an exact-address referendum, the timelock, and bounded Senate cancellation, while state/policy/authority/extension targets use the constitutional double threshold. Application replacement deliberately relies on voters approving reviewed bytecode and a compatible state/migration plan. Router-origin apps (`ReferendumApp`, `CongressElectionApp`, `SenateApp`, and `OfficeExecutor`), the constitutional-review hook, and the direct office writers (`DecisionApp` and `CabinetApp`) are classified as authorities, so changing any protocol-wide action source or execution gate cannot use the ordinary app threshold. The router prevents unsupported or malformed action classes, but it does not permanently assign supported types to political branches. Current branch limits live in the audited apps; changing a router origin therefore remains possible, but only through the constitutional threshold. Treasury disbursements remain independently constrained by the active budget commitment even if an approved origin module changes.
 
 Optional negative-power hooks are fail-open only when the Senate/review module is absent or interface-incompatible; otherwise active cancellation, suspension, veto, and review records remain enforced. This prevents a breaking-but-approved Senate interface from freezing all future governance. A replacement of `ReferendumApp` itself still requires exceptional care: approving defective bytecode can disable the only current referendum-creation path, and avoiding that absolutely would require another permanent trust root. Production procedure therefore forbids unreviewed upgradeable proxies and requires bytecode, interface, migration, and fork-rehearsal review before an exact address is proposed.
 
@@ -170,19 +190,25 @@ supporting voting power to reach at least 65% of weighted votes actually cast. C
 values are snapshotted when the referendum is created. `StakeRegistry` also checkpoints each person's active stake.
 Referenda and Congress elections use the last completed block at creation, require current-epoch electorate
 certification, and pin the matching voting policy. Stake moved, unstaked, or liquidated after creation therefore
-cannot be counted again by another person in the same process. Genesis-only setup uses its current block through its
-exclusive setup authority. Deployment is still a multi-transaction operation; its safety comes from unauthorized
-callers being unable to write the protected registries. Production keeps the Congress registry under
-`InitialSetupAuthority` until both the seed term and continuity cycle exist, then hands authority to
-`CongressElectionApp` before readiness checks and sealing. Demo setup overwrites supplied snapshot fields with the
+cannot be counted again by another person in the same process. The already-finalized seed office-term record uses
+its setup block and has no live ballot. The production live continuity cycle requires a certified completed block
+after setup citizen mutations. Production parks Congress and referendum registry writers until genesis completion;
+authenticating an early seeded citizen alone does not prove the roll is complete. Demo setup overwrites snapshot fields with the
 actual setup transaction block. That demo-only shortcut is illustrative: another checkpoint written later in the
 same block can change the value returned for that block. Production never deploys `DemoSetupAuthority`; after its
 separately documented one-time genesis import, every newly created production process uses the same
 last-completed-block/current-epoch checks as Sepolia live creation.
 
-Public-veto support is person-keyed and bounded by the configured threshold. Before repeal, reads count only
-currently eligible supporters and the next cast prunes stale receipts, emitting `PublicVetoEligibilityExpired`.
-Once repeal executes, the record preserves its final support count and historical receipts.
+Public-petition support is person-keyed and bounded to two people. Before submission, reads count current eligibility
+and the next cast prunes stale receipts. Reaching two initiates a typed Law-tier ordinary repeal referendum, not a
+repeal. Voting, passage and delayed timelock execution remain necessary. Submitted signatures are historical; failed
+or canceled rounds can reset with a new nonce and fresh signatures. The PublicVetoApp pointer is an Authority.
+
+Congress candidate admission has no policy quota. Its candidate registry creates an immutable `CongressRankingStore`
+for derived finalization state; the same governed registry writer controls both. Permissionless app calls process
+at most 32 scores and consider at most 32 ranked candidates per call, continuing until the fixed outcome is complete.
+Scores/ties are immutable after voting; current qualification is checked during selection and before activation.
+Disqualified candidates do not re-enter that count. Only elected/runner-up ordinal ranks are materialized.
 
 Congress decisions are bound to the Congress term that prepared them. ERC20 transfer and ministry-funding decisions also require the source to authorize the exact decision ID; an allowance alone is not decision consent.
 
@@ -194,8 +220,8 @@ LLM has an exact 70,000,000-token hard cap at 18 decimals. Production consumes a
 current supply are checked by the deployment script. Treasury custody has no mint or arbitrary token-call function:
 issuance and spending remain separate, and official rewards draw only from LLM already deposited in the vault.
 
-Treasury spending uses an explicit per-asset policy allowlist. Budget approvals are laws. Payouts revalidate current
-office permissions and spending policy before routing. At execution, `TreasuryVault` independently matches the
+Treasury spending uses an explicit per-asset policy allowlist. Budget approvals are laws. Payouts record an actual proposer and distinct approving officer, bound to their office appointments. Routing
+revalidates both appointments and the proposer's spending policy; known wallets of one person cannot approve twice. At execution, `TreasuryVault` independently matches the
 request ID, budget ID, amount, and asset against the stable budget registry commitment and rejects tokens whose
 recipient balance delta is not the exact requested amount.
 
@@ -204,7 +230,7 @@ timelock action, then `PayoutQueue` records cancellation and releases the budget
 `syncPayoutState` can reconcile executed, Senate-canceled, or expired actions. Execution reconciliation verifies the
 disbursement against the vault address pinned in the queued action, not a later live vault pointer.
 
-`ContributionReward` is an LLM-only, Finance-admin-only disbursement class for verified donations of time, money, or
+`ContributionReward` is an LLM-only, Finance-admin-proposed, second-officer-approved disbursement class for verified donations of time, money, or
 other accepted contributions. It requires a nonzero evidence hash and nonempty evidence URI, uses the sensitive queue
 delay, and must draw against a referendum-approved contribution-reward budget. Verification standards remain an
 operational policy represented by the evidence document rather than an on-chain adjudication system.

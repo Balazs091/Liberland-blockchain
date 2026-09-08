@@ -75,6 +75,35 @@ contract HeadOfStateAppTest is Test {
         assertEq(senateSeatRegistry.occupiedSeatCount(), 5);
     }
 
+    function test_Audit_PresidencyNonceChangesAcrossVacancyAndReelection() public {
+        _electPresident(SENATOR_ONE);
+        uint64 firstPresidency = presidentRegistry.presidencyNonce();
+        vm.prank(SENATOR_ONE);
+        headOfStateApp.resignPresident();
+        assertEq(presidentRegistry.presidencyNonce(), firstPresidency + 1);
+        _electPresident(SENATOR_ONE);
+        assertEq(presidentRegistry.presidencyNonce(), firstPresidency + 2);
+    }
+
+    function test_Audit_PresidentCandidateIdentityCannotChangeUnderVotes() public {
+        _vote(0, SENATOR_ONE, SENATOR_ONE);
+        _vote(1, SENATOR_TWO, SENATOR_ONE);
+        _vote(2, SENATOR_THREE, SENATOR_ONE);
+        identityRegistry.setWalletLink(PID_ONE, SENATOR_ONE, IdentityTypes.WalletLinkStatus.Revoked);
+        identityRegistry.setWalletLink(PID_ONE, SENATOR_ONE_NEW, IdentityTypes.WalletLinkStatus.Active);
+        identityRegistry.setWalletLink(PID_TWO, SENATOR_TWO, IdentityTypes.WalletLinkStatus.Revoked);
+        identityRegistry.setWalletLink(PID_TWO, SENATOR_ONE, IdentityTypes.WalletLinkStatus.Active);
+        assertEq(headOfStateApp.voteCountFor(SENATOR_ONE), 0);
+        assertFalse(headOfStateApp.canElectPresident(SENATOR_ONE));
+        vm.expectRevert(abi.encodeWithSelector(IHeadOfStateApp.ElectionMajorityNotReached.selector, SENATOR_ONE, 0, 5));
+        headOfStateApp.electPresident(SENATOR_ONE);
+        _vote(0, SENATOR_ONE_NEW, SENATOR_ONE);
+        _vote(1, SENATOR_ONE, SENATOR_ONE);
+        _vote(2, SENATOR_THREE, SENATOR_ONE);
+        headOfStateApp.electPresident(SENATOR_ONE);
+        assertEq(presidentRegistry.currentPresidentPersonId(), PID_TWO);
+    }
+
     function test_HeadOfStateInterfacesExposeSelectors() public pure {
         assertTrue(IHeadOfStateApp.voteForPresident.selector != bytes4(0));
         assertTrue(IHeadOfStateApp.electPresident.selector != bytes4(0));

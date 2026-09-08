@@ -1,0 +1,28 @@
+# Current Documentation
+
+This repository keeps one current documentation set. Superseded code-review reports and migration changelogs are
+not release guidance. Historical copies are preserved outside the repository for recovery and audit provenance.
+The pinned constitutional PDF is retained because it is an active design input, not an old code manual.
+
+| Document | Purpose |
+| --- | --- |
+| [Architecture](Architecture.md) | Components, authority boundaries, custody and module evolution |
+| [Governance](Governance.md) | Current identity, appeal, public repeal, election and office rules |
+| [Protocol Parameters](Protocol-Parameters.md) | Production/demo values and units |
+| [Internal Review](Internal-Audit-Report.md) | Current findings, verification and release blockers |
+| [Auditor Handoff](Auditor-Handoff.md) | Exact target, trust boundaries and reproduction |
+| [Static Triage](Static-Analysis-Triage.md) | Unsuppressed detector dispositions and limitations |
+| [External Audit Scope](Audit-Scope.md) | Independent review surface and limitations |
+| [Constitution Alignment](Constitution-Alignment.md) | Current differences from the pinned draft |
+| [Constitutional Source](constitutional-sources/README.md) | Immutable source and hash verification |
+| [User Journeys](User-Journeys.md) | Citizen, officer and elected-role workflows |
+| [Lending and Treasury](Lending-And-Treasury.md) | Custody, accounting, loans and retained risks |
+| [Land Cadastre](Land-Cadastre.md) | Legal parties, versioned records and signing schema |
+| [Mainnet Deployment](Ethereum-Mainnet-Deployment.md) | Two-stage production setup and migration gates |
+| [Sepolia Deployment](Sepolia-Demo-Deployment.md) | Demo-only setup and seed behavior |
+| [Frontend Checklist](../frontend-export/INTEGRATION-CHECKLIST.md) | Current integration requirements |
+| [Frontend Howto](../frontend-export/FRONTEND-HOWTO.md) | Contract calls and screen behavior |
+
+Solidity and verified deployed bytecode take precedence over prose. Source changes do not upgrade deployments.
+Run `python3 scripts/check-docs.py --check-abis` from the repository root to check local links, referenced contract
+functions and generated ABI parity; it does not prove that every prose statement matches protocol behavior.

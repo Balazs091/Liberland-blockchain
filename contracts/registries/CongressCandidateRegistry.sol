@@ -7,10 +7,14 @@ import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {ElectionTypes} from "../types/ElectionTypes.sol";
 import {IdentityTypes} from "../types/IdentityTypes.sol";
+import {CongressRankingStore} from "./CongressRankingStore.sol";
 
 /// @title CongressCandidateRegistry
 /// @notice Stable fact registry for Congress election cycles, candidate states, cycle ballots, and active seats.
 contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
+    /// @notice Candidate links are metadata references, not inline documents. Bounds all full-record reads.
+    uint256 public constant MAX_APPLICATION_URI_LENGTH = 2_048;
+
     struct BallotConfig {
         uint256 cycleId;
         address voter;
@@ -44,13 +48,30 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
     mapping(uint256 cycleId => mapping(bytes32 personId => address ballotWallet)) private _ballotWalletOfPerson;
     mapping(uint256 cycleId => mapping(address voter => bytes32 personId)) private _ballotPersonOfWallet;
     mapping(uint32 seatIndex => ElectionTypes.CongressSeatRecord seatRecord) private _seatRecords;
-    mapping(address wallet => uint32 seatIndexPlusOne) private _activeSeatIndexPlusOne;
     mapping(bytes32 personId => uint32 seatIndexPlusOne) private _activeSeatIndexByPersonPlusOne;
 
     ElectionTypes.CongressOfficeTerm private _currentOfficeTerm;
+    CongressRankingStore private immutable _ranking;
 
     /// @param kernelAddress The canonical kernel registry address.
-    constructor(address kernelAddress) KernelModule(kernelAddress) {}
+    constructor(address kernelAddress) KernelModule(kernelAddress) {
+        _ranking = new CongressRankingStore();
+    }
+
+    /// @inheritdoc ICongressCandidateRegistry
+    function rankingStore() external view returns (address) {
+        return address(_ranking);
+    }
+
+    /// @inheritdoc ICongressCandidateRegistry
+    function getCandidateRankingData(uint256 cycleId, address candidate)
+        external
+        view
+        returns (int256 votes, uint64 appliedAt, bytes32 personId)
+    {
+        ElectionTypes.CongressCandidateRecord storage record = _candidateRecords[cycleId][candidate];
+        return (record.voteTotal, record.appliedAt, record.personId);
+    }
 
     /// @inheritdoc ICongressCandidateRegistry
     function latestCycleId() external view returns (uint256 cycleId) {
@@ -69,9 +90,18 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
         returns (ElectionTypes.CongressCandidateRecord memory record)
     {
         if (_candidateRecords[cycleId][candidate].candidate != address(0)) {
-            return _candidateRecords[cycleId][candidate];
+            record = _candidateRecords[cycleId][candidate];
+        } else {
+            record = _candidateRecords[cycleId][_resolveCandidateReference(cycleId, candidate)];
         }
-        return _candidateRecords[cycleId][_resolveCandidateReference(cycleId, candidate)];
+        if (_ranking.disqualified(cycleId, record.candidate)) {
+            record.status = ElectionTypes.CandidateStatus.Disqualified;
+        } else if (
+            _cycles[cycleId].status == ElectionTypes.ElectionStatus.Finalized
+                && record.status == ElectionTypes.CandidateStatus.Accepted
+        ) {
+            record.status = ElectionTypes.CandidateStatus.Lost;
+        }
     }
 
     /// @inheritdoc ICongressCandidateRegistry
@@ -197,10 +227,8 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
         if (cycleInput.runnerUpCount == 0) {
             revert InvalidRunnerUpCount(cycleInput.runnerUpCount);
         }
-        if (cycleInput.maxCandidateCount < uint256(cycleInput.seatCount) + uint256(cycleInput.runnerUpCount)) {
-            revert InvalidCandidateCount(
-                uint256(cycleInput.seatCount) + uint256(cycleInput.runnerUpCount), cycleInput.maxCandidateCount
-            );
+        if (uint256(cycleInput.seatCount) + uint256(cycleInput.runnerUpCount) > 32) {
+            revert InvalidCandidateCount(uint256(cycleInput.seatCount) + uint256(cycleInput.runnerUpCount), 32);
         }
         if (cycleInput.policyReference == bytes32(0)) {
             revert InvalidPolicyReference(cycleInput.policyReference);
@@ -228,7 +256,7 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
             votingPowerSnapshotBlock: cycleInput.votingPowerSnapshotBlock,
             seatCount: cycleInput.seatCount,
             runnerUpCount: cycleInput.runnerUpCount,
-            maxCandidateCount: cycleInput.maxCandidateCount,
+            maxCandidateCount: 0,
             candidateCount: 0,
             electedCount: 0,
             runnerUpSlotCount: 0,
@@ -245,7 +273,7 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
             cycleInput.votingPowerSnapshotBlock,
             cycleInput.seatCount,
             cycleInput.runnerUpCount,
-            cycleInput.maxCandidateCount,
+            0,
             cycleInput.policy,
             cycleInput.policyReference,
             msg.sender
@@ -263,6 +291,7 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
         _requireRegistryAuthority(msg.sender);
 
         ElectionTypes.CongressCycleRecord storage cycleRecord = _requireOpenCycle(cycleId);
+        if (_ranking.progress(cycleId).started) revert CycleInputsFrozen(cycleId);
         if (candidate == address(0)) {
             revert InvalidCandidate(candidate);
         }
@@ -272,15 +301,15 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
         if (applicationHash == bytes32(0)) {
             revert InvalidApplicationHash(applicationHash);
         }
+        if (bytes(applicationURI).length > MAX_APPLICATION_URI_LENGTH) {
+            revert ApplicationURITooLong(bytes(applicationURI).length, MAX_APPLICATION_URI_LENGTH);
+        }
         if (_candidateRecords[cycleId][candidate].candidate != address(0)) {
             revert CandidateAlreadyExists(cycleId, candidate);
         }
         address existingCandidate = _candidateOfPerson[cycleId][personId];
         if (existingCandidate != address(0)) {
             revert CandidateAlreadyExists(cycleId, existingCandidate);
-        }
-        if (_cycleCandidates[cycleId].length >= cycleRecord.maxCandidateCount) {
-            revert InvalidCandidateCount(_cycleCandidates[cycleId].length + 1, cycleRecord.maxCandidateCount);
         }
 
         uint64 appliedAt = uint64(block.timestamp);
@@ -313,6 +342,7 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
         _requireRegistryAuthority(msg.sender);
 
         ElectionTypes.CongressCycleRecord storage cycleRecord = _requireOpenCycle(cycleId);
+        if (_ranking.progress(cycleId).started) revert CycleInputsFrozen(cycleId);
         address canonicalCandidate = _resolveWithdrawalCandidate(cycleId, candidate);
         ElectionTypes.CongressCandidateRecord storage candidateRecord = _candidateRecords[cycleId][canonicalCandidate];
         if (candidateRecord.status != ElectionTypes.CandidateStatus.Accepted) {
@@ -340,6 +370,7 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
         _requireRegistryAuthority(msg.sender);
 
         ElectionTypes.CongressCycleRecord storage cycleRecord = _requireOpenCycle(ballotInput.cycleId);
+        if (block.timestamp >= cycleRecord.votingEnd) revert CycleInputsFrozen(ballotInput.cycleId);
         if (ballotInput.voter == address(0)) {
             revert InvalidVoter(ballotInput.voter);
         }
@@ -353,6 +384,12 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
             revert InvalidCandidateCount(candidates.length, allocations.length);
         }
 
+        // An address reassignment must not erase a different person's still-live receipt. The former holder
+        // can clear/recast through their current wallet. Until then this address cannot reuse that ballot slot.
+        bytes32 existingPerson = _ballotPersonOfWallet[ballotInput.cycleId][ballotInput.voter];
+        if (existingPerson != bytes32(0) && existingPerson != ballotInput.voterPersonId) {
+            revert BallotWalletOwnedByAnotherPerson(ballotInput.cycleId, ballotInput.voter, existingPerson);
+        }
         // A person can cast at most one ballot in this cycle, even if their active wallet rotates mid-election.
         address priorWallet = _ballotWalletOfPerson[ballotInput.cycleId][ballotInput.voterPersonId];
         if (priorWallet != address(0) && priorWallet != ballotInput.voter) {
@@ -380,17 +417,21 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
         _requireRegistryAuthority(msg.sender);
 
         ElectionTypes.CongressCycleRecord storage cycleRecord = _requireOpenCycle(cycleId);
-        if (voter == address(0)) {
+        if (block.timestamp >= cycleRecord.votingEnd) revert CycleInputsFrozen(cycleId);
+        IIdentityRegistry identityRegistry = IIdentityRegistry(_kernel.getModule(KernelModuleIds.IDENTITY_REGISTRY));
+        if (voter == address(0) || !identityRegistry.hasActiveWalletLink(voter)) {
             revert InvalidVoter(voter);
         }
 
-        ElectionTypes.BallotReceipt memory existingReceipt = _ballotReceipts[cycleId][voter];
+        bytes32 personId = identityRegistry.resolveWalletToPersonId(voter);
+        address ballotWallet = _ballotWalletOfPerson[cycleId][personId];
+        ElectionTypes.BallotReceipt memory existingReceipt = _ballotReceipts[cycleId][ballotWallet];
         if (existingReceipt.voter == address(0)) {
             revert VoteNotFound(cycleId, voter);
         }
 
         uint256 ballotWeight = existingReceipt.ballotWeight;
-        _clearCycleBallot(cycleId, voter);
+        _clearCycleBallot(cycleId, ballotWallet);
         cycleRecord.status = ElectionTypes.ElectionStatus.Voting;
 
         emit CongressBallotCleared(cycleId, voter, ballotWeight, uint64(block.timestamp), msg.sender);
@@ -401,13 +442,21 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
         external
     {
         _requireRegistryAuthority(msg.sender);
-
-        ElectionTypes.CongressCycleRecord storage cycleRecord = _requireOpenCycle(cycleId);
         uint256 candidateCount = _cycleCandidates[cycleId].length;
-        if (
-            finalizationInput.rankedCandidates.length != candidateCount
-                || finalizationInput.rankedVoteTotals.length != candidateCount
-        ) {
+        // Only bounded genesis import uses this path. Live app elections use resumable ranking.
+        if (_ranking.progress(cycleId).started || candidateCount > 32) revert FinalizationNotReady(cycleId);
+        if (finalizationInput.rankedCandidates.length != candidateCount) {
+            revert InvalidFinalizationShape(finalizationInput.rankedCandidates.length, candidateCount);
+        }
+        _recordFinalization(cycleId, finalizationInput);
+    }
+
+    function _recordFinalization(uint256 cycleId, ElectionTypes.CongressFinalizationInput memory finalizationInput)
+        private
+    {
+        ElectionTypes.CongressCycleRecord storage cycleRecord = _requireOpenCycle(cycleId);
+        uint256 candidateCount = finalizationInput.rankedCandidates.length;
+        if (finalizationInput.rankedVoteTotals.length != candidateCount) {
             revert InvalidFinalizationShape(
                 finalizationInput.rankedCandidates.length, finalizationInput.rankedVoteTotals.length
             );
@@ -472,6 +521,12 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
     }
 
     /// @inheritdoc ICongressCandidateRegistry
+    function completeRankedCycle(uint256 cycleId) external {
+        _requireRegistryAuthority(msg.sender);
+        _recordFinalization(cycleId, _ranking.finalizationInput(cycleId));
+    }
+
+    /// @inheritdoc ICongressCandidateRegistry
     function vacateAndFillSeat(address vacatingMember, bool hasReplacement, uint256 runnerUpIndex)
         external
         returns (uint32 seatIndex, address replacementCandidate)
@@ -511,7 +566,6 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
         uint64 updatedAt = uint64(block.timestamp);
 
         ElectionTypes.CongressSeatRecord storage vacatedSeatRecord = _seatRecords[seatIndex];
-        delete _activeSeatIndexPlusOne[vacatedSeatRecord.holder];
         delete _activeSeatIndexByPersonPlusOne[vacatedSeatRecord.holderPersonId];
         currentOfficeTerm.occupiedSeatCount -= 1;
         currentOfficeTerm.updatedAt = updatedAt;
@@ -568,7 +622,6 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
             assignedAt: updatedAt,
             vacatedAt: 0
         });
-        _activeSeatIndexPlusOne[replacementCandidate] = seatIndex + 1;
         _activeSeatIndexByPersonPlusOne[candidateRecord.personId] = seatIndex + 1;
 
         emit CongressCandidateRanked(
@@ -617,7 +670,6 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
                 assignedAt: activatedAt,
                 vacatedAt: 0
             });
-            _activeSeatIndexPlusOne[holder] = seatIndex + 1;
             _activeSeatIndexByPersonPlusOne[candidateRecord.personId] = seatIndex + 1;
 
             emit CongressSeatAssigned(cycleId, seatIndex, holder, candidateRecord.rank, false, activatedAt, msg.sender);
@@ -633,7 +685,6 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
         for (uint32 seatIndex = 0; seatIndex < currentOfficeTerm.seatCount; ++seatIndex) {
             address holder = _seatRecords[seatIndex].holder;
             if (holder != address(0)) {
-                delete _activeSeatIndexPlusOne[holder];
                 delete _activeSeatIndexByPersonPlusOne[_seatRecords[seatIndex].holderPersonId];
             }
 
@@ -651,16 +702,17 @@ contract CongressCandidateRegistry is ICongressCandidateRegistry, KernelModule {
             }
             return _activeSeatIndexByPersonPlusOne[identityRegistry.resolveWalletToPersonId(wallet)];
         } catch {
-            return _activeSeatIndexPlusOne[wallet];
+            // A missing identity source cannot resurrect authority at a stale historical wallet.
+            return 0;
         }
     }
 
-    function _activeWalletOf(bytes32 personId, address recordedWallet) private view returns (address wallet) {
+    function _activeWalletOf(bytes32 personId, address) private view returns (address wallet) {
         try _kernel.getModule(KernelModuleIds.IDENTITY_REGISTRY) returns (address identityRegistryAddress) {
             wallet = IIdentityRegistry(identityRegistryAddress).activeWalletOf(personId);
             return wallet;
         } catch {
-            return recordedWallet;
+            return address(0);
         }
     }
 

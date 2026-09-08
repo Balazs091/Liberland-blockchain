@@ -1,6 +1,13 @@
 # Compiler files
 cache/
 out/
+# Isolated verification builds
+out-*/
+cache-*/
+
+# Python verification-tool caches
+__pycache__/
+*.pyc
 
 # Foundry deployment output
 broadcast/

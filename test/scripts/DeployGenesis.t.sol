@@ -4,6 +4,8 @@ pragma solidity 0.8.36;
 import {Test} from "forge-std/Test.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
+import {GovernanceTypes} from "../../contracts/types/GovernanceTypes.sol";
+import {ICivicAppealReview} from "../../contracts/interfaces/ICivicAppealReview.sol";
 import {Deploy} from "../../scripts/Deploy.s.sol";
 import {ITreasurySpendingPolicy} from "../../contracts/interfaces/ITreasurySpendingPolicy.sol";
 import {LLMToken} from "../../contracts/mocks/LLMToken.sol";
@@ -42,6 +44,7 @@ contract DeployGenesisHarness is Deploy {
         _identityOfficeAdmin = address(0x1D);
         _landOfficeAdmin = address(0x1A2D);
         _companyRegistryOfficeAdmin = address(0xC0);
+        _civicReviewers = [address(0xA001), address(0xA002), address(0xA003), address(0xA004), address(0xA005)];
 
         // System money is ERC20: genesis wiring needs a deployed LLM token plus the treasury spending asset set.
         _llmTokenAddress = address(new LLMToken());
@@ -66,9 +69,26 @@ contract DeployGenesisHarness is Deploy {
         _configureOriginAuthorities();
         _congressAuthorityBeforeGenesis = _kernel.getModule(KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY_AUTHORITY);
         _seedGenesisState();
+        // Production completion is a separate invocation on a confirmed later block.
+        vm.roll(block.number + 1);
+        _loadGenesisCompletionState(address(_kernel));
+        _seedGenesisCongressTerm(_readSeededCitizens());
         _activateStandingCongressAuthority();
+        _activateStandingReferendumAuthority();
         _assertReadyForBootstrapDisable();
         _sealAndDisableBootstrap();
+    }
+
+    function assertCivicReviewTopology() external view {
+        address committee = _kernel.getModule(KernelModuleIds.CIVIC_APPEAL_AUTHORITY);
+        require(ICivicAppealReview(committee).identityApp() == address(_identityApp), "review app binding");
+        require(
+            _kernel.moduleClass(KernelModuleIds.CIVIC_APPEAL_AUTHORITY) == GovernanceTypes.ModuleClass.Authority,
+            "review class"
+        );
+        for (uint256 i; i < 5; ++i) {
+            require(ICivicAppealReview(committee).reviewerAt(i) == _civicReviewers[i], "reviewer configuration");
+        }
     }
 
     function totalIdentityCount() external view returns (uint256 count) {
@@ -229,6 +249,7 @@ contract DeployGenesisTest is Test {
 
         DeployGenesisHarness harness = new DeployGenesisHarness();
         harness.deployForTest();
+        harness.assertCivicReviewTopology();
 
         assertEq(harness.totalIdentityCount(), 7);
         assertEq(harness.identityRecord(PERSON_ONE_ID).metadataHash, keccak256("genesis-citizen-one"));
@@ -245,6 +266,7 @@ contract DeployGenesisTest is Test {
         ElectionTypes.CongressCycleRecord memory continuityCycle = harness.congressCycle(2);
         assertEq(uint256(continuityCycle.status), uint256(ElectionTypes.ElectionStatus.CandidateRegistration));
         assertEq(continuityCycle.candidateCount, 7);
+        assertEq(continuityCycle.votingPowerSnapshotBlock, block.number - 1);
         assertEq(continuityCycle.seatCount, 7);
         assertEq(continuityCycle.votingEnd % 1 days, 17 hours);
         assertEq(continuityCycle.votingEnd, ((block.timestamp / 1 days) + 30) * 1 days + 17 hours);

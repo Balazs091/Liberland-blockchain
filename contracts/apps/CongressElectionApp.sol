@@ -5,6 +5,7 @@ import {ICandidateEligibilityPolicy} from "../interfaces/ICandidateEligibilityPo
 import {ICongressCandidateRegistry} from "../interfaces/ICongressCandidateRegistry.sol";
 import {ICongressElectionApp} from "../interfaces/ICongressElectionApp.sol";
 import {ICongressElectionPolicy} from "../interfaces/ICongressElectionPolicy.sol";
+import {ICongressRankingStore} from "../interfaces/ICongressRankingStore.sol";
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
 import {IElectorateRegistry} from "../interfaces/IElectorateRegistry.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
@@ -19,13 +20,6 @@ contract CongressElectionApp is ICongressElectionApp {
     bytes32 private constant _INCUMBENT_CANDIDACY_TYPEHASH =
         keccak256("LiberlandCongressIncumbentCandidacy(uint256 cycleId,address incumbent)");
     string private constant _INCUMBENT_CANDIDACY_URI = "liberland://congress/incumbent-candidacy";
-
-    struct RankingEntry {
-        address candidate;
-        int256 voteTotal;
-        uint64 appliedAt;
-        bool eligible;
-    }
 
     IIdentityRegistry private immutable _identityRegistry;
     ICongressCandidateRegistry private immutable _congressCandidateRegistry;
@@ -203,61 +197,48 @@ contract CongressElectionApp is ICongressElectionApp {
         }
         ICongressElectionPolicy policy = _cyclePolicy(cycleRecord);
 
-        {
-            uint256 candidateCount = _congressCandidateRegistry.getCycleCandidateCount(cycleId);
-            RankingEntry[] memory ranking = new RankingEntry[](candidateCount);
-            uint256 qualifiedCandidateCount = 0;
+        // At most 32 candidates enter the durable heap per transaction; nomination and scores are closed.
+        ICongressRankingStore ranking = ICongressRankingStore(_congressCandidateRegistry.rankingStore());
+        ranking.process(cycleId, 32);
+        ElectionTypes.FinalizationProgress memory progress = ranking.progress(cycleId);
+        if (progress.processedCount != progress.candidateCount) return;
 
-            for (uint256 index = 0; index < candidateCount; ++index) {
-                address candidate = _congressCandidateRegistry.getCycleCandidateAt(cycleId, index);
-                ElectionTypes.CongressCandidateRecord memory candidateRecord =
-                    _congressCandidateRegistry.getCandidate(cycleId, candidate);
-                address currentCandidate = _identityRegistry.activeWalletOf(candidateRecord.personId);
-                bool eligibleCandidate = currentCandidate != address(0) && policy.isEligibleCandidate(currentCandidate);
-
-                ranking[index] = RankingEntry({
-                    candidate: candidate,
-                    voteTotal: candidateRecord.voteTotal,
-                    appliedAt: candidateRecord.appliedAt,
-                    eligible: eligibleCandidate
-                });
-                // A seat requires eligibility AND non-negative net support: a candidate net-REJECTED
-                // (voteTotal < 0) by the electorate is not seated even when eligible seats remain.
-                // Zero is still qualified so uncontested incumbents/genesis members keep continuity.
-                if (eligibleCandidate && candidateRecord.voteTotal >= 0) {
-                    qualifiedCandidateCount += 1;
-                }
+        // Stake is not newly locked. A provisional candidate must still qualify before seat activation.
+        uint256 selectedCount = progress.selectedCount;
+        uint256 index;
+        while (index < selectedCount) {
+            (, bytes32 personId) = ranking.selectedAt(cycleId, index);
+            if (_eligiblePerson(policy, personId)) {
+                ++index;
+            } else {
+                ranking.removeSelected(cycleId, index);
+                --selectedCount;
             }
-
-            _sortRanking(ranking);
-            address[] memory rankedCandidates = new address[](candidateCount);
-            int256[] memory rankedVoteTotals = new int256[](candidateCount);
-            for (uint256 index = 0; index < candidateCount; ++index) {
-                rankedCandidates[index] = ranking[index].candidate;
-                rankedVoteTotals[index] = ranking[index].voteTotal;
-            }
-
-            uint32 electedCount = _minConfiguredCount(cycleRecord.seatCount, qualifiedCandidateCount);
-            uint256 remainingQualifiedCandidates =
-                qualifiedCandidateCount > electedCount ? qualifiedCandidateCount - electedCount : 0;
-            uint32 runnerUpCount = _minConfiguredCount(cycleRecord.runnerUpCount, remainingQualifiedCandidates);
-
-            _congressCandidateRegistry.finalizeCycle(
-                cycleId,
-                ElectionTypes.CongressFinalizationInput({
-                    rankedCandidates: rankedCandidates,
-                    rankedVoteTotals: rankedVoteTotals,
-                    electedCount: electedCount,
-                    runnerUpCount: runnerUpCount
-                })
-            );
         }
+        uint256 outcomeSlots = uint256(cycleRecord.seatCount) + cycleRecord.runnerUpCount;
+        uint256 considered;
+        while (selectedCount < outcomeSlots && considered < 32) {
+            (address candidate, bytes32 personId) = ranking.peek(cycleId);
+            if (candidate == address(0)) break;
+            bool eligible = _eligiblePerson(policy, personId);
+            ranking.consider(cycleId, eligible);
+            if (eligible) ++selectedCount;
+            ++considered;
+        }
+        progress = ranking.progress(cycleId);
+        if (selectedCount < outcomeSlots && progress.remainingRanked != 0) return;
+        _congressCandidateRegistry.completeRankedCycle(cycleId);
 
         if (_congressCandidateRegistry.latestCycleId() == cycleId) {
             ICongressElectionPolicy nextPolicy = _currentElectionPolicy();
             (uint64 nominationStart, uint64 votingStart, uint64 votingEnd) = _nextElectionWindow(cycleId, nextPolicy);
             _createElectionCycle(cycleId, nominationStart, votingStart, votingEnd, nextPolicy);
         }
+    }
+
+    function _eligiblePerson(ICongressElectionPolicy policy, bytes32 personId) private view returns (bool) {
+        address wallet = _identityRegistry.activeWalletOf(personId);
+        return wallet != address(0) && policy.isEligibleCandidate(wallet);
     }
 
     /// @inheritdoc ICongressElectionApp
@@ -582,45 +563,5 @@ contract CongressElectionApp is ICongressElectionApp {
         if (currentTime < cycleRecord.votingStart || currentTime >= cycleRecord.votingEnd) {
             revert VotingClosed(cycleId, cycleRecord.votingStart, cycleRecord.votingEnd, currentTime);
         }
-    }
-
-    function _sortRanking(RankingEntry[] memory ranking) private pure {
-        for (uint256 index = 1; index < ranking.length; ++index) {
-            RankingEntry memory entry = ranking[index];
-            uint256 insertionIndex = index;
-
-            while (insertionIndex > 0 && _ranksAhead(entry, ranking[insertionIndex - 1])) {
-                ranking[insertionIndex] = ranking[insertionIndex - 1];
-
-                unchecked {
-                    --insertionIndex;
-                }
-            }
-
-            ranking[insertionIndex] = entry;
-        }
-    }
-
-    function _ranksAhead(RankingEntry memory left, RankingEntry memory right) private pure returns (bool ahead) {
-        if (left.eligible != right.eligible) {
-            return left.eligible;
-        }
-        if (left.voteTotal != right.voteTotal) {
-            return left.voteTotal > right.voteTotal;
-        }
-        if (left.appliedAt != right.appliedAt) {
-            return left.appliedAt < right.appliedAt;
-        }
-
-        return uint160(left.candidate) < uint160(right.candidate);
-    }
-
-    function _minConfiguredCount(uint32 configuredCount, uint256 candidateCount) private pure returns (uint32 count) {
-        if (candidateCount < configuredCount) {
-            // forge-lint: disable-next-line(unsafe-typecast)
-            return uint32(candidateCount);
-        }
-
-        return configuredCount;
     }
 }

@@ -225,32 +225,43 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
 
     /// @inheritdoc IUSDCLendingPoolApp
     function maxBorrowable(bytes32 personId) external view returns (uint256 amount) {
-        uint256 maxDebt = _maxDebtForPerson(personId);
-        uint256 debt = currentDebtOf(personId);
-        if (maxDebt <= debt) {
+        address wallet = _identityRegistry.activeWalletOf(personId);
+        if (!ICitizenEligibilityPolicy(_kernel.getModule(KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY))
+                .isCitizenInGoodStanding(wallet)) {
             return 0;
         }
 
-        uint256 availableByCollateral = maxDebt - debt;
-        uint256 storedBorrows = _storedTotalBorrows();
-        uint256 availableByCap = storedBorrows >= _borrowCap ? 0 : _borrowCap - storedBorrows;
-        uint256 liquidity = availableLiquidity();
+        ILendingRiskParameterPolicy.RiskParameters memory riskParams = _riskParameters();
+        uint256 maxDebt =
+            _maxDebtForRecord(personId, _stakeRegistry.getStakeRecord(personId), _priceOracle(), riskParams.maxLtvBps);
+        if (riskParams.maxDebtPerPerson != 0) {
+            maxDebt = Math.min(maxDebt, riskParams.maxDebtPerPerson);
+        }
+        uint256 indexRay = _previewBorrowIndex();
+        // Invert borrow()'s two ceilings exactly: ceil((s + ceil(a*RAY/i))*i/RAY) <= limit.
+        // Therefore s + ceil(a*RAY/i) <= floor(limit*RAY/i). Plain asset subtraction can overquote.
+        uint256 scaledCapacity = Math.min(
+            _scaledBorrowCapacity(_accountScaledDebt[personId], maxDebt, indexRay),
+            _scaledBorrowCapacity(_totalScaledDebt, _borrowCap, indexRay)
+        );
+        amount = Math.min(Math.mulDiv(scaledCapacity, indexRay, RAY), _previewAvailableLiquidity(indexRay));
+    }
 
-        amount = availableByCollateral;
-        if (availableByCap < amount) {
-            amount = availableByCap;
-        }
-        if (liquidity < amount) {
-            amount = liquidity;
-        }
+    function _scaledBorrowCapacity(uint256 scaledDebt, uint256 debtLimit, uint256 indexRay)
+        private
+        pure
+        returns (uint256 capacity)
+    {
+        uint256 scaledLimit = Math.mulDiv(debtLimit, RAY, indexRay);
+        return scaledLimit > scaledDebt ? scaledLimit - scaledDebt : 0;
+    }
 
-        uint256 perPersonCap = _riskParameters().maxDebtPerPerson;
-        if (perPersonCap != 0) {
-            uint256 availableByPersonCap = perPersonCap > debt ? perPersonCap - debt : 0;
-            if (availableByPersonCap < amount) {
-                amount = availableByPersonCap;
-            }
-        }
+    function _previewAvailableLiquidity(uint256 indexRay) private view returns (uint256 amount) {
+        uint256 pendingInterest = _debtAtIndex(_totalScaledDebt, indexRay) - _storedTotalBorrows();
+        (uint256 pendingReserves,) = _protocolReserveAccrual(pendingInterest);
+        uint256 reserves = _totalReserves + pendingReserves;
+        uint256 cash = _usdc.balanceOf(address(this));
+        return cash > reserves ? cash - reserves : 0;
     }
 
     /// @inheritdoc IUSDCLendingPoolApp
@@ -616,11 +627,15 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
     }
 
     function _accrueProtocolReserves(uint256 interestAccrued) private returns (uint256 amount) {
+        (amount, _reserveAccrualRemainder) = _protocolReserveAccrual(interestAccrued);
+    }
+
+    function _protocolReserveAccrual(uint256 interestAccrued) private view returns (uint256 amount, uint256 remainder) {
         amount = Math.mulDiv(interestAccrued, _effectiveReserveFactorBps, BPS);
         uint256 accumulatedRemainder =
             _reserveAccrualRemainder + mulmod(interestAccrued, _effectiveReserveFactorBps, BPS);
         amount += accumulatedRemainder / BPS;
-        _reserveAccrualRemainder = accumulatedRemainder % BPS;
+        remainder = accumulatedRemainder % BPS;
     }
 
     function _checkpointAccrualConfiguration(bool forceNewInterval) private {
@@ -653,12 +668,6 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
                 baseRay = Math.mulDiv(baseRay, baseRay, RAY);
             }
         }
-    }
-
-    function _maxDebtForPerson(bytes32 personId) private view returns (uint256 amount) {
-        return _maxDebtForRecord(
-            personId, _stakeRegistry.getStakeRecord(personId), _priceOracle(), _riskParameters().maxLtvBps
-        );
     }
 
     /// @dev Takes the already-resolved oracle and max LTV so mutating callers resolve the governed modules once per

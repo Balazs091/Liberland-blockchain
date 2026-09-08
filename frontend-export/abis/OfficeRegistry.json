@@ -12,6 +12,30 @@
   },
   {
     "type": "function",
+    "name": "authorizationId",
+    "inputs": [
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "id",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "getClerkRecord",
     "inputs": [
       {
@@ -733,6 +757,22 @@
         "name": "member",
         "type": "address",
         "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "OfficeAdminAlreadyAppointed",
+    "inputs": [
+      {
+        "name": "admin",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "officeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ]
   },

@@ -71,5 +71,38 @@ library IdentityTypes {
         uint64 approvedAt;
         bool approved;
         bool exists;
+        uint256 nonce;
+        bool accepted;
+        bool recovery;
+        address proposer;
+        address approver;
+        bytes32 evidenceHash;
+        bytes32 proposerAuthorizationId;
+        bytes32 approverAuthorizationId;
+    }
+
+    /// @notice Civic fields only; metadata correction cannot change political rights.
+    struct CivicStatusInput {
+        VerificationStatus verificationStatus;
+        CitizenshipStatus citizenshipStatus;
+        AgeClass ageClass;
+        bool correctionFlag;
+        bool finalSuspension;
+    }
+
+    struct CivicChangeRequest {
+        bytes32 requestId;
+        bytes32 previousStateHash;
+        bytes32 evidenceHash;
+        address proposer;
+        address approver;
+        uint64 readyAt;
+        CivicStatusInput proposed;
+        address appealAuthority;
+        bytes32 appealEvidenceHash;
+        uint64 appealDeadline;
+        bool appealResolved;
+        bytes32 proposerAuthorizationId;
+        bytes32 approverAuthorizationId;
     }
 }

@@ -34,7 +34,7 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
     ILLMStakingVault private immutable _stakingVault;
 
     mapping(bytes32 decisionId => DecisionTypes.DecisionRecord decisionRecord) private _decisionRecords;
-    mapping(bytes32 decisionId => mapping(address member => bool supported)) private _congressSupports;
+    mapping(bytes32 decisionId => mapping(address member => bytes32 voterPersonId)) private _congressSupports;
     mapping(bytes32 decisionId => bool authorized) private _congressSourceAuthorizations;
 
     /// @param congressCandidateRegistryAddress The Congress registry used for active-member checks.
@@ -151,7 +151,7 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
 
     /// @inheritdoc IDecisionApp
     function hasCongressSupported(bytes32 decisionId, address member) external view returns (bool supported) {
-        return _congressSupports[decisionId][member];
+        return _isCurrentCongressSupport(decisionId, member);
     }
 
     /// @inheritdoc IDecisionApp
@@ -302,11 +302,11 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
             revert InvalidDecisionAction(record.action);
         }
         _requireCongressDecisionTerm(record);
-        if (!_congressSupports[decisionId][msg.sender]) {
+        if (!_isCurrentCongressSupport(decisionId, msg.sender)) {
             return;
         }
 
-        _congressSupports[decisionId][msg.sender] = false;
+        delete _congressSupports[decisionId][msg.sender];
         record.supportCount -= 1;
 
         emit CongressDecisionSupportRemoved(
@@ -532,12 +532,19 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
             revert InvalidDecisionAction(record.action);
         }
         _requireCongressDecisionTerm(record);
-        if (_congressSupports[decisionId][member]) {
+        bytes32 personId = _identityRegistry.resolveWalletToPersonId(member);
+        if (personId == bytes32(0) || !_identityRegistry.hasActiveWalletLink(member)) {
+            revert InvalidIdentityReference(personId);
+        }
+        bytes32 previousPersonId = _congressSupports[decisionId][member];
+        if (previousPersonId == personId) {
             return;
         }
 
-        _congressSupports[decisionId][member] = true;
-        record.supportCount += 1;
+        _congressSupports[decisionId][member] = personId;
+        if (previousPersonId == bytes32(0)) {
+            record.supportCount += 1;
+        }
 
         emit CongressDecisionSupportRecorded(
             decisionId, member, record.supportCount, record.supportRequired, uint64(block.timestamp)
@@ -550,10 +557,16 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
         address[] memory members = _congressCandidateRegistry.currentCongressMembers();
         uint256 memberCount = members.length;
         for (uint256 index = 0; index < memberCount; ++index) {
-            if (_congressSupports[decisionId][members[index]]) {
+            if (_isCurrentCongressSupport(decisionId, members[index])) {
                 liveSupport += 1;
             }
         }
+    }
+
+    function _isCurrentCongressSupport(bytes32 decisionId, address member) private view returns (bool supported) {
+        bytes32 voterPersonId = _congressSupports[decisionId][member];
+        return voterPersonId != bytes32(0) && _identityRegistry.hasActiveWalletLink(member)
+            && _identityRegistry.resolveWalletToPersonId(member) == voterPersonId;
     }
 
     function _markExecuted(DecisionTypes.DecisionRecord storage record, address executor) private {
@@ -625,6 +638,11 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
         OfficeTypes.OfficeRole role = _officeRegistry.roleOf(officeId, caller);
         if (role != OfficeTypes.OfficeRole.Admin && role != OfficeTypes.OfficeRole.Clerk) {
             revert UnauthorizedDecisionPreparer(officeId, caller);
+        }
+        // The registry retains the appointment wallet as provenance. New decisions must use the current
+        // minister's wallet as their exact funding/signing source after a person-bound migration.
+        if (officeRecord.adminPersonId != bytes32(0)) {
+            officeRecord.admin = _identityRegistry.activeWalletOf(officeRecord.adminPersonId);
         }
     }
 

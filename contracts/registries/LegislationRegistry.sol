@@ -87,7 +87,14 @@ contract LegislationRegistry is ILegislationRegistry, KernelModule {
     function recordRepeal(bytes32 measureId, LegislationTypes.RepealOrigin repealOrigin, bytes32 repealReference)
         external
     {
-        _requireRepealAuthority(msg.sender);
+        // Petitioners cannot repeal directly, even if an old manifest points repeal authority at PublicVetoApp.
+        if (repealOrigin == LegislationTypes.RepealOrigin.PublicVeto) {
+            if (!_isModuleCaller(KernelModuleIds.ACTION_TIMELOCK, msg.sender)) {
+                revert UnauthorizedLegislationRepealCaller(msg.sender);
+            }
+        } else {
+            _requireRepealAuthority(msg.sender);
+        }
 
         if (measureId == bytes32(0)) {
             revert InvalidMeasureId(measureId);

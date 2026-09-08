@@ -259,7 +259,10 @@ contract ActionTimelock is IActionTimelock {
         if (actionType == GovernanceTypes.ActionType.TreasuryBudgetApproval) {
             return _treasuryBudgetApprovalDelay;
         }
-        if (actionType == GovernanceTypes.ActionType.LegislationEnactment) {
+        if (
+            actionType == GovernanceTypes.ActionType.LegislationEnactment
+                || actionType == GovernanceTypes.ActionType.LegislationRepeal
+        ) {
             return _legislationEnactmentDelay;
         }
         if (actionType == GovernanceTypes.ActionType.TreasuryDisbursement) {
@@ -275,10 +278,18 @@ contract ActionTimelock is IActionTimelock {
             || actionType == GovernanceTypes.ActionType.ModuleRegistration
             || actionType == GovernanceTypes.ActionType.TreasuryBudgetApproval
             || actionType == GovernanceTypes.ActionType.LegislationEnactment
+            || actionType == GovernanceTypes.ActionType.LegislationRepeal
             || actionType == GovernanceTypes.ActionType.TreasuryDisbursement;
     }
 
     function _executeAction(GovernanceTypes.ActionRecord storage actionRecord) private {
+        if (actionRecord.actionType == GovernanceTypes.ActionType.LegislationRepeal) {
+            GovernanceTypes.LegislationRepealPayload memory payload =
+                _decodeLegislationRepealPayload(actionRecord.payload, actionRecord.actionId, actionRecord.targetModule);
+            ILegislationRegistry(actionRecord.targetModuleAddress)
+                .recordRepeal(payload.measureId, LegislationTypes.RepealOrigin.PublicVeto, payload.referendumId);
+            return;
+        }
         if (actionRecord.actionType == GovernanceTypes.ActionType.ModulePointerUpdate) {
             GovernanceTypes.ModuleUpdatePayload memory payload =
                 _decodeModuleUpdatePayload(actionRecord.payload, actionRecord.actionId, actionRecord.targetModule);
@@ -378,6 +389,15 @@ contract ActionTimelock is IActionTimelock {
     }
 
     function _validateQueuedAction(GovernanceTypes.ActionRequest calldata request, bytes32 actionId) private view {
+        if (request.actionType == GovernanceTypes.ActionType.LegislationRepeal) {
+            GovernanceTypes.LegislationRepealPayload memory payload =
+                _decodeLegislationRepealPayload(request.payload, actionId, request.targetModule);
+            if (
+                request.origin != GovernanceTypes.ActionOrigin.Referendum
+                    || payload.referendumId != request.originReference
+            ) revert InvalidActionPayload(actionId);
+            return;
+        }
         if (request.actionType == GovernanceTypes.ActionType.ModulePointerUpdate) {
             _decodeModuleUpdatePayload(request.payload, actionId, request.targetModule);
             return;
@@ -414,6 +434,20 @@ contract ActionTimelock is IActionTimelock {
         payload = abi.decode(payloadData, (GovernanceTypes.ModuleUpdatePayload));
         if (payload.newModuleAddress == address(0) || payload.newModuleAddress.code.length == 0) {
             revert IConstitutionKernel.InvalidModuleAddress(targetModule, payload.newModuleAddress);
+        }
+    }
+
+    function _decodeLegislationRepealPayload(bytes memory payloadData, bytes32 actionId, bytes32 targetModule)
+        private
+        pure
+        returns (GovernanceTypes.LegislationRepealPayload memory payload)
+    {
+        if (targetModule != KernelModuleIds.LEGISLATION_REGISTRY || payloadData.length != 64) {
+            revert InvalidActionPayload(actionId);
+        }
+        payload = abi.decode(payloadData, (GovernanceTypes.LegislationRepealPayload));
+        if (payload.measureId == bytes32(0) || payload.referendumId == bytes32(0)) {
+            revert InvalidActionPayload(actionId);
         }
     }
 
@@ -675,7 +709,7 @@ contract ActionTimelock is IActionTimelock {
         // Optional judiciary hook: a court module registered under CONSTITUTIONAL_REVIEW can pause execution of a
         // queued action pending review. Fail-open (not paused) when no such module is registered or the call fails,
         // so the deliberately un-repointable core timelock is never bricked by an absent or broken review module — a
-        // future constitutional court is a pure add-on registered via an ordinary module-registration referendum.
+        // future court is an add-on registered via a constitutional-threshold module referendum.
         address reviewAddress = address(0);
         try _kernel.getModule(KernelModuleIds.CONSTITUTIONAL_REVIEW) returns (address moduleAddress) {
             reviewAddress = moduleAddress;

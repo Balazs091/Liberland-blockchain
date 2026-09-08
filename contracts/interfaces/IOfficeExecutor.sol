@@ -14,6 +14,9 @@ interface IOfficeExecutor {
     error NotBootstrapAuthority(address caller);
     error UnauthorizedOfficeAction(address caller, bytes32 officeId, OfficeTypes.OfficeActionClass actionClass);
     error OfficeActionOfficeMismatch(bytes32 expectedOfficeId, bytes32 actualOfficeId);
+    error DistinctPayoutOfficerRequired(bytes32 requestId);
+    error PayoutApprovalRequired(bytes32 requestId);
+    error StalePayoutAuthorization(bytes32 requestId, address officer);
 
     event OfficeBootstrapAuthorityDisabled(address indexed disabledBy);
 
@@ -39,6 +42,11 @@ interface IOfficeExecutor {
     ) external returns (bytes32 actionId);
 
     function proposePayout(bytes32 officeId, TreasuryTypes.DisbursementRequestInput calldata input) external;
+    /// @notice Records a distinct current officer's approval of the exact immutable payout, including evidence.
+    /// @dev Sensitive payouts retain the proposing admin's spending authorization; the second reviewer may be a clerk.
+    function approvePayout(bytes32 officeId, bytes32 requestId) external;
+    /// @notice Withdraws a proposed payout's approval. The recorded approver or proposer may withdraw it.
+    function revokePayoutApproval(bytes32 officeId, bytes32 requestId) external;
 
     function routePayout(bytes32 officeId, bytes32 requestId) external returns (bytes32 actionId);
     /// @notice Cancels an office payout before execution, including its routed timelock action when already queued.

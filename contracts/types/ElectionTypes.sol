@@ -142,6 +142,15 @@ library ElectionTypes {
         uint32 runnerUpCount;
     }
 
+    /// @notice Resumable ranking over a nomination-closed, vote-closed candidate list.
+    struct FinalizationProgress {
+        uint256 candidateCount;
+        uint256 processedCount;
+        uint256 remainingRanked;
+        uint256 selectedCount;
+        bool started;
+    }
+
     struct CongressOfficeTerm {
         uint256 cycleId;
         uint32 seatCount;

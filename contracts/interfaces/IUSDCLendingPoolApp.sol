@@ -103,6 +103,8 @@ interface IUSDCLendingPoolApp {
     function currentDebtOf(bytes32 personId) external view returns (uint256 amount);
 
     /// @notice Returns the maximum additional USDC that a person identifier can borrow now.
+    /// @dev Includes pending interest/reserves and scaled-debt rounding. Returns zero for ineligible people.
+    ///      This is a same-state quote, not a guarantee against intervening transactions or elapsed time.
     /// @param personId The canonical person identifier.
     /// @return amount The additional borrow amount available.
     function maxBorrowable(bytes32 personId) external view returns (uint256 amount);

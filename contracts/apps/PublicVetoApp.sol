@@ -7,14 +7,20 @@ import {IElectorateRegistry} from "../interfaces/IElectorateRegistry.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
 import {ILegislationRegistry} from "../interfaces/ILegislationRegistry.sol";
 import {IPublicVetoApp} from "../interfaces/IPublicVetoApp.sol";
+import {IReferendumApp} from "../interfaces/IReferendumApp.sol";
+import {IReferendumRegistry} from "../interfaces/IReferendumRegistry.sol";
+import {IActionTimelock} from "../interfaces/IActionTimelock.sol";
+import {ReferendumTypes} from "../types/ReferendumTypes.sol";
+import {GovernanceTypes} from "../types/GovernanceTypes.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {IdentityTypes} from "../types/IdentityTypes.sol";
 import {LegislationTypes} from "../types/LegislationTypes.sol";
 import {VetoTypes} from "../types/VetoTypes.sol";
 
 /// @title PublicVetoApp
-/// @notice User-facing application for person-counted public veto support and bounded legislation repeal.
-contract PublicVetoApp is IPublicVetoApp {
+/// @notice Person-counted, two-citizen petitions that initiate a Law-tier repeal referendum, not immediate repeal.
+contract PublicVetoApp is IPublicVetoApp, ReentrancyGuard {
     IConstitutionKernel private immutable _kernel;
     IIdentityRegistry private immutable _identityRegistry;
     ILegislationRegistry private immutable _legislationRegistry;
@@ -23,12 +29,13 @@ contract PublicVetoApp is IPublicVetoApp {
     mapping(bytes32 measureId => VetoTypes.PublicVetoRecord publicVetoRecord) private _publicVetoRecords;
     mapping(bytes32 measureId => mapping(bytes32 personId => VetoTypes.PublicVetoReceipt receipt)) private
         _publicVetoReceipts;
-    // A threshold-reaching cast repeals atomically, so a pending measure's active set never exceeds the threshold.
+    // A threshold-reaching cast submits one referendum, so the petition set never exceeds two people.
     mapping(bytes32 measureId => bytes32[] personIds) private _activePublicVetoSupporters;
+    mapping(bytes32 measureId => uint256 nonce) private _petitionNonces;
 
     /// @param legislationRegistryAddress The legislation registry address.
     /// @param citizenEligibilityPolicyAddress The citizen eligibility policy address.
-    /// @param repealThreshold_ The immutable headcount threshold required to trigger repeal.
+    /// @param repealThreshold_ The immutable two-person threshold required to initiate a repeal referendum.
     constructor(address legislationRegistryAddress, address citizenEligibilityPolicyAddress, uint256 repealThreshold_) {
         if (legislationRegistryAddress == address(0) || legislationRegistryAddress.code.length == 0) {
             revert InvalidRegistry(legislationRegistryAddress);
@@ -36,7 +43,7 @@ contract PublicVetoApp is IPublicVetoApp {
         if (citizenEligibilityPolicyAddress == address(0) || citizenEligibilityPolicyAddress.code.length == 0) {
             revert InvalidPolicy(citizenEligibilityPolicyAddress);
         }
-        if (repealThreshold_ == 0) {
+        if (repealThreshold_ != 2) {
             revert InvalidRepealThreshold(repealThreshold_);
         }
 
@@ -78,13 +85,16 @@ contract PublicVetoApp is IPublicVetoApp {
 
     /// @inheritdoc IPublicVetoApp
     function previewVetoId(bytes32 measureId) public view returns (bytes32 vetoId) {
-        return keccak256(abi.encode(block.chainid, address(this), measureId));
+        return keccak256(abi.encode(block.chainid, address(this), measureId, _petitionNonces[measureId]));
     }
 
     /// @inheritdoc IPublicVetoApp
     function getPublicVetoRecord(bytes32 measureId) external view returns (VetoTypes.PublicVetoRecord memory record) {
         record = _publicVetoRecords[measureId];
-        if (!record.repealed) {
+        LegislationTypes.LegislationRecord memory measure = _legislationRegistry.getLegislationRecord(measureId);
+        record.repealed = measure.repealed;
+        record.repealedAt = measure.repealedAt;
+        if (record.referendumId == bytes32(0)) {
             record.supportCount = _currentPublicVetoSupportCount(measureId);
         }
     }
@@ -95,14 +105,14 @@ contract PublicVetoApp is IPublicVetoApp {
             return false;
         }
 
-        return
-            _publicVetoRecords[measureId].repealed || _isCurrentlyEligiblePerson(_citizenEligibilityPolicy(), personId);
+        return _publicVetoRecords[measureId].referendumId != bytes32(0)
+            || _isCurrentlyEligiblePerson(_citizenEligibilityPolicy(), personId);
     }
 
     /// @inheritdoc IPublicVetoApp
     function remainingRepealSupport(bytes32 measureId) external view returns (uint256 remaining) {
         VetoTypes.PublicVetoRecord storage publicVetoRecord = _publicVetoRecords[measureId];
-        if (publicVetoRecord.repealed) {
+        if (publicVetoRecord.referendumId != bytes32(0)) {
             return 0;
         }
 
@@ -120,7 +130,7 @@ contract PublicVetoApp is IPublicVetoApp {
     }
 
     /// @inheritdoc IPublicVetoApp
-    function castPublicVeto(bytes32 measureId) external {
+    function castPublicVeto(bytes32 measureId) external nonReentrant {
         ICitizenEligibilityPolicy eligibilityPolicy = _citizenEligibilityPolicy();
         if (!eligibilityPolicy.isCitizenInGoodStanding(msg.sender)) {
             revert NotEligiblePublicVetoer(msg.sender);
@@ -133,6 +143,9 @@ contract PublicVetoApp is IPublicVetoApp {
 
         bytes32 vetoId = previewVetoId(measureId);
         VetoTypes.PublicVetoRecord storage publicVetoRecord = _publicVetoRecords[measureId];
+        if (publicVetoRecord.referendumId != bytes32(0)) {
+            revert PetitionAlreadySubmitted(measureId, publicVetoRecord.referendumId);
+        }
         uint64 currentTimestamp = uint64(block.timestamp);
         _pruneIneligibleSupport(measureId, publicVetoRecord, eligibilityPolicy, currentTimestamp);
 
@@ -155,19 +168,19 @@ contract PublicVetoApp is IPublicVetoApp {
 
         emit PublicVetoCast(measureId, vetoId, personId, msg.sender, publicVetoRecord.supportCount, currentTimestamp);
 
-        if (!publicVetoRecord.repealed && publicVetoRecord.supportCount >= _repealThreshold) {
-            publicVetoRecord.repealed = true;
-            publicVetoRecord.repealedAt = currentTimestamp;
-
+        if (publicVetoRecord.supportCount >= _repealThreshold) {
             emit PublicVetoThresholdReached(
                 measureId, vetoId, publicVetoRecord.supportCount, msg.sender, currentTimestamp
             );
-            _legislationRegistry.recordRepeal(measureId, LegislationTypes.RepealOrigin.PublicVeto, vetoId);
+            bytes32 referendumId = IReferendumApp(_kernel.getModule(KernelModuleIds.REFERENDUM_APP))
+                .createPublicRepealReferendum(measureId, vetoId);
+            publicVetoRecord.referendumId = referendumId;
+            emit PublicRepealReferendumCreated(measureId, vetoId, referendumId);
         }
     }
 
     /// @inheritdoc IPublicVetoApp
-    function removePublicVeto(bytes32 measureId) external {
+    function removePublicVeto(bytes32 measureId) external nonReentrant {
         bytes32 personId = _resolveActivePersonId(msg.sender);
         VetoTypes.PublicVetoReceipt storage receipt = _publicVetoReceipts[measureId][personId];
         if (!receipt.active) {
@@ -175,7 +188,7 @@ contract PublicVetoApp is IPublicVetoApp {
         }
 
         VetoTypes.PublicVetoRecord storage publicVetoRecord = _publicVetoRecords[measureId];
-        if (publicVetoRecord.repealed) {
+        if (publicVetoRecord.referendumId != bytes32(0)) {
             revert MeasureNotVetoEligible(measureId);
         }
 
@@ -187,6 +200,35 @@ contract PublicVetoApp is IPublicVetoApp {
         emit PublicVetoRemoved(
             measureId, publicVetoRecord.vetoId, personId, msg.sender, publicVetoRecord.supportCount, receipt.updatedAt
         );
+    }
+
+    /// @inheritdoc IPublicVetoApp
+    function resetPublicPetition(bytes32 measureId) external nonReentrant {
+        _requireVetoEligible(_legislationRegistry.getLegislationRecord(measureId), measureId);
+        bytes32 referendumId = _publicVetoRecords[measureId].referendumId;
+        if (referendumId == bytes32(0)) revert PetitionStillLive(referendumId);
+        ReferendumTypes.ReferendumRecord memory vote =
+            IReferendumRegistry(_kernel.getModule(KernelModuleIds.REFERENDUM_REGISTRY)).getReferendum(referendumId);
+        bool terminal = vote.status == ReferendumTypes.ReferendumStatus.Defeated
+            || vote.status == ReferendumTypes.ReferendumStatus.Canceled;
+        if (vote.status == ReferendumTypes.ReferendumStatus.Succeeded && vote.enactmentActionId != bytes32(0)) {
+            GovernanceTypes.ActionRecord memory action =
+                IActionTimelock(_kernel.getModule(KernelModuleIds.ACTION_TIMELOCK)).getAction(vote.enactmentActionId);
+            terminal = action.actionId != bytes32(0)
+                && (action.state == GovernanceTypes.ActionState.Canceled
+                    || action.state == GovernanceTypes.ActionState.Expired
+                    || (action.state == GovernanceTypes.ActionState.Queued && block.timestamp > action.expiresAt));
+        }
+        if (!terminal) revert PetitionStillLive(referendumId);
+        bytes32[] storage supporters = _activePublicVetoSupporters[measureId];
+        // Exactly two maximum: a new round never inherits the previous petition's signatures.
+        for (uint256 i; i < supporters.length; ++i) {
+            delete _publicVetoReceipts[measureId][supporters[i]];
+        }
+        delete _activePublicVetoSupporters[measureId];
+        delete _publicVetoRecords[measureId];
+        uint256 nonce = ++_petitionNonces[measureId];
+        emit PublicPetitionReset(measureId, referendumId, nonce);
     }
 
     function _resolveActivePersonId(address wallet) private view returns (bytes32 personId) {
@@ -217,6 +259,9 @@ contract PublicVetoApp is IPublicVetoApp {
     }
 
     function _currentPublicVetoSupportCount(bytes32 measureId) private view returns (uint256 count) {
+        if (_publicVetoRecords[measureId].referendumId != bytes32(0)) {
+            return _publicVetoRecords[measureId].supportCount;
+        }
         ICitizenEligibilityPolicy eligibilityPolicy = _citizenEligibilityPolicy();
         bytes32[] storage supporters = _activePublicVetoSupporters[measureId];
         uint256 supporterCount = supporters.length;

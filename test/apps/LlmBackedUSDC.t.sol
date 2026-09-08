@@ -153,6 +153,97 @@ contract LlmBackedUSDCTest is Test {
         _fundAndDeposit(LP, 10_000 * USDC_UNIT);
     }
 
+    function test_MaxBorrowableUsesAccruedAggregateCapBeforeCheckpoint() public {
+        vm.startPrank(address(stakeAuthority));
+        stakeRegistry.increaseStake(BORROWER_PERSON_ID, 4_000_000 * ONE_LLM);
+        stakeRegistry.increaseStake(LIQUIDATOR_PERSON_ID, 5_000 * ONE_LLM);
+        vm.stopPrank();
+        _fundAndDeposit(LP, 2_000_000 * USDC_UNIT);
+        vm.prank(BORROWER);
+        lendingPool.borrow(BORROW_CAP - 100 * USDC_UNIT);
+        skip(1 days);
+
+        uint256 quoted = lendingPool.maxBorrowable(LIQUIDATOR_PERSON_ID);
+        assertEq(quoted, 0);
+        assertGt(lendingPool.currentDebtOf(BORROWER_PERSON_ID), BORROW_CAP);
+        vm.prank(LIQUIDATOR);
+        vm.expectPartialRevert(IUSDCLendingPoolApp.BorrowCapExceeded.selector);
+        lendingPool.borrow(100 * USDC_UNIT);
+        lendingPool.accrueInterest();
+        assertEq(lendingPool.maxBorrowable(LIQUIDATOR_PERSON_ID), 0);
+    }
+
+    function test_MaxBorrowableIsZeroForUnknownOrIneligiblePerson() public {
+        assertEq(lendingPool.maxBorrowable(bytes32(uint256(999))), 0);
+        IdentityTypes.IdentityRecord memory record = identityRegistry.getIdentityRecord(BORROWER_PERSON_ID);
+        vm.prank(address(identityAuthority));
+        identityRegistry.setIdentityRecord(
+            BORROWER_PERSON_ID,
+            IdentityTypes.IdentityRecordInput({
+                metadataHash: record.metadataHash,
+                metadataURI: record.metadataURI,
+                verificationStatus: record.verificationStatus,
+                citizenshipStatus: IdentityTypes.CitizenshipStatus.Suspended,
+                ageClass: record.ageClass,
+                correctionFlag: record.correctionFlag,
+                finalSuspension: true
+            })
+        );
+        assertEq(lendingPool.maxBorrowable(BORROWER_PERSON_ID), 0);
+    }
+
+    function testFuzz_MaxBorrowableExactlyInvertsCollateralRounding(uint64 elapsed, uint96 initialBorrow) public {
+        uint256 firstBorrow = bound(uint256(initialBorrow), 1, 1_000 * USDC_UNIT);
+        vm.prank(BORROWER);
+        lendingPool.borrow(firstBorrow);
+        skip(bound(uint256(elapsed), 1, 180 days));
+        _assertExactBorrowQuote(BORROWER_PERSON_ID, BORROWER);
+    }
+
+    function testFuzz_MaxBorrowableExactlyInvertsPersonCapRounding(uint64 elapsed) public {
+        LendingRiskParameterPolicy capped =
+            new LendingRiskParameterPolicy(3_000, 4_000, 1_500, 1_500, 1_200 * USDC_UNIT);
+        kernel.bootstrapSetModule(KernelModuleIds.LENDING_RISK_PARAMETER_POLICY, address(capped));
+        vm.prank(BORROWER);
+        lendingPool.borrow(1_000 * USDC_UNIT);
+        skip(bound(uint256(elapsed), 1, 180 days));
+        _assertExactBorrowQuote(BORROWER_PERSON_ID, BORROWER);
+    }
+
+    function testFuzz_MaxBorrowableIncludesAccruedReserves(uint64 elapsed) public {
+        vm.prank(address(stakeAuthority));
+        stakeRegistry.increaseStake(BORROWER_PERSON_ID, 1_000_000 * ONE_LLM);
+        vm.prank(BORROWER);
+        lendingPool.borrow(9_000 * USDC_UNIT);
+        skip(bound(uint256(elapsed), 1, 180 days));
+        assertLt(lendingPool.maxBorrowable(BORROWER_PERSON_ID), lendingPool.availableLiquidity());
+        _assertExactBorrowQuote(BORROWER_PERSON_ID, BORROWER);
+    }
+
+    function testFuzz_MaxBorrowableExactlyInvertsAggregateCapRounding(uint64 elapsed) public {
+        vm.startPrank(address(stakeAuthority));
+        stakeRegistry.increaseStake(BORROWER_PERSON_ID, 4_000_000 * ONE_LLM);
+        stakeRegistry.increaseStake(LIQUIDATOR_PERSON_ID, 4_000_000 * ONE_LLM);
+        vm.stopPrank();
+        _fundAndDeposit(LP, 2_000_000 * USDC_UNIT);
+        vm.prank(BORROWER);
+        lendingPool.borrow(BORROW_CAP - 100_000 * USDC_UNIT);
+        skip(bound(uint256(elapsed), 1, 30 days));
+        _assertExactBorrowQuote(LIQUIDATOR_PERSON_ID, LIQUIDATOR);
+    }
+
+    function _assertExactBorrowQuote(bytes32 personId, address borrower) internal {
+        uint256 quoted = lendingPool.maxBorrowable(personId);
+        assertGt(quoted, 0);
+        // One more unit must fail, but the quote itself must be executable before an explicit checkpoint.
+        vm.prank(borrower);
+        vm.expectRevert();
+        lendingPool.borrow(quoted + 1);
+        vm.prank(borrower);
+        lendingPool.borrow(quoted);
+        assertEq(lendingPool.maxBorrowable(personId), 0);
+    }
+
     function test_InterfacesExposeSelectors() public pure {
         assertTrue(IStakeLienRegistry.increaseLien.selector != bytes4(0));
         assertTrue(IStakeLienRegistry.retainedStakeFloorOf.selector != bytes4(0));

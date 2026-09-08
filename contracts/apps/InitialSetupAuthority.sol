@@ -8,6 +8,8 @@ import {ILLMStakingVault} from "../interfaces/ILLMStakingVault.sol";
 import {IOfficeRegistry} from "../interfaces/IOfficeRegistry.sol";
 import {ISenateSeatRegistry} from "../interfaces/ISenateSeatRegistry.sol";
 import {IStakeRegistry} from "../interfaces/IStakeRegistry.sol";
+import {IElectorateRegistry} from "../interfaces/IElectorateRegistry.sol";
+import {IVotingPowerPolicy} from "../interfaces/IVotingPowerPolicy.sol";
 import {ElectionTypes} from "../types/ElectionTypes.sol";
 import {IdentityTypes} from "../types/IdentityTypes.sol";
 import {OfficeTypes} from "../types/OfficeTypes.sol";
@@ -21,6 +23,7 @@ contract InitialSetupAuthority {
     error NotSetupOwner(address caller);
     error SetupAuthorityAlreadySealed();
     error SetupReadinessCheckFailed(bytes32 checkId);
+    error GenesisSnapshotNotCompleted(uint256 lastMutationBlock, uint256 currentBlock);
 
     event SetupAuthoritySealed(address indexed sealedBy);
     event SetupCitizenConfigured(
@@ -50,6 +53,7 @@ contract InitialSetupAuthority {
     IOfficeRegistry public immutable officeRegistry;
 
     bool public isSealed;
+    uint256 public lastCitizenMutationBlock;
 
     /// @param owner_ The explicit setup operator. This authority can be permanently sealed.
     /// @param identityRegistryAddress The identity registry address.
@@ -113,6 +117,7 @@ contract InitialSetupAuthority {
         uint256 activeStakeToAdd
     ) external {
         _requireOpenOwner(msg.sender);
+        lastCitizenMutationBlock = block.number;
         _requireNonzero(wallet);
         if (personId == bytes32(0)) {
             revert InvalidSetupInput();
@@ -132,6 +137,7 @@ contract InitialSetupAuthority {
     /// @param amount Active stake units to add.
     function increaseStake(bytes32 personId, uint256 amount) external {
         _requireOpenOwner(msg.sender);
+        lastCitizenMutationBlock = block.number;
         if (personId == bytes32(0) || amount == 0) {
             revert InvalidSetupInput();
         }
@@ -144,6 +150,7 @@ contract InitialSetupAuthority {
     /// @param protectedFloor The protected floor to store.
     function setProtectedStakeFloor(bytes32 personId, uint256 protectedFloor) external {
         _requireOpenOwner(msg.sender);
+        lastCitizenMutationBlock = block.number;
         if (personId == bytes32(0)) {
             revert InvalidSetupInput();
         }
@@ -182,6 +189,13 @@ contract InitialSetupAuthority {
         returns (uint256 officeTermCycleId, uint256 continuityCycleId)
     {
         _requireOpenOwner(msg.sender);
+        // The live genesis cycle must never pin a block whose checkpoints can still change.
+        if (block.number == 0 || block.number <= lastCitizenMutationBlock) {
+            revert GenesisSnapshotNotCompleted(lastCitizenMutationBlock, block.number);
+        }
+        uint48 snapshotBlock = SafeCast.toUint48(block.number - 1);
+        IElectorateRegistry(IVotingPowerPolicy(congressElectionPolicy.votingPowerPolicy()).electorateRegistry())
+            .snapshotAtCurrentEpoch(snapshotBlock);
         officeTermCycleId = _seedFinalizedCongressTerm(members);
 
         uint64 nominationStart = uint64(block.timestamp);
@@ -201,7 +215,7 @@ contract InitialSetupAuthority {
                 nominationStart: nominationStart,
                 votingStart: votingStart,
                 votingEnd: continuityCycleEnd,
-                votingPowerSnapshotBlock: SafeCast.toUint48(block.number),
+                votingPowerSnapshotBlock: snapshotBlock,
                 seatCount: congressElectionPolicy.seatCount(),
                 runnerUpCount: congressElectionPolicy.runnerUpCount(),
                 maxCandidateCount: congressElectionPolicy.maxCandidateCount(),

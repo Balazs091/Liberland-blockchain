@@ -5,6 +5,8 @@ import {Test} from "forge-std/Test.sol";
 
 import {ActionTimelock} from "../../contracts/core/ActionTimelock.sol";
 import {ReferendumApp} from "../../contracts/apps/ReferendumApp.sol";
+import {PublicVetoApp} from "../../contracts/apps/PublicVetoApp.sol";
+import {IPublicVetoApp} from "../../contracts/interfaces/IPublicVetoApp.sol";
 import {TreasuryVault} from "../../contracts/apps/TreasuryVault.sol";
 import {ConstitutionKernel} from "../../contracts/core/ConstitutionKernel.sol";
 import {GovernanceRouter} from "../../contracts/core/GovernanceRouter.sol";
@@ -56,7 +58,7 @@ contract MockSenateAppForReferendumFinalization {
             finalizedAt: 0,
             vetoedAt: 0,
             supportSnapshot: 0,
-            presidentProxySupportSnapshot: 0,
+            requiredSupportSnapshot: 0,
             exists: true,
             finalized: false,
             vetoed: false
@@ -91,6 +93,24 @@ contract MockSenateAppForReferendumFinalization {
         returns (SenateTypes.DisbursementSuspension memory suspension)
     {
         return suspension;
+    }
+}
+
+/// @dev An adversarial replacement callback used only to verify the petition reentrancy boundary.
+contract ReentrantPetitionCallback {
+    PublicVetoApp public immutable petition;
+    bytes4 public reentryError;
+
+    constructor(PublicVetoApp petition_) {
+        petition = petition_;
+    }
+
+    function createPublicRepealReferendum(bytes32 measureId, bytes32 petitionId) external returns (bytes32) {
+        (bool success, bytes memory reason) =
+            address(petition).call(abi.encodeCall(PublicVetoApp.castPublicVeto, (measureId)));
+        require(!success, "reentry unexpectedly succeeded");
+        reentryError = bytes4(reason);
+        return keccak256(abi.encode(measureId, petitionId));
     }
 }
 
@@ -165,6 +185,7 @@ contract ReferendaTest is Test {
     TreasurySpendingPolicy internal treasurySpendingPolicy;
     ReferendumPolicy internal referendumPolicy;
     ReferendumApp internal referendumApp;
+    PublicVetoApp internal publicVetoApp;
     MockSenateAppForReferendumFinalization internal mockSenateApp;
 
     function setUp() public {
@@ -269,10 +290,13 @@ contract ReferendaTest is Test {
             address(votingPowerPolicy)
         );
         mockSenateApp = new MockSenateAppForReferendumFinalization();
+        publicVetoApp = new PublicVetoApp(address(legislationRegistry), address(citizenEligibilityPolicy), 2);
+        kernel.bootstrapSetModule(KernelModuleIds.PUBLIC_VETO_APP, address(publicVetoApp));
 
         kernel.bootstrapSetModule(KernelModuleIds.LEGISLATION_REGISTRY_AUTHORITY, address(timelock));
         kernel.bootstrapSetModule(KernelModuleIds.BUDGET_ENVELOPE_REGISTRY_AUTHORITY, address(timelock));
         kernel.bootstrapSetModule(KernelModuleIds.REFERENDUM_REGISTRY_AUTHORITY, address(referendumApp));
+        kernel.bootstrapSetModule(KernelModuleIds.REFERENDUM_REGISTRY, address(referendumRegistry));
         kernel.bootstrapSetModule(KernelModuleIds.REFERENDUM_POLICY, address(referendumPolicy));
         kernel.bootstrapSetModule(KernelModuleIds.REFERENDUM_APP, address(referendumApp));
         kernel.bootstrapSetModule(KernelModuleIds.CONGRESS_ELECTION_APP, address(congressAuthority));
@@ -293,6 +317,131 @@ contract ReferendaTest is Test {
             MINIMUM_ELECTION_VOTING_DURATION,
             MAX_SCHEDULE_LEAD_TIME,
             cycleDuration
+        );
+    }
+
+    function test_Governance_PublicPetitionRequiresVotingAndDelayedTypedExecution() public {
+        bytes32 measure = _enactPublicPetitionLaw();
+        vm.prank(WALLET_ONE);
+        publicVetoApp.castPublicVeto(measure);
+        vm.prank(WALLET_TWO);
+        publicVetoApp.castPublicVeto(measure);
+        bytes32 referendumId = publicVetoApp.getPublicVetoRecord(measure).referendumId;
+        assertNotEq(referendumId, bytes32(0));
+        assertFalse(legislationRegistry.getLegislationRecord(measure).repealed);
+        ReferendumTypes.ReferendumRecord memory record = referendumRegistry.getReferendum(referendumId);
+        assertEq(uint8(record.referendumClass), uint8(ReferendumTypes.ReferendumClass.LegislationRepeal));
+        assertEq(record.endTime - record.startTime, MINIMUM_VOTING_DURATION);
+        assertEq(record.voterCount, 0); // Petition signatures are not automatically referendum votes.
+        vm.prank(WALLET_ONE);
+        referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.For);
+        vm.prank(WALLET_TWO);
+        referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.For);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IReferendumApp.ReferendumNotEnded.selector, referendumId, record.endTime, uint64(block.timestamp)
+            )
+        );
+        referendumApp.finalizeReferendum(referendumId);
+        vm.warp(record.endTime);
+        referendumApp.finalizeReferendum(referendumId);
+        bytes32 actionId = referendumRegistry.getReferendum(referendumId).enactmentActionId;
+        GovernanceTypes.ActionRecord memory action = timelock.getAction(actionId);
+        assertEq(uint8(action.actionType), uint8(GovernanceTypes.ActionType.LegislationRepeal));
+        assertGe(action.earliestExecutionTime, record.endTime + STANDARD_ADOPTION_DELAY);
+        assertTrue(legislationRegistry.getLegislationRecord(measure).active);
+        vm.warp(action.earliestExecutionTime);
+        timelock.executeAction(actionId);
+        assertTrue(publicVetoApp.getPublicVetoRecord(measure).repealed);
+        assertEq(legislationRegistry.getLegislationRecord(measure).repealReference, referendumId);
+        vm.expectRevert();
+        timelock.executeAction(actionId);
+    }
+
+    function test_Governance_UnvotedPublicPetitionCannotRepealOrSubmitTwice() public {
+        bytes32 measure = _enactPublicPetitionLaw();
+        vm.prank(WALLET_ONE);
+        publicVetoApp.castPublicVeto(measure);
+        vm.prank(WALLET_TWO);
+        publicVetoApp.castPublicVeto(measure);
+        bytes32 referendumId = publicVetoApp.getPublicVetoRecord(measure).referendumId;
+        vm.prank(WALLET_THREE);
+        vm.expectRevert(abi.encodeWithSelector(IPublicVetoApp.PetitionAlreadySubmitted.selector, measure, referendumId));
+        publicVetoApp.castPublicVeto(measure);
+        vm.warp(referendumRegistry.getReferendum(referendumId).endTime);
+        referendumApp.finalizeReferendum(referendumId);
+        assertEq(
+            uint8(referendumRegistry.getReferendum(referendumId).status),
+            uint8(ReferendumTypes.ReferendumStatus.Defeated)
+        );
+        assertEq(referendumRegistry.getReferendum(referendumId).enactmentActionId, bytes32(0));
+        assertTrue(legislationRegistry.getLegislationRecord(measure).active);
+    }
+
+    function test_Governance_PublicVetoCannotDirectlyRepealOrForgeReferendum() public {
+        bytes32 measure = _enactPublicPetitionLaw();
+        vm.prank(WALLET_ONE);
+        vm.expectRevert(abi.encodeWithSelector(IReferendumApp.UnauthorizedPublicPetition.selector, WALLET_ONE));
+        referendumApp.createPublicRepealReferendum(measure, keccak256("forged petition"));
+        vm.prank(address(publicVetoApp));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ILegislationRegistry.UnauthorizedLegislationRepealCaller.selector, address(publicVetoApp)
+            )
+        );
+        legislationRegistry.recordRepeal(measure, LegislationTypes.RepealOrigin.PublicVeto, keccak256("forged result"));
+        assertTrue(legislationRegistry.getLegislationRecord(measure).active);
+    }
+
+    function test_Governance_DefeatedPetitionCanRestartWithoutReusingSignatures() public {
+        bytes32 measure = _enactPublicPetitionLaw();
+        vm.prank(WALLET_ONE);
+        publicVetoApp.castPublicVeto(measure);
+        vm.prank(WALLET_TWO);
+        publicVetoApp.castPublicVeto(measure);
+        bytes32 firstId = publicVetoApp.getPublicVetoRecord(measure).referendumId;
+        vm.expectRevert(abi.encodeWithSelector(IPublicVetoApp.PetitionStillLive.selector, firstId));
+        publicVetoApp.resetPublicPetition(measure);
+        vm.warp(referendumRegistry.getReferendum(firstId).endTime);
+        referendumApp.finalizeReferendum(firstId);
+        publicVetoApp.resetPublicPetition(measure);
+        assertEq(publicVetoApp.currentPublicVetoSupportCount(measure), 0);
+        assertFalse(publicVetoApp.hasActivePublicVeto(measure, PERSON_ONE_ID));
+        vm.prank(WALLET_ONE);
+        publicVetoApp.castPublicVeto(measure);
+        vm.prank(WALLET_TWO);
+        publicVetoApp.castPublicVeto(measure);
+        assertNotEq(publicVetoApp.getPublicVetoRecord(measure).referendumId, firstId);
+    }
+
+    function test_Governance_PublicPetitionBlocksMutatingCallbackReentry() public {
+        bytes32 measure = _enactPublicPetitionLaw();
+        ReentrantPetitionCallback callback = new ReentrantPetitionCallback(publicVetoApp);
+        vm.mockCall(
+            address(kernel),
+            abi.encodeWithSignature("getModule(bytes32)", KernelModuleIds.REFERENDUM_APP),
+            abi.encode(address(callback))
+        );
+        vm.prank(WALLET_ONE);
+        publicVetoApp.castPublicVeto(measure);
+        vm.prank(WALLET_TWO);
+        publicVetoApp.castPublicVeto(measure);
+        assertEq(callback.reentryError(), bytes4(keccak256("ReentrancyGuardReentrantCall()")));
+        assertEq(publicVetoApp.getPublicVetoRecord(measure).supportCount, 2);
+    }
+
+    function _enactPublicPetitionLaw() internal returns (bytes32 measure) {
+        measure = keccak256("public petition test law");
+        vm.prank(address(timelock));
+        legislationRegistry.recordEnactment(
+            measure,
+            LegislationTypes.LegislationRecordInput({
+                tier: LegislationTypes.LegislationTier.Law,
+                textHash: keccak256("text"),
+                proposerReference: keccak256("law proposer"),
+                enactedByReferendumId: keccak256("previous law vote"),
+                amendsMeasureId: bytes32(0)
+            })
         );
     }
 
@@ -1042,17 +1191,43 @@ contract ReferendaTest is Test {
         assertEq(kernel.getModule(KernelModuleIds.SENATE_APP), address(mockSenateApp));
     }
 
+    function test_Audit_ImplicitOfficeAuthoritiesRequireConstitutionalThreshold() public {
+        bytes32[2] memory moduleIds = [KernelModuleIds.DECISION_APP, KernelModuleIds.CABINET_APP];
+        congressAuthority.setMember(WALLET_TWO, true);
+        for (uint256 index = 0; index < moduleIds.length; ++index) {
+            MockModule currentApp = new MockModule(moduleIds[index]);
+            MockModule replacementApp = new MockModule(keccak256(abi.encode(moduleIds[index], "replacement")));
+            vm.prank(address(timelock));
+            kernel.governanceRegisterModule(moduleIds[index], address(currentApp));
+            ReferendumTypes.ModuleGovernanceProposal memory proposal = _defaultModuleGovernanceProposal(
+                "audit-authority", "audit-authority", moduleIds[index], address(replacementApp), false
+            );
+            vm.prank(WALLET_TWO);
+            bytes32 referendumId = referendumApp.createCongressModuleGovernanceReferendum(proposal);
+            assertTrue(referendumRegistry.getReferendum(referendumId).requiresSupermajority);
+            vm.prank(WALLET_THREE);
+            referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.For);
+            vm.warp(proposal.endTime);
+            referendumApp.finalizeReferendum(referendumId);
+            ReferendumTypes.ReferendumResult memory result = referendumRegistry.getReferendumResult(referendumId);
+            assertFalse(result.passed);
+            assertEq(result.headcountQuorumRequired, 2);
+            assertEq(result.enactmentActionId, bytes32(0));
+            assertEq(kernel.getModule(moduleIds[index]), address(currentApp));
+        }
+    }
+
     function test_BoundedNonOriginAppReplacement_StaysAtOrdinaryThreshold() public {
-        MockModule currentDecisionApp = new MockModule(keccak256("current-decision-app"));
-        MockModule replacementDecisionApp = new MockModule(keccak256("replacement-decision-app"));
+        MockModule currentApp = new MockModule(keccak256("current-company-app"));
+        MockModule replacementApp = new MockModule(keccak256("replacement-company-app"));
         vm.prank(address(timelock));
-        kernel.governanceRegisterModule(KernelModuleIds.DECISION_APP, address(currentDecisionApp));
+        kernel.governanceRegisterModule(KernelModuleIds.COMPANY_REGISTRY_APP, address(currentApp));
 
         ReferendumTypes.ModuleGovernanceProposal memory proposal = _defaultModuleGovernanceProposal(
-            "proposal-repoint-decision-app",
-            "module-repoint-decision-app",
-            KernelModuleIds.DECISION_APP,
-            address(replacementDecisionApp),
+            "proposal-repoint-company-app",
+            "module-repoint-company-app",
+            KernelModuleIds.COMPANY_REGISTRY_APP,
+            address(replacementApp),
             false
         );
         vm.prank(WALLET_ONE);
@@ -1079,7 +1254,7 @@ contract ReferendaTest is Test {
         GovernanceTypes.ActionRecord memory actionRecord = timelock.getAction(result.enactmentActionId);
         vm.warp(actionRecord.earliestExecutionTime);
         timelock.executeAction(result.enactmentActionId);
-        assertEq(kernel.getModule(KernelModuleIds.DECISION_APP), address(replacementDecisionApp));
+        assertEq(kernel.getModule(KernelModuleIds.COMPANY_REGISTRY_APP), address(replacementApp));
     }
 
     function test_BreakingSenateInterfaceCannotBrickReferendumFinalization() public {

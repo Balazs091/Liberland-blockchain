@@ -79,6 +79,12 @@ library GovernanceTypes {
         bytes32 amendsMeasureId;
     }
 
+    /// @notice Exact Law-tier target and successful public-petition referendum; never arbitrary calldata.
+    struct LegislationRepealPayload {
+        bytes32 measureId;
+        bytes32 referendumId;
+    }
+
     struct TreasuryDisbursementPayload {
         bytes32 requestId;
         bytes32 budgetId;

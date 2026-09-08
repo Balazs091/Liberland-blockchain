@@ -7,6 +7,7 @@ import {OfficeTypes} from "../types/OfficeTypes.sol";
 /// @title ILandRegistryApp
 /// @notice User-facing cadastral workflow interface with explicit preparation and finalization powers.
 interface ILandRegistryApp {
+    error StaleTransferParcelVersion(bytes32 parcelId, bytes32 expectedVersionHash, bytes32 currentVersionHash);
     error InvalidLandPartyPolicy(address policyAddress);
     error InvalidLandRegistry(address registryAddress);
     error InvalidLandRegistryOffice(bytes32 officeId);
@@ -81,6 +82,7 @@ interface ILandRegistryApp {
     function registerTitle(bytes32 titleId, LandTypes.TitleInput calldata input, bytes32 transactionId) external;
 
     /// @notice Finalizes a title transfer authorized by the current seller and eligible buyer.
+    /// @dev Both signatures bind the title and parcel versions; revised geometry requires renewed consent.
     function transferTitle(
         LandTypes.TitleTransferRequest calldata request,
         address sellerSigner,

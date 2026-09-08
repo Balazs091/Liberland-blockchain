@@ -20,7 +20,7 @@ import {OfficeTypes} from "../types/OfficeTypes.sol";
 ///      composed in a reviewed replacement without adding a bypass to the stable registry.
 contract LandRegistryApp is ILandRegistryApp, EIP712 {
     bytes32 private constant _TITLE_TRANSFER_TYPEHASH = keccak256(
-        "TitleTransfer(bytes32 titleId,bytes32 expectedVersionHash,bytes32 sellerPartyKey,bytes32 newHolderPartyKey,bytes32 anchorHash,bytes32 transactionId,uint256 nonce,uint64 deadline)"
+        "TitleTransfer(bytes32 titleId,bytes32 expectedVersionHash,bytes32 expectedParcelVersionHash,bytes32 sellerPartyKey,bytes32 newHolderPartyKey,bytes32 anchorHash,bytes32 transactionId,uint256 nonce,uint64 deadline)"
     );
 
     ILandRegistry private immutable _landRegistry;
@@ -173,6 +173,7 @@ contract LandRegistryApp is ILandRegistryApp, EIP712 {
         }
 
         LandTypes.TitleRecord memory titleRecord = _landRegistry.getTitle(request.titleId);
+        _requireTransferParcelVersion(request, titleRecord.parcelId);
         ILandPartyPolicy partyPolicy = _currentLandPartyPolicy();
         if (!partyPolicy.partyExists(titleRecord.holder)) {
             revert InvalidParty(titleRecord.holder);
@@ -313,6 +314,16 @@ contract LandRegistryApp is ILandRegistryApp, EIP712 {
         _landRegistry.releaseEncumbrance(encumbranceId, releaseAnchor, transactionId);
     }
 
+    function _requireTransferParcelVersion(LandTypes.TitleTransferRequest calldata request, bytes32 parcelId)
+        private
+        view
+    {
+        bytes32 parcelVersionHash = _landRegistry.getParcel(parcelId).versionHash;
+        if (request.expectedParcelVersionHash != parcelVersionHash) {
+            revert StaleTransferParcelVersion(parcelId, request.expectedParcelVersionHash, parcelVersionHash);
+        }
+    }
+
     function _hashTitleTransferAuthorization(
         LandTypes.TitleTransferRequest calldata request,
         LandTypes.PartyRef memory seller
@@ -322,6 +333,7 @@ contract LandRegistryApp is ILandRegistryApp, EIP712 {
                 _TITLE_TRANSFER_TYPEHASH,
                 request.titleId,
                 request.expectedVersionHash,
+                request.expectedParcelVersionHash,
                 _partyKey(seller),
                 _partyKey(request.newHolder),
                 _anchorHash(request.anchor),

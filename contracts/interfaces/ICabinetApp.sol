@@ -241,6 +241,7 @@ interface ICabinetApp {
 
     /// @notice Casts or replaces the caller's Congress ballot for a Prime Minister candidate.
     /// @param candidate The citizen-in-good-standing candidate to vote for.
+    /// @dev Voter and candidate identities are fixed when cast; wallet reassignment invalidates the ballot.
     function voteForPrimeMinister(address candidate) external;
 
     /// @notice Finalizes an appointment when a candidate holds a strict majority of occupied Congress seats and

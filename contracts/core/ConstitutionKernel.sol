@@ -202,6 +202,9 @@ contract ConstitutionKernel is IConstitutionKernel {
     }
 
     function _moduleClass(bytes32 moduleId) private pure returns (GovernanceTypes.ModuleClass class) {
+        if (moduleId == KernelModuleIds.CIVIC_APPEAL_AUTHORITY) {
+            return GovernanceTypes.ModuleClass.Authority;
+        }
         if (moduleId == KernelModuleIds.GOVERNANCE_ROUTER || moduleId == KernelModuleIds.ACTION_TIMELOCK) {
             return GovernanceTypes.ModuleClass.Core;
         }
@@ -254,15 +257,14 @@ contract ConstitutionKernel is IConstitutionKernel {
                 || moduleId == KernelModuleIds.MINISTRY_TREASURY_FUNDING_AUTHORITY
                 || moduleId == KernelModuleIds.CONGRESS_ELECTION_APP || moduleId == KernelModuleIds.OFFICE_EXECUTOR
                 || moduleId == KernelModuleIds.REFERENDUM_APP || moduleId == KernelModuleIds.SENATE_APP
-                || moduleId == KernelModuleIds.CONSTITUTIONAL_REVIEW
+                || moduleId == KernelModuleIds.PUBLIC_VETO_APP || moduleId == KernelModuleIds.DECISION_APP
+                || moduleId == KernelModuleIds.CABINET_APP || moduleId == KernelModuleIds.CONSTITUTIONAL_REVIEW
         ) {
             return GovernanceTypes.ModuleClass.Authority;
         }
         if (
-            moduleId == KernelModuleIds.CABINET_APP || moduleId == KernelModuleIds.COMPANY_REGISTRY_APP
-                || moduleId == KernelModuleIds.DECISION_APP || moduleId == KernelModuleIds.HEAD_OF_STATE_APP
+            moduleId == KernelModuleIds.COMPANY_REGISTRY_APP || moduleId == KernelModuleIds.HEAD_OF_STATE_APP
                 || moduleId == KernelModuleIds.LAND_REGISTRY_APP || moduleId == KernelModuleIds.PAYOUT_QUEUE
-                || moduleId == KernelModuleIds.PUBLIC_VETO_APP
         ) {
             return GovernanceTypes.ModuleClass.Application;
         }

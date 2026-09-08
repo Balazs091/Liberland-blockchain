@@ -150,6 +150,26 @@
             "name": "actionId",
             "type": "bytes32",
             "internalType": "bytes32"
+          },
+          {
+            "name": "proposer",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "approver",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "proposerAuthorizationId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "approverAuthorizationId",
+            "type": "bytes32",
+            "internalType": "bytes32"
           }
         ]
       }
@@ -285,6 +305,16 @@
         "name": "routeAfter",
         "type": "uint64",
         "internalType": "uint64"
+      },
+      {
+        "name": "proposer",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "authorizationId",
+        "type": "bytes32",
+        "internalType": "bytes32"
       }
     ],
     "outputs": [],
@@ -308,6 +338,29 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "setPayoutApproval",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "approver",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "authorizationId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -340,6 +393,31 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "PayoutApprovalUpdated",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "approver",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "authorizationId",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",

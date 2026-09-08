@@ -138,6 +138,7 @@ interface IDecisionApp {
     /// @notice Returns true when a Congress member has supported a Congress decision.
     /// @param decisionId The decision identifier.
     /// @param member The Congress member wallet.
+    /// @dev Support is bound to the person who cast it; another person cannot inherit it by reusing the wallet.
     function hasCongressSupported(bytes32 decisionId, address member) external view returns (bool supported);
 
     /// @notice Returns the required majority support for the current Congress term.

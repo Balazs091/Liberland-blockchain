@@ -19,6 +19,7 @@ import {StakeRegistry} from "../../contracts/registries/StakeRegistry.sol";
 import {IdentityTypes} from "../../contracts/types/IdentityTypes.sol";
 
 contract LendingInvariantHandler is Test {
+    bool public quotedBorrowFailed;
     USDCLendingPoolApp public immutable pool;
     ConstitutionKernel public immutable kernel;
     MockUSDC public immutable usdc;
@@ -62,7 +63,10 @@ contract LendingInvariantHandler is Test {
         }
         uint256 amount = bound(uint256(rawAmount), 1, maximum);
         vm.prank(borrower);
-        try pool.borrow(amount) {} catch {}
+        try pool.borrow(amount) {}
+        catch {
+            quotedBorrowFailed = true;
+        }
     }
 
     /// @notice Attempts a bounded repayment against the fixture citizen's debt.
@@ -118,6 +122,11 @@ contract LendingInvariantHandler is Test {
     function advanceTimeAndAccrue(uint64 rawSeconds) external {
         vm.warp(block.timestamp + bound(uint256(rawSeconds), 1, 365 days));
         try pool.accrueInterest() {} catch {}
+    }
+
+    /// @notice Leaves interest uncheckpointed so subsequent quotes exercise pending debt and reserves.
+    function advanceTimeWithoutAccrual(uint32 rawSeconds) external {
+        vm.warp(block.timestamp + bound(uint256(rawSeconds), 1, 30 days));
     }
 
     /// @notice Repoints the live risk policy to one of the reviewed fixture policies.
@@ -275,6 +284,11 @@ contract LendingInvariantTest is Test {
     function invariant_RiskPolicyPointerOnlyUsesReviewedFixtures() public view {
         address current = kernel.getModule(KernelModuleIds.LENDING_RISK_PARAMETER_POLICY);
         assertTrue(current == address(riskPolicyOne) || current == address(riskPolicyTwo));
+    }
+
+    /// @notice Any positive same-state quote must be executable, including after uncheckpointed time advances.
+    function invariant_BorrowPreviewNeverOverstatesExecutableCapacity() public view {
+        assertFalse(handler.quotedBorrowFailed());
     }
 
     function _assertStakeFloor(bytes32 personId) private view {

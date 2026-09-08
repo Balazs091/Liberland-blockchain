@@ -23,7 +23,8 @@ contract DeployDemoIntegrationHarness is DeployDemo {
         _financeOfficeAdmin = deployer;
         _identityOfficeAdmin = registrar;
         _landOfficeAdmin = address(0x1A2D);
-        _companyRegistryOfficeAdmin = deployer;
+        _companyRegistryOfficeAdmin = address(0xC001);
+        _civicReviewers = [address(0xA001), address(0xA002), address(0xA003), address(0xA004), address(0xA005)];
         _financeClerk = address(0xC1E2);
         _treasuryPrefundUsdc = 0;
         _treasuryPrefundLlm = 0;

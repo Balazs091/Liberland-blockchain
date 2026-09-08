@@ -12,11 +12,11 @@ This folder is the clean handoff package for the frontend.
   - generated after a real demo deployment; ignored by Git so stale addresses are not committed
 - `FRONTEND-HOWTO.md`
   - page-by-page guidance for the first demo frontend screens
-- `FRONTEND-CHANGES.md`
-  - migration notes for compiler, manifests, governance, lending, and the breaking cadastre update
+- `INTEGRATION-CHECKLIST.md`
+  - current release requirements for configuration, consent, voting, counting, custody and signatures
 - `abis/`
   - generated ABI artifacts for the source contract set; regenerate the whole directory after every contract change
-    and do not mix files from different revisions
+    and do not mix files from different revisions; CI checks exact ABI/source parity
 - `example-config.ts`
   - minimal example of how to wire the addresses into a React + `viem` + `wagmi` app
 
@@ -38,7 +38,8 @@ Production uses Ethereum mainnet (`chainId: 1`) and `deployments/ethereum-mainne
 - The demo uses the production-like 30-day unstake welfare period and a fast 72-hour Congress election cycle
 - The seeded demo election and all later demo elections end at `17:00 UTC`; production uses the same fixed endpoint with a 90 day recurring duration
 - Late finalization advances the next full cycle to the next `17:00 UTC` boundary, so refresh or preview timestamps instead of deriving them from transaction time
-- Finalizing the latest ended Congress election creates the next deterministic cycle automatically in the same transaction; a public transaction is still required because the EVM has no native scheduler
+- Congress counting may need repeated bounded transactions. Final activation of the latest cycle creates the next
+  deterministic cycle in that final transaction; intermediate success is not finality.
 - Congress ballots are cycle-scoped. Recasting replaces the full ballot only in that cycle; no allocation carries forward.
 - `stakingVault` is the canonical LLM custody address and `electorateRegistry` provides bounded constitutional snapshot totals
 - live referendum/election creation verifies
@@ -48,7 +49,7 @@ Production uses Ethereum mainnet (`chainId: 1`) and `deployments/ethereum-mainne
 - identity/stake writes use bounded best-effort electorate callbacks and remain usable if the replaceable electorate
   fails; a missed callback or policy rebuild pauses new process creation until catch-up/rebuild has completed and
   one more block has begun
-- Timing-only election cadence changes use the dedicated policy referendum; breaking election-policy replacements use the constitutional module path
+- Every election-policy replacement uses the constitutional double threshold, including the dedicated timing-policy route
 - Router origins (`ReferendumApp`, `CongressElectionApp`, `SenateApp`, and `OfficeExecutor`) and the
   constitutional-review hook use the constitutional module threshold; only bounded apps without routing/review power
   use the ordinary module threshold
@@ -56,7 +57,7 @@ Production uses Ethereum mainnet (`chainId: 1`) and `deployments/ethereum-mainne
 - the incumbent Senate cannot cancel or hold open the active referendum for its exact `SENATE_APP` replacement or
   cancel the resulting action; its queue hook is skipped only there. Constitutional review is skipped only for its
   own exact pointer replacement; all normal vote and queue checks still apply
-- Official contribution rewards are LLM-only Finance-admin payouts from a referendum-approved budget and require a displayed evidence hash/URI; the Treasury never mints LLM
+- Official contribution rewards are LLM-only Finance-admin-proposed, distinct-officer-approved payouts from a referendum-approved budget and require a displayed evidence hash/URI; the Treasury never mints LLM
 - Senate treasury suspensions and renewals require a published-document hash submitted by a current supporting seat holder; display `DisbursementSuspension.reasonHash` with the active deadline
 - `DecisionApp`, `MinistryTreasury`, and lending are deployed by both manifests; production uses external USDC and
   Sepolia uses mock USDC
@@ -72,8 +73,7 @@ Production uses Ethereum mainnet (`chainId: 1`) and `deployments/ethereum-mainne
 - For live onboarding demos, set `IDENTITY_ADMIN` to a wallet you control before deploying; that wallet becomes the registrar for `DemoCitizenGateway`
 - Sepolia intentionally exports the same address for `identityApp` and `demoCitizenGateway`; the gateway inherits
   the standard `IdentityApp` workflows and is the only standing identity-registry writer
-- An older live deployment does not acquire the fixed endpoint, stake snapshots, or wallet-continuity behavior;
-  redeploy and replace its generated manifest
+- Verify deployment source against the ABIs. Source or documentation edits do not change deployed contracts.
 - Read `../docs/User-Journeys.md` before building role-gated screens; only Finance has an operational ministry office in v1
 
 ## Suggested first screens
@@ -101,6 +101,7 @@ Production uses Ethereum mainnet (`chainId: 1`) and `deployments/ethereum-mainne
   - `CongressElectionApp`
   - `CongressCandidateRegistry`
   - `CongressElectionPolicy`
+  - `CongressRankingStore` (resolve the immutable address with `rankingStore()`)
   - use `currentCongressMembers()` for the active member list
 - senate and veto reads
   - `SenateApp`
@@ -160,7 +161,7 @@ unverified local change: run the export script from the exact source revision us
 
 Both manifests expose `DecisionApp`, `MinistryTreasury`, the lending pool, lien registry, lending policy, and
 `LandPartyPolicy` addresses.
-Still feature-detect addresses and validate `chainId`; an old deployment manifest may predate the current scope.
+Validate every required address and `chainId` against the intended deployment; do not silently omit current modules.
 
 ## Demo flow
 

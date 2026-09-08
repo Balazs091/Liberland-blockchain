@@ -15,6 +15,8 @@ interface ICongressCandidateRegistry is IKernelModule {
     error ElectionCycleAlreadyFinalized(uint256 cycleId);
     error ElectionCycleNotFound(uint256 cycleId);
     error InvalidApplicationHash(bytes32 applicationHash);
+    error ApplicationURITooLong(uint256 length, uint256 maximum);
+    error BallotWalletOwnedByAnotherPerson(uint256 cycleId, address wallet, bytes32 personId);
     error InvalidCandidate(address candidate);
     error InvalidCandidateCount(uint256 candidateCount, uint256 maxCandidateCount);
     error InvalidCycleId(uint256 cycleId);
@@ -41,6 +43,22 @@ interface ICongressCandidateRegistry is IKernelModule {
     error UnauthorizedCongressCandidateRegistryCaller(address caller);
     error UnexpectedCycleId(uint256 expectedCycleId, uint256 providedCycleId);
     error VoteNotFound(uint256 cycleId, address voter);
+    error FinalizationNotReady(uint256 cycleId);
+    error CycleInputsFrozen(uint256 cycleId);
+    error InvalidBatchSize(uint256 count);
+    /// @notice Returns the immutable helper deployed by this registry for derived ranking storage.
+    function rankingStore() external view returns (address);
+    /// @notice Returns fixed-width canonical ranking inputs, without loading arbitrary metadata strings.
+    function getCandidateRankingData(uint256 cycleId, address candidate)
+        external
+        view
+        returns (int256 votes, uint64 appliedAt, bytes32 personId);
+
+    event CongressRankingProgress(uint256 indexed cycleId, uint256 processed, uint256 total);
+    event CongressCandidateConsidered(uint256 indexed cycleId, address indexed candidate, bool selected);
+
+    /// @notice Activates the bounded selected outcome after ranking and live eligibility review.
+    function completeRankedCycle(uint256 cycleId) external;
 
     event CongressElectionCycleCreated(
         uint256 indexed cycleId,

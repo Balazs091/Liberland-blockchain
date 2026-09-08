@@ -3,11 +3,13 @@ BudgetEnvelopeRegistry
 CabinetApp
 CandidateEligibilityPolicy
 CitizenEligibilityPolicy
+CivicAppealReview
 CompanyRegistry
 CompanyRegistryApp
 CongressCandidateRegistry
 CongressElectionApp
 CongressElectionPolicy
+CongressRankingStore
 ConstitutionKernel
 DecisionApp
 DemoCitizenGateway

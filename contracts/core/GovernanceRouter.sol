@@ -106,6 +106,7 @@ contract GovernanceRouter is IGovernanceRouter {
             || actionType == GovernanceTypes.ActionType.ModuleRegistration
             || actionType == GovernanceTypes.ActionType.TreasuryBudgetApproval
             || actionType == GovernanceTypes.ActionType.LegislationEnactment
+            || actionType == GovernanceTypes.ActionType.LegislationRepeal
             || actionType == GovernanceTypes.ActionType.TreasuryDisbursement;
     }
 

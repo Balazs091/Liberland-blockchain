@@ -54,13 +54,18 @@ contract PayoutQueue is IPayoutQueue, KernelModule {
     }
 
     /// @inheritdoc IPayoutQueue
-    function proposePayout(TreasuryTypes.DisbursementRequestInput calldata input, uint64 routeAfter) external {
+    function proposePayout(
+        TreasuryTypes.DisbursementRequestInput calldata input,
+        uint64 routeAfter,
+        address proposer,
+        bytes32 authorizationId
+    ) external {
         _requireOfficeExecutor(msg.sender);
 
         if (
             input.requestId == bytes32(0) || input.budgetId == bytes32(0) || input.officeId == bytes32(0)
                 || input.disbursementType == TreasuryTypes.DisbursementType.Undefined || input.recipient == address(0)
-                || input.amount == 0
+                || input.amount == 0 || proposer == address(0) || authorizationId == bytes32(0)
         ) {
             revert InvalidPayoutRequest(input.requestId);
         }
@@ -85,7 +90,11 @@ contract PayoutQueue is IPayoutQueue, KernelModule {
             state: TreasuryTypes.DisbursementState.Proposed,
             createdAt: uint64(block.timestamp),
             routeAfter: routeAfter,
-            actionId: bytes32(0)
+            actionId: bytes32(0),
+            proposer: proposer,
+            approver: address(0),
+            proposerAuthorizationId: authorizationId,
+            approverAuthorizationId: bytes32(0)
         });
         _requestIds.push(input.requestId);
 
@@ -100,8 +109,24 @@ contract PayoutQueue is IPayoutQueue, KernelModule {
             input.noteHash,
             uint64(block.timestamp),
             routeAfter,
-            msg.sender
+            proposer
         );
+    }
+
+    /// @inheritdoc IPayoutQueue
+    function setPayoutApproval(bytes32 requestId, address approver, bytes32 authorizationId) external {
+        _requireOfficeExecutor(msg.sender);
+        TreasuryTypes.DisbursementRequest storage request = _requests[requestId];
+        if (request.requestId == bytes32(0)) revert InvalidPayoutRequest(requestId);
+        if (request.state != TreasuryTypes.DisbursementState.Proposed) {
+            revert PayoutRequestAlreadyFinalized(requestId, request.state);
+        }
+        if ((approver == address(0)) != (authorizationId == bytes32(0)) || approver == request.proposer) {
+            revert InvalidPayoutRequest(requestId);
+        }
+        request.approver = approver;
+        request.approverAuthorizationId = authorizationId;
+        emit PayoutApprovalUpdated(requestId, approver, authorizationId);
     }
 
     /// @inheritdoc IPayoutQueue
@@ -121,6 +146,7 @@ contract PayoutQueue is IPayoutQueue, KernelModule {
         if (block.timestamp < request.routeAfter) {
             revert PayoutRequestNotReady(requestId, request.routeAfter);
         }
+        if (request.approver == address(0)) revert InvalidPayoutRequest(requestId);
 
         TreasuryTypes.BudgetEnvelope memory budgetEnvelope = _budgetEnvelopeRegistry.getBudgetEnvelope(request.budgetId);
         if (

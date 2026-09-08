@@ -7,6 +7,7 @@ import {OfficeTypes} from "../types/OfficeTypes.sol";
 /// @title IOfficeRegistry
 /// @notice Stable fact registry for office definitions and office role assignments.
 interface IOfficeRegistry is IKernelModule {
+    error OfficeAdminAlreadyAppointed(address admin, bytes32 officeId);
     error InvalidOfficeAdmin(address admin);
     error InvalidOfficeId(bytes32 officeId);
     error InvalidOfficeKind(OfficeTypes.OfficeKind kind);
@@ -57,6 +58,9 @@ interface IOfficeRegistry is IKernelModule {
     function totalOfficeCount() external view returns (uint256 count);
     function officeIdAt(uint256 index) external view returns (bytes32 officeId);
     function roleOf(bytes32 officeId, address account) external view returns (OfficeTypes.OfficeRole role);
+    /// @notice Identifies the account's current appointment; changes across revocation/regrant or administration changes.
+    /// @dev Zero when unauthorized. Suitable for binding approvals without relying on same-block timestamps.
+    function authorizationId(bytes32 officeId, address account) external view returns (bytes32 id);
     function isOfficeAdmin(bytes32 officeId, address account) external view returns (bool isAdmin);
     /// @notice Checks the current admin appointment without requiring the office itself to be active.
     function isOfficeAdminAppointment(bytes32 officeId, address account) external view returns (bool isAdmin);

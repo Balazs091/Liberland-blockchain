@@ -6,7 +6,7 @@ pragma solidity 0.8.36;
 ///         queued governance action. A future court module registered under
 ///         `KernelModuleIds.CONSTITUTIONAL_REVIEW` can pause execution of specific actions pending review. Until
 ///         such a module is registered the timelock treats every action as not paused, so a constitutional court is
-///         a pure post-launch add-on (registered through an ordinary module-registration referendum after bootstrap)
+///         a post-launch add-on (registered through a constitutional-threshold module referendum after bootstrap)
 ///         that needs no upgrade to the deliberately un-repointable core timelock.
 interface IConstitutionalReview {
     /// @notice Returns whether execution of a queued governance action is currently paused for constitutional review.

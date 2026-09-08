@@ -6,6 +6,7 @@ import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
 import {IOfficeExecutor} from "../interfaces/IOfficeExecutor.sol";
 import {IOfficePermissionPolicy} from "../interfaces/IOfficePermissionPolicy.sol";
 import {IOfficeRegistry} from "../interfaces/IOfficeRegistry.sol";
+import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
 import {IPayoutQueue} from "../interfaces/IPayoutQueue.sol";
 import {ITreasurySpendingPolicy} from "../interfaces/ITreasurySpendingPolicy.sol";
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
@@ -163,31 +164,45 @@ contract OfficeExecutor is IOfficeExecutor {
             uint64(block.timestamp)
                 + spendingPolicy.minimumQueueDelay(
                     officeId, officeRole, input.disbursementType, input.asset, input.amount
-                )
+                ),
+            msg.sender,
+            _officeRegistry.authorizationId(officeId, msg.sender)
         );
     }
 
     /// @inheritdoc IOfficeExecutor
+    function approvePayout(bytes32 officeId, bytes32 requestId) external {
+        _authorizeOfficeAction(officeId, msg.sender, OfficeTypes.OfficeActionClass.RoutePayout);
+        TreasuryTypes.DisbursementRequest memory request = _payoutQueue.getDisbursementRequest(requestId);
+        if (request.officeId != officeId) revert OfficeActionOfficeMismatch(officeId, request.officeId);
+        _requireCurrentPayoutProposer(request);
+        _requireDistinctPayoutOfficers(requestId, request.proposer, msg.sender);
+        _payoutQueue.setPayoutApproval(requestId, msg.sender, _officeRegistry.authorizationId(officeId, msg.sender));
+    }
+
+    /// @inheritdoc IOfficeExecutor
+    function revokePayoutApproval(bytes32 officeId, bytes32 requestId) external {
+        TreasuryTypes.DisbursementRequest memory request = _payoutQueue.getDisbursementRequest(requestId);
+        if (request.officeId != officeId) revert OfficeActionOfficeMismatch(officeId, request.officeId);
+        if (msg.sender != request.approver && msg.sender != request.proposer) revert PayoutApprovalRequired(requestId);
+        _payoutQueue.setPayoutApproval(requestId, address(0), bytes32(0));
+    }
+
+    /// @inheritdoc IOfficeExecutor
     function routePayout(bytes32 officeId, bytes32 requestId) external returns (bytes32 actionId) {
-        (, OfficeTypes.OfficeRole officeRole) =
-            _authorizeOfficeAction(officeId, msg.sender, OfficeTypes.OfficeActionClass.RoutePayout);
+        _authorizeOfficeAction(officeId, msg.sender, OfficeTypes.OfficeActionClass.RoutePayout);
 
         TreasuryTypes.DisbursementRequest memory request = _payoutQueue.getDisbursementRequest(requestId);
         if (request.officeId != officeId) {
             revert OfficeActionOfficeMismatch(officeId, request.officeId);
         }
-        ITreasurySpendingPolicy spendingPolicy = _currentTreasurySpendingPolicy();
-        if (!spendingPolicy.isPayoutAllowed(
-                officeId, officeRole, request.disbursementType, request.asset, request.amount
-            )) {
-            revert UnauthorizedOfficeAction(msg.sender, officeId, OfficeTypes.OfficeActionClass.RoutePayout);
+        _requireCurrentPayoutProposer(request);
+        if (request.approver == address(0)) revert PayoutApprovalRequired(requestId);
+        _authorizeOfficeAction(officeId, request.approver, OfficeTypes.OfficeActionClass.RoutePayout);
+        if (_officeRegistry.authorizationId(officeId, request.approver) != request.approverAuthorizationId) {
+            revert StalePayoutAuthorization(requestId, request.approver);
         }
-        bytes32 expectedPolicyReference = spendingPolicy.computePolicyReference(
-            officeId, officeRole, request.disbursementType, request.asset, request.amount
-        );
-        if (request.policyReference != expectedPolicyReference) {
-            revert UnauthorizedOfficeAction(msg.sender, officeId, OfficeTypes.OfficeActionClass.RoutePayout);
-        }
+        _requireDistinctPayoutOfficers(requestId, request.proposer, request.approver);
 
         GovernanceTypes.TreasuryDisbursementPayload memory payload = _payoutQueue.prepareRouting(requestId);
 
@@ -196,7 +211,7 @@ contract OfficeExecutor is IOfficeExecutor {
                 actionType: GovernanceTypes.ActionType.TreasuryDisbursement,
                 origin: GovernanceTypes.ActionOrigin.Office,
                 originReference: officeId,
-                policyReference: expectedPolicyReference,
+                policyReference: request.policyReference,
                 targetModule: KernelModuleIds.TREASURY_VAULT,
                 payload: abi.encode(payload),
                 requestedExecutionTime: 0,
@@ -205,6 +220,35 @@ contract OfficeExecutor is IOfficeExecutor {
         );
 
         _payoutQueue.confirmRouted(requestId, actionId);
+    }
+
+    function _requireCurrentPayoutProposer(TreasuryTypes.DisbursementRequest memory request) private view {
+        (, OfficeTypes.OfficeRole role) =
+            _authorizeOfficeAction(request.officeId, request.proposer, OfficeTypes.OfficeActionClass.ProposePayout);
+        if (_officeRegistry.authorizationId(request.officeId, request.proposer) != request.proposerAuthorizationId) {
+            revert StalePayoutAuthorization(request.requestId, request.proposer);
+        }
+        ITreasurySpendingPolicy policy = _currentTreasurySpendingPolicy();
+        if (
+            !policy.isPayoutAllowed(request.officeId, role, request.disbursementType, request.asset, request.amount)
+                || request.policyReference
+                    != policy.computePolicyReference(
+                        request.officeId, role, request.disbursementType, request.asset, request.amount
+                    )
+        ) {
+            revert StalePayoutAuthorization(request.requestId, request.proposer);
+        }
+    }
+
+    function _requireDistinctPayoutOfficers(bytes32 requestId, address proposer, address approver) private view {
+        if (proposer == approver) revert DistinctPayoutOfficerRequired(requestId);
+        IIdentityRegistry registry = IIdentityRegistry(
+            IConstitutionKernel(_officeRegistry.kernel()).getModule(KernelModuleIds.IDENTITY_REGISTRY)
+        );
+        bytes32 proposerPerson = registry.resolveWalletToPersonId(proposer);
+        if (proposerPerson != bytes32(0) && proposerPerson == registry.resolveWalletToPersonId(approver)) {
+            revert DistinctPayoutOfficerRequired(requestId);
+        }
     }
 
     /// @inheritdoc IOfficeExecutor

@@ -26,7 +26,7 @@ library EthereumMainnetParameters {
 
     uint32 internal constant CONGRESS_SEAT_COUNT = 7;
     uint32 internal constant CONGRESS_RUNNER_UP_COUNT = 2;
-    uint32 internal constant CONGRESS_MAX_CANDIDATE_COUNT = 9;
+    uint32 internal constant CONGRESS_MAX_CANDIDATE_COUNT = 0; // Open admission; counting is resumable.
     uint64 internal constant MINIMUM_NOMINATION_DURATION = 2 days;
     uint64 internal constant MINIMUM_ELECTION_VOTING_DURATION = 3 days;
     uint64 internal constant MAX_SCHEDULE_LEAD_TIME = 14 days;

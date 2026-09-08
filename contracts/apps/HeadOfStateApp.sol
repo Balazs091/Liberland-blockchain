@@ -33,6 +33,7 @@ contract HeadOfStateApp is IHeadOfStateApp {
 
     struct SeatBallot {
         address candidate;
+        bytes32 candidatePersonId;
         uint64 seatOccupancyNonce;
         uint64 electionCycle;
         uint64 castAt;
@@ -135,7 +136,11 @@ contract HeadOfStateApp is IHeadOfStateApp {
         uint64 currentTimestamp = uint64(block.timestamp);
 
         _seatBallots[seatIndex] = SeatBallot({
-            candidate: candidate, seatOccupancyNonce: occupancyNonce, electionCycle: cycle, castAt: currentTimestamp
+            candidate: candidate,
+            candidatePersonId: _resolveSeatHolderPersonId(candidate),
+            seatOccupancyNonce: occupancyNonce,
+            electionCycle: cycle,
+            castAt: currentTimestamp
         });
 
         emit PresidentVoteCast(seatIndex, msg.sender, candidate, occupancyNonce, cycle, currentTimestamp);
@@ -246,7 +251,10 @@ contract HeadOfStateApp is IHeadOfStateApp {
         uint32 totalSeats = _senateSeatRegistry.totalSeats();
         for (uint32 seatIndex = 0; seatIndex < totalSeats; ++seatIndex) {
             SeatBallot memory ballot = _seatBallots[seatIndex];
-            if (ballot.candidate != candidate || ballot.electionCycle != cycle) {
+            if (
+                ballot.candidate != candidate || ballot.electionCycle != cycle
+                    || !_isActiveWalletForPerson(candidate, ballot.candidatePersonId)
+            ) {
                 continue;
             }
 

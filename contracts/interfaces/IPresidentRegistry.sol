@@ -49,6 +49,10 @@ interface IPresidentRegistry is IKernelModule {
     /// @return mandateHash The current mandate hash.
     function currentMandateHash() external view returns (bytes32 mandateHash);
 
+    /// @notice Returns the presidency sequence, advanced on every appointment or vacancy.
+    /// @return nonce The sequence used to invalidate authority from earlier presidencies.
+    function presidencyNonce() external view returns (uint64 nonce);
+
     /// @notice Returns the Vice President wallet for a slot (0 or 1), or zero if unset.
     /// @param slot The Vice President slot to inspect (0 = first-sworn, 1 = second).
     /// @return vp The Vice President wallet for the slot.

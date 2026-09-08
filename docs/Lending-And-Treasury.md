@@ -15,7 +15,7 @@ exact `cap()`. The Treasury is a holder and spender, never an issuer: it has no 
 - The vault independently requires the payload request ID, budget ID, amount, and asset to match an active stable-registry budget commitment.
 - Outbound transfers require the recipient's balance to increase by the exact requested amount; fee-on-transfer and
   otherwise non-exact assets revert instead of silently underpaying the recipient.
-- `ContributionReward` payouts are LLM-only, Finance-admin-only, evidence-backed, and use the sensitive queue delay.
+- `ContributionReward` payouts are LLM-only, Finance-admin-proposed, independently officer-approved, evidence-backed, and use the sensitive queue delay.
 - An office cancellation of a routed payout first cancels its queued timelock action; only then may `PayoutQueue`
   mark it canceled and release the budget commitment.
 - Anyone may call `syncPayoutState` to reconcile an executed, Senate-canceled, or expired timelock action. For
@@ -26,12 +26,13 @@ exact `cap()`. The Treasury is a holder and spender, never an issuer: it has no 
 
 Official rewards for verified donations of time or money use the ordinary treasury safeguards rather than a new
 issuance path. A referendum first approves an LLM-denominated `ContributionReward` budget. The Finance Office admin
-then submits a recipient, amount, evidence hash, and evidence URI. After the sensitive queue and treasury timelock,
+then submits a recipient, amount, evidence hash, and evidence URI. A distinct current Finance officer must approve
+before a policy-permitted officer routes it; both appointment IDs and the proposer's policy are revalidated. After the sensitive queue and treasury timelock,
 the vault transfers existing LLM. Senate controls apply like any other treasury disbursement.
 
 The responsible operational office determines contribution validity off-chain and is expected to be identified in
 the evidence document. V1 does not encode contribution valuation or automatically exchange a stablecoin donation for
-LLM. Finance clerks cannot use this class. The source is always the pre-funded Treasury Vault LLM balance.
+LLM. Finance clerks cannot propose this class but may supply the independent approval or route an approved admin proposal. The source is always the pre-funded Treasury Vault LLM balance.
 
 ## Political stake custody
 
@@ -57,6 +58,13 @@ Debt accounting uses per-person scaled debt under one global RAY (`1e27`) borrow
 deterministically through that index instead of being accrued independently per borrower. `currentDebtOf(personId)`
 previews index growth through the current timestamp; `totalBorrows()` and `borrowIndex()` intentionally return stored
 checkpoint values until `accrueInterest()` or another state-changing pool operation updates them.
+
+`maxBorrowable` previews aggregate debt, borrower limits and reserve-adjusted cash at one current borrow index.
+It conservatively inverts scaled-debt rounding and returns zero for ineligible people. Positive quotes are
+executable against unchanged state, not guaranteed against intervening transactions or elapsed time. Simulate
+`borrow` before submission.
+Ordinary partial repayment does not proportionally release the lien; full repayment clears it. Liquidation
+recalculates it against remaining debt and collateral.
 
 The pool resolves these modules live from the kernel:
 

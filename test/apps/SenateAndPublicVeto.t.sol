@@ -3,6 +3,7 @@ pragma solidity 0.8.36;
 
 import {Test} from "forge-std/Test.sol";
 
+import {HeadOfStateApp} from "../../contracts/apps/HeadOfStateApp.sol";
 import {PublicVetoApp} from "../../contracts/apps/PublicVetoApp.sol";
 import {SenateApp} from "../../contracts/apps/SenateApp.sol";
 import {TreasuryVault} from "../../contracts/apps/TreasuryVault.sol";
@@ -60,6 +61,11 @@ contract MockReferendumAppForSenate {
 
     function cancelReferendumBySenate(bytes32 referendumId) external {
         IReferendumRegistry(referendumRegistry).cancelReferendum(referendumId);
+    }
+
+    // Isolates petition accounting here; real voting, queue and execution are covered in Referenda.t.sol.
+    function createPublicRepealReferendum(bytes32 measureId, bytes32 petitionId) external pure returns (bytes32) {
+        return keccak256(abi.encode(measureId, petitionId));
     }
 
     function routeAction(GovernanceTypes.ActionRequest calldata request) external returns (bytes32 actionId) {
@@ -144,6 +150,75 @@ contract SenateAndPublicVetoTest is Test {
         kernel.disableBootstrapAuthority();
     }
 
+    function testFuzz_SenateCancellationRequiresStrictOccupiedSeatMajority(uint8 rawOccupied, uint8 rawSupport) public {
+        uint32 occupied = uint32(bound(uint256(rawOccupied), 2, 100));
+        uint32 supporters = uint32(bound(uint256(rawSupport), 1, occupied));
+        _deployFoundation();
+        _registerDefaultCitizens();
+        _seedInitialSenateSeats();
+        for (uint32 i = 2; i < occupied; ++i) {
+            senateApp.bootstrapAssignSeat(i, WALLET_TWO);
+        }
+        router.disableBootstrapAuthority();
+        kernel.disableBootstrapAuthority();
+        bytes32 id = _queueModuleUpdate();
+        for (uint32 i; i < supporters; ++i) {
+            vm.prank(i == 0 ? WALLET_ONE : i == 1 ? WALLET_THREE : WALLET_TWO);
+            senateApp.supportActionCancellation(id, i);
+        }
+        uint256 required = occupied / 2 + 1;
+        assertEq(senateApp.requiredSupport(), required);
+        _finalizeActionCancellationAtDeadline(id);
+        SenateTypes.ActionCancellationRecord memory result = senateApp.getActionCancellationRecord(id);
+        assertEq(result.supportSnapshot, supporters);
+        assertEq(result.requiredSupportSnapshot, required);
+        assertEq(result.canceled, supporters >= required);
+    }
+
+    function test_OneRemainingSeatCannotExerciseNegativePowerAlone() public {
+        vm.prank(WALLET_THREE);
+        senateApp.vacateMySeat(1);
+        assertEq(senateApp.requiredSupport(), 2);
+        bytes32 id = _queueModuleUpdate();
+        vm.prank(WALLET_ONE);
+        senateApp.supportActionCancellation(id, 0);
+        _finalizeActionCancellationAtDeadline(id);
+        assertFalse(senateApp.getActionCancellationRecord(id).canceled);
+    }
+
+    function test_PresidentHasNoProxySubstitutionEntrypoints() public {
+        bytes32 id = _queueModuleUpdate();
+        string[4] memory signatures = [
+            "castPresidentActionCancellationProxyVote(bytes32,uint8)",
+            "castPresidentReferendumVetoProxyVote(bytes32,uint8)",
+            "castPresidentSubLegalMeasureRepealProxyVote(bytes32,uint8)",
+            "castPresidentDisbursementSuspensionProxyVote(bytes32,uint8)"
+        ];
+        for (uint256 i; i < signatures.length; ++i) {
+            vm.prank(WALLET_ONE);
+            (bool ok,) = address(senateApp).call(abi.encodeWithSignature(signatures[i], id, uint8(2)));
+            assertFalse(ok);
+        }
+        assertEq(senateApp.actionCancellationSupportCount(id), 0);
+    }
+
+    function test_SingleSeatCannotVetoRepealOrSuspendWithoutOtherSeat() public {
+        bytes32 payoutId = _queueTreasuryDisbursement();
+        vm.startPrank(WALLET_ONE);
+        senateApp.supportReferendumVeto(ACTIVE_REFERENDUM_ID, 0);
+        senateApp.supportSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID, 0);
+        senateApp.supportDisbursementSuspension(payoutId, 0);
+        vm.expectRevert(abi.encodeWithSelector(ISenateApp.SenateSupportNotReached.selector, payoutId, 1, 2));
+        senateApp.suspendDisbursement(payoutId, 0, DISBURSEMENT_SUSPENSION_REASON);
+        vm.stopPrank();
+        vm.warp(senateApp.getReferendumVetoRecord(ACTIVE_REFERENDUM_ID).deadline);
+        senateApp.finalizeReferendumVeto(ACTIVE_REFERENDUM_ID);
+        assertFalse(senateApp.getReferendumVetoRecord(ACTIVE_REFERENDUM_ID).vetoed);
+        vm.warp(senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID).deadline);
+        senateApp.finalizeSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID);
+        assertFalse(senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID).repealed);
+    }
+
     function test_InterfacesExposeSelectors() public pure {
         assertTrue(ICitizenEligibilityPolicy.isCitizenInGoodStanding.selector != bytes4(0));
         assertTrue(IConstitutionKernel.bootstrapAuthority.selector != bytes4(0));
@@ -198,7 +273,7 @@ contract SenateAndPublicVetoTest is Test {
         assertEq(senateApp.actionCancellationSupportCount(actionId), 1);
     }
 
-    function test_SenateAndPresidentAuthorityFollowActiveWalletMigration() public {
+    function test_SenateAuthorityFollowsActiveWalletMigration() public {
         bytes32 actionId = _queueModuleUpdate();
 
         _setWalletLink(PERSON_ONE_ID, WALLET_ONE, IdentityTypes.WalletLinkStatus.Revoked);
@@ -210,12 +285,6 @@ contract SenateAndPublicVetoTest is Test {
         vm.prank(WALLET_ONE_NEW);
         senateApp.supportActionCancellation(actionId, 0);
         assertEq(senateApp.actionCancellationSupportCount(actionId), 1);
-
-        vm.prank(WALLET_ONE);
-        vm.expectRevert(abi.encodeWithSelector(ISenateApp.NotPresident.selector, WALLET_ONE));
-        senateApp.castPresidentActionCancellationProxyVote(actionId, SenateTypes.VoteOption.For);
-        vm.prank(WALLET_ONE_NEW);
-        senateApp.castPresidentActionCancellationProxyVote(actionId, SenateTypes.VoteOption.For);
     }
 
     function test_SenateCancellation_UsesCurrentSeatOccupancyAndSupportsSuccession() public {
@@ -460,20 +529,6 @@ contract SenateAndPublicVetoTest is Test {
         timelock.executeAction(actionId);
     }
 
-    function test_SenateDisbursementSuspension_ProxyOnlyCannotSuspend() public {
-        bytes32 actionId = _queueTreasuryDisbursement();
-
-        vm.prank(WALLET_ONE);
-        senateApp.castPresidentDisbursementSuspensionProxyVote(actionId, SenateTypes.VoteOption.For);
-
-        // Raw proxy support (2) reaches the threshold but violates the participation floor, so suspension is refused.
-        vm.prank(WALLET_ONE);
-        vm.expectRevert(abi.encodeWithSelector(ISenateApp.SenateSupportNotActive.selector, actionId, 0));
-        senateApp.suspendDisbursement(actionId, 0, DISBURSEMENT_SUSPENSION_REASON);
-
-        assertFalse(senateApp.getDisbursementSuspension(actionId).exists);
-    }
-
     function _supportDisbursementSuspension(bytes32 actionId) internal {
         vm.prank(WALLET_ONE);
         senateApp.supportDisbursementSuspension(actionId, 0);
@@ -481,55 +536,14 @@ contract SenateAndPublicVetoTest is Test {
         senateApp.supportDisbursementSuspension(actionId, 1);
     }
 
-    function test_PresidentProxyVoteCountsForNonVotingSenatorsAtDeadline() public {
-        bytes32 actionId = _queueModuleUpdate();
-
-        // One explicit For (seat 1) plus a President proxy covering the remaining non-voting occupied seat (seat 0):
-        // proxy amplifies direct support and the floor (proxy <= direct) is satisfied.
-        vm.prank(WALLET_THREE);
-        senateApp.supportActionCancellation(actionId, 1);
-        vm.prank(WALLET_ONE);
-        senateApp.castPresidentActionCancellationProxyVote(actionId, SenateTypes.VoteOption.For);
-
-        assertEq(senateApp.actionCancellationSupportCount(actionId), 1);
-
-        _finalizeActionCancellationAtDeadline(actionId);
-
-        SenateTypes.ActionCancellationRecord memory cancellationRecord = senateApp.getActionCancellationRecord(actionId);
-        assertTrue(cancellationRecord.canceled);
-        assertEq(cancellationRecord.supportSnapshot, 2);
-        assertEq(cancellationRecord.presidentProxySupportSnapshot, 1);
-        assertEq(uint256(timelock.getActionState(actionId)), uint256(GovernanceTypes.ActionState.Canceled));
-    }
-
-    function test_PresidentProxyOnlyCannotFabricateActionCancellation() public {
-        bytes32 actionId = _queueModuleUpdate();
-
-        // President proxy-votes For on every non-voting occupied seat, with zero explicit For votes.
-        vm.prank(WALLET_ONE);
-        senateApp.castPresidentActionCancellationProxyVote(actionId, SenateTypes.VoteOption.For);
-
-        assertEq(senateApp.actionCancellationSupportCount(actionId), 0);
-
-        _finalizeActionCancellationAtDeadline(actionId);
-
-        SenateTypes.ActionCancellationRecord memory cancellationRecord = senateApp.getActionCancellationRecord(actionId);
-        assertTrue(cancellationRecord.finalized);
-        // Raw support reaches the threshold (2), but it is entirely proxy so the participation floor blocks it.
-        assertFalse(cancellationRecord.canceled);
-        assertEq(cancellationRecord.supportSnapshot, 2);
-        assertEq(cancellationRecord.presidentProxySupportSnapshot, 2);
-        assertEq(uint256(timelock.getActionState(actionId)), uint256(GovernanceTypes.ActionState.Queued));
-    }
-
     function test_SenateCancellation_BlocksExecutionUntilOpenedCancellationIsFinalized() public {
         bytes32 actionId = _queueModuleUpdate();
 
-        // One explicit For plus a President proxy so the opened cancellation clears the participation floor on finalize.
+        // Both occupied seats explicitly support cancellation.
         vm.prank(WALLET_THREE);
         senateApp.supportActionCancellation(actionId, 1);
         vm.prank(WALLET_ONE);
-        senateApp.castPresidentActionCancellationProxyVote(actionId, SenateTypes.VoteOption.For);
+        senateApp.supportActionCancellation(actionId, 0);
 
         GovernanceTypes.ActionRecord memory actionRecord = timelock.getAction(actionId);
         vm.warp(actionRecord.earliestExecutionTime);
@@ -568,45 +582,6 @@ contract SenateAndPublicVetoTest is Test {
         assertTrue(vetoRecord.finalized);
         assertTrue(vetoRecord.vetoed);
         assertEq(vetoRecord.supportSnapshot, 2);
-    }
-
-    function test_PresidentProxyVoteAppliesToReferendumVetoAtDeadline() public {
-        // One direct seat support so the President proxy amplifies WITHIN the H5 floor (proxy <= direct):
-        // the proxy still applies (it carries the remaining non-voting seat), but cannot pass a veto alone.
-        vm.prank(WALLET_ONE);
-        senateApp.supportReferendumVeto(ACTIVE_REFERENDUM_ID, 0);
-
-        vm.prank(WALLET_ONE);
-        senateApp.castPresidentReferendumVetoProxyVote(ACTIVE_REFERENDUM_ID, SenateTypes.VoteOption.For);
-
-        ReferendumTypes.ReferendumRecord memory referendumRecord =
-            referendumRegistry.getReferendum(ACTIVE_REFERENDUM_ID);
-        vm.warp(referendumRecord.endTime);
-        senateApp.finalizeReferendumVeto(ACTIVE_REFERENDUM_ID);
-
-        SenateTypes.ReferendumVetoRecord memory vetoRecord = senateApp.getReferendumVetoRecord(ACTIVE_REFERENDUM_ID);
-        assertTrue(vetoRecord.vetoed);
-        assertEq(vetoRecord.supportSnapshot, 2);
-        assertEq(vetoRecord.presidentProxySupportSnapshot, 1);
-    }
-
-    function test_PresidentProxyOnlyCannotFabricateReferendumVeto() public {
-        // President proxy-votes For on every non-voting occupied seat, with zero explicit For votes.
-        vm.prank(WALLET_ONE);
-        senateApp.castPresidentReferendumVetoProxyVote(ACTIVE_REFERENDUM_ID, SenateTypes.VoteOption.For);
-
-        ReferendumTypes.ReferendumRecord memory referendumRecord =
-            referendumRegistry.getReferendum(ACTIVE_REFERENDUM_ID);
-        vm.warp(referendumRecord.endTime);
-        senateApp.finalizeReferendumVeto(ACTIVE_REFERENDUM_ID);
-
-        SenateTypes.ReferendumVetoRecord memory vetoRecord = senateApp.getReferendumVetoRecord(ACTIVE_REFERENDUM_ID);
-        assertTrue(vetoRecord.finalized);
-        // Raw support reaches the threshold (2), but it is entirely proxy so the H5 floor blocks the veto:
-        // a solo President cannot cancel an active citizen referendum.
-        assertFalse(vetoRecord.vetoed);
-        assertEq(vetoRecord.supportSnapshot, 2);
-        assertEq(vetoRecord.presidentProxySupportSnapshot, 2);
     }
 
     function test_SenateSubLegalRepeal_RepealsTier3AfterVotingPeriod() public {
@@ -704,46 +679,6 @@ contract SenateAndPublicVetoTest is Test {
         senateApp.supportSubLegalMeasureRepeal(ORDINARY_MEASURE_ID, 0);
     }
 
-    function test_PresidentProxyVoteAppliesToSubLegalMeasureRepealAtDeadline() public {
-        // Explicit For (seat 1) plus a President proxy covering the remaining occupied seat: floor satisfied.
-        vm.prank(WALLET_THREE);
-        senateApp.supportSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID, 1);
-        vm.prank(WALLET_ONE);
-        senateApp.castPresidentSubLegalMeasureRepealProxyVote(SUB_LEGAL_MEASURE_ID, SenateTypes.VoteOption.For);
-
-        SenateTypes.SubLegalMeasureRepealRecord memory repealRecord =
-            senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID);
-        vm.warp(repealRecord.deadline);
-        senateApp.finalizeSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID);
-
-        repealRecord = senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID);
-        assertTrue(repealRecord.repealed);
-        assertEq(repealRecord.supportSnapshot, 2);
-        assertEq(repealRecord.presidentProxySupportSnapshot, 1);
-    }
-
-    function test_PresidentProxyOnlyCannotFabricateSubLegalRepeal() public {
-        vm.prank(WALLET_ONE);
-        senateApp.castPresidentSubLegalMeasureRepealProxyVote(SUB_LEGAL_MEASURE_ID, SenateTypes.VoteOption.For);
-
-        SenateTypes.SubLegalMeasureRepealRecord memory repealRecord =
-            senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID);
-        vm.warp(repealRecord.deadline);
-        senateApp.finalizeSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID);
-
-        repealRecord = senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID);
-        assertTrue(repealRecord.finalized);
-        // Proxy-only support reaches the raw threshold (2) but never clears the participation floor.
-        assertFalse(repealRecord.repealed);
-        assertEq(repealRecord.supportSnapshot, 2);
-        assertEq(repealRecord.presidentProxySupportSnapshot, 2);
-
-        LegislationTypes.LegislationRecord memory legislationRecord =
-            legislationRegistry.getLegislationRecord(SUB_LEGAL_MEASURE_ID);
-        assertTrue(legislationRecord.active);
-        assertFalse(legislationRecord.repealed);
-    }
-
     function test_SenateReferendumVeto_RevertsForConstitutionalReferendum() public {
         vm.prank(WALLET_ONE);
         vm.expectRevert(
@@ -762,7 +697,7 @@ contract SenateAndPublicVetoTest is Test {
         senateApp.supportReferendumVeto(SENATE_SELF_REPLACEMENT_REFERENDUM_ID, 0);
     }
 
-    function test_PublicVeto_IsPersonCountedAndRepealsAtThreshold() public {
+    function test_PublicVeto_IsPersonCountedAndSubmitsReferendumAtThreshold() public {
         bytes32 vetoId = publicVetoApp.previewVetoId(ORDINARY_MEASURE_ID);
 
         vm.prank(WALLET_ONE);
@@ -785,15 +720,15 @@ contract SenateAndPublicVetoTest is Test {
 
         VetoTypes.PublicVetoRecord memory vetoRecord = publicVetoApp.getPublicVetoRecord(ORDINARY_MEASURE_ID);
         assertEq(vetoRecord.supportCount, 2);
-        assertTrue(vetoRecord.repealed);
-        assertEq(vetoRecord.repealedAt, uint64(block.timestamp));
+        assertFalse(vetoRecord.repealed);
+        assertEq(vetoRecord.repealedAt, 0);
+        assertNotEq(vetoRecord.referendumId, bytes32(0));
 
         LegislationTypes.LegislationRecord memory legislationRecord =
             legislationRegistry.getLegislationRecord(ORDINARY_MEASURE_ID);
-        assertFalse(legislationRecord.active);
-        assertTrue(legislationRecord.repealed);
-        assertEq(uint256(legislationRecord.repealOrigin), uint256(LegislationTypes.RepealOrigin.PublicVeto));
-        assertEq(legislationRecord.repealReference, vetoId);
+        assertTrue(legislationRecord.active);
+        assertFalse(legislationRecord.repealed);
+        assertEq(uint256(legislationRecord.repealOrigin), uint256(LegislationTypes.RepealOrigin.Undefined));
     }
 
     function test_PublicVeto_RemoveSupportDoesNotUseMeritWeight() public {
@@ -860,7 +795,8 @@ contract SenateAndPublicVetoTest is Test {
 
         vetoRecord = publicVetoApp.getPublicVetoRecord(ORDINARY_MEASURE_ID);
         assertEq(vetoRecord.supportCount, 2);
-        assertTrue(vetoRecord.repealed);
+        assertFalse(vetoRecord.repealed);
+        assertNotEq(vetoRecord.referendumId, bytes32(0));
     }
 
     function test_PublicVeto_ActiveSupportFollowsWalletMigration() public {
@@ -890,7 +826,8 @@ contract SenateAndPublicVetoTest is Test {
 
         VetoTypes.PublicVetoRecord memory vetoRecord = publicVetoApp.getPublicVetoRecord(ORDINARY_MEASURE_TWO_ID);
         assertEq(vetoRecord.supportCount, 2);
-        assertTrue(vetoRecord.repealed);
+        assertFalse(vetoRecord.repealed);
+        assertNotEq(vetoRecord.referendumId, bytes32(0));
     }
 
     function _deployFoundation() internal {
@@ -929,7 +866,6 @@ contract SenateAndPublicVetoTest is Test {
             address(identityRegistry),
             address(senateSeatRegistry),
             address(senatePowersPolicy),
-            address(presidentRegistry),
             address(router),
             address(timelock),
             address(mockReferendumApp)

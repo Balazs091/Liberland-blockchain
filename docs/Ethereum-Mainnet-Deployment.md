@@ -1,8 +1,27 @@
 # Ethereum Mainnet Deployment
 
+**Current governance and release requirements:** see `Governance.md`. Require four nonzero,
+pairwise-distinct office admins (and independently reviewed disjoint controlling signer sets). Appoint an
+independently controlled Identity Office clerk using the normal authorized flow for two-officer recovery/civic
+notices. Include `CongressCandidateRegistry.rankingStore()` and its immutable writer boundary in bytecode review.
+Existing deployments/ABIs are not updated by this source change; a fresh state/process migration review is mandatory.
+
 Use `scripts/Deploy.s.sol` for the production Ethereum mainnet deployment. The script is guarded to chain ID `1` and reads its immutable deployment constants from `scripts/parameters/EthereumMainnetParameters.sol`.
 
 The Sepolia demo is a separate deployment path documented in `docs/Sepolia-Demo-Deployment.md`; it must not be used as a source of production parameters.
+
+## Civic review and officer readiness
+
+Set `CIVIC_REVIEWER_0` through `CIVIC_REVIEWER_4` before running this script. Both networks require five nonzero,
+pairwise-distinct public addresses, each different from the deployer and all four office admins. No reviewer private
+key is needed for deployment. Verify disjoint real controllers, conflicts of interest, signing capability, notice
+publication and evidence retention off-chain; different addresses alone are not sufficient independence.
+
+The manifest exports `civicAppealReview` and `civicReviewer0` through `civicReviewer4`. Verify the kernel's
+`CIVIC_APPEAL_AUTHORITY` pointer, the committee's `identityApp()` binding and all five `reviewerAt(i)` values.
+Appoint operational, independently controlled Identity and Finance clerks through the normal authorized workflow
+before starting two-officer cases or payments. A Finance clerk may approve or route a sensitive admin proposal;
+no officer can provide both approvals. See [Governance](Governance.md) for ruling deadlines and rotation.
 
 ## Production Congress continuity
 
@@ -13,10 +32,16 @@ Because this deployment continues an existing Congress term, genesis creates two
 1. a finalized seed record that installs the seven incumbent office holders; and
 2. a live continuity election cycle ending at the imported pre-migration boundary.
 
-Both setup records use the actual genesis setup block for their snapshot fields. The Congress candidate registry is
-kept under `InitialSetupAuthority` for this multi-transaction seed window, so permissionless live cycle creation
-cannot front-run the continuity record. After seeding, the script switches that registry authority to
-`CongressElectionApp`, checks the final wiring, seals setup, and only then disables bootstrap.
+Deployment now requires two invocations. `run()` prepares contracts and seeds citizens, stake, Senate, President
+and offices. It leaves Congress and referendum registry authority parked on `InitialSetupAuthority` and outputs
+`genesisComplete: false`. This is **not a live deployment** and bootstrap is intentionally still present.
+
+After preparation transactions are confirmed, `completeGenesis(address)` creates the finalized seed term and live
+continuity election using the already-seeded citizen order. The live cycle requires a certified last-completed-block
+snapshot strictly after the last setup citizen mutation; same-block completion reverts. Only the already-finalized
+seed term retains its setup block (it has no live vote). Completion activates the standing Congress/referendum
+writers, checks readiness, seals setup and retires bootstrap. Do not leave preparation unattended or launch a
+frontend against it.
 
 Set `GENESIS_CONGRESS_CYCLE_END_TIMESTAMP` to the absolute Unix timestamp at which the remaining imported cycle should end. It must:
 
@@ -65,8 +90,8 @@ Before contribution rewards begin:
 
 Only the active Finance Office admin may propose a `ContributionReward`. Every request must include a nonzero hash
 and nonempty URI for its evidence document. Rewards use the sensitive one-day office queue, the normal treasury
-timelock, the exact budget commitment, and Senate cancellation/suspension controls. Finance clerks cannot issue this
-reward class.
+timelock, the exact budget commitment, and Senate cancellation/suspension controls. A distinct current officer must approve; a permitted clerk may then route this admin-proposed
+reward. Revoking an appointment after routing does not cancel the queued action.
 
 ## Dry run and broadcast
 
@@ -95,12 +120,39 @@ After reviewing the complete simulation output and generated addresses, broadcas
 forge script scripts/Deploy.s.sol:Deploy \
   --rpc-url "$MAINNET_RPC_URL" \
   --broadcast \
+  --slow --gas-estimate-multiplier 200 \
   --verify \
   --etherscan-api-key "$ETHERSCAN_API_KEY" \
   -vvvv
 ```
 
 The script writes the address manifest to `deployments/ethereum-mainnet.json`. Treat `deployments/` and `broadcast/` as environment-specific generated output.
+
+The command above completes **preparation only**. Confirm its receipts and review the partial manifest, then set
+`GENESIS_KERNEL` to that manifest's exact `constitutionKernel`. Keep the same operator and genesis rank inputs.
+Simulate the second stage against that prepared chain, review it, and then broadcast:
+
+```bash
+forge script scripts/Deploy.s.sol:Deploy \
+  --sig 'completeGenesis(address)' "$GENESIS_KERNEL" \
+  --rpc-url "$MAINNET_RPC_URL" -vvvv
+
+forge script scripts/Deploy.s.sol:Deploy \
+  --sig 'completeGenesis(address)' "$GENESIS_KERNEL" \
+  --rpc-url "$MAINNET_RPC_URL" --broadcast --slow --gas-estimate-multiplier 200 -vvvv
+```
+
+Completion writes `ethereum-mainnet-activation.json` and, if the matching preparation manifest is present, updates
+its Congress fields and `genesisComplete`. Scripts also write files during simulation: **neither file proves a
+broadcast occurred**. Before enabling clients, independently verify confirmed receipts, exact module pointers,
+seven occupied seats, the continuity snapshot, setup sealing and all bootstrap-authority addresses equal to zero.
+Archive both stages' transaction bundles. For a partially broadcast stage use its reviewed Foundry `--resume`
+bundle; do not blindly rerun the non-idempotent preparation or reseed an existing continuity cycle.
+
+Use the shown gas-estimate margin and sequential broadcast. Source mutations now reserve a full electorate callback
+budget. Foundry's same-block script simulation can underestimate checkpoint allocation across real separate blocks;
+the default 130% margin failed a real localhost broadcast of `configureCitizen`, while the 200% rehearsal passed.
+Independently check each prepared transaction against the target chain's gas cap; an estimate is not a guarantee.
 
 ## Deployment scope
 

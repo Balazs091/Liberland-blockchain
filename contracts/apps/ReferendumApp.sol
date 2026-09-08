@@ -240,6 +240,50 @@ contract ReferendumApp is IReferendumApp {
     }
 
     /// @inheritdoc IReferendumApp
+    function createPublicRepealReferendum(bytes32 measureId, bytes32 petitionId)
+        external
+        returns (bytes32 referendumId)
+    {
+        IConstitutionKernel kernel_ = IConstitutionKernel(_governanceRouter.kernel());
+        if (msg.sender != kernel_.getModule(KernelModuleIds.PUBLIC_VETO_APP) || petitionId == bytes32(0)) {
+            revert UnauthorizedPublicPetition(msg.sender);
+        }
+        LegislationTypes.LegislationRecord memory measure = _legislationRegistry.getLegislationRecord(measureId);
+        if (!measure.active || measure.repealed || !LegislationTypes.isLawTier(measure.tier)) {
+            revert InvalidLegislationTier(uint8(measure.tier));
+        }
+        referendumId = keccak256(abi.encode(block.chainid, address(this), "PUBLIC_REPEAL", measureId, petitionId));
+        uint48 snapshotBlock = _lastCompletedBlock();
+        _electorateSnapshotAt(snapshotBlock);
+        IReferendumPolicy policy = _currentReferendumPolicy();
+        _referendumRegistry.createReferendum(
+            referendumId,
+            ReferendumTypes.ReferendumRecordInput({
+                referendumClass: ReferendumTypes.ReferendumClass.LegislationRepeal,
+                proposalOrigin: ReferendumTypes.ProposalOrigin.Citizen,
+                proposalMetadataHash: petitionId,
+                proposedMeasureId: measureId,
+                amendsMeasureId: bytes32(0),
+                legislationTextHash: measure.textHash,
+                legislationTier: LegislationTypes.LegislationTier.Law,
+                targetModule: bytes32(0),
+                proposedModuleAddress: address(0),
+                registerNewModule: false,
+                proposerReference: petitionId,
+                startTime: uint64(block.timestamp),
+                endTime: uint64(block.timestamp) + policy.minimumVotingDuration(),
+                adoptionDelay: policy.standardAdoptionDelay(),
+                votingPowerSnapshotBlock: snapshotBlock,
+                referendumPolicy: address(policy),
+                votingPowerPolicy: address(_currentVotingPowerPolicy()),
+                electorateHeadcountSnapshot: 0,
+                electorateVotingPowerSnapshot: 0,
+                requiresSupermajority: false
+            })
+        );
+    }
+
+    /// @inheritdoc IReferendumApp
     function castVote(bytes32 referendumId, ReferendumTypes.VoteOption option) external {
         if (option != ReferendumTypes.VoteOption.Against && option != ReferendumTypes.VoteOption.For) {
             revert InvalidVoteOption(option);
@@ -295,6 +339,19 @@ contract ReferendumApp is IReferendumApp {
                 enactmentActionId = _queueModuleGovernance(referendumId, referendumRecord);
             } else if (referendumRecord.referendumClass == ReferendumTypes.ReferendumClass.BudgetApproval) {
                 enactmentActionId = _queueBudgetApproval(referendumId, referendumRecord);
+            } else if (referendumRecord.referendumClass == ReferendumTypes.ReferendumClass.LegislationRepeal) {
+                enactmentActionId = _governanceRouter.routeAction(
+                    GovernanceTypes.ActionRequest({
+                        actionType: GovernanceTypes.ActionType.LegislationRepeal,
+                        origin: GovernanceTypes.ActionOrigin.Referendum,
+                        originReference: referendumId,
+                        policyReference: _policyReference(referendumRecord),
+                        targetModule: KernelModuleIds.LEGISLATION_REGISTRY,
+                        payload: abi.encode(GovernanceTypes.LegislationRepealPayload(enactedMeasureId, referendumId)),
+                        requestedExecutionTime: _requestedExecutionTime(referendumId, referendumRecord),
+                        expiresAt: 0
+                    })
+                );
             } else {
                 enactmentActionId = _queueLegislationEnactment(referendumId, referendumRecord, enactedMeasureId);
             }
@@ -566,7 +623,7 @@ contract ReferendumApp is IReferendumApp {
         bytes32 proposerReference
     ) private {
         uint48 votingPowerSnapshotBlock = _lastCompletedBlock();
-        _electorateSnapshotAt(votingPowerSnapshotBlock);
+        (uint256 snapshotHeadcount, uint256 snapshotVotingPower) = _electorateSnapshotAt(votingPowerSnapshotBlock);
         ReferendumTypes.ReferendumRecordInput memory referendumInput = ReferendumTypes.ReferendumRecordInput({
             referendumClass: ReferendumTypes.ReferendumClass.CongressElectionPolicy,
             proposalOrigin: proposalOrigin,
@@ -585,9 +642,11 @@ contract ReferendumApp is IReferendumApp {
             votingPowerSnapshotBlock: votingPowerSnapshotBlock,
             referendumPolicy: address(_currentReferendumPolicy()),
             votingPowerPolicy: address(_currentVotingPowerPolicy()),
-            electorateHeadcountSnapshot: 0,
-            electorateVotingPowerSnapshot: 0,
-            requiresSupermajority: false
+            electorateHeadcountSnapshot: snapshotHeadcount,
+            electorateVotingPowerSnapshot: snapshotVotingPower,
+            // Self-reported metadata cannot prove that arbitrary replacement bytecode changes timing only.
+            // Every election-policy replacement must clear the existing constitutional approval threshold.
+            requiresSupermajority: true
         });
 
         _referendumRegistry.createReferendum(referendumId, referendumInput);
@@ -1053,8 +1112,7 @@ contract ReferendumApp is IReferendumApp {
     ///      unclassified modules use the constitutional threshold. Bounded applications without protocol-wide routing
     ///      or review powers use the ordinary threshold. Core `governance-router` and `action-timelock` are blocked
     ///      upstream in `_validateModuleGovernanceProposal` and never reach here. The dedicated Congress-election-policy
-    ///      referendum remains a lower-friction timing-only path; a full breaking policy replacement uses this
-    ///      constitutional module-governance path.
+    ///      referendum also requires the constitutional threshold: matching metadata cannot constrain bytecode.
     /// @param moduleId The target module identifier being repointed or registered.
     /// @return requiresSupermajority Whether the repoint must clear the constitutional double-threshold.
     function _requiresGovernanceSupermajority(bytes32 moduleId) private view returns (bool requiresSupermajority) {

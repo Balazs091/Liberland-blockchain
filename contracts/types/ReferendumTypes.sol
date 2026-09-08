@@ -13,7 +13,8 @@ library ReferendumTypes {
         ConstitutionalAmendment,
         CongressElectionPolicy,
         BudgetApproval,
-        ModuleGovernance
+        ModuleGovernance,
+        LegislationRepeal
     }
 
     enum ProposalOrigin {

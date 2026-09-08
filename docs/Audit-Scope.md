@@ -34,10 +34,16 @@ fork rehearsal. Generated `out/`, `cache/`, `broadcast/`, and live `deployments/
 
 ## Verification baseline
 
-Revision-specific tool versions, test and coverage results, static-analysis output, runtime sizes, and deployment
-integration evidence are recorded only in `docs/Internal-Audit-Report.md`. They are deliberately not duplicated
-here because those values change during remediation. Auditors must verify that report against the exact commit and
-rerun its commands independently before relying on any result.
+The current verification, open findings and release status are in [Internal Review](Internal-Audit-Report.md).
+Auditors must compare its evidence with the exact working-tree source/commit, not reuse a prior release verdict.
+The [governance rules](Governance.md) include the immutable ranking store, resumable election counts, consent-bound
+identity procedures, typed public repeal and office-admin reservations. Include these state machines in independent
+review. The owner-approved civic appeal, Finance approval and direct-majority Senate rules are implemented;
+independent security and constitutional/legal validation remain required.
+
+Production setup is two-stage with confirmed-block activation. Candidate URI storage is bounded at 2,048 bytes,
+reassigned addresses cannot overwrite another person's live ballot slot, and source mutations cannot underfund
+the required electorate callback budget. Verify these boundaries independently rather than accepting report claims.
 
 Slither is intentionally unsuppressed. Expected review classifications include:
 
@@ -89,9 +95,9 @@ coverage should be expanded during remediation.
    and the invariant `LLM balance >= aggregate active stake` independently.
 2. **Upgrade consistency — accepted audited-module trust model.** Every non-core replacement identifies an exact
    address and passes its referendum threshold, timelock, and Senate window. State, policy, authority, and new
-   extension IDs require the constitutional double threshold. Router origins and the constitutional-review hook are
-   authorities because replacing them changes protocol-wide power. Only bounded apps with neither routing nor review
-   powers use the ordinary module threshold.
+   extension IDs require the constitutional double threshold. Router origins, the constitutional-review hook, and the direct OfficeRegistry writers
+   (`DecisionApp` and `CabinetApp`) are authorities. Only bounded apps without direct registry authority, routing, or
+   review powers use the ordinary module threshold.
    Active referenda and elections pin their starting policies. Senate negative-control processes intentionally use
    the live Senate policy, so a policy replacement may immediately affect their threshold or duration. Atomic action
    batches support coordinated pointer changes. A pointer does not migrate storage/custody, and defective approved
@@ -142,8 +148,8 @@ coverage should be expanded during remediation.
 8. **Treasury and negative-control reconciliation — hardened; retain in focus.** Routed payout cancellation cancels
    the timelock action before releasing its budget; permissionless synchronization verifies execution against the
    action's pinned vault. Ministry lending shares are keyed by office and pool so retired pools remain withdrawable.
-   Before repeal, public-veto reads exclude currently ineligible supporters and the next cast prunes them; completed
-   repeals preserve their final count. Review state reconciliation, replacement boundaries, bounded supporter
+   Before petition submission, public-veto reads exclude currently ineligible supporters and the next cast prunes
+   them; submitted petition signatures are historical. Repeal itself requires voting and delayed typed execution. Review state reconciliation, replacement boundaries, bounded supporter
    iteration, and exact budget accounting.
 9. **Cadastre integrity and signer continuity — redesigned; retain in focus.** Titles store stable namespaced party
    IDs. The replaceable land-party policy resolves current person wallets, company directors, and office
@@ -158,12 +164,14 @@ coverage should be expanded during remediation.
 
 The stateful invariant suite independently exercises governance queue lifecycle, stake/electorate synchronization,
 treasury conservation and replay resistance, land provenance/active-title consistency, and lending accounting,
-liens, custody, and live policy replacement. The ordinary profile runs 64 sequences at depth 64; the `audit` profile
+liens, custody, executable same-state borrowing quotes, and live policy replacement. Dedicated identity lifecycle
+and Congress count handlers cover consent, appeal outcomes, officer reappointment, ranking, migration and changing
+eligibility; their ghost models and non-vacuity tests are themselves in scope. The ordinary profile runs 64 sequences at depth 64; the `audit` profile
 runs 256 sequences at depth 256.
 
 ## Known omissions and accepted boundaries
 
-The repository does not implement a Judiciary branch or constitutional Agents. Foreign Affairs, Interior, and
+The purpose-limited civic appeal committee is not a general court. The repository does not implement a full Judiciary branch or constitutional Agents. Foreign Affairs, Interior, and
 Justice have political minister records but no v1 operational offices/domain apps. Other draft-to-code differences,
 including equal-base voting, Public Veto official removal, Senate scope, treaty classification, and Vice-President
 succession, are classified in `docs/Constitution-Alignment.md`.
@@ -182,13 +190,17 @@ The fixed launch oracle is intentionally accepted. The following are not accepte
 
 ## Required handoff refresh
 
-Before the external-audit package or any new public demo is treated as current:
+Before the offline external-audit package is treated as current:
 
 - verify `docs/constitutional-sources/2024-09-24 Constitution.pdf` against the exact SHA-256 recorded in
   `docs/Constitution-Alignment.md`;
 - complete the revision-specific build, full test, coverage, Slither, runtime-size, and deployment-integration run
   recorded in `docs/Internal-Audit-Report.md` (the repeatable command is `bash scripts/audit-freeze-check.sh`);
-- regenerate the entire `frontend-export/abis/` directory from the same commit rather than merging individual files;
+- regenerate the entire `frontend-export/abis/` directory from the same commit rather than merging individual files; and
+- freeze the source and pinned dependencies, include verification evidence and a checksummed source archive.
+
+Before a new public demo/frontend handoff (separate from the offline audit package):
+
 - make a fresh Sepolia deployment, replace the ignored live manifest, and confirm
   `identityApp == demoCitizenGateway`; and
 - smoke-test onboarding, candidacy across wallet migration, voting, office expiry, payout cancellation/sync, public
@@ -198,7 +210,8 @@ Before the external-audit package or any new public demo is treated as current:
 ## Documentation hierarchy
 
 - `docs/Architecture.md`: system model and design constraints
-- `docs/Protocol-Parameters.md`: boss-review production/demo parameter table
+- `docs/Protocol-Parameters.md`: current production/demo parameter table
+- `docs/Governance.md`: current rules, appeal boundary, counting and office separation
 - `docs/Internal-Audit-Report.md`: internal findings, fixes, residual risks, and readiness verdict
 - `docs/Audit-Scope.md`: external review boundary and focus
 - `docs/Constitution-Alignment.md`: pinned-source comparison and accepted deviations

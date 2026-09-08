@@ -43,7 +43,8 @@ jobs:
         run: forge test -vvv
 
       - name: Run Forge coverage
-        run: forge coverage --report summary
+        # The full optimized test run includes the 1,000-candidate stress test; instrument the equivalent 100-candidate path.
+        run: forge coverage --report summary --no-match-test test_Governance_OpenAdmissionFinalizes1000CandidatesInBoundedChunks
 
       - name: Install Python for Slither
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
@@ -54,5 +55,10 @@ jobs:
         run: python -m pip install --disable-pip-version-check slither-analyzer==0.11.5
 
       - name: Run full Slither report and enforce triaged baseline
-        # The helper leaves Slither output unsuppressed, then requires exact re-triage whenever severity counts move.
+        # Unsuppressed output plus reviewed severity counts and normalized finding identities.
         run: python scripts/check-slither-baseline.py
+
+      - name: Verify current documentation and exact ABI parity
+        run: |
+          python -m unittest discover -s scripts -p 'test_*.py'
+          python scripts/check-docs.py --check-abis

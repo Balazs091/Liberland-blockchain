@@ -104,6 +104,7 @@ interface IHeadOfStateApp {
     /// @notice Casts or replaces this seat's ballot while the presidency is vacant or its term has ended.
     /// @param seatIndex The seat index held by the caller.
     /// @param candidate The active seat-holder candidate to vote for.
+    /// @dev Candidate identity is fixed when cast; wallet reassignment cannot redirect the seat ballot.
     function voteForPresident(uint32 seatIndex, address candidate) external;
 
     /// @notice Finalizes an election when a candidate holds a strict majority of occupied seats and no President is
