@@ -53,7 +53,7 @@ recorded as deliberate omissions or current-policy differences rather than parti
 
 ## Constitutional concepts not represented on-chain
 
-The owner retained the existing referendum/negative-power routes rather than adding a permanent second upgrade
+The design uses the documented referendum/negative-power routes, with no permanent second upgrade
 ballot or broad nonvetoable replacement class. Exact self-replacement exceptions do not prevent mutual Senate/review
 blocking, and defective referendum dependencies can halt replacement voting. This is an explicit architectural
 limit, not a constitutional guarantee of recovery. See [Upgrade and Liveness](Upgrade-And-Liveness.md).

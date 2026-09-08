@@ -26,7 +26,7 @@ The implemented contract surface includes:
 - person-bound elected/executive authority that follows an approved active-wallet migration
 - person-bound candidacy that survives wallet migration without duplicate applications or ballot entries
 - a 70,000,000 LLM hard-cap requirement and evidence-backed, budgeted contribution rewards with no Treasury mint power
-- globally indexed lending debt, lien-start retained-stake floors, and office-and-pool-keyed ministry lending shares
+- globally indexed lending debt, loan-start retained-stake floors, and office-and-pool-keyed ministry lending shares
 - Sepolia demo deployment script with seeded read-state and live onboarding helpers
 
 ## Auditor orientation
@@ -36,7 +36,7 @@ The implemented contract surface includes:
 - `docs/Governance.md`
 - `docs/Upgrade-And-Liveness.md`
 - `docs/Protocol-Parameters.md`
-- `docs/Internal-Audit-Report.md`
+- `docs/Release-Readiness.md`
 - `docs/Audit-Scope.md`
 - `docs/Constitution-Alignment.md`
 - `docs/constitutional-sources/README.md`
@@ -136,5 +136,5 @@ not an absolute no-freeze guarantee. See [Upgrade and Liveness](docs/Upgrade-And
 Start an independent review with [Auditor Handoff](docs/Auditor-Handoff.md).
 
 Repository documentation is audit orientation, not an audit verdict. Revision-specific test, coverage, static
-analysis, and runtime-size evidence belongs in `docs/Internal-Audit-Report.md` and must be refreshed before the
+analysis, and runtime-size evidence belongs in `docs/Release-Readiness.md` and must be refreshed before the
 external-audit handoff.

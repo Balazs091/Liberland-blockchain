@@ -2,7 +2,7 @@
 
 These rules were approved by the owner for the local audit candidate on September 7, 2026. They describe source,
 not a deployed upgrade or independent security certification. See [Protocol Parameters](Protocol-Parameters.md)
-and [Internal Review](Internal-Audit-Report.md).
+and [Release Readiness](Release-Readiness.md).
 
 ## Identity, citizenship and wallet custody
 
@@ -123,12 +123,12 @@ the stable registry's 100 seats, not a replaceable policy's reported seat count.
 
 ## Compatibility and release
 
-The owner retained the existing governance routes: no permanent second upgrade ballot and no general exemption
+The design provides no permanent second upgrade ballot and no general exemption
 from negative powers. Optional hooks have bounded gas/canonical ABI handling, but broken referendum dependencies
 and mutual Senate/review blocking remain recovery limits. See [Upgrade and Liveness](Upgrade-And-Liveness.md).
 
-This state-bearing revision requires a fresh deployment or separately reviewed state/custody/process migration.
-Committee pointers, appointment nonces, payout approvals and changed Senate interfaces must be included in the
+Deployment requires a fresh instance or separately reviewed state/custody/process migration.
+Committee pointers, appointment nonces, payout approvals and Senate interfaces must be included in the
 deployment manifest, frontend ABI bundle and migration scope. No pointer update copies storage or retires old code.
 
 Production requires independently controlled office administrators, five independent civic review accounts,

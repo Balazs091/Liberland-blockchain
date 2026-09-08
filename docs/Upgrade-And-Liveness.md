@@ -3,7 +3,7 @@
 The kernel permits governed replacement of every non-Core module ID. That is an address-update capability, not a
 guarantee that every faulty module, record set or asset position can be recovered. This document is the operational
 boundary for the current source. Existing deployments do not acquire these protections from a documentation or ABI
-update. See [Governance](Governance.md) and the revision-specific [Internal Review](Internal-Audit-Report.md).
+update. See [Governance](Governance.md) and the revision-specific [Release Readiness](Release-Readiness.md).
 
 ## What can change
 
@@ -29,8 +29,8 @@ in use even after its canonical ID changes.
 
 ## Governance can still become unavailable
 
-The owner chose to retain the existing political routes after reviewing the following limits. No permanent second
-citizen-upgrade ballot or broad exemption from negative powers was added.
+The documented governance routes have the following limits. The design provides no permanent second
+citizen-upgrade ballot or broad exemption from negative powers.
 
 - `ReferendumApp` is the only current public route that creates and finalizes module-replacement referenda. Broken
   approved app bytecode can disable that route. Creation and voting also depend on functioning identity, stake,

@@ -4,8 +4,8 @@ Liberland EVM is a modular, constitution-aligned governance system on the EVM. I
 
 Current governance rules are recorded in `Governance.md`: consent/nonce-bound
 migration, separate documented two-officer recovery/civic notices, referendum-based public repeal, open candidate
-admission and resumable ranking, and distinct office-admin appointments. This is a breaking local deployment/state
-revision; it is not an upgrade already applied to existing deployments.
+admission and resumable ranking, and distinct office-admin appointments. Existing deployments require explicit compatibility and state/custody/process migration review;
+this source documentation does not establish an upgrade to a public deployment.
 
 ## Layers
 
@@ -125,14 +125,14 @@ Governance uses bounded action types and never unrestricted calldata execution.
   module-governance threshold
 - `Undefined`: new extension IDs require the double threshold both to register and to replace later
 
-State evolution requires a separately reviewed migration/deployment; a pointer vote does not copy storage or move custody. `PAYOUT_QUEUE` is State-class because it stores requests. Same-ledger LLM vault handoff, exact-successor Treasury asset handoff, and retired-loan settlement are dedicated narrow operations, not generic state migration. Brand-new modules use `ModuleRegistration`; every non-core replacement uses `ModulePointerUpdate`. Both pass through an exact-address referendum, the timelock, and bounded Senate cancellation, while state/policy/authority/extension targets use the constitutional double threshold. Application replacement deliberately relies on voters approving reviewed bytecode and a compatible state/migration plan. Router-origin apps (`ReferendumApp`, `CongressElectionApp`, `SenateApp`, and `OfficeExecutor`), the constitutional-review hook, and the direct office writers (`DecisionApp` and `CabinetApp`) are classified as authorities, so changing any protocol-wide action source or execution gate cannot use the ordinary app threshold. The router prevents unsupported or malformed action classes, but it does not permanently assign supported types to political branches. Current branch limits live in the audited apps; changing a router origin therefore remains possible, but only through the constitutional threshold. Treasury disbursements remain independently constrained by the active budget commitment even if an approved origin module changes.
+State evolution requires a separately reviewed migration/deployment; a pointer vote does not copy storage or move custody. `PAYOUT_QUEUE` is State-class because it stores requests. Same-ledger LLM vault handoff, exact-successor Treasury asset handoff, and retired-loan settlement are dedicated narrow operations, not generic state migration. Brand-new modules use `ModuleRegistration`; every non-core replacement uses `ModulePointerUpdate`. Both pass through an exact-address referendum, the timelock, and bounded Senate cancellation, while state/policy/authority/extension targets use the constitutional double threshold. Application replacement deliberately relies on voters approving reviewed bytecode and a compatible state/migration plan. Router-origin apps (`ReferendumApp`, `CongressElectionApp`, `SenateApp`, and `OfficeExecutor`), the constitutional-review hook, and the direct office writers (`DecisionApp` and `CabinetApp`) are classified as authorities, so changing any protocol-wide action source or execution gate cannot use the ordinary app threshold. The router prevents unsupported or malformed action classes, but it does not permanently assign supported types to political branches. Current branch limits live in the application implementations; changing a router origin therefore remains possible, but only through the constitutional threshold. Treasury disbursements remain independently constrained by the active budget commitment even if an approved origin module changes.
 
 Optional negative-power hooks receive a bounded 100,000-gas static call with fixed return buffers and exact canonical
 ABI validation. Absent, reverting, over-budget or malformed hooks are ignored; valid active cancellation,
 suspension, veto and review records remain enforced. Caller underfunding reverts rather than bypassing a valid
 hook. Replacement interfaces must fit this gas budget. A defective `ReferendumApp`, voting/policy dependency or
-unrecoverable electorate can still disable the only public module-replacement voting route. The owner retained
-that route and its existing political checks; no permanent second ballot or recovery administrator was added.
+unrecoverable electorate can still disable the only public module-replacement voting route. That route includes the documented political checks; the design provides no permanent second ballot or recovery
+administrator.
 
 Two exact self-replacement exceptions remove each incumbent hook's direct control over its own replacement:
 

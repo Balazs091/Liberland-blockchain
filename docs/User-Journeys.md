@@ -222,7 +222,7 @@ Referendum app, voting/policy dependency or unrecoverable electorate can disable
 possible bytecode would require a permanent recovery authority or a second immutable voting system, both of which
 would broaden the trust root. The project instead treats exact-address review, non-proxy bytecode verification,
 fork rehearsal, interface/migration review, and coordinated atomic pointer activation as mandatory release work.
-The owner retained these routes rather than adding a permanent second ballot. Batch members can still be executed
+These routes provide no permanent second ballot. Batch members can still be executed
 individually, so review intermediate states. Same-ledger LLM backing handoff, exact-successor Treasury handoff,
 original-writer budget reconciliation, stable paid-request markers and retired-loan settlement have narrow continuity
 checks; they do not copy

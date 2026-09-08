@@ -32,10 +32,10 @@ Auditors should record exact tool and submodule revisions, then independently ru
 `forge build --sizes`, `forge test -vvv`, coverage, static analysis, invariant/fuzz campaigns, and a production-state
 fork rehearsal. Generated `out/`, `cache/`, `broadcast/`, and live `deployments/` files are not source of truth.
 
-## Verification baseline
+## Verification evidence
 
-The current verification, open findings and release status are in [Internal Review](Internal-Audit-Report.md).
-Auditors must compare its evidence with the exact working-tree source/commit, not reuse a prior release verdict.
+The current verification, known limitations and release status are in [Release Readiness](Release-Readiness.md).
+Auditors must compare its evidence with the exact submitted source commit and independently reproduce the checks.
 The [governance rules](Governance.md) include the immutable ranking store, resumable election counts, consent-bound
 identity procedures, typed public repeal and office-admin reservations. Include these state machines in independent
 review. The owner-approved civic appeal, Finance approval and direct-majority Senate rules are implemented;
@@ -43,9 +43,9 @@ independent security and constitutional/legal validation remain required.
 
 Production setup is two-stage with confirmed-block activation. Candidate URI storage is bounded at 2,048 bytes,
 reassigned addresses cannot overwrite another person's live ballot slot, and source mutations cannot underfund
-the required electorate callback budget. Verify these boundaries independently rather than accepting report claims.
+the required electorate callback budget. Verify these boundaries independently against the implementation.
 
-Slither is intentionally unsuppressed. Expected review classifications include:
+Slither is intentionally unsuppressed. Detector interpretation requires checking the following implementation context:
 
 - `arbitrary-send-erc20`: allowance-based `DecisionApp`/`MinistryTreasury` flows; source authorization is bound to
   the exact decision, and operators must use exact allowances;
@@ -56,8 +56,8 @@ Slither is intentionally unsuppressed. Expected review classifications include:
 - reentrancy reports around external modules: value-moving entrypoints use `nonReentrant`, checks/effects precede
   interactions, and accounting mismatch reverts atomically.
 
-These are internal dispositions for orientation, not instructions for an auditor to accept them. Branch and failure
-coverage should be expanded during remediation.
+These notes are review starting points, not accepted findings or exemptions. Auditors should expand branch and
+failure-path coverage and challenge the assumptions.
 
 ## Deployment matrix
 
@@ -79,9 +79,9 @@ coverage should be expanded during remediation.
 - late next-cycle creation advances to the next 17:00 UTC boundary and cannot permanently drift; and
 - production seals `InitialSetupAuthority` and disables kernel, router, and office bootstrap authorities.
 
-## Pre-audit focus and disposition
+## Security review priorities
 
-1. **Stake custody, historical weight, and backing — hardened; retain in focus.** `LLMStakingVault` is the sole
+1. **Stake custody, historical weight, and backing — verification target.** `LLMStakingVault` is the sole
    active-stake custody boundary. Exact token deltas, aggregate backing checks, protected/lending floors, and
    person stake checkpoints are enforced. The electorate checkpoints aggregate readiness/headcount/power and
    historical person eligibility. Each source write advances per-person and aggregate mutation revisions, then
@@ -93,7 +93,7 @@ coverage should be expanded during remediation.
    still change that block's read, so it is illustrative and never deployed in production. Review same-block
    checkpoint behavior, the separate production genesis import, source-revision catch-up, liquidation transfers,
    and the invariant `LLM balance >= aggregate active stake` independently.
-2. **Upgrade consistency — accepted audited-module trust model.** Every non-core replacement identifies an exact
+2. **Upgrade consistency — governed-module trust model.** Every non-core replacement identifies an exact
    address and passes its referendum threshold, timelock, and Senate window. State, policy, authority, and new
    extension IDs require the constitutional double threshold. Router origins, the constitutional-review hook, and the direct OfficeRegistry writers
    (`DecisionApp` and `CabinetApp`) are authorities. Only bounded apps without direct registry authority, routing, or
@@ -107,12 +107,11 @@ coverage should be expanded during remediation.
    incumbent Senate cannot cancel or hold open the active referendum for its exact replacement, and its queued-action
    cancellation hook is skipped only for the resulting `SENATE_APP` replacement. The review-pause hook is skipped
    only for the exact `CONSTITUTIONAL_REVIEW` replacement. These isolated exceptions do not prevent cross-hook
-   deadlock: review can pause Senate replacement while Senate blocks review replacement. The owner retained existing
-   routes; there is no permanent secondary upgrade ballot. Broken referendum/policy/electorate dependencies remain
-   an explicit recovery limit. Optional hooks now use 100,000-gas bounded probes and validate fixed-size canonical
+   deadlock: review can pause Senate replacement while Senate blocks review replacement. There is no permanent secondary upgrade ballot. Broken referendum/policy/electorate dependencies remain
+   an explicit recovery limit. Optional hooks use 100,000-gas bounded probes and validate fixed-size canonical
    ABI responses; genuine hook failure is fail-open, but caller-induced underfunding reverts. Independently review
    these limits in [Upgrade and Liveness](Upgrade-And-Liveness.md).
-3. **Electorate checkpoint liveness — hardened operational model.** Constitutional totals are O(1). A citizen-policy
+3. **Electorate checkpoint liveness — availability assumptions.** Constitutional totals are O(1). A citizen-policy
    replacement begins a bounded permissionless rebuild. A failed best-effort source callback makes `isReady()` false
    through aggregate mutation-count mismatch; `syncPerson` or bounded `rebuild` catches up the affected state. New
    process creation is unavailable during either gap and in the block that completes catch-up/rebuild because it
@@ -120,7 +119,7 @@ coverage should be expanded during remediation.
    processes already pinned to their old policy/electorate. Review epoch replacement, current-policy/current-
    electorate consistency, revision arithmetic, gas bounds, unknown-person rejection, completion-block behavior,
    and frontend/keeper recovery.
-4. **Fixed-price lending — intentionally accepted launch risk.** Mainnet deploys a fixed 1 LLM = 2 USDC oracle, 30%
+4. **Fixed-price lending — economic launch risk.** Mainnet deploys a fixed 1 LLM = 2 USDC oracle, 30%
    LTV, 40% liquidation threshold, 15% bonus, 15% reserves, 1,000,000 USDC aggregate cap, and 100,000 USDC
    per-person cap. There is no market-feed manipulation or staleness path, but the price can become economically
    wrong. Debt uses one compounded RAY index; effective interest/reserve inputs are checkpointed by interval, and a
@@ -131,7 +130,7 @@ coverage should be expanded during remediation.
    reduces scaled debt. Active pools use surplus stake; retired pools cap it at their remaining recorded lien.
    Protected/retained floors and later unpledged stake beyond a retired lien are not recoverable collateral. The oracle/risk/rate policies are
    replaceable; replacing the pool itself requires state/custody migration.
-5. **Production deployment parity — resolved in code; retain script review.** Both manifests deploy `DecisionApp`,
+5. **Production deployment parity — script and configuration verification.** Both manifests deploy `DecisionApp`,
    `MinistryTreasury`, and lending. Production requires a six-decimal `USDC_TOKEN`, registers the pool as lien and
    liquidation authority, wires `DecisionApp` as ministry funding authority, and exports every address. Review
    module-batch completeness and environment/output parity independently. During production genesis,
@@ -141,7 +140,7 @@ coverage should be expanded during remediation.
    incumbents, President, offices, admins, treasury assets/limits, reward reserve, and continuity time are inputs.
    The deployer must hold exact stake backing. The script checks LLM decimals/cap/supply and USDC decimals, but an
    independent reviewer must prove exact token bytecode and proxy/upgrade surfaces cannot bypass assumptions.
-7. **Person-bound authority and office lifecycle — hardened; retain in focus.** Congress, Senate, President, Prime
+7. **Person-bound authority and office lifecycle — verification target.** Congress, Senate, President, Prime
    Minister, minister, and term-bound ministry-office authority follows the identity registry's active wallet.
    Candidacy is person-bound within each cycle: its canonical application wallet remains a stable ballot target even
    if reassigned, while withdrawal follows the caller's current active-person link and eligibility/seat assignment
@@ -152,13 +151,13 @@ coverage should be expanded during remediation.
    only after proving its person has no active wallet; it reverts while the person is represented. Generic offices
    intentionally remain wallet-bound. Review role displays, zero-active-wallet behavior, succession, and all
    frontend resolution paths.
-8. **Treasury and negative-control reconciliation — hardened; retain in focus.** Routed payout cancellation cancels
+8. **Treasury and negative-control reconciliation — verification target.** Routed payout cancellation cancels
    the timelock action before releasing its budget; permissionless synchronization verifies execution against the
    action's pinned vault. Ministry lending shares are keyed by office and pool so retired pools remain withdrawable.
    Before petition submission, public-veto reads exclude currently ineligible supporters and the next cast prunes
    them; submitted petition signatures are historical. Repeal itself requires voting and delayed typed execution. Review state reconciliation, replacement boundaries, bounded supporter
    iteration, and exact budget accounting.
-9. **Cadastre integrity and signer continuity — redesigned; retain in focus.** Titles store stable namespaced party
+9. **Cadastre integrity and signer continuity — verification target.** Titles store stable namespaced party
    IDs. The replaceable land-party policy resolves current person wallets, company directors, and office
    administrators. Transfers bind both party IDs, the current title version, anchor, transaction ID, title nonce,
    deadline, chain, and app address into one EIP-712 digest signed by seller and buyer, then require registrar
@@ -176,7 +175,7 @@ settlement enforces `seizedStake + remainingLien <= priorLien`, while new loan o
 canonical identity/stake/lien registries as well as the three authority pointers. Stable budget-ledger execution
 markers prevent paid-request replay through fresh queues/vaults; they are distinct from delayed payout-accounting
 synchronization and must be preserved during any ledger migration. `PAYOUT_QUEUE`
-is State-class. These are narrow continuity mechanisms, not generic state/debt migration. Election counting now
+is State-class. These are narrow continuity mechanisms, not generic state/debt migration. Election counting
 finalizes only the pinned cycle, supports workloads of 1..32 and requires separate explicit next-cycle creation;
 review policy failures and electorate unavailability between those operations.
 
@@ -198,13 +197,13 @@ The land contracts intentionally omit on-chain geometry validation, document sto
 transaction fees, insurance/compensation, and judicial enforcement. `docs/Land-Cadastre.md` describes how reviewed
 replacement apps/policies and dedicated registries can add them after the underlying law and data standards exist.
 
-The fixed launch oracle is intentionally accepted. The following are not accepted substitutes for launch review:
+The fixed launch oracle is an explicit economic assumption requiring review. The following are not accepted substitutes for launch review:
 
 - unverified genesis or token bytecode;
 - an unrehearsed state/custody migration;
 - an independently upgradeable replacement proxy or generic delegatecall executor;
 - a production deployment without the final external audit and mainnet-fork rehearsal; or
-- treating the current internal review as mainnet approval.
+- treating passing tests or this submission as mainnet approval.
 
 ## Required handoff refresh
 
@@ -213,7 +212,7 @@ Before the offline external-audit package is treated as current:
 - verify `docs/constitutional-sources/2024-09-24 Constitution.pdf` against the exact SHA-256 recorded in
   `docs/Constitution-Alignment.md`;
 - complete the revision-specific build, full test, coverage, Slither, runtime-size, and deployment-integration run
-  recorded in `docs/Internal-Audit-Report.md` (the repeatable command is `bash scripts/audit-freeze-check.sh`);
+  recorded in `docs/Release-Readiness.md` (the repeatable command is `bash scripts/audit-freeze-check.sh`);
 - regenerate the entire `frontend-export/abis/` directory from the same commit rather than merging individual files; and
 - freeze the source and pinned dependencies, include verification evidence and a checksummed source archive.
 
@@ -230,7 +229,7 @@ Before a new public demo/frontend handoff (separate from the offline audit packa
 - `docs/Architecture.md`: system model and design constraints
 - `docs/Protocol-Parameters.md`: current production/demo parameter table
 - `docs/Governance.md`: current rules, appeal boundary, counting and office separation
-- `docs/Internal-Audit-Report.md`: internal findings, fixes, residual risks, and readiness verdict
+- `docs/Release-Readiness.md`: current controls, verification evidence, known limitations and launch requirements
 - `docs/Audit-Scope.md`: external review boundary and focus
 - `docs/Constitution-Alignment.md`: pinned-source comparison and accepted deviations
 - `docs/constitutional-sources/README.md`: immutable constitutional input and provenance record

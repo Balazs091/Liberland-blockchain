@@ -1,7 +1,6 @@
 # Current Documentation
 
-This repository keeps one current documentation set. Superseded code-review reports and migration changelogs are
-not release guidance. Historical copies are preserved outside the repository for recovery and audit provenance.
+This documentation describes the current protocol, its verification evidence and requirements for external review.
 The pinned constitutional PDF is retained because it is an active design input, not an old code manual.
 
 | Document | Purpose |
@@ -10,9 +9,9 @@ The pinned constitutional PDF is retained because it is an active design input, 
 | [Governance](Governance.md) | Current identity, appeal, public repeal, election and office rules |
 | [Upgrade and Liveness](Upgrade-And-Liveness.md) | Replaceability, dependency closure, supported custody/loan retirement and recovery limits |
 | [Protocol Parameters](Protocol-Parameters.md) | Production/demo values and units |
-| [Internal Review](Internal-Audit-Report.md) | Current findings, verification and release blockers |
+| [Release Readiness](Release-Readiness.md) | Current controls, verification evidence and launch requirements |
 | [Auditor Handoff](Auditor-Handoff.md) | Exact target, trust boundaries and reproduction |
-| [Static Triage](Static-Analysis-Triage.md) | Unsuppressed detector dispositions and limitations |
+| [Static Triage](Static-Analysis-Triage.md) | Unsuppressed detector context and review questions |
 | [External Audit Scope](Audit-Scope.md) | Independent review surface and limitations |
 | [Constitution Alignment](Constitution-Alignment.md) | Current differences from the pinned draft |
 | [Constitutional Source](constitutional-sources/README.md) | Immutable source and hash verification |

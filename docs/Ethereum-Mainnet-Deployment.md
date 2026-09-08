@@ -107,7 +107,7 @@ forge test -vvv
 ```
 
 Before an audit handoff or production broadcast, also refresh the revision-specific coverage, Slither, runtime-size,
-and deployment-integration evidence in `docs/Internal-Audit-Report.md`. Do not copy historical counts or size values
+and deployment-integration evidence in `docs/Release-Readiness.md`. Do not copy historical counts or size values
 from another commit.
 
 Simulate without broadcasting:
@@ -212,7 +212,7 @@ review remains mandatory.
 
 These are not complete recovery guarantees: the review module may block the Senate replacement while Senate
 blocks the review replacement, and broken referendum/policy/electorate dependencies can stop new replacement
-votes. The owner retained these political routes rather than adding another permanent ballot system. An action
+votes. The design provides no additional permanent ballot system. An action
 batch is atomic when submitted, but individually queued members remain independently executable. Review every
 intermediate state, not only the intended batch. See [Upgrade and Liveness](Upgrade-And-Liveness.md) for supported
 custody handoff, retired-loan settlement and the limits of arbitrary state migration.

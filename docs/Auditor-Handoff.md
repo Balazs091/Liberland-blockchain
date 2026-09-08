@@ -1,9 +1,8 @@
 # Auditor Handoff
 
-This is a local release candidate for independent human-led audit, not production authorization.
-Preparation and internal triage were AI-assisted. Do not rely on internal dispositions without reproducing them.
-The review baseline was `8b6798f9f4a92d171c15560c090ef53f9f82c645`; this package contains the subsequent
-remediation candidate, not an unchanged copy of that commit. The earlier archive/tag remain distinct.
+This source package is submitted for independent external security review, not production authorization.
+The accompanying documents describe current behavior, verification evidence and known limitations; they are
+not a security certification. Assess the complete implementation and independently reproduce relevant checks.
 
 ## Exact target
 
@@ -13,7 +12,7 @@ The outer ZIP has a separate SHA-256 file. The Git commit and tag are local only
 
 `source/` contains the entire tracked current source, tests, scripts, constitutional input, documentation and
 52 generated frontend ABIs, plus the exact pinned dependency sources. No production keys, actual genesis personal
-data, live deployment manifests, build caches, Git history, previous review reports or backups are included.
+data, live deployment manifests, build caches, Git history or private development records are included.
 The source archive intentionally has no `.git`; provenance records its originating commit rather than pretending
 that a new repository initialization reproduces that commit.
 
@@ -21,12 +20,12 @@ that a new repository initialization reproduces that commit.
 
 1. [External Scope](Audit-Scope.md), [Architecture](Architecture.md), [Governance](Governance.md) and
    [Upgrade and Liveness](Upgrade-And-Liveness.md).
-2. [Internal Review](Internal-Audit-Report.md) for actual verification, corrections and retained risks.
+2. [Release Readiness](Release-Readiness.md) for verification evidence, current controls and known limitations.
 3. [Static Triage](Static-Analysis-Triage.md); full unsuppressed JSON is in package evidence.
-4. [Constitution Alignment](Constitution-Alignment.md) and the pinned PDF, independently of internal legal assumptions.
+4. [Constitution Alignment](Constitution-Alignment.md) and the pinned PDF, as separate legal/design inputs.
 5. Both deployment scripts/manifests and [Frontend Checklist](../frontend-export/INTEGRATION-CHECKLIST.md).
 
-Review every production source and deployment path, not only the new upgrade/custody/lending/hook changes.
+Review every production source and deployment path, including upgrade, custody, lending and optional hooks.
 Mocks/demo modules are in scope for separation and misuse risks, but they are not production assets or authorities.
 
 ## Trust boundaries to challenge
@@ -47,8 +46,8 @@ Mocks/demo modules are in scope for separation and misuse risks, but they are no
 No permanent superadmin, generic delegatecall executor, unrestricted referendum calldata or committee asset
 custody is intended. Prove that every reachable path respects these boundaries.
 
-The owner explicitly chose to retain existing governance routes instead of adding a permanent recovery ballot.
-Sole-route dependency failure and Senate/review cross-lock therefore remain disclosed recovery limits. Challenge
+The design uses the documented governance routes and provides no permanent recovery ballot.
+Sole-route dependency failure and Senate/review cross-lock are explicit recovery limits. Challenge
 these as launch assumptions; do not accept an assertion that all contracts are impossible to freeze. Also review
 intermediate pointer states: an atomic execution batch does not prevent someone executing a ready member alone.
 
@@ -87,7 +86,7 @@ on exit. Do not fund that key with real assets. Local mock deployment is not a p
 Report reproducible, revision-bound findings with preconditions, impact, exact code paths, regression tests and
 remediation verification. Separate privileged-governance trust assumptions, constitutional choices, economic risks
 and exploitable implementation defects. Include fresh bytecode/gas measurements, asset/proxy review, migration and
-genesis validation, and limitations of the audit. Do not infer AI authorship from writing style or a detector label.
+genesis validation, and limitations of the audit.
 
 The owner must separately provide verified real genesis data, intended production token addresses/configuration,
 reviewer/office-controller attestations, legal procedures and the frontend/operations environment. These are not

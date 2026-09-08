@@ -12,7 +12,7 @@ import tempfile
 from pathlib import Path
 
 
-# Current manual triage and verification: docs/Internal-Audit-Report.md.
+# Current manual triage and verification: docs/Release-Readiness.md.
 EXPECTED_COUNTS = {
     "High": 6,
     "Medium": 66,
