@@ -9,7 +9,8 @@ not a security certification. Assess the complete implementation and independent
 The package's `PROVENANCE.json` records the packaged commit/tree, tested and deployed implementation revision,
 documentation-only differences, toolchain and recursive submodule revisions.
 `SOURCE-SHA256.txt` binds every packaged source/dependency file; `PACKAGE-SHA256.txt` also binds evidence.
-The outer ZIP has a separate SHA-256 file. The source commits are local only; they were not pushed.
+The outer ZIP has a separate SHA-256 file. Publication status in an archived package describes its creation time;
+publishing the repository later does not change that archive or its recorded revision.
 
 `source/` contains the entire tracked current source, tests, scripts, constitutional input, documentation and
 52 generated frontend ABIs, plus the exact pinned dependency sources. No production keys, actual genesis personal
