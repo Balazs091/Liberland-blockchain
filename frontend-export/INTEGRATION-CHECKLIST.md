@@ -78,7 +78,8 @@ a migration history or evidence that any deployed address uses this source.
 - Land transfers bind both title and parcel version hashes, parties, nonce, deadline, chain and app. Follow the
   exact [cadastre signing schema](../docs/Land-Cadastre.md), with current EOA/EIP-1271 signers and registrar execution.
 - Company child-state writes require Active/ComplianceWarning status. Office role reads must reflect term expiry,
-  clerk epochs, admin separation and current signer authority.
+  per-office clerk epochs and current signer authority. One wallet may administer several offices; display every
+  appointment separately and never count shared control as a second approving officer.
 
 ## Handoff verification
 

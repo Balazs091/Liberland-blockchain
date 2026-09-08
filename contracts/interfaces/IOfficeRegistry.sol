@@ -7,7 +7,6 @@ import {OfficeTypes} from "../types/OfficeTypes.sol";
 /// @title IOfficeRegistry
 /// @notice Stable fact registry for office definitions and office role assignments.
 interface IOfficeRegistry is IKernelModule {
-    error OfficeAdminAlreadyAppointed(address admin, bytes32 officeId);
     error InvalidOfficeAdmin(address admin);
     error InvalidOfficeId(bytes32 officeId);
     error InvalidOfficeKind(OfficeTypes.OfficeKind kind);
@@ -65,7 +64,10 @@ interface IOfficeRegistry is IKernelModule {
     /// @notice Checks the current admin appointment without requiring the office itself to be active.
     function isOfficeAdminAppointment(bytes32 officeId, address account) external view returns (bool isAdmin);
     function isOfficeClerk(bytes32 officeId, address account) external view returns (bool isClerk);
+    /// @notice Registers an office with a nonzero admin; the same wallet may administer other offices.
+    /// @dev Roles and appointment identifiers are scoped by office, not reserved globally by wallet or person.
     function registerOffice(bytes32 officeId, OfficeTypes.OfficeKind kind, string calldata name, address admin) external;
+    /// @notice Transfers this office's administration without changing the recipient's other office appointments.
     function transferOfficeAdmin(bytes32 officeId, address newAdmin) external;
     /// @notice Transfers an office admin role that automatically expires at `authorizationEndsAt`.
     /// @dev Used by CabinetApp so operational ministry authority cannot outlive the ministerial term.

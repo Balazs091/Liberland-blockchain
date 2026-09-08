@@ -16,7 +16,7 @@ from pathlib import Path
 EXPECTED_COUNTS = {
     "High": 6,
     "Medium": 66,
-    "Low": 266,
+    "Low": 264,
     "Informational": 94,
     "Optimization": 0,
 }

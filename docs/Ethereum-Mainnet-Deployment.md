@@ -12,6 +12,10 @@ The Sepolia demo is a separate deployment path documented in `docs/Sepolia-Demo-
 
 ## Civic review and officer readiness
 
+The distinct-office-admin requirement is a production genesis preflight. The registry permits shared admins and
+does not enforce continuing cross-office separation after deployment; maintain independent controllers through
+appointment policy and monitoring. Two-officer approvals and civic-reviewer exclusions remain enforced.
+
 Set `CIVIC_REVIEWER_0` through `CIVIC_REVIEWER_4` before running this script. Both networks require five nonzero,
 pairwise-distinct public addresses, each different from the deployer and all four office admins. No reviewer private
 key is needed for deployment. Verify disjoint real controllers, conflicts of interest, signing capability, notice

@@ -37,7 +37,7 @@ fork rehearsal. Generated `out/`, `cache/`, `broadcast/`, and live `deployments/
 The current verification, known limitations and release status are in [Release Readiness](Release-Readiness.md).
 Auditors must compare its evidence with the exact submitted source commit and independently reproduce the checks.
 The [governance rules](Governance.md) include the immutable ranking store, resumable election counts, consent-bound
-identity procedures, typed public repeal and office-admin reservations. Include these state machines in independent
+identity procedures, typed public repeal and office-scoped admin appointments. Include these state machines in independent
 review. The owner-approved civic appeal, Finance approval and direct-majority Senate rules are implemented;
 independent security and constitutional/legal validation remain required.
 
@@ -149,7 +149,9 @@ failure-path coverage and challenge the assumptions.
    cleanup transaction, and administration epochs invalidate old clerks in O(1). President ballots cannot be
    preloaded while an incumbent remains in term. A permissionless `recallUnrepresentedSeat` vacates a Congress seat
    only after proving its person has no active wallet; it reverts while the person is represented. Generic offices
-   intentionally remain wallet-bound. Review role displays, zero-active-wallet behavior, succession, and all
+   intentionally remain wallet-bound. Shared admins are permitted across offices, but authorization IDs, clerk
+   invalidation and expiry remain office-scoped. Cross-office controller separation is an operational policy;
+   only production genesis enforces distinct initial addresses. Review role displays, zero-active-wallet behavior, succession, and all
    frontend resolution paths.
 8. **Treasury and negative-control reconciliation — verification target.** Routed payout cancellation cancels
    the timelock action before releasing its budget; permissionless synchronization verifies execution against the
@@ -228,7 +230,7 @@ Before a new public demo/frontend handoff (separate from the offline audit packa
 
 - `docs/Architecture.md`: system model and design constraints
 - `docs/Protocol-Parameters.md`: current production/demo parameter table
-- `docs/Governance.md`: current rules, appeal boundary, counting and office separation
+- `docs/Governance.md`: current rules, appeal boundary, counting and office appointments
 - `docs/Release-Readiness.md`: current controls, verification evidence, known limitations and launch requirements
 - `docs/Audit-Scope.md`: external review boundary and focus
 - `docs/Constitution-Alignment.md`: pinned-source comparison and accepted deviations

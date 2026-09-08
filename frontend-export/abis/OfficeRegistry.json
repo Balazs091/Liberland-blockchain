@@ -762,22 +762,6 @@
   },
   {
     "type": "error",
-    "name": "OfficeAdminAlreadyAppointed",
-    "inputs": [
-      {
-        "name": "admin",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "officeId",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ]
-  },
-  {
-    "type": "error",
     "name": "OfficeAlreadyRegistered",
     "inputs": [
       {

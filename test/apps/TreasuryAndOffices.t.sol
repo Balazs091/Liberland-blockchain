@@ -694,39 +694,107 @@ contract TreasuryAndOfficesTest is Test {
         );
     }
 
-    function test_Governance_OfficeAdminsMustBePairwiseDistinctAndTransfersReleaseOldSlot() public {
+    function test_Governance_SharedAdminTransfersAreScopedToEachOffice() public {
+        vm.prank(MINISTER_OF_FINANCE);
+        officeExecutor.assignClerk(FINANCE_OFFICE_ID, FINANCE_CLERK);
         vm.prank(IDENTITY_ADMIN);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IOfficeRegistry.OfficeAdminAlreadyAppointed.selector, MINISTER_OF_FINANCE, FINANCE_OFFICE_ID
-            )
-        );
+        officeExecutor.assignClerk(IDENTITY_OFFICE_ID, IDENTITY_CLERK);
+        bytes32 financeAuthorization = officeRegistry.authorizationId(FINANCE_OFFICE_ID, MINISTER_OF_FINANCE);
+        vm.prank(IDENTITY_ADMIN);
         officeExecutor.transferOfficeAdmin(IDENTITY_OFFICE_ID, MINISTER_OF_FINANCE);
+        assertTrue(officeRegistry.isOfficeAdmin(FINANCE_OFFICE_ID, MINISTER_OF_FINANCE));
+        assertTrue(officeRegistry.isOfficeAdmin(IDENTITY_OFFICE_ID, MINISTER_OF_FINANCE));
+        assertFalse(officeRegistry.isOfficeAdmin(IDENTITY_OFFICE_ID, IDENTITY_ADMIN));
+        assertFalse(officeRegistry.isOfficeClerk(IDENTITY_OFFICE_ID, IDENTITY_CLERK));
+        assertNotEq(officeRegistry.authorizationId(IDENTITY_OFFICE_ID, MINISTER_OF_FINANCE), financeAuthorization);
         address successor = address(0xF199);
-        vm.prank(IDENTITY_ADMIN);
+        vm.prank(MINISTER_OF_FINANCE);
         officeExecutor.transferOfficeAdmin(IDENTITY_OFFICE_ID, successor);
-        vm.prank(LAND_ADMIN);
-        officeExecutor.transferOfficeAdmin(LAND_OFFICE_ID, IDENTITY_ADMIN);
         assertTrue(officeRegistry.isOfficeAdmin(IDENTITY_OFFICE_ID, successor));
-        assertTrue(officeRegistry.isOfficeAdmin(LAND_OFFICE_ID, IDENTITY_ADMIN));
+        assertFalse(officeRegistry.isOfficeAdmin(IDENTITY_OFFICE_ID, MINISTER_OF_FINANCE));
+        assertEq(officeRegistry.authorizationId(FINANCE_OFFICE_ID, MINISTER_OF_FINANCE), financeAuthorization);
+        assertTrue(officeRegistry.isOfficeClerk(FINANCE_OFFICE_ID, FINANCE_CLERK));
     }
 
-    function test_Governance_DuplicateAdminCannotEnterThroughRegistryRegistration() public {
+    function test_Governance_RegistryRegistersAnotherOfficeForTheSameAdmin() public {
+        bytes32 anotherOffice = keccak256("shared admin office");
         vm.prank(address(officeExecutor));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IOfficeRegistry.OfficeAdminAlreadyAppointed.selector, MINISTER_OF_FINANCE, FINANCE_OFFICE_ID
-            )
-        );
         officeRegistry.registerOffice(
-            keccak256("duplicate admin office"),
-            OfficeTypes.OfficeKind.IdentityOffice,
-            "Another office",
-            MINISTER_OF_FINANCE
+            anotherOffice, OfficeTypes.OfficeKind.IdentityOffice, "Another office", MINISTER_OF_FINANCE
         );
+        assertTrue(officeRegistry.isOfficeAdmin(anotherOffice, MINISTER_OF_FINANCE));
+        assertTrue(officeRegistry.isOfficeAdmin(FINANCE_OFFICE_ID, MINISTER_OF_FINANCE));
+        assertEq(officeRegistry.totalOfficeCount(), 5);
+    }
+
+    function test_Governance_RevokingSharedAdminDoesNotInvalidateOtherOffices() public {
+        vm.prank(MINISTER_OF_FINANCE);
+        officeExecutor.assignClerk(FINANCE_OFFICE_ID, FINANCE_CLERK);
+        vm.prank(IDENTITY_ADMIN);
+        officeExecutor.transferOfficeAdmin(IDENTITY_OFFICE_ID, MINISTER_OF_FINANCE);
+        vm.prank(MINISTER_OF_FINANCE);
+        officeExecutor.assignClerk(IDENTITY_OFFICE_ID, FINANCE_CLERK);
+        assertTrue(officeRegistry.isOfficeClerk(IDENTITY_OFFICE_ID, FINANCE_CLERK));
+        bytes32 financeAuthorization = officeRegistry.authorizationId(FINANCE_OFFICE_ID, MINISTER_OF_FINANCE);
+        bytes32 clerkAuthorization = officeRegistry.authorizationId(FINANCE_OFFICE_ID, FINANCE_CLERK);
+        vm.prank(address(officeExecutor));
+        officeRegistry.revokeOfficeAdmin(IDENTITY_OFFICE_ID);
+        assertFalse(officeRegistry.isOfficeAdminAppointment(IDENTITY_OFFICE_ID, MINISTER_OF_FINANCE));
+        assertEq(officeRegistry.authorizationId(IDENTITY_OFFICE_ID, MINISTER_OF_FINANCE), bytes32(0));
+        assertFalse(officeRegistry.isOfficeClerk(IDENTITY_OFFICE_ID, FINANCE_CLERK));
+        assertEq(officeRegistry.authorizationId(FINANCE_OFFICE_ID, MINISTER_OF_FINANCE), financeAuthorization);
+        assertEq(officeRegistry.authorizationId(FINANCE_OFFICE_ID, FINANCE_CLERK), clerkAuthorization);
+    }
+
+    function test_Governance_SharedPersonAppointmentsFollowMigrationAndExpireIndependently() public {
+        uint64 firstExpiry = uint64(block.timestamp + 1 days);
+        vm.startPrank(address(officeExecutor));
+        officeRegistry.transferOfficeAdminForTerm(IDENTITY_OFFICE_ID, SENATOR_ONE, SENATOR_ONE_PERSON_ID, firstExpiry);
+        officeRegistry.transferOfficeAdminForTerm(
+            LAND_OFFICE_ID, SENATOR_ONE, SENATOR_ONE_PERSON_ID, firstExpiry + 1 days
+        );
+        vm.stopPrank();
+        assertTrue(officeRegistry.isOfficeAdmin(IDENTITY_OFFICE_ID, SENATOR_ONE));
+        assertTrue(officeRegistry.isOfficeAdmin(LAND_OFFICE_ID, SENATOR_ONE));
+
+        // Migration onto a wallet that already administers Finance must not hide the person's other offices.
+        vm.startPrank(address(identityAuthority));
+        identityRegistry.setWalletLink(SENATOR_ONE_PERSON_ID, SENATOR_ONE, IdentityTypes.WalletLinkStatus.Revoked);
+        identityRegistry.setWalletLink(
+            SENATOR_ONE_PERSON_ID, MINISTER_OF_FINANCE, IdentityTypes.WalletLinkStatus.Active
+        );
+        vm.stopPrank();
+        assertFalse(officeRegistry.isOfficeAdmin(IDENTITY_OFFICE_ID, SENATOR_ONE));
+        assertFalse(officeRegistry.isOfficeAdmin(LAND_OFFICE_ID, SENATOR_ONE));
+        assertTrue(officeRegistry.isOfficeAdmin(IDENTITY_OFFICE_ID, MINISTER_OF_FINANCE));
+        assertTrue(officeRegistry.isOfficeAdmin(LAND_OFFICE_ID, MINISTER_OF_FINANCE));
+        vm.warp(firstExpiry);
+        assertFalse(officeRegistry.isOfficeAdmin(IDENTITY_OFFICE_ID, MINISTER_OF_FINANCE));
+        assertTrue(officeRegistry.isOfficeAdmin(LAND_OFFICE_ID, MINISTER_OF_FINANCE));
+        assertTrue(officeRegistry.isOfficeAdmin(FINANCE_OFFICE_ID, MINISTER_OF_FINANCE));
+    }
+
+    function test_Governance_SharedAdminDeactivationIsOfficeScoped() public {
+        vm.prank(IDENTITY_ADMIN);
+        officeExecutor.transferOfficeAdmin(IDENTITY_OFFICE_ID, MINISTER_OF_FINANCE);
+        bytes32 financeAuthorization = officeRegistry.authorizationId(FINANCE_OFFICE_ID, MINISTER_OF_FINANCE);
+        bytes32 identityAuthorization = officeRegistry.authorizationId(IDENTITY_OFFICE_ID, MINISTER_OF_FINANCE);
+        vm.startPrank(MINISTER_OF_FINANCE);
+        officeExecutor.setOfficeActive(IDENTITY_OFFICE_ID, false);
+        assertFalse(officeRegistry.isOfficeAdmin(IDENTITY_OFFICE_ID, MINISTER_OF_FINANCE));
+        assertTrue(officeRegistry.isOfficeAdminAppointment(IDENTITY_OFFICE_ID, MINISTER_OF_FINANCE));
+        assertEq(officeRegistry.authorizationId(FINANCE_OFFICE_ID, MINISTER_OF_FINANCE), financeAuthorization);
+        officeExecutor.setOfficeActive(IDENTITY_OFFICE_ID, true);
+        vm.stopPrank();
+        assertNotEq(officeRegistry.authorizationId(IDENTITY_OFFICE_ID, MINISTER_OF_FINANCE), identityAuthorization);
+        assertEq(officeRegistry.authorizationId(FINANCE_OFFICE_ID, MINISTER_OF_FINANCE), financeAuthorization);
     }
 
     function test_PayoutNeedsASecondDistinctOfficer() public {
+        vm.prank(IDENTITY_ADMIN);
+        officeExecutor.transferOfficeAdmin(IDENTITY_OFFICE_ID, MINISTER_OF_FINANCE);
+        vm.prank(LAND_ADMIN);
+        officeExecutor.transferOfficeAdmin(LAND_OFFICE_ID, MINISTER_OF_FINANCE);
         _proposeReviewedOperations();
         vm.startPrank(MINISTER_OF_FINANCE);
         vm.expectPartialRevert(IOfficeExecutor.DistinctPayoutOfficerRequired.selector);

@@ -11,6 +11,7 @@ import {ReferendumApp} from "../../contracts/apps/ReferendumApp.sol";
 import {CongressCandidateRegistry} from "../../contracts/registries/CongressCandidateRegistry.sol";
 import {ReferendumRegistry} from "../../contracts/registries/ReferendumRegistry.sol";
 import {StakeRegistry} from "../../contracts/registries/StakeRegistry.sol";
+import {OfficeRegistry} from "../../contracts/registries/OfficeRegistry.sol";
 import {ConstitutionKernel} from "../../contracts/core/ConstitutionKernel.sol";
 import {KernelModuleIds} from "../../contracts/libraries/KernelModuleIds.sol";
 import {ElectionTypes} from "../../contracts/types/ElectionTypes.sol";
@@ -18,12 +19,20 @@ import {ReferendumTypes} from "../../contracts/types/ReferendumTypes.sol";
 
 contract DeployDemoIntegrationHarness is DeployDemo {
     function deployForTest(address registrar) external {
+        _deployForTest(registrar, false);
+    }
+
+    function deployWithSharedAdminForTest(address admin) external {
+        _deployForTest(admin, true);
+    }
+
+    function _deployForTest(address registrar, bool sharedAdmin) private {
         address deployer = address(this);
 
-        _financeOfficeAdmin = deployer;
+        _financeOfficeAdmin = sharedAdmin ? registrar : deployer;
         _identityOfficeAdmin = registrar;
-        _landOfficeAdmin = address(0x1A2D);
-        _companyRegistryOfficeAdmin = address(0xC001);
+        _landOfficeAdmin = sharedAdmin ? registrar : address(0x1A2D);
+        _companyRegistryOfficeAdmin = sharedAdmin ? registrar : address(0xC001);
         _civicReviewers = [address(0xA001), address(0xA002), address(0xA003), address(0xA004), address(0xA005)];
         _financeClerk = address(0xC1E2);
         _treasuryPrefundUsdc = 0;
@@ -178,6 +187,31 @@ contract DeployDemoIntegrationTest is Test {
 
         vm.prank(SEEDED_VOTER);
         referendumApp.castVote(referendumId, ReferendumTypes.VoteOption.For);
+    }
+
+    function test_SharedAdminDeploymentSealsBootstrapAndSupportsOnboarding() public {
+        DeployDemoIntegrationHarness shared = new DeployDemoIntegrationHarness();
+        shared.deployWithSharedAdminForTest(REGISTRAR);
+        ConstitutionKernel kernel = shared.kernelForTest();
+        OfficeRegistry offices = OfficeRegistry(kernel.getModule(KernelModuleIds.OFFICE_REGISTRY));
+        assertEq(offices.totalOfficeCount(), 4);
+        for (uint256 i; i < offices.totalOfficeCount(); ++i) {
+            assertTrue(offices.isOfficeAdmin(offices.officeIdAt(i), REGISTRAR));
+        }
+        assertEq(kernel.bootstrapAuthority(), address(0));
+        assertEq(shared.routerBootstrapAuthorityForTest(), address(0));
+        assertEq(shared.officeExecutorBootstrapAuthorityForTest(), address(0));
+        DemoCitizenGateway gateway = shared.gatewayForTest();
+        vm.prank(NEW_USER);
+        gateway.registerSelf(keccak256("shared-admin-user"), "ipfs://demo/shared-admin-user");
+        vm.prank(REGISTRAR);
+        gateway.confirmCitizenship(NEW_USER, true, true);
+        LLMToken llm = shared.llmForTest();
+        llm.mint(NEW_USER, 6_000 * ONE_LLM);
+        vm.startPrank(NEW_USER);
+        llm.approve(address(gateway), 6_000 * ONE_LLM);
+        gateway.stake(6_000 * ONE_LLM);
+        vm.stopPrank();
     }
 
     function _asAddressArray(address first) private pure returns (address[] memory values) {

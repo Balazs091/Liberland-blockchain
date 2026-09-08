@@ -4,7 +4,7 @@ Liberland EVM is a modular, constitution-aligned governance system on the EVM. I
 
 Current governance rules are recorded in `Governance.md`: consent/nonce-bound
 migration, separate documented two-officer recovery/civic notices, referendum-based public repeal, open candidate
-admission and resumable ranking, and distinct office-admin appointments. Existing deployments require explicit compatibility and state/custody/process migration review;
+admission and resumable ranking, and office-scoped admin appointments. Existing deployments require explicit compatibility and state/custody/process migration review;
 this source documentation does not establish an upgrade to a public deployment.
 
 ## Layers
@@ -162,6 +162,12 @@ President, Prime Minister, ministers, and term-bound ministry-office administrat
 single active wallet after an approved migration. Stored historical records retain their original wallet for audit
 provenance; clients resolve `activeWalletOf(personId)` for the current signer. Generic office appointments remain
 wallet-bound unless the appointing app explicitly supplies a person ID.
+
+The registry permits the same wallet or known person to administer multiple offices. Each office retains its own
+roles, appointment identifiers, clerk epoch, activity and term; changing one office does not alter the others.
+Shared control does not satisfy distinct-officer approval or independent-review requirements. Production genesis
+separately requires distinct office-admin addresses in its deployment script; ongoing controller separation is an
+operational requirement, not a registry-wide reservation.
 
 Land ownership is similarly identity-stable but policy-extensible. A title stores a namespaced party ID rather than
 a wallet. The live `LandPartyPolicy` resolves current person, company, and office signers; `LandRegistryApp` requires

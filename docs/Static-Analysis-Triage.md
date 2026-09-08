@@ -3,8 +3,8 @@
 Slither output and implementation context for the submitted source. Detector severity labels are not confirmed
 vulnerability ratings or an independent security verdict. Auditors should reproduce the scan and test each assumption.
 
-Slither 0.11.5 analyzed 156 contracts with 101 detectors, without suppressions: **432 results — 6 High, 66 Medium,
-266 Low, 94 Informational**. The full JSON and text output accompany the audit package. The checked-in fingerprint
+Slither 0.11.5 analyzed 156 contracts with 101 detectors, without suppressions: **430 results — 6 High, 66 Medium,
+264 Low, 94 Informational**. The full JSON and text output accompany the audit package. The checked-in fingerprint
 multiset retains descriptions, detector, severity, confidence and multiplicity while ignoring whitespace and line
 movement. A matching baseline is a drift check, not proof of safety.
 
@@ -34,7 +34,7 @@ movement. A matching baseline is a drift check, not proof of safety.
 | calls-loop | 115 | Includes five fixed civic reviewers, fixed registry-bounded Senate seats, bounded election chunks/selection, and caller-provided atomic action batches. The overload call graphs share the same internal finalizer; reverse revalidation and narrow runner-up reads reduce data movement but do not eliminate loops. A batch is atomic when called, but its members can be executed individually. Heap cost grows logarithmically; finite stress tests do not prove unlimited-population liveness. |
 | reentrancy-benign | 6 | State/authorization-checked cross-module workflows. Inspect callback order and the separately guarded asset paths; benign is a detector label, not an exemption from review. |
 | reentrancy-events | 27 | Includes CivicAppealReview.executeRuling emitting after the exact immutable app call. Votes are deleted first; the app closes/resolves the case before returning, and its ruling path makes no external state-changing callback. No arbitrary executor exists. |
-| timestamp | 117 | Delays, expiries, cadence and term-based authorization are intentionally time-dependent. Civic filing/ruling deadlines are strict; timeout is inclusive, and upheld cases retain the later of notice and post-ruling delay. Boundary tests exist. Small timestamp variation and operator responsiveness remain assumptions. |
+| timestamp | 115 | Delays, expiries, cadence and term-based authorization are intentionally time-dependent. OfficeRegistry checks the requested office's term expiry; it has no wallet/person reservation or other-office expiry condition. Civic filing/ruling deadlines are strict; timeout is inclusive, and upheld cases retain the later of notice and post-ruling delay. Boundary tests exist. Small timestamp variation and operator responsiveness remain assumptions. |
 | assembly | 53 | Primarily pinned cryptography/math/memory utilities and callback handling. The hook-reader blocks use fixed-size allocated output buffers, bounded staticcall gas and indexed words only within the exact validated record size. Gas-underfunding, malformed-width/bool/length, oversized-return and live-hook tests exercise these boundaries. Future gas repricing remains a compatibility risk. |
 | pragma | 1 | Dependency version ranges differ; first-party Solidity and compiler are pinned to 0.8.36. |
 | costly-loop | 17 | Bounded/genesis/explicit batch writes and incremental ranking. Whole-genesis gas and large-population costs need deployment/operational sizing. |

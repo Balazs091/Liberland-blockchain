@@ -1,6 +1,6 @@
 # Current Governance Rules
 
-These rules were approved by the owner for the local audit candidate on September 7, 2026. They describe source,
+These rules describe the current source,
 not a deployed upgrade or independent security certification. See [Protocol Parameters](Protocol-Parameters.md)
 and [Release Readiness](Release-Readiness.md).
 
@@ -97,11 +97,17 @@ arbitrary-call surface. The registry's kernel-approved writer controls both regi
 The multi-transaction count needs independent adversarial review, including interrupted counting, policy changes,
 wallet migration, eligibility changes, ordering and gas at substantially larger populations.
 
-## Office separation, Finance and Senate
+## Office appointments, Finance and Senate
 
-Office administrators are separated by wallet and known person. Generic appointments remain wallet-bound;
-term-bound executive appointments follow the current active wallet and expire in read paths. Different addresses
-alone do not prove different controlling people.
+One wallet or known person may administer multiple offices. Roles, clerk epochs, appointment identifiers,
+revocation, activity and expiry remain office-scoped; changing one office does not alter the others. Generic
+appointments remain wallet-bound; term-bound executive appointments follow the current active wallet and expire
+in read paths, including when that wallet already administers another office.
+
+Holding several offices does not turn one person into two approving officers or an independent civic reviewer.
+Shared administration concentrates the powers of the appointed offices. The mainnet deployment script requires
+distinct initial admin addresses and production operations require independent controllers; the registry does not
+enforce continuing cross-office separation. Different addresses alone do not prove independent control.
 
 Every Finance payout requires an immutable proposal plus `approvePayout` from a distinct current officer.
 The original proposer's spending class, asset limits, exact policy reference and appointment must remain valid

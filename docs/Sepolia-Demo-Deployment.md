@@ -109,8 +109,10 @@ For the demo policy, this means a cycle ending at 17:00 UTC is followed by a cyc
 
 ## Office configuration and optional environment variables
 
-`COMPANY_REGISTRY_ADMIN` is now required and must differ from the other office administrators. The registry enforces
-distinct admin appointments. The following other values remain optional in addition to `SEPOLIA_RPC_URL`,
+`COMPANY_REGISTRY_ADMIN` is required. Sepolia office-admin addresses may be shared, including the deployer;
+roles and appointment changes remain scoped to each office. The Finance clerk must differ from the Finance admin,
+and all five civic reviewers must still be distinct from each other, the deployer and every office admin. Shared
+admins concentrate control and do not bypass two-officer approvals. The following other values remain optional in addition to `SEPOLIA_RPC_URL`,
 `PRIVATE_KEY`, and `ETHERSCAN_API_KEY`:
 
 - `FINANCE_ADMIN`
@@ -125,7 +127,7 @@ If you do not set them:
 - the deployer becomes the finance admin
 - `0x...0B0b` becomes the identity office admin
 - `0x...cafE` becomes the land registry office admin
-- the company registry admin is the explicitly supplied distinct address
+- the company registry admin is the explicitly supplied nonzero address
 - `0x...D00d` becomes the finance clerk
 - the treasury is prefunded with exactly the seeded demo budget amount of mock USDC and no extra LLM
 
