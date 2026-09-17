@@ -1,6 +1,8 @@
 # Release Readiness
 
-Status: implementation checks passed; ready for independent external source review with the revision-bound package.
+Status: local implementation, configuration and documentation checks are recorded below. The working source is
+not yet a frozen release commit. Freeze a new revision and regenerate the audit package before submission;
+previously prepared packages do not contain this build.
 **Not authorized for mainnet launch**.
 The package's `PROVENANCE.json` identifies the exact source commit, tree, dependency revisions and toolchain.
 Verify the package checksums before relying on its contents.
@@ -31,6 +33,8 @@ and [External Audit Scope](Audit-Scope.md).
 | Identity and civic process | Consent/nonces, current office appointments, seven-day notice, one appeal, an exact-case 3-of-5 committee, a 30-day dismissal timeout and a two-day post-upheld delay are in scope. Hashes and distinct addresses do not prove lawful evidence or independent controllers. |
 | Finance and other domains | Treasury payout routing requires distinct current Finance officers. Source-authorized decisions, land consent/versioning, electorate synchronization, interest/reserve/rounding arithmetic and sealed two-stage genesis remain in scope. |
 | Shared office administrators | One wallet or person may hold multiple offices. Per-office role checks, expiry, appointment identifiers and clerk invalidation remain independent. Holding multiple offices cannot supply both payout/civic approvals. Only the mainnet genesis script requires distinct initial admins; later cross-office controller separation is operational. |
+| Configuration and arithmetic | Timelock, migration, welfare and Congress schedule constructors reject unsupported durations. Timelock/referendum schedules reject overflowing deadlines; Senate suspension caps widened arithmetic at the action expiry. Lending rejects incompatible rate scales and rates above 200% nominal APR before checkpointing; an entirely empty debt book resets its index without repricing any active claim. |
+| Bounded reads and lifecycle records | Eligibility reads fixed-size identity facts instead of dynamic metadata. Electorate rebuild clamps workloads before addition. Pending companies cannot leave permanent filings across rejection/resubmission; approved suspended/dissolving companies retain compliance filing. Senate callers cannot spoof another repeal origin to evade the registry's tier restriction. |
 
 Passing tests support these implementation descriptions; they do not establish the absence of vulnerabilities.
 
@@ -56,6 +60,20 @@ Passing tests support these implementation descriptions; they do not establish t
 6. **Economic and legal inputs are not certified by code.** The fixed oracle can become economically wrong.
    Token/proxy controls, liquidity, liquidation incentives, bad debt, evidence availability, notice, legal grounds,
    real controllers and company/land signer continuity require independent assessment.
+7. **Ordinary voting has no headcount quorum.** Two qualifying citizens can pass an ordinary repeal referendum
+   if their stake meets the quorum and nobody supplies enough opposing votes. They cannot repeal by petition alone.
+   The existing thresholds are retained on both networks; they are not testnet-only settings.
+8. **Vacancies can constrain dismissal and decisions.** Succession fills seats only while eligible runner-ups
+   remain. PM removal retains the original appointment-support tally; pending Congress decisions retain their
+   prepared threshold and cannot cross terms. These rules are deliberately retained, not fixed by assuming
+   Congress can never shrink. The PM and President have distinct appointment/removal workflows.
+9. **Budget approval is not a repealable law-registry entry.** The retained Law-tier referendum path records a
+   budget envelope. Ordinary law repeal does not revoke it or its queued payouts. Fiscal revocation would require
+   a separately approved lifecycle; no such power is implied by the phrase "budget law".
+10. **Numerical and signer boundaries remain.** The lending-rate ceiling has a tested finite horizon, not an
+    eternal overflow guarantee for never-cleared debt. An active director of a suspended/dissolved company can
+    still authorize disposal of existing land, subject to dual consent and registrar finalization. Receivership,
+    director loss and dissolution procedures need explicit legal/operational review.
 
 [Upgrade and Liveness](Upgrade-And-Liveness.md) contains the module-by-module dependency and recovery map.
 These limits must be included in audit scoping and launch-risk decisions, not treated as deployment guarantees.
@@ -65,34 +83,56 @@ These limits must be included in audit scoping and launch-risk decisions, not tr
 Verification is source-specific. Package provenance must identify this implementation and its tests; do not reuse
 a source archive or verification manifest from a different revision. Fuzzed coverage reruns may vary slightly.
 
-Toolchain: Forge 1.7.1, Solidity 0.8.36, Slither 0.11.5; Osaka, optimizer 200, no via-IR in deployable builds.
+Current toolchain: Forge 1.7.1, Solidity 0.8.37, Slither 0.11.5; Osaka, optimizer 200, no via-IR in deployable builds.
 The source is tested without raising deployment-size or transaction-cap settings to conceal failures.
-The contract/test/script/dependency/ABI trees passed the clean release gate at
-`33f501417b7fd5cbba1f43f044d9f8348acd1c7c`. The refreshed package adds deployment documentation only;
-provenance identifies both revisions and verifies identical implementation trees. Current documentation/ABI checks
-are recorded separately, alongside the full gate's raw results.
+Checks below were run on 17 September 2026 against the local working source derived from
+`ccea1facde0cedb491dc864a2f4dc00e3a04c4bd`, including application changes beyond compiler pragmas.
+The separate 11 September compiler-only benchmark is historical; see [Compiler Upgrade](Compiler-Upgrade.md).
+The workspace evidence directory `Full-Solidity-Review-2026-09-17`, alongside the repository, contains source
+hashes, test/coverage logs, unsuppressed static output and the source-specific review. It is not a committed release
+archive or a replacement for the final clean-tree gate.
+
+### Current local checks
 
 | Check | Recorded result |
 | --- | --- |
-| Optimized full suite | **533 passed, 0 failed, 0 skipped**, 46 suites |
-| Extended stateful campaign | **23 invariants plus 2 non-vacuity tests passed**, 7 suites; 256 runs at depth 256, seed `0x709`; each invariant reported 65,536 handler calls and zero handler-level reverts |
-| Coverage campaign | **532 passed, 0 failed**, 46 suites; one 1,000-candidate stress instance excluded only from instrumentation and required in the optimized suite; a 100-candidate fixture covers the same counting path |
-| Aggregate instrumented coverage | Lines **81.56% (7,896/9,681)**; statements **84.33% (9,159/10,861)**; branches **47.73% (756/1,584)**; functions **88.61% (1,252/1,413)** |
-| First-party production coverage | 52 reported `contracts/` files excluding mocks: lines **83.65% (6,218/7,433)**; statements **86.84% (7,402/8,524)**; branches **45.69% (604/1,322)**; functions **87.80% (979/1,115)** |
+| Optimized full suite | **612 passed, 0 failed, 0 skipped**, 49 suites; seed `0x917`; includes 13 independent typed-payload/lifecycle/reentrant-target regressions |
+| Extended stateful campaign | **23 invariants plus 2 non-vacuity tests passed** on 0.8.37, 7 suites; 256 runs at depth 256, seed `0x709`; each invariant reported 65,536 handler calls and zero handler-level reverts |
 | Build and formatting | All deployable runtimes below 24,576 bytes and creation code below the normal limit; formatting and whitespace checks pass |
-| Documentation and interfaces | **22 maintained Markdown documents**, **52 ABI exports**, exact compiled-source parity |
+| Documentation and interfaces | **23 maintained Markdown documents**, **52 regenerated ABI exports**, exact compiled-source parity. Additive constant getters/errors and the empty-book reset event are included; no new production storage field or reordered field was introduced by this hardening. |
 | Verification-tool tests | **11 passed**; documentation/ABI inventory and static-fingerprint tests |
-| Unsuppressed static analysis | **430 labels**, 425 distinct normalized fingerprints: 6 High, 66 Medium, 264 Low, 94 Informational; see [Static Analysis Notes](Static-Analysis-Triage.md) and the raw JSON |
+| Unsuppressed static analysis | **432 labels**, 427 distinct normalized fingerprints: 6 High, 68 Medium, 264 Low, 94 Informational. Two informational-return reports and ten changed descriptions were reviewed; no detector was suppressed. See [Static Analysis Notes](Static-Analysis-Triage.md). |
+
+| Check | Current local result |
+| --- | --- |
+| Coverage campaign | **611 passed, 0 failed**, 49 suites; one 1,000-candidate stress instance excluded only from instrumentation and required in the optimized suite; a 100-candidate fixture covers the same counting path |
+| Aggregate instrumented coverage | Lines **82.10% (7,997/9,740)**; statements **84.75% (9,266/10,933)**; branches **49.75% (794/1,596)**; functions **89.00% (1,262/1,418)** |
+| First-party production coverage | 52 reported `contracts/` files excluding mocks: lines **84.30% (6,306/7,480)**; statements **87.34% (7,500/8,587)**; branches **48.16% (641/1,331)**; functions **88.18% (985/1,117)** |
 | Constitutional provenance | Pinned source PDF SHA-256 verified; this is not constitutional/legal certification |
 | Production-script rehearsal | Localhost-only two-stage mock-token/synthetic-genesis deployment passed: seven incumbents, continuity cycle, five review accounts, committee/app binding, sealed setup and retired kernel/router/office bootstrap |
-| Public Sepolia deployment | 92 successful transactions, 51 contracts; confirmed addresses, 63 module pointers, reviewer/office assignments, bootstrap retirement, stake backing, prefunding and election metadata |
-| Explorer source status | All 51 published source sets match local files: 48 Exact Match and 3 Similar Match. Exact conversion for MockUSDC, OfficePermissionPolicy and LendingRiskParameterPolicy requires Etherscan approval; see [Sepolia Deployment](Sepolia-Demo-Deployment.md) |
+
+The public Sepolia deployment remains the separately recorded 8 September revision
+`33f501417b7fd5cbba1f43f044d9f8348acd1c7c`, compiled with 0.8.36. Its 92 successful transactions, 51 source sets
+(48 Exact Match and 3 Similar Match) and 63 module pointers are historical deployment evidence, not a deployment or
+explorer verification of this checkout. No public chain was changed by these local checks. See
+[Sepolia Deployment](Sepolia-Demo-Deployment.md).
 
 Test-instance counts include inherited cases and are not counts of independent security scenarios. Coverage excludes
 unreported/interface files; the aggregate includes script/test instrumentation. **Production branch coverage of
-45.69% is an assurance gap.** Stateful handlers catch expected rejections, so zero handler reverts is not proof that
+48.16% is an assurance gap.** Stateful handlers catch expected rejections, so zero handler reverts is not proof that
 every attempted operation succeeded; examine failure flags, ghost models and non-vacuity tests. These bounded
 campaigns and scanner fingerprints are not formal verification or a security verdict.
+
+Permanent-core coverage after adversarial payload/reentry tests:
+
+| Component | Lines | Branches |
+| --- | ---: | ---: |
+| ActionTimelock | 93.86% (321/342) | 88.61% (70/79) |
+| ConstitutionKernel | 95.83% (138/144) | 75.00% (18/24) |
+| GovernanceRouter | 89.11% (90/101) | 69.57% (16/23) |
+| BoundedGovernanceHook | 100% (37/37) | 100% (8/8) |
+
+These percentages do not establish exhaustive state-machine coverage or prove the correctness of replacement code.
 
 ## Performance and maintenance constraints
 
@@ -102,9 +142,13 @@ Measured election calls use fixture setup in a separate transaction to expose pe
 | --- | ---: |
 | 32 inserts into a 960-entry heap | 4,813,154 |
 | One-candidate adaptive batch | 363,554 |
-| Revalidate 31 disqualified provisional candidates | 2,936,510 |
-| Scan 31 retained runner-ups with maximum metadata | 1,627,332 |
-| Maximum supported 31-seat + 1-runner activation | 14,431,650 |
+| Revalidate 31 disqualified provisional candidates | 2,637,085 |
+| Scan 31 retained runner-ups with maximum metadata | 1,337,264 |
+| Maximum supported 31-seat + 1-runner activation | 14,132,194 |
+
+Compared with the same cold-state fixtures in the compiler-only benchmark, fixed-size eligibility reads reduce
+these last three calls by approximately 10.2%, 17.8% and 2.1%, respectively. Heap insertion is unchanged. These are
+fixture measurements, not promises about every transaction or future gas schedules.
 
 Heap insertion is logarithmic. Selection revalidation and final seat activation have separate bounded costs that
 are not reduced by the insertion workload selector. Finite measurements do not certify arbitrary population size,

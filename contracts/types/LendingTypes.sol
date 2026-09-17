@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 /// @title LendingTypes
 /// @notice Shared structs for stake-backed USDC lending.

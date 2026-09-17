@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {LendingTypes} from "../types/LendingTypes.sol";
 
@@ -20,6 +20,8 @@ interface IUSDCLendingPoolApp {
     error InvalidReceiver(address receiver);
     error InvalidRegistry(address registryAddress);
     error InvalidToken(address tokenAddress);
+    error UnsupportedBorrowRate(uint256 ratePerSecondRay);
+    error UnsupportedInterestRateScale(uint256 scale);
     error LiquidationNotAllowed(bytes32 personId, uint256 healthFactor);
     error NoDebt(bytes32 personId);
     error PositionNotBadDebt(bytes32 personId, uint256 seizableStake);
@@ -69,6 +71,8 @@ interface IUSDCLendingPoolApp {
         uint256 borrowIndex,
         uint64 accruedAt
     );
+
+    event EmptyBookIndexReset(uint256 previousIndex, uint64 resetAt);
 
     event BadDebtAbsorbed(
         address indexed caller,

@@ -2,6 +2,10 @@
 
 This folder is the clean handoff package for the frontend.
 
+The API guidance describes the current source, not proof that an existing Sepolia address runs it. Keep the
+deployed revision and its matching ABIs separate from the current-source export; updating this folder does not
+upgrade contracts. See [deployment provenance](../docs/Sepolia-Demo-Deployment.md) before connecting a live client.
+
 ## Contents
 
 - `sepolia-demo.example.json`
@@ -64,6 +68,12 @@ Production uses Ethereum mainnet (`chainId: 1`) and `deployments/ethereum-mainne
   dependencies remain recovery limits; see `../docs/Upgrade-And-Liveness.md`
 - Official contribution rewards are LLM-only Finance-admin-proposed, distinct-officer-approved payouts from a referendum-approved budget and require a displayed evidence hash/URI; the Treasury never mints LLM
 - Senate treasury suspensions and renewals require a published-document hash submitted by a current supporting seat holder; display `DisbursementSuspension.reasonHash` with the active deadline
+- Two eligible citizens initiate a repeal referendum, not immediate repeal. Ordinary voting has an absolute stake
+  quorum and no electorate-headcount quorum: two voters can still pass if their weight suffices and others abstain.
+  This rule is the same on mainnet and Sepolia; show the vote and execution stages separately.
+- Budget approvals use Law-tier referenda but create budget envelopes, not `LegislationRegistry` law records.
+  Public repeal does not revoke an envelope. Do not offer a budget-repeal button; show budget expiry and the
+  separate Senate cancellation/suspension controls for queued payouts.
 - `DecisionApp`, `MinistryTreasury`, and lending are deployed by both manifests; production uses external USDC and
   Sepolia uses mock USDC
 - elected/executive role authority follows `IdentityRegistry.activeWalletOf(personId)` after migration; historical
@@ -137,6 +147,8 @@ Production uses Ethereum mainnet (`chainId: 1`) and `deployments/ethereum-mainne
   - price / interest policies
   - use `repayFor(personId, amount)` when repayment must survive borrower-wallet revocation
   - use `currentDebtOf(personId)` for current debt; `totalBorrows()` and `borrowIndex()` are stored checkpoints
+  - label rates as nominal APR compounded per second, not APY. `EmptyBookIndexReset` resets the debt unit only when
+    no scaled debt remains; it neither forgives an outstanding loan nor changes cash, shares or reserves
   - do not expose a protocol-reserve claim action; reserves are locked first-loss capital
   - expose `absorbBadDebt(personId)` only as permissionless loss reconciliation: it rejects while the smallest
     repayment that reduces scaled debt remains liquidatable. Active pools use surplus stake; retired pools cap

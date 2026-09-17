@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -175,6 +175,45 @@ contract IdentityStakePoliciesTest is Test {
         assertEq(unstakingPolicy.welfarePeriod(), WELFARE_PERIOD);
         assertEq(unstakingPolicy.annualUnstakeRateBps(), ANNUAL_UNSTAKE_RATE_BPS);
         assertEq(unstakingPolicy.stakeRegistry(), address(stakeRegistry));
+    }
+
+    function test_CitizenEligibility_LargeMetadataDoesNotBreakBoundedSynchronization() public {
+        _registerCitizen(PERSON_ID, WALLET, MINIMUM_CITIZEN_STAKE);
+        IdentityTypes.IdentityRecordInput memory input = _defaultIdentityInput();
+        input.metadataURI = string(new bytes(32_768));
+        _setIdentityRecord(PERSON_ID, input);
+        // A later transaction starts with cold storage; reading the full URI would exceed the callback budget.
+        vm.cool(address(identityRegistry));
+        _increaseStake(PERSON_ID, 1);
+        assertTrue(electorateRegistry.isReady());
+        vm.cool(address(identityRegistry));
+        (bool success, bytes memory result) = address(citizenEligibilityPolicy).staticcall{gas: 50_000}(
+            abi.encodeCall(ICitizenEligibilityPolicy.isCitizenInGoodStanding, (WALLET))
+        );
+        assertTrue(success, "eligibility must not read dynamic metadata");
+        assertTrue(abi.decode(result, (bool)));
+    }
+
+    function test_ElectorateRebuild_ClampsOversizedWorkloadBeforeAddition() public {
+        _registerCitizen(PERSON_ID, WALLET, MINIMUM_CITIZEN_STAKE);
+        _registerCitizen(PERSON_TWO_ID, WALLET_TWO, MINIMUM_CITIZEN_STAKE);
+        assertEq(electorateRegistry.rebuild(1, type(uint256).max), 2);
+        assertTrue(electorateRegistry.isReady());
+    }
+
+    function test_UnstakingPolicy_RejectsOverflowingWelfareConfiguration() public {
+        vm.expectRevert(abi.encodeWithSelector(UnstakingPolicy.InvalidWelfarePeriod.selector, type(uint64).max));
+        new UnstakingPolicy(address(stakeRegistry), type(uint64).max, ANNUAL_UNSTAKE_RATE_BPS);
+        uint64 overMaximum = unstakingPolicy.MAX_WELFARE_PERIOD() + 1;
+        vm.expectRevert(abi.encodeWithSelector(UnstakingPolicy.InvalidWelfarePeriod.selector, overMaximum));
+        new UnstakingPolicy(address(stakeRegistry), overMaximum, ANNUAL_UNSTAKE_RATE_BPS);
+    }
+
+    function test_UnstakingPolicy_MaximumPeriodAndCheckpointStakeRemainArithmeticSafe() public {
+        uint64 maximumPeriod = unstakingPolicy.MAX_WELFARE_PERIOD();
+        UnstakingPolicy policy = new UnstakingPolicy(address(stakeRegistry), maximumPeriod, 10_000);
+        assertEq(policy.previewWelfareUntil(uint64(block.timestamp)), block.timestamp + maximumPeriod);
+        assertEq(policy.unstakePortion(type(uint208).max), uint256(type(uint208).max) * maximumPeriod / policy.YEAR());
     }
 
     function test_IdentityRegistry_EmitsAuditEventsAndStoresWalletLink() public {

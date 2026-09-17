@@ -51,6 +51,26 @@ citizen-upgrade ballot or broad exemption from negative powers.
 These limits must be accepted explicitly by the human auditors and launch decision-makers. The source must not be
 described as impossible to freeze. They are not permission to add a recovery administrator or bypass a failed vote.
 
+## Retained voting and fiscal rules
+
+The current release retains these policy boundaries:
+
+- Two citizen signatures initiate a Law-tier repeal referendum; they do not enact the repeal. Ordinary weighted
+  passage uses an absolute stake quorum without an electorate-headcount quorum. Two eligible voters can therefore
+  pass if their snapshot weight is sufficient and other voters abstain, on either mainnet or Sepolia.
+- Prime Minister removal requires the recorded appointment tally, not a newly calculated majority. Congress
+  vacancies can make that tally unreachable. Eligible runner-up succession can fill a departing member's seat,
+  but is not guaranteed; term expiry remains an accepted limit when sufficient support cannot be assembled. The
+  President is a separate office and has no emergency power to lower this removal threshold.
+- Congress decisions require their preparing Congress cycle and recorded majority threshold; only support from
+  current members counts. Vacancies may strand a particular prepared decision. A new decision needs new support
+  and source consent. Current vacancy workflows do not independently refill a previously empty seat.
+- Budget approval is a Law-tier referendum workflow that records a budget envelope, not a LegislationRegistry
+  enactment. Public repeal cannot revoke the envelope. There is no generic budget-revocation operation; budget
+  intervals and accounting limits remain enforced, and Senate may cancel/suspend individual queued payouts.
+
+These are retained rules, not hidden recovery mechanisms or evidence that every governance action can complete.
+
 ## Optional negative-power hook safety
 
 The three Senate record probes and the constitutional-review bool probe use `BoundedGovernanceHook`:
@@ -66,6 +86,11 @@ The three Senate record probes and the constitutional-review bool probe use `Bou
 Replacement hook implementations must fit this interface and gas budget. The budget is a compatibility condition,
 not permission to ignore a valid record by submitting less transaction gas. The core cannot distinguish a
 malfunctioning hook from an intentionally incompatible one, so fail-open behavior is a deliberate trust boundary.
+
+Senate suspension deadlines are capped to action expiry after widened arithmetic, so even an extreme policy
+duration cannot overflow before that cap. The legislation registry also binds a Senate caller to its Senate repeal
+origin and sub-legal scope; an approved replacement cannot evade that bound by relabeling a call as a referendum.
+This is independent of the immutable router's deliberately broader origin/action trust model.
 
 ## Coordinated activation procedure
 
@@ -139,6 +164,13 @@ stake and lien registries and the same underlying asset. Debt and LP claims do n
 import is outside this retirement mechanism and requires separate design/review. Unencumbered unstaking reads only
 the protected floor, not a replaceable citizen policy; existing loan settlement uses its captured floor. New borrowing
 still requires current policy/eligibility and matching origin pointers.
+
+Interest-policy replacement must retain RAY scaling and a borrow rate no greater than the equivalent of 200%
+nominal APR, compounded per second. An invalid rate is rejected before it becomes the stored rate for a new
+interval; selecting a valid policy can recover from that configuration error if the ordinary governance route
+remains available. This does not guarantee perpetual arithmetic liveness for an outstanding loan book. When no
+scaled debt remains, the pool resets the borrow index to RAY and emits `EmptyBookIndexReset`, without changing cash,
+shares or reserves. A replacement or index reset does not erase outstanding debt or migrate it to another pool.
 
 ## Election progress is separate from future scheduling
 

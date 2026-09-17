@@ -33,8 +33,9 @@ Important:
 - the client/audit UI must use the office-mediated `IdentityApp` lifecycle even when the Sepolia address also exposes
   demo-only `registerSelf` and `confirmCitizenship` selectors. Do not render those demo-only selectors in the audit
   build
-- an older deployment does not gain the fixed boundary, historical vote weight, or person-bound role continuity;
-  redeploy and replace its config
+- this guide describes current source. An existing deployment may use an earlier revision; verify its exact source
+  and matching ABI before enabling writes. Documentation/ABI export is not a deployment or upgrade. See
+  [Sepolia deployment provenance](../docs/Sepolia-Demo-Deployment.md).
 
 For production, use `deployments/ethereum-mainnet.json`; its schema is shown in `ethereum-mainnet.example.json`. `genesisCongressSeatCount` is `7`, while `genesisCongressContinuityCycleId` and `genesisCongressContinuityEnd` identify the imported live cycle and its absolute Unix endpoint. These are deployment metadata. Prefer on-chain registry reads for current state.
 
@@ -76,6 +77,7 @@ Wallet migration is the citizen-facing on-chain identity flow:
 - status read: `getWalletMigration(personId)`
 
 The new wallet must be unlinked, and the person's stake remains attached to `personId` throughout migration.
+Use the deployed `migrationDelay()` rather than assuming every installation uses the manifest's two-day value.
 
 Lost-key recovery uses `proposeWalletRecovery(personId, newWallet, evidenceHash)` from the admin, destination
 acceptance, a DIFFERENT officer's approval, and seven days after approval. The old wallet may cancel but is not
@@ -123,6 +125,8 @@ Do not hardcode timelock delays in the UI.
   rather than bypassing a valid record. Estimate transaction gas with these callback budgets included
 - do not display an absolute recovery guarantee: mutual Senate/review blocking and broken referendum dependencies
   can still halt replacement. Batch members remain independently executable. See `../docs/Upgrade-And-Liveness.md`
+- Treat `InvalidAdoptionSchedule` and `InvalidActionSchedule` as invalid timestamp inputs, not retryable gas errors.
+  The referendum end plus adoption delay, and queued execution/expiry times, must fit `uint64` seconds.
 
 ## Page 1: Finances
 
@@ -455,7 +459,7 @@ For display:
 - voter status
   - eligible or not
   - current voting weight
-   - current cycle ballot summary
+  - current cycle ballot summary
 - candidate list
   - candidate wallet
   - person id
@@ -547,6 +551,12 @@ Congress member creating the decision is also the recorded source wallet. Every 
 `revokeCongressDecisionSource(decisionId)` before execution. For ministry decisions, the current contract model
 treats the office admin wallet as the ministry signer/source wallet.
 
+Congress decisions keep `getDecision(decisionId).supportRequired` from preparation and require the same Congress
+cycle at execution. Support is rechecked against current members, but `requiredCongressSupport()` describes the
+threshold for a newly prepared decision, not the stored one. Vacancies can leave an old decision short of its
+recorded threshold; a fresh decision needs fresh support and exact source authorization. Do not display the new
+threshold as if it modified the old decision.
+
 ### Budget-approval referendum form
 
 The canonical creation path is
@@ -583,6 +593,12 @@ may call `finalizeReferendum(referendumId)`. If it passes, follow
 `getReferendumResult(referendumId).enactmentActionId`, wait until the timelock reports it executable, and call
 `actionTimelock.executeAction(actionId)`. Only that execution creates the budget envelope.
 
+The current design does not also create a `LegislationRegistry` enactment under `budgetId`. Although the proposal
+is Law-tier and commits to budget-law text, `PublicVetoApp` cannot petition to repeal this envelope. There is no
+generic budget-revocation function. Show the budget interval and remaining accounting capacity, and the separate
+Senate cancellation/suspension controls over queued disbursements. Do not label a legislation repeal as canceling
+the budget or reversing completed payments.
+
 ### Treasury notes
 
 - budget approvals are referendum/timelock actions, not office-only actions
@@ -603,7 +619,9 @@ may call `finalizeReferendum(referendumId)`. If it passes, follow
   replacement. A true marker may precede queue/budget synchronization; it is not permission to call `markExecution`
   from a client. A token-transfer failure rolls back the stable and vault-local receipts
 - `officeExecutor.cancelPayout(officeId, requestId)` also cancels a routed timelock action before queue cancellation
-  releases the budget; do not try to cancel only the queue record
+  releases the budget. If Senate already canceled the action, the current source reconciles that state directly
+  without a second timelock cancellation. For expired/executed actions use `syncPayoutState`; do not try to cancel
+  only the queue record
 - call permissionless `payoutQueue.syncPayoutState(requestId)` after the action executes, is Senate-canceled, or
   expires. Queue state may legitimately lag timelock state until synchronization
 - synchronization verifies execution on `getAction(actionId).targetModuleAddress`, the pinned Treasury Vault, not a
@@ -662,12 +680,22 @@ For Public Veto screens, use `currentPublicVetoSupportCount(measureId)` and
 `remainingRepealSupport(measureId)` while collecting petition signatures. Despite the legacy getter name, this is
 support needed to INITIATE a referendum, not to repeal. Two signatures create `getPublicVetoRecord(...).referendumId`;
 do not display a repeal yet. Petition signatures are not referendum votes. Display the ordinary vote, passage and
-adoption delay, then the typed `LegislationRepeal` timelock action. The next `castPublicVeto` prunes stale eligible
+adoption delay, then the typed `LegislationRepeal` timelock action. The next `castPublicVeto` prunes stale ineligible
 receipts before submission; submitted signatures are historical. `resetPublicPetition` permits fresh signatures
 after defeat/cancellation or a canceled/expired unexecuted action. The next round has a fresh petition/referendum ID.
 
+The ordinary repeal rule is unchanged: it has an absolute stake quorum and no electorate-headcount quorum. Two
+eligible voters with enough snapshot weight can pass when everyone else abstains; it is not a testnet-only rule.
+Show the pinned policy, weighted totals and ordinary quorum instead of promising that half the population must vote.
+
 Disable `HeadOfStateApp.voteForPresident` while `PresidentRegistry.isPresidentInTerm()` is true. The contract rejects
 early ballots rather than keeping a successor election open during an incumbent term.
+
+The Prime Minister is a separate Congress-appointed office. `CabinetApp` removal requires at least the stored
+appointment tally, even after Congress shrinks. Eligible runner-up succession may maintain occupancy but is not
+guaranteed. If the remaining membership cannot meet that tally, show the actual blocked removal threshold and PM
+term expiry; do not substitute the President's term or a newly calculated simple majority. The retained rule permits
+waiting for term expiry, not an emergency dismissal control.
 
 For lending:
 
@@ -681,6 +709,12 @@ For lending:
 - `totalBorrows()` and `borrowIndex()` return stored checkpoints; refresh them after `accrueInterest()` or another
   mutating pool transaction and do not expect a time-only block to change them
 - interest uses global RAY-scaled debt and the effective rate/reserve configuration for the elapsed interval
+- label the configured rates nominal APR compounded each second, not effective APY. The source caps the policy's
+  combined maximum nominal APR at 200% and rejects a live policy with another RAY scale or an out-of-range borrow
+  rate (`UnsupportedInterestRateScale` / `UnsupportedBorrowRate`). These numerical limits are not loan-price advice
+  or a perpetual liveness guarantee
+- index `EmptyBookIndexReset`: once total scaled debt is zero, the checkpoint resets `borrowIndex` to RAY. Refresh
+  cached index/rate data; cash, LP shares and reserves do not change, and outstanding debt is never reset this way
 - display `StakeLienRegistry.retainedStakeFloorOf(personId)` and `loanBookOf(personId)`; ownership/floor persist
   until the originating pool explicitly closes the loan, even if liquidation previously reduced its lien to zero
 - retired pools cannot add borrowing; the current pool cannot take another pool's open loan. New origination also
@@ -738,6 +772,8 @@ For lending:
 - Senate votes are direct and occupancy-bound. Read `SenateApp.requiredSupport()` for the live strict majority of
   occupied seats, with a floor of two and any higher policy minimum. There are no President proxy votes or proxy
   entry points. `PresidentRegistry.presidencyNonce()` still identifies presidential appointment lifecycles.
+- Senate repeal is sub-legal-only. The legislation registry rejects a Senate caller claiming another repeal
+  origin; changing a form's enum cannot grant referendum powers. Seats, rather than distinct people, are counted.
 - The land transfer request and EIP-712 type include `expectedParcelVersionHash` after `expectedVersionHash`.
   Use the regenerated ABI and updated `docs/Land-Cadastre.md` signing schema. Previously prepared signatures must
   be replaced. These are source changes for reviewed deployment; updating an ABI does not patch deployed contracts.

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {Checkpoints} from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
@@ -141,8 +141,8 @@ contract StakeRegistry is IStakeRegistry, KernelModule {
             revert NothingToUnstake(personId);
         }
 
-        uint64 currentTimestamp = uint64(block.timestamp);
-        welfareUntil = currentTimestamp + unstakingPolicy.welfarePeriod();
+        uint64 currentTimestamp = SafeCast.toUint64(block.timestamp);
+        welfareUntil = SafeCast.toUint64(block.timestamp + unstakingPolicy.welfarePeriod());
 
         stakeRecord.activeStake = activeStake - releasedAmount;
         _totalActiveStake -= releasedAmount;

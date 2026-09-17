@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -186,6 +186,34 @@ contract CompanyRegistryTest is Test {
 
         assertEq(companyRegistry.getCompany(COMPANY_TWO_ID).activeDirectorCount, 0);
         assertFalse(companyRegistry.getDirector(COMPANY_TWO_ID, DIRECTOR).active);
+    }
+
+    function test_PendingCompanyCannotLeaveFilingsBehindAfterRejection() public {
+        vm.prank(FOUNDER);
+        companyRegistryApp.submitIncorporation(COMPANY_ID, _companyInput("company.one", bytes32(0)));
+        vm.prank(COMPANY_CLERK);
+        vm.expectRevert(
+            abi.encodeWithSelector(ICompanyRegistry.InvalidCompanyStatus.selector, CompanyTypes.CompanyStatus.Pending)
+        );
+        companyRegistryApp.recordFiling(COMPANY_ID, FILING_ID, CompanyTypes.FilingType.Compliance, keccak256("filing"));
+        assertEq(companyRegistry.getFiling(FILING_ID).filingId, bytes32(0));
+
+        vm.prank(COMPANY_ADMIN);
+        companyRegistryApp.rejectCompany(COMPANY_ID, keccak256("incomplete"));
+        vm.prank(OUTSIDER);
+        companyRegistryApp.submitIncorporation(COMPANY_ID, _companyInput("company.revised", bytes32(0)));
+        assertEq(companyRegistry.getFiling(FILING_ID).filingId, bytes32(0));
+    }
+
+    function test_SuspendedCompanyCanStillRecordComplianceFiling() public {
+        vm.prank(FOUNDER);
+        companyRegistryApp.submitIncorporation(COMPANY_ID, _companyInput("company.one", bytes32(0)));
+        vm.startPrank(COMPANY_ADMIN);
+        companyRegistryApp.approveCompany(COMPANY_ID, REGISTRATION_NUMBER_HASH);
+        companyRegistryApp.setCompanyStatus(COMPANY_ID, CompanyTypes.CompanyStatus.Suspended, keccak256("suspended"));
+        companyRegistryApp.recordFiling(COMPANY_ID, FILING_ID, CompanyTypes.FilingType.Compliance, keccak256("filing"));
+        vm.stopPrank();
+        assertEq(companyRegistry.getFiling(FILING_ID).companyId, COMPANY_ID);
     }
 
     function test_ComplianceWarningCanOperateButSuspendedCannot() public {

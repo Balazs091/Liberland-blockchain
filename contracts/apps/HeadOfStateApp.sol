@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {IHeadOfStateApp} from "../interfaces/IHeadOfStateApp.sol";
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
@@ -11,8 +11,7 @@ import {SenateTypes} from "../types/SenateTypes.sol";
 
 /// @title HeadOfStateApp
 /// @notice Standing authority for the Senate-elected Head of State (Constitution Art VI §2). Registered as the
-///         kernel PRESIDENT_REGISTRY_AUTHORITY, it is the sole live writer of the President registry after genesis,
-///         fixing the post-genesis freeze that left PRESIDENT_REGISTRY_AUTHORITY unregistered.
+///         kernel PRESIDENT_REGISTRY_AUTHORITY, it is the sole live writer of the President registry after genesis.
 ///
 ///         Election model (seat-based majority, mirroring the Senate's occupied-seat counting): each occupied seat
 ///         casts one ballot for a sitting Senator; a ballot is bound to the seat's occupancy nonce so a

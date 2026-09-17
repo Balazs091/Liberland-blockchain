@@ -52,7 +52,7 @@ Evidence: `test/apps/IdentityApp.t.sol`, `test/apps/DemoCitizenGateway.t.sol`, a
   `finalizeElection(uint256,uint256)` accepts 1..32 for both insertion and heap-head consideration. Heap operations
   remain O(log N), and selected outcomes still require bounded revalidation before activation.
   Current eligibility is checked on selection and again before activation. Disqualified candidates do not re-enter
-  that count; losing eligibility while counting can forfeit candidacy. Stake is not separately locked.
+that count; losing eligibility while counting can forfeit candidacy. Stake is not separately locked.
 - After canonical Finalized status, anyone explicitly calls `createNextElectionCycle()` when the current policy and
   certified electorate permit. Failure to create a future cycle does not undo the completed election.
 - A member may resign. Anyone may recall a member who has lost candidate eligibility, after which the next eligible
@@ -67,13 +67,20 @@ Evidence: `test/apps/IdentityApp.t.sol`, `test/apps/DemoCitizenGateway.t.sol`, a
 Election endpoints remain anchored to 17:00 UTC in both manifests. Production uses seven seats and 90-day cycles;
 Sepolia uses two seats and 3-day cycles.
 
+Casting requires current good standing as well as the person's historical eligibility and stake at the stored
+snapshot. A suspended or otherwise ineligible wallet cannot vote merely because it used to qualify. Eligibility
+checks use fixed-size civic facts, so large identity metadata does not make voting or electorate synchronization
+read the whole metadata document link. Constructor duration bounds do not change any of these political rules.
+
 Evidence: `test/apps/CongressElections.t.sol`, `test/apps/CabinetApp.t.sol`, `test/apps/Decisions.t.sol`, and
 `test/scripts/DeployDemoTiming.t.sol`.
 
 ## Prime Minister, ministers, and clerks
 
 - A strict majority of the current occupied Congress seats appoints the Prime Minister. The recorded winning tally
-  is the later removal threshold.
+  is the later removal threshold. Runner-ups ordinarily restore vacancies, but if too few eligible replacements
+  exist and Congress shrinks below that tally, the ordinary removal route cannot meet it; this limitation and the
+  existing term-expiry boundary are retained. There is no hidden officer override.
 - The Prime Minister appoints the four political ministers. The Prime Minister cannot dismiss them; Congress can,
   and a minister can resign.
 - The Finance ministry is the only ministry currently wired to an operational office. Appointing the Finance
@@ -111,9 +118,10 @@ Evidence: `test/apps/CabinetApp.t.sol`, `test/apps/MinistryTreasury.t.sol`,
 - Company Registry admins and clerks execute their workflows through the dedicated company app.
 - A public company applicant may submit an incorporation request; the Company Registry office handles approval,
   rejection, status, shares, directors, and filings.
-- A pending company cannot receive directors, share classes, shares, or filings. Those child-state operations become
-  available only in `Active` or `ComplianceWarning` status, preventing rejected/resubmitted applications from
-  inheriting hidden pre-approval state.
+- A pending company cannot receive directors, share classes, shares, or filings, preventing rejected/resubmitted
+  applications from inheriting hidden pre-approval state. Director and share-ledger changes require `Active` or
+  `ComplianceWarning` status. Approved companies may also file compliance records while `Suspended` or
+  `Dissolving`; `Rejected` and `Dissolved` records cannot accept new filings.
 - Finance payouts require an enacted budget envelope, a policy-permitted request, a distinct current officer's approval, a queued typed action, the
   timelock, and the Treasury Vault's independent exact-commitment check.
 - An authorized office can cancel a proposal. If already routed, `OfficeExecutor.cancelPayout` first cancels the
@@ -161,6 +169,9 @@ Evidence: `test/apps/TreasuryAndOffices.t.sol`.
   `PublicVetoEligibilityExpired`. Two signatures initiate a typed ordinary repeal referendum; they do not cast
   referendum votes or repeal the law. After passage and the normal delay, execute the queued repeal. Failed or
   canceled rounds can be reset for fresh petition signatures.
+  The ordinary vote has a 10,000-LLM turnout quorum and no separate headcount quorum: two eligible 5,000-LLM voters
+  can pass it if everyone else abstains. This low-turnout possibility exists on both mainnet and Sepolia, subject
+  to the normal passage, delay and negative-power checks.
 - The current Senate and Congress apps expose no unrestricted execution function. Core routing authenticates the
   currently approved module and typed action, so a future constitutional design can replace those apps without an
   obsolete branch matrix blocking it.

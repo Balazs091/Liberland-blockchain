@@ -12,7 +12,7 @@ The implemented contract surface includes:
 - consent-based identity onboarding/migration, two-officer recovery, delayed civic changes, stake, and voting power
 - referenda, Tier 1/Tier 2 enactment after adoption delay, Senate cancellation, Senate active-referendum veto, Senate sub-legal repeal, direct-majority Senate voting without proxy substitution, and public veto flows
 - open Congress candidacy, deterministic recurring cycles, person-bound signed-allocation ballots, bounded resumable counting, runner-up succession, and zero-active-wallet seat recovery
-- treasury, referendum-approved budget laws, budget-envelope, office, and payout routing flows
+- treasury, Law-tier referendum-approved budget envelopes, office, and payout routing flows
 - an office-authorized, versioned land cadastre with stable legal-party IDs, dual-consent transfers, atomic parcel
   operations, and a separate company registry with official directors, filings, and share ledgers
 - stake-backed USDC lending with stake liens, utilization-based interest, treasury reserves, and liquidation into active staked LLM
@@ -64,7 +64,7 @@ test/
 
 ## Tooling
 
-- Solidity `0.8.36`
+- Solidity `0.8.37`
 - Foundry `1.7.1` for build, test, formatting, and scripts
 - Anvil for local execution
 - Slither `0.11.5` for static analysis
@@ -136,6 +136,15 @@ record/custody migration executor. Supported same-ledger LLM handoff and retired
 not an absolute no-freeze guarantee. See [Upgrade and Liveness](docs/Upgrade-And-Liveness.md).
 
 Start an independent review with [Auditor Handoff](docs/Auditor-Handoff.md).
+
+The current source uses Solidity 0.8.37. [Compiler Upgrade](docs/Compiler-Upgrade.md) records the measured
+historical compiler-only comparison. The local source also contains subsequent implementation hardening;
+neither set of changes is deployed by editing the source. Existing Sepolia addresses still run the recorded 0.8.36
+revision. Current checks and improvements are in [Release Readiness](docs/Release-Readiness.md).
+
+Ordinary voting thresholds and the existing PM/decision rules are retained, including their low-turnout and
+vacancy limits. Budget approval records an envelope, not a repealable law-registry entry: ordinary law repeal does
+not revoke that spending authority. See [Governance](docs/Governance.md).
 
 Repository documentation is audit orientation, not an audit verdict. Revision-specific test, coverage, static
 analysis, and runtime-size evidence belongs in `docs/Release-Readiness.md` and must be refreshed before the

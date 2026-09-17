@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {IActionTimelock} from "../interfaces/IActionTimelock.sol";
 import {IBudgetEnvelopeRegistry} from "../interfaces/IBudgetEnvelopeRegistry.sol";
@@ -16,6 +16,8 @@ import {BoundedGovernanceHook} from "../libraries/BoundedGovernanceHook.sol";
 /// @title ActionTimelock
 /// @notice Delayed execution queue for explicit privileged governance actions.
 contract ActionTimelock is IActionTimelock {
+    /// @notice Technical upper bound for each configured duration; deployment manifests use days, not years.
+    uint64 public constant MAX_CONFIGURED_DURATION = type(uint32).max;
     uint64 internal constant DEFAULT_MODULE_GOVERNANCE_DELAY = 2 days;
     uint64 internal constant DEFAULT_TREASURY_BUDGET_APPROVAL_DELAY = 1 days;
     uint64 internal constant DEFAULT_LEGISLATION_ENACTMENT_DELAY = 1 days;
@@ -37,7 +39,13 @@ contract ActionTimelock is IActionTimelock {
         if (kernelAddress == address(0) || kernelAddress.code.length == 0) {
             revert IConstitutionKernel.InvalidModuleAddress(bytes32(0), kernelAddress);
         }
-        if (delayConfig.defaultExecutionWindow == 0) {
+        if (
+            !_validDuration(delayConfig.moduleGovernanceDelay)
+                || !_validDuration(delayConfig.treasuryBudgetApprovalDelay)
+                || !_validDuration(delayConfig.legislationEnactmentDelay)
+                || !_validDuration(delayConfig.treasuryDisbursementDelay)
+                || !_validDuration(delayConfig.defaultExecutionWindow)
+        ) {
             revert InvalidDelayConfig(delayConfig);
         }
 
@@ -358,10 +366,20 @@ contract ActionTimelock is IActionTimelock {
         view
         returns (uint64 earliestExecutionTime, uint64 expiresAt)
     {
-        uint64 earliestAllowed = currentTimestamp + minimumDelay(request.actionType);
-        earliestExecutionTime =
+        uint256 earliestAllowed = uint256(currentTimestamp) + minimumDelay(request.actionType);
+        uint256 resolvedExecutionTime =
             request.requestedExecutionTime > earliestAllowed ? request.requestedExecutionTime : earliestAllowed;
-        expiresAt = request.expiresAt == 0 ? earliestExecutionTime + _defaultExecutionWindow : request.expiresAt;
+        uint256 resolvedExpiry =
+            request.expiresAt == 0 ? resolvedExecutionTime + _defaultExecutionWindow : request.expiresAt;
+        if (resolvedExecutionTime > type(uint64).max || resolvedExpiry > type(uint64).max) {
+            revert InvalidActionSchedule(resolvedExecutionTime, resolvedExpiry);
+        }
+        earliestExecutionTime = uint64(resolvedExecutionTime);
+        expiresAt = uint64(resolvedExpiry);
+    }
+
+    function _validDuration(uint64 duration) private pure returns (bool valid) {
+        return duration != 0 && duration <= MAX_CONFIGURED_DURATION;
     }
 
     function _computeActionId(

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -18,6 +18,7 @@ import {IStakeLienRegistry} from "../interfaces/IStakeLienRegistry.sol";
 import {IStakeRegistry} from "../interfaces/IStakeRegistry.sol";
 import {IUSDCLendingPoolApp} from "../interfaces/IUSDCLendingPoolApp.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
+import {InterestRateBounds} from "../libraries/InterestRateBounds.sol";
 import {IdentityTypes} from "../types/IdentityTypes.sol";
 import {LendingTypes} from "../types/LendingTypes.sol";
 import {StakeTypes} from "../types/StakeTypes.sol";
@@ -214,6 +215,7 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
 
         IInterestRatePolicy interestPolicy = _interestRatePolicy();
         preview.borrowRatePerSecondRay = interestPolicy.borrowRatePerSecond(preview.utilizationRay);
+        _requireSupportedBorrowRate(preview.borrowRatePerSecondRay);
         preview.supplyRatePerSecondRay =
             interestPolicy.supplyRatePerSecond(preview.utilizationRay, _riskParameters().reserveFactorBps);
     }
@@ -637,10 +639,21 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
     }
 
     function _checkpointAccrualConfiguration(bool forceNewInterval) private {
+        if (_totalScaledDebt == 0 && _borrowIndex != RAY) {
+            // An empty loan book has no debt claims whose value depends on the index. Resetting its unit avoids
+            // carrying years of rounding degradation into later loans; cash, shares and reserves are unchanged.
+            uint256 previousIndex = _borrowIndex;
+            _borrowIndex = RAY;
+            forceNewInterval = true;
+            emit EmptyBookIndexReset(previousIndex, uint64(block.timestamp));
+        }
         uint16 reserveFactorBps = _riskParameters().reserveFactorBps;
         uint256 utilizationRay = utilizationRate();
         IInterestRatePolicy interestPolicy = _interestRatePolicy();
         uint256 borrowRateRay = interestPolicy.borrowRatePerSecond(utilizationRay);
+        // Never store a replacement policy's out-of-range rate: repointing to a valid policy must remain enough
+        // to recover from a bad replacement, without first compounding a poisoned historical interval.
+        _requireSupportedBorrowRate(borrowRateRay);
         uint256 supplyRateRay = interestPolicy.supplyRatePerSecond(utilizationRay, reserveFactorBps);
         if (
             !_accrualConfigurationInitialized || forceNewInterval || borrowRateRay != _effectiveBorrowRateRay
@@ -710,7 +723,15 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
     }
 
     function _interestRatePolicy() private view returns (IInterestRatePolicy policy) {
-        return IInterestRatePolicy(_kernel.getModule(KernelModuleIds.USDC_INTEREST_RATE_POLICY));
+        policy = IInterestRatePolicy(_kernel.getModule(KernelModuleIds.USDC_INTEREST_RATE_POLICY));
+        uint256 scale = policy.ray();
+        if (scale != RAY) revert UnsupportedInterestRateScale(scale);
+    }
+
+    function _requireSupportedBorrowRate(uint256 ratePerSecondRay) private pure {
+        if (ratePerSecondRay > InterestRateBounds.MAX_RATE_PER_SECOND_RAY) {
+            revert UnsupportedBorrowRate(ratePerSecondRay);
+        }
     }
 
     function _isCurrentLoanOrigin() private view returns (bool active) {

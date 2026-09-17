@@ -42,7 +42,8 @@ and offices. It leaves Congress and referendum registry authority parked on `Ini
 
 After preparation transactions are confirmed, `completeGenesis(address)` creates the finalized seed term and live
 continuity election using the already-seeded citizen order. The live cycle requires a certified last-completed-block
-snapshot strictly after the last setup citizen mutation; same-block completion reverts. Only the already-finalized
+snapshot; completion must be in a block strictly after the last setup citizen mutation, so the snapshot may be that
+mutation block or a later completed block. Same-block completion reverts. Only the already-finalized
 seed term retains its setup block (it has no live vote). Completion activates the standing Congress/referendum
 writers, checks readiness, seals setup and retires bootstrap. Do not leave preparation unattended or launch a
 frontend against it.
@@ -93,7 +94,7 @@ exact production bytecode cannot replace or bypass its cap. `TreasuryVault` rece
 Before contribution rewards begin:
 
 1. Transfer the approved institutional LLM reserve into `TreasuryVault` through `receiveTokenDeposit`.
-2. Enact an LLM-denominated `ContributionReward` budget envelope by referendum.
+2. Approve an LLM-denominated `ContributionReward` budget envelope by referendum and execute its queued action.
 3. Publish the operational standard for verifying donated time, money, or other accepted contributions.
 
 Only the active Finance Office admin may propose a `ContributionReward`. Every request must include a nonzero hash
@@ -101,9 +102,16 @@ and nonempty URI for its evidence document. Rewards use the sensitive one-day of
 timelock, the exact budget commitment, and Senate cancellation/suspension controls. A distinct current officer must approve; a permitted clerk may then route this admin-proposed
 reward. Revoking an appointment after routing does not cancel the queued action.
 
+Budget approval creates the envelope, not a `LegislationRegistry` enactment. The retained lifecycle does not let
+public repeal revoke the envelope; budget validity/accounting and Senate controls over queued payouts are separate.
+See [Governance](Governance.md) before representing budget cancellation powers to operators.
+
 ## Dry run and broadcast
 
 Compile and test first:
+
+Use the pinned Solidity 0.8.37/Osaka build profile in `foundry.toml`; changing compiler or target settings requires
+fresh bytecode, size and verification evidence.
 
 ```bash
 forge build
@@ -113,6 +121,10 @@ forge test -vvv
 Before an audit handoff or production broadcast, also refresh the revision-specific coverage, Slither, runtime-size,
 and deployment-integration evidence in `docs/Release-Readiness.md`. Do not copy historical counts or size values
 from another commit.
+
+`bash scripts/rehearse-local-genesis.sh` exercises both stages on localhost with synthetic identities and mock
+assets. Its revision-specific result is recorded in [Release Readiness](Release-Readiness.md). A successful local
+rehearsal is not a mainnet fork test, real-token verification, production genesis approval or public deployment.
 
 Simulate without broadcasting:
 
@@ -183,11 +195,20 @@ base APR, 13% APR at the 80% utilization kink, and 113% APR at full utilization.
 immutable constitutional rules: the oracle, risk, and interest policies are governed replaceable modules. The pool
 contract and custody state still require an explicit migration plan if the pool app itself is ever replaced.
 
+APR is nominal and compounded per second, not an effective annual yield. The interest policy's combined maximum
+nominal rate must be at most 200%; the pool also rejects an incompatible RAY scale or out-of-range rate from a
+replacement policy. These are numerical safety bounds, not permission to skip economic review or a guarantee of
+perpetual loan-book liveness. The two-day migration and 30-day welfare settings are unchanged; their constructors
+reject zero or values above `uint32.max` seconds. Timelock delays and its default execution window have the same
+nonzero numerical ceiling. Referendum and action timestamps must remain representable in `uint64`.
+
 Debt uses one RAY-scaled global borrow index, and the effective rate/reserve inputs are checkpointed by elapsed
 interval. The risk policy rejects a threshold/bonus pair whose full-threshold liquidation could exceed all quoted
 collateral. A borrower's citizenship retained-stake floor is fixed when the lien begins and cleared only when the
 loan is explicitly closed after full debt repayment or bad-debt absorption, even if collateral/liquidation already
 reduced the lien to zero.
+When total scaled debt reaches zero, a pool checkpoint may reset the borrow index to RAY, emitting
+`EmptyBookIndexReset`; cash, shares and reserves are unchanged, and outstanding debt cannot be reset this way.
 
 The land deployment includes `LandRegistry`, `LandPartyPolicy`, and `LandRegistryApp`. Production title parties are
 stable identity/company/office IDs, while current signers are resolved at execution time. Use a reviewed EIP-1271

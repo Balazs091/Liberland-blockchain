@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -576,6 +576,14 @@ contract TreasuryAndOfficesTest is Test {
     }
 
     function test_SenateCanVetoQueuedPayoutAndReleaseBudgetCommitment() public {
+        _senateCancelPayout(false);
+    }
+
+    function test_OfficeCancellationReconcilesAlreadySenateCanceledPayout() public {
+        _senateCancelPayout(true);
+    }
+
+    function _senateCancelPayout(bool reconcileThroughOffice) private {
         vm.prank(MINISTER_OF_FINANCE);
         officeExecutor.assignClerk(FINANCE_OFFICE_ID, FINANCE_CLERK);
 
@@ -611,7 +619,12 @@ contract TreasuryAndOfficesTest is Test {
         senateApp.supportActionCancellation(actionId, 1);
 
         _finalizeActionCancellationAtDeadline(actionId);
-        payoutQueue.syncPayoutState(VETO_PAYOUT_REQUEST_ID);
+        if (reconcileThroughOffice) {
+            vm.prank(FINANCE_CLERK);
+            officeExecutor.cancelPayout(FINANCE_OFFICE_ID, VETO_PAYOUT_REQUEST_ID);
+        } else {
+            payoutQueue.syncPayoutState(VETO_PAYOUT_REQUEST_ID);
+        }
 
         request = payoutQueue.getDisbursementRequest(VETO_PAYOUT_REQUEST_ID);
         TreasuryTypes.BudgetEnvelope memory budgetEnvelope =

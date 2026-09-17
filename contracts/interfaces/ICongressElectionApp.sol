@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 /// @title ICongressElectionApp
 /// @notice User-facing interface for Congress election scheduling, candidacy, voting, finalization, and vacancies.

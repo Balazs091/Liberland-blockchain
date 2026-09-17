@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 /// @title IHeadOfStateApp
 /// @notice User-facing application for the Senate-elected Head of State (Constitution Art VI §2). The Senate elects

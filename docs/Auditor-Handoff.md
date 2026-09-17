@@ -6,11 +6,17 @@ not a security certification. Assess the complete implementation and independent
 
 ## Exact target
 
-The package's `PROVENANCE.json` records the packaged commit/tree, tested and deployed implementation revision,
-documentation-only differences, toolchain and recursive submodule revisions.
+The package's `PROVENANCE.json` must record the packaged commit/tree, tested implementation revision,
+separately deployed revision, toolchain and recursive submodule revisions.
 `SOURCE-SHA256.txt` binds every packaged source/dependency file; `PACKAGE-SHA256.txt` also binds evidence.
 The outer ZIP has a separate SHA-256 file. Publication status in an archived package describes its creation time;
 publishing the repository later does not change that archive or its recorded revision.
+
+The current checkout uses Solidity 0.8.37 and includes application and configuration hardening beyond the isolated
+compiler upgrade. Previously prepared archives and Sepolia verification records do not identify this build.
+A new submission must freeze this source and regenerate provenance/checksums; see
+[Release Readiness](Release-Readiness.md) for current evidence and [Compiler Upgrade](Compiler-Upgrade.md) for the
+separate historical compiler-only benchmark.
 
 `source/` contains the entire tracked current source, tests, scripts, constitutional input, documentation and
 52 generated frontend ABIs, plus the exact pinned dependency sources. No production keys, actual genesis personal
@@ -59,7 +65,7 @@ intermediate pointer states: an atomic execution batch does not prevent someone 
 
 ## Reproduction
 
-Use Forge 1.7.1, Solidity 0.8.36 and Slither 0.11.5 with the included pinned dependencies.
+Use Forge 1.7.1, Solidity 0.8.37 and Slither 0.11.5 with the included pinned dependencies.
 The deployable profile uses Osaka, optimizer 200; do not raise code-size or transaction-gas limits to hide failures.
 
 For a clean Git checkout of the frozen commit, run `bash scripts/audit-freeze-check.sh`. For the ZIP's source tree,

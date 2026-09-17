@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -97,7 +97,7 @@ contract MiscountedSenatePolicyForEfficiency {
 }
 
 /// @title SenateAndPublicVetoTest
-/// @notice Covers v1 Senate succession, bounded Senate cancellation, and headcount-based public repeal.
+/// @notice Covers Senate succession, bounded negative powers, and person-counted petitions for repeal referenda.
 contract SenateAndPublicVetoTest is Test {
     bytes32 internal constant DISBURSEMENT_SUSPENSION_REASON = keccak256("documented-treasury-risk");
     bytes32 internal constant DISBURSEMENT_RENEWAL_REASON = keccak256("documented-risk-still-active");
@@ -207,6 +207,26 @@ contract SenateAndPublicVetoTest is Test {
         senateApp.supportActionCancellation(id, 0);
         _finalizeActionCancellationAtDeadline(id);
         assertFalse(senateApp.getActionCancellationRecord(id).canceled);
+    }
+
+    function test_SenateRegistryCannotSpoofReferendumOriginToEscapeTierBounds() public {
+        // Isolate the registry boundary a governed replacement Senate would encounter. The current app has no
+        // spoofing entrypoint; metadata must not grant a future implementation a broader repeal capability.
+        bytes32[2] memory measureIds = [ORDINARY_MEASURE_ID, CONSTITUTIONAL_MEASURE_ID];
+        LegislationTypes.RepealOrigin[2] memory claimedOrigins =
+            [LegislationTypes.RepealOrigin.Referendum, LegislationTypes.RepealOrigin.PublicVeto];
+        for (uint256 i; i < measureIds.length; ++i) {
+            for (uint256 j; j < claimedOrigins.length; ++j) {
+                vm.prank(address(senateApp));
+                vm.expectRevert(
+                    abi.encodeWithSelector(
+                        ILegislationRegistry.UnauthorizedLegislationRepealCaller.selector, address(senateApp)
+                    )
+                );
+                legislationRegistry.recordRepeal(measureIds[i], claimedOrigins[j], keccak256("spoofed-origin"));
+            }
+            assertFalse(legislationRegistry.getLegislationRecord(measureIds[i]).repealed);
+        }
     }
 
     function test_EfficiencyAudit_SuccessorPolicyCannotHideSeatsOrExpandTallyLoop() public {
@@ -570,6 +590,43 @@ contract SenateAndPublicVetoTest is Test {
             abi.encodeWithSelector(IActionTimelock.ActionSuspended.selector, actionId, suspension.suspendedUntil)
         );
         timelock.executeAction(actionId);
+    }
+
+    function test_SenateSuspension_MaximumPolicyDurationCapsAtActionExpiryWithoutOverflow() public {
+        bytes32 actionId = _queueTreasuryDisbursement();
+        _supportDisbursementSuspension(actionId);
+        SenatePowersPolicy maximumPolicy = new SenatePowersPolicy(2, type(uint64).max);
+        vm.prank(address(timelock));
+        kernel.governanceUpdateModule(KernelModuleIds.SENATE_POWERS_POLICY, address(maximumPolicy));
+
+        vm.prank(WALLET_ONE);
+        senateApp.suspendDisbursement(actionId, 0, DISBURSEMENT_SUSPENSION_REASON);
+        assertEq(senateApp.getDisbursementSuspension(actionId).suspendedUntil, timelock.getAction(actionId).expiresAt);
+
+        vm.warp(block.timestamp + 1);
+        vm.prank(WALLET_ONE);
+        senateApp.renewDisbursementSuspension(actionId, 0, DISBURSEMENT_RENEWAL_REASON);
+        SenateTypes.DisbursementSuspension memory suspension = senateApp.getDisbursementSuspension(actionId);
+        assertEq(suspension.suspendedUntil, timelock.getAction(actionId).expiresAt);
+        assertEq(suspension.renewalCount, 1);
+    }
+
+    function testFuzz_SenateSuspension_DeadlineMatchesCappedWideAddition(uint64 period) public {
+        period = uint64(bound(uint256(period), 1, type(uint64).max));
+        bytes32 actionId = _queueTreasuryDisbursement();
+        _supportDisbursementSuspension(actionId);
+        SenatePowersPolicy policy = new SenatePowersPolicy(2, period);
+        vm.prank(address(timelock));
+        kernel.governanceUpdateModule(KernelModuleIds.SENATE_POWERS_POLICY, address(policy));
+
+        uint256 requestedDeadline = block.timestamp + uint256(period);
+        uint256 expiry = timelock.getAction(actionId).expiresAt;
+        vm.prank(WALLET_ONE);
+        senateApp.suspendDisbursement(actionId, 0, DISBURSEMENT_SUSPENSION_REASON);
+        assertEq(
+            senateApp.getDisbursementSuspension(actionId).suspendedUntil,
+            requestedDeadline > expiry ? expiry : requestedDeadline
+        );
     }
 
     function _supportDisbursementSuspension(bytes32 actionId) internal {

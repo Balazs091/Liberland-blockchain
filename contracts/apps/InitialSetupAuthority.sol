@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {ICongressCandidateRegistry} from "../interfaces/ICongressCandidateRegistry.sol";
 import {ICongressElectionPolicy} from "../interfaces/ICongressElectionPolicy.sol";

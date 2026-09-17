@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {IIdentityApp} from "../interfaces/IIdentityApp.sol";
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
@@ -9,6 +9,7 @@ import {IOfficeRegistry} from "../interfaces/IOfficeRegistry.sol";
 import {IdentityTypes} from "../types/IdentityTypes.sol";
 import {OfficeTypes} from "../types/OfficeTypes.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /// @title IdentityApp
 /// @notice Standing governed identity authority. Registered as the kernel identity-registry authority, it is the
@@ -22,6 +23,8 @@ contract IdentityApp is IIdentityApp {
     uint64 public constant APPEAL_REVIEW_PERIOD = 30 days;
     /// @notice Public delay between an upheld appeal ruling and execution.
     uint64 public constant APPEAL_EXECUTION_DELAY = 2 days;
+    /// @notice Technical duration bound (~136 years), not the configured migration notice period.
+    uint64 public constant MAX_MIGRATION_DELAY = type(uint32).max;
     IIdentityRegistry private immutable _identityRegistry;
     IOfficeRegistry private immutable _officeRegistry;
     address private immutable _kernel;
@@ -60,7 +63,7 @@ contract IdentityApp is IIdentityApp {
         if (identityOfficeId_ == bytes32(0)) {
             revert InvalidIdentityOffice(identityOfficeId_);
         }
-        if (migrationDelaySeconds == 0) {
+        if (migrationDelaySeconds == 0 || migrationDelaySeconds > MAX_MIGRATION_DELAY) {
             revert InvalidMigrationDelay(migrationDelaySeconds);
         }
 
@@ -314,7 +317,9 @@ contract IdentityApp is IIdentityApp {
             revert MigrationNotApproved(personId);
         }
 
-        uint64 readyAt = migration.approvedAt + (migration.recovery ? EXCEPTIONAL_DELAY : _migrationDelay);
+        uint64 readyAt = SafeCast.toUint64(
+            uint256(migration.approvedAt) + (migration.recovery ? EXCEPTIONAL_DELAY : _migrationDelay)
+        );
         if (block.timestamp < readyAt) {
             revert MigrationDelayNotElapsed(personId, readyAt);
         }

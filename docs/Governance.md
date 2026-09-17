@@ -18,6 +18,9 @@ app, person, old/new wallets and nonce. Finalization rechecks wallet bindings an
 Revocation/regrant, administration changes and office deactivation/reactivation invalidate earlier approvals,
 including changes in the same block. Different known wallets of one person are not distinct officers.
 
+The migration-delay constructor rejects zero or more than `uint32.max` seconds (about 136 years). This is an
+arithmetic safety boundary, not the selected notice period; both network manifests still select two days.
+
 ### Binding civic notice and appeal
 
 1. An Identity admin proposes exact civic fields with a nonzero evidence hash. A distinct officer approves the
@@ -54,6 +57,13 @@ migration, and the new committee must bind the matching app.
 Two currently eligible, distinct people initiate a Law-tier repeal referendum. They do not repeal the law or
 automatically cast referendum votes. The normal citizen-origin quorum/majority, seven-day voting duration, pinned
 policy/snapshot and standard adoption delay apply.
+
+The ordinary citizen quorum is 10,000 LLM of turnout and passage requires weighted For > Against; there is no
+separate ordinary headcount quorum. Consequently, two eligible people with at least 5,000 LLM each at the snapshot
+can also pass the resulting referendum if everyone else abstains, subject to the usual delays and negative checks.
+This low-turnout rule applies on mainnet as well as Sepolia. Raising participation requirements needs an explicit
+governance-policy decision; the current requirements are retained. The two-person petition is not itself an
+immediate veto or repeal.
 
 Passage queues the exact `(measureId, referendumId)` as a typed `LegislationRepeal` action. The timelock verifies
 referendum origin and matching reference; execution is delayed, Senate-cancelable and replay-protected. The
@@ -96,6 +106,25 @@ arbitrary-call surface. The registry's kernel-approved writer controls both regi
 
 The multi-transaction count needs independent adversarial review, including interrupted counting, policy changes,
 wallet migration, eligibility changes, ordering and gas at substantially larger populations.
+
+Voting still requires both current good standing and eligibility/stake at the process's completed-block snapshot.
+Snapshot weight cannot manufacture present rights for a suspended or otherwise ineligible wallet. Eligibility
+evaluation reads fixed-size civic facts rather than copying metadata URIs, keeping metadata size out of the bounded
+electorate synchronization and voting path. Permissionless electorate rebuild calls clamp an oversized requested
+workload to the remaining identities before adding indices; callers should still choose gas-appropriate batches.
+
+Congress schedule durations and the unstaking welfare period reject values above `uint32.max` seconds. These are
+technical constructor limits; the production 90-day Congress cadence, 30-day welfare and existing voting rules are
+unchanged. A reviewed policy replacement is still required to choose different operational values.
+
+Prime Minister removal retains the number of supporting votes recorded at appointment, not a newly computed
+majority of a shrunken Congress. Congress decisions likewise retain their prepared support threshold within the
+same Congress term, while execution rechecks current eligible supporters; a later term cannot inherit the old
+approval. Runner-up succession normally fills vacancies, but the contracts cannot guarantee enough eligible
+runner-ups. If occupied seats fall below the Prime Minister's recorded appointment tally, ordinary removal cannot
+meet that threshold until sufficient representation returns or the term expires. A decision can be freshly
+prepared under the current membership instead of reusing an impractical old threshold. These limitations are
+retained policy, not an undisclosed administrative recovery power.
 
 ## Office appointments, Finance and Senate
 

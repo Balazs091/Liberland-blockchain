@@ -20,7 +20,7 @@ environment with mock assets and demo-only onboarding powers.
 
 ## Build profile
 
-- Solidity: pinned `0.8.36`
+- Solidity: pinned `0.8.37`
 - EVM target: pinned `osaka`
 - optimizer: enabled, 200 runs
 - framework: Foundry
@@ -44,6 +44,11 @@ independent security and constitutional/legal validation remain required.
 Production setup is two-stage with confirmed-block activation. Candidate URI storage is bounded at 2,048 bytes,
 reassigned addresses cannot overwrite another person's live ballot slot, and source mutations cannot underfund
 the required electorate callback budget. Verify these boundaries independently against the implementation.
+
+Also verify constructor duration limits, widened deadline arithmetic, metadata-independent eligibility reads,
+Senate caller/origin binding, pending-company filing isolation, already-canceled payout reconciliation and lending
+rate/scale rejection plus zero-debt index reset. New regression coverage includes malicious typed execution targets
+and batch rollback. These controls do not change the retained voting thresholds or create a budget-revocation power.
 
 Slither is intentionally unsuppressed. Detector interpretation requires checking the following implementation context:
 

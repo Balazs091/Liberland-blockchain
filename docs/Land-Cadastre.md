@@ -36,6 +36,22 @@ signer remains recognized if the party later becomes ineligible to acquire, so i
 remove a company's final director or finalize dissolution while it still holds land; a terminal signer-less company
 would require a separately reviewed receiver/successor policy before it could transfer.
 
+In particular, company suspension, dissolution-in-progress or terminal dissolution does not by itself revoke an
+already-active director's seller-signing permission. It does prevent the company from acquiring new land under the
+current policy. A transfer still requires that director's signature, an eligible buyer's signature and registrar
+finalization; status alone does not transfer title. This disposition rule is a legal-policy boundary, not a claim
+that every post-dissolution sale is lawful. Before production, approve the rules for director removal, liquidation
+and court-appointed receivers rather than adding a blanket status lock that could strand property.
+
+Company identity facts are office-mediated: a public incorporation submission is only pending; it grants no
+director or land-acquisition authority. Pending submissions cannot accumulate directors, share classes, shares or
+filings that survive rejection and resubmission. Compliance filings remain possible for previously approved
+suspended or dissolving companies. Company-office administrators and clerks can record directors under the current
+office permission policy; land registrars must treat that fact source as an operational trust boundary.
+
+Person acquisition checks read the fixed-size citizenship summary, identity existence and active-wallet link.
+They do not copy the person's unrelated dynamic metadata URI into a land-authorization call.
+
 ## Versioned records
 
 Every cadastral payload uses a `RecordAnchor`:

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {ILandRegistry} from "../interfaces/ILandRegistry.sol";
 import {KernelModule} from "../base/KernelModule.sol";

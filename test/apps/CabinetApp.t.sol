@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -320,6 +320,20 @@ contract CabinetAppTest is Test {
 
         assertEq(executiveRegistry.primeMinister(), PM_CANDIDATE_TWO);
         assertEq(executiveRegistry.getPrimeMinister().termEnd, termEnd + PRIME_MINISTER_TERM);
+    }
+
+    function test_RemovalHistoricalTallyCanExceedAllRemainingCongressSeats() public {
+        // Documents a constitutional policy boundary, not a threshold change: this PM was appointed by six.
+        _appointPmWithVotes(PM_CANDIDATE, 6);
+        _seedCongress(_firstMembers(3));
+        _voteRemove(CM1);
+        _voteRemove(CM2);
+        _voteRemove(CM3);
+        assertEq(cabinetApp.removalVoteCount(), 3);
+        assertFalse(cabinetApp.canRemovePrimeMinister());
+        vm.expectRevert(abi.encodeWithSelector(ICabinetApp.RemovalThresholdNotReached.selector, 3, 6));
+        cabinetApp.removePrimeMinister();
+        assertTrue(executiveRegistry.isPrimeMinisterInTerm());
     }
 
     function test_PrimeMinisterAppointsFourMinisters_CannotFire_NonPmCannot() public {

@@ -741,6 +741,25 @@
   },
   {
     "type": "event",
+    "name": "EmptyBookIndexReset",
+    "inputs": [
+      {
+        "name": "previousIndex",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "resetAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "InterestAccrued",
     "inputs": [
       {
@@ -1390,6 +1409,28 @@
       },
       {
         "name": "actualAmount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnsupportedBorrowRate",
+    "inputs": [
+      {
+        "name": "ratePerSecondRay",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnsupportedInterestRateScale",
+    "inputs": [
+      {
+        "name": "scale",
         "type": "uint256",
         "internalType": "uint256"
       }

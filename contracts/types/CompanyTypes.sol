@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 /// @title CompanyTypes
 /// @notice Shared enums and structs for the company registry domain.

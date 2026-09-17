@@ -44,6 +44,19 @@
   },
   {
     "type": "function",
+    "name": "MAX_CONFIGURED_DURATION",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "cancelAction",
     "inputs": [
       {
@@ -741,6 +754,22 @@
         "name": "actionId",
         "type": "bytes32",
         "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidActionSchedule",
+    "inputs": [
+      {
+        "name": "earliestExecutionTime",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "expiresAt",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },

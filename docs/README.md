@@ -10,6 +10,7 @@ The pinned constitutional PDF is retained because it is an active design input, 
 | [Upgrade and Liveness](Upgrade-And-Liveness.md) | Replaceability, dependency closure, supported custody/loan retirement and recovery limits |
 | [Protocol Parameters](Protocol-Parameters.md) | Production/demo values and units |
 | [Release Readiness](Release-Readiness.md) | Current controls, verification evidence and launch requirements |
+| [Compiler Upgrade](Compiler-Upgrade.md) | Solidity 0.8.37 scope, measured comparison and deployment separation |
 | [Auditor Handoff](Auditor-Handoff.md) | Exact target, trust boundaries and reproduction |
 | [Static Triage](Static-Analysis-Triage.md) | Unsuppressed detector context and review questions |
 | [External Audit Scope](Audit-Scope.md) | Independent review surface and limitations |

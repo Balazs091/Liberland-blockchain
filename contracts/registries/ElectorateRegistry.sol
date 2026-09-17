@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {Checkpoints} from "@openzeppelin/contracts/utils/structs/Checkpoints.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
@@ -141,10 +141,9 @@ contract ElectorateRegistry is IElectorateRegistry, KernelModule {
         if (startIndex >= identityCount || maxCount == 0) {
             return startIndex;
         }
-        uint256 endIndex = startIndex + maxCount;
-        if (endIndex < startIndex || endIndex > identityCount) {
-            endIndex = identityCount;
-        }
+        // Bound before addition: checked arithmetic makes a post-addition overflow test unreachable.
+        uint256 remaining = identityCount - startIndex;
+        uint256 endIndex = startIndex + (maxCount < remaining ? maxCount : remaining);
         for (uint256 index = startIndex; index < endIndex; ++index) {
             _syncPerson(_identityRegistry.identityIdAt(index));
         }

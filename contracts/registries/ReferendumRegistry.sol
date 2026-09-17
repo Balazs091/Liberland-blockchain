@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {IReferendumRegistry} from "../interfaces/IReferendumRegistry.sol";
 import {KernelModule} from "../base/KernelModule.sol";
@@ -174,6 +174,11 @@ contract ReferendumRegistry is IReferendumRegistry, KernelModule {
         }
         if (referendumInput.startTime >= referendumInput.endTime) {
             revert InvalidVotingWindow(referendumInput.startTime, referendumInput.endTime);
+        }
+        // Every successful proposal schedules endTime + adoptionDelay. Reject an unrepresentable schedule before
+        // accepting votes; checking the stable record boundary also covers the public-petition creation path.
+        if (referendumInput.adoptionDelay > type(uint64).max - referendumInput.endTime) {
+            revert InvalidAdoptionSchedule(referendumInput.endTime, referendumInput.adoptionDelay);
         }
         if (referendumInput.referendumPolicy == address(0) || referendumInput.referendumPolicy.code.length == 0) {
             revert InvalidReferendumPolicy(referendumInput.referendumPolicy);

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {Test} from "forge-std/Test.sol";
 import {ERC1271WalletMock} from "@openzeppelin/contracts/mocks/ERC1271WalletMock.sol";
@@ -115,6 +115,28 @@ contract LandRegistryTest is Test {
         assertTrue(ILandRegistry.mergeParcels.selector != bytes4(0));
         assertTrue(ILandRegistryApp.hashTitleTransferAuthorization.selector != bytes4(0));
         assertTrue(ILandRegistryApp.adjustBoundary.selector != bytes4(0));
+    }
+
+    function test_LandEligibilityDoesNotReadDynamicIdentityMetadata() public {
+        identityRegistry.setIdentityRecord(
+            BUYER_PERSON_ID,
+            IdentityTypes.IdentityRecordInput({
+                metadataHash: keccak256("large.metadata"),
+                metadataURI: string(new bytes(16_384)),
+                verificationStatus: IdentityTypes.VerificationStatus.Verified,
+                citizenshipStatus: IdentityTypes.CitizenshipStatus.Citizen,
+                ageClass: IdentityTypes.AgeClass.Adult,
+                correctionFlag: false,
+                finalSuspension: false
+            })
+        );
+        // A full dynamic record copy would make an authorization check depend on an unrelated metadata payload.
+        (bool success, bytes memory result) = address(landPartyPolicy).staticcall{gas: 30_000}(
+            abi.encodeCall(landPartyPolicy.canAcquireLand, (_personParty(BUYER_PERSON_ID)))
+        );
+        assertTrue(success);
+        assertTrue(abi.decode(result, (bool)));
+        assertFalse(landPartyPolicy.canAcquireLand(_personParty(bytes32(uint256(999)))));
     }
 
     function test_ClerkPreparesButOnlyRegistrarFinalizesAndVersionsAreChained() public {

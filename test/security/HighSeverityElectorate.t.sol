@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {IdentityStakePoliciesTest} from "../policies/IdentityStakePolicies.t.sol";
 import {LLMStakingVault} from "../../contracts/apps/LLMStakingVault.sol";

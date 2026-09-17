@@ -28,6 +28,10 @@ Late next-cycle creation advances to the next 17:00 UTC boundary and does not dr
 Finalization completes only the pinned election. A separate permissionless `createNextElectionCycle()` transaction
 uses the current policy and certified electorate. Preview the window immediately before creation.
 
+`CongressElectionPolicy.MAX_SCHEDULE_DURATION` bounds each nomination, voting, scheduling-lead and cycle duration
+to `uint32.max` seconds (4,294,967,295 seconds, about 136 years). The constructor also preserves minimum-window
+consistency. This technical arithmetic bound is not the configured election cadence shown above.
+
 ## LLM, identity, and stake
 
 | Parameter | Both networks |
@@ -51,6 +55,11 @@ uses the current policy and certified electorate. Preview the window immediately
 The 1,064 bps annual input releases approximately 10% of the original stake over twelve 30-day unstake operations
 because each operation applies to the then-current balance. A protected or lending-lien floor can reduce the actual
 release. LLM is not minted by Treasury; contribution rewards spend an existing Treasury reserve.
+
+`UnstakingPolicy.MAX_WELFARE_PERIOD` and `IdentityApp.MAX_MIGRATION_DELAY` are both `uint32.max` seconds. Zero or
+larger constructor values are rejected; welfare and migration deadlines use checked narrowing. These broad
+technical bounds leave the selected 30-day welfare and two-day migration delay unchanged and do not certify other
+values as constitutionally appropriate.
 
 ## Referenda and constitutional thresholds
 
@@ -100,6 +109,10 @@ weighted For > Against), seven days of voting, the ordinary adoption delay and t
 tier is eligible; Constitutional/Treaty and sub-legal exclusions remain. A failed/canceled petition may restart with
 fresh signatures and a fresh nonce. See `Governance.md` for operational limits.
 
+Ordinary repeal has no separate minimum supporting headcount: two eligible 5,000-LLM voters can satisfy the quorum
+and pass an unopposed referendum if everyone else abstains. This is the same mainnet and Sepolia policy, not a
+testnet-only exception. The Senate's two-vote floor is separate: with 100 occupied seats it requires 51 direct votes.
+
 ## Timelocks and treasury
 
 | Parameter | Both networks |
@@ -140,6 +153,12 @@ smallest unit. Sepolia seeds these per-payout clerk limits:
 | Borrow APR at 0% utilization | 5% | 5% |
 | Borrow APR at kink | 13% | 13% |
 | Borrow APR at 100% utilization | 113% | 113% |
+
+The rate inputs are nominal annual rates compounded per second, not promised effective annual yields. The
+constructor caps the sum of base rate and both slopes at 20,000 bps (200% nominal APR), and the pool independently
+checks the matching per-second ceiling and RAY scale when reading replacement rate policies. The configured 5%,
+13% and 113% values remain unchanged. This is a numerical operating bound, not a guarantee of perpetual accrual
+liveness or acceptable lending economics at the maximum rate.
 
 The fixed oracle is an intentional launch decision. It has no market-feed manipulation or staleness mechanism, but
 the configured price can become economically wrong. The initial 30% LTV means approximately 333% collateralization

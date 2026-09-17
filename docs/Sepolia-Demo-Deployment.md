@@ -9,17 +9,24 @@ public repeal, and Congress counting. Election finalization may now require repe
 intermediate successful transaction is not a finalized election. Use the regenerated frontend ABIs for a fresh
 deployment. Earlier deployed demo addresses do not acquire these changes automatically.
 
-## Current public deployment
+## Recorded public deployment
 
 Deployed on **8 September 2026**, Sepolia chain ID **11155111**, from source commit
-`33f501417b7fd5cbba1f43f044d9f8348acd1c7c`. All **92 transactions succeeded**, creating **51 contracts**
+`33f501417b7fd5cbba1f43f044d9f8348acd1c7c`, compiled with **Solidity 0.8.36**. All **92 transactions succeeded**, creating **51 contracts**
 (including the candidate registry's child ranking store), in blocks **11661434–11661650**.
 Transaction fees totaled **0.113412787493617145 Sepolia ETH**. This is a testnet demonstration with mock tokens
 and seeded records, not a production deployment or mainnet authorization.
 
-The generated `deployments/sepolia-demo.json` and `frontend-export/sepolia-demo.json` are identical and contain
-the current complete address/seed configuration. The handoff archive includes the public manifest and the
-on-chain/source checks separately under `deployment/`; historical live manifests are not included.
+The current source is pinned to **Solidity 0.8.37** and also contains contract-level changes to configuration bounds,
+governance validation, payout reconciliation and lending arithmetic. These local changes have **not** been deployed
+to the addresses below. Reproducing the recorded deployment requires its source revision and 0.8.36 compiler, not
+the current checkout. [Compiler Upgrade](Compiler-Upgrade.md) records the earlier compiler-only comparison;
+[Release Readiness](Release-Readiness.md) describes the current candidate.
+
+The September deployment checks recorded identical `deployments/sepolia-demo.json` and
+`frontend-export/sepolia-demo.json` manifests containing that deployment's complete address/seed configuration.
+Retain those checks as deployment provenance, not proof of current-source deployment. No fresh chain or explorer
+verification is claimed by this source review; confirm live state again before handing a client to users.
 
 | Contract | Current Sepolia address and source |
 | --- | --- |
@@ -32,14 +39,15 @@ on-chain/source checks separately under `deployment/`; historical live manifests
 | TreasuryVault | [0x25b155d0944b77B75261fe5Bdd781a888778aC56](https://sepolia.etherscan.io/address/0x25b155d0944b77B75261fe5Bdd781a888778aC56#code) |
 | LLMToken (public-mint demo token) | [0xd85512FEa2a3fC98d67D5a7A6c31f54b88611Ca3](https://sepolia.etherscan.io/address/0xd85512FEa2a3fC98d67D5a7A6c31f54b88611Ca3#code) |
 
-Post-deployment reads confirmed all 50 top-level manifest contract addresses, 63 kernel pointers, three configured
+At deployment, reads confirmed all 50 top-level manifest contract addresses, 63 kernel pointers, three configured
 router origins, all office appointments, the Finance clerk, stake backing, treasury prefunding, election timestamps
 and electorate readiness. Kernel, router and office-executor bootstrap authorities are zero; the temporary
 `DemoSetupAuthority` is no longer an authorized kernel module. The gateway/identity address equality and the
 civic committee's IdentityApp binding were checked on-chain.
 
-Etherscan exposes source matching the local files for all 51 contracts: **48 Exact Match and 3 Similar Match**.
-The outstanding exact-label conversions are:
+The deployment-time checks recorded Etherscan source matching the deployed revision for all 51 contracts:
+**48 Exact Match and 3 Similar Match**. These historical records do not certify the current source.
+The three addresses recorded as Similar Match were:
 
 | Contract | Similar Match address |
 | --- | --- |
@@ -51,7 +59,7 @@ Direct submissions returned Already Verified but retained those three Similar Ma
 an [approval process for Similar Match reverification](https://info.etherscan.com/update-on-similar-match-contract-verification/).
 This remains an explorer-verification action; do not describe all 51 as Exact Match. Separately, all creation
 bytecodes and constructor data were checked against confirmed transactions, and all deployed runtimes matched
-the local build outside compiler-designated immutable slots. Similar Match does not certify constructor values;
+the deployed revision's 0.8.36 build outside compiler-designated immutable slots. Similar Match does not certify constructor values;
 the handoff records their actual transaction bytes rather than borrowing them from another deployment.
 
 The deployed reviewer order, checked through all five `reviewerAt(i)` reads, is:
@@ -64,9 +72,9 @@ The deployed reviewer order, checked through all five `reviewerAt(i)` reads, is:
 | 3 | `0xD5466f1ECC07f7e06d61eaea25c740AB5f7C3060` |
 | 4 | `0xd8A2082530f892Ef2b3597d2ED505b658a181705` |
 
-Finance, Identity and Land administration share deployer address
-`0x6319d5531045fdA2E91fe43f363eE80b8BCD7DDc`. Company Registry administration and the Finance clerk use
-`0x1d421beC4bD2BC2F9875928b1f3480b74C1039F5`. The two Finance officers remain distinct.
+At the recorded deployment, Finance, Identity and Land administration shared deployer address
+`0x6319d5531045fdA2E91fe43f363eE80b8BCD7DDc`. Company Registry administration and the Finance clerk used
+`0x1d421beC4bD2BC2F9875928b1f3480b74C1039F5`. The configured Finance officer addresses were distinct.
 These are configuration facts, not attestations of independent human control or reviewer signing readiness.
 Live-wallet frontend journeys have not been certified by these deployment checks.
 
@@ -102,7 +110,8 @@ no officer can provide both approvals. See [Governance](Governance.md) for rulin
 - deployed land and company registries plus their office-authorized app workflows
 - deployed `DecisionApp` for Congress and ministry ERC20 decisions, clerk decisions, LLM transfer-and-stake decisions, and Congress-approved creation of new offices and ministries
 
-> **Adding offices after genesis.** The four offices above are seeded at bootstrap, but the office set is not frozen. A Congress majority can create additional offices at any time through `DecisionApp.createCongressRegisterOfficeDecision(...)` — the `OfficeRegistry` accepts `DecisionApp` (the kernel `DECISION_APP` pointer) as a registry authority, so no redeploy or bootstrap re-enable is needed. The new office is created with a chosen kind, name, and admin once the decision reaches Congress majority support and is executed.
+> **Adding offices after genesis.** The four offices above are seeded at bootstrap, but the office set is not frozen. Congress can create additional offices through `DecisionApp.createCongressRegisterOfficeDecision(...)`. The decision records the preparing majority threshold and Congress cycle; current-member support must still meet that threshold at execution. No redeploy or bootstrap re-enable is needed. Vacancies can make an old decision's recorded threshold unreachable; a fresh decision needs fresh support.
+
 - 1 `LLM` demo merit token with public `mint(address,uint256)`, standard `decimals() == 18`, and the same
   `70_000_000e18` hard cap as production (amounts are base units: 1 whole LLM = `1e18`)
 - 1 `DemoCitizenGateway` for:
@@ -151,6 +160,10 @@ The demo deployment is intentionally faster than the production configuration:
 - Congress voting window: 48 hours
 - total Congress election cycle: 72 hours
 - Congress voting start may be scheduled up to 72 hours ahead
+
+The current source rejects zero or above-`uint32.max` migration/welfare durations and timelock delays/execution
+windows. Those numerical checks do not alter the listed launch settings. Senate suspension deadlines remain
+capped to the queued action's expiry, including when a replacement policy returns an extreme duration.
 
 The seeded election and every recurring demo election end at exactly `17:00 UTC`. The seed calculation leaves between 24 and 48 hours of active voting time, depending on the deployment hour. Late next-cycle creation advances to the next `17:00 UTC` boundary, so future cycles cannot drift to the transaction time.
 

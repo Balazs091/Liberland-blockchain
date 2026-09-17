@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {IKernelModule} from "./IKernelModule.sol";
 import {ReferendumTypes} from "../types/ReferendumTypes.sol";
@@ -26,6 +26,7 @@ interface IReferendumRegistry is IKernelModule {
     error InvalidVoteWeightUpdate(address voter, uint256 providedWeight, uint256 expectedWeight);
     error InvalidVotingWeight(address voter, uint256 weight);
     error InvalidVotingWindow(uint64 startTime, uint64 endTime);
+    error InvalidAdoptionSchedule(uint64 endTime, uint64 adoptionDelay);
     error ReferendumAlreadyExists(bytes32 referendumId);
     error ReferendumAlreadyFinalized(bytes32 referendumId, ReferendumTypes.ReferendumStatus status);
     error ReferendumNotFound(bytes32 referendumId);

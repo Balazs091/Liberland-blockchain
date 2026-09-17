@@ -3,10 +3,19 @@
 Slither output and implementation context for the submitted source. Detector severity labels are not confirmed
 vulnerability ratings or an independent security verdict. Auditors should reproduce the scan and test each assumption.
 
-Slither 0.11.5 analyzed 156 contracts with 101 detectors, without suppressions: **430 results — 6 High, 66 Medium,
+Slither 0.11.5 analyzed 157 contracts with 101 detectors, without suppressions: **432 results — 6 High, 68 Medium,
 264 Low, 94 Informational**. The full JSON and text output accompany the audit package. The checked-in fingerprint
 multiset retains descriptions, detector, severity, confidence and multiplicity while ignoring whitespace and line
 movement. A matching baseline is a drift check, not proof of safety.
+
+The unsuppressed scan was repeated on 17 September 2026 against the current Solidity 0.8.37 implementation.
+The reviewed delta adds two `unused-return` reports: payout synchronization returns an informational state already
+checked by the queue, and land acquisition intentionally consumes only verification status from the fixed-size
+identity summary. Ten existing descriptions also change: four lending reentrancy paths now include the empty-book
+index reset; three timestamp descriptions reflect safe deadline arithmetic or a generated variable rename; two
+complexity counts include new validation branches; the pragma inventory includes `InterestRateBounds`.
+All 432 reports, represented by 427 distinct normalized fingerprints, remain in the baseline. No detector was
+disabled, and changing the baseline is not a finding dismissal or proof of safety.
 
 ## High detector labels
 
@@ -24,7 +33,7 @@ movement. A matching baseline is a drift check, not proof of safety.
 | incorrect-equality | 26 | Exact identity/appointment IDs, nonces, enum states, zero debt and custody/accounting matches. The zero-amount checks reject empty custody handoffs; removing them permits meaningless replays, not improved arithmetic. These are exact state checks, not market-price equality. |
 | reentrancy-no-eth | 9 | Lending financial entrypoints and both custody vaults use nonReentrant. Repayment's private helper is reached only through guarded public methods. TreasuryVault marking calls the canonical budget registry before the vault-local receipt; the current registry makes no external state-changing callback, requires the current vault and permanently consumes an active request. Token transfer failure rolls back both receipts. Typed lien settlement holds its own guard across the canonical stake transfer. The unguarded accrueInterest cannot accrue more elapsed time in same-timestamp callbacks; the outer operation refreshes its final configuration. Reentrancy/transient read assumptions remain in scope; external callers must not treat mid-call quotes as pricing oracles. |
 | uninitialized-local | 4 | CivicAppealReview's fixed memory array/per-iteration boolean are Solidity zero-initialized and bounded to five entries. StakeRegistry's loanBook and retainedStakeFloor locals are assigned by successful typed reads or the function reverts; a no-book branch returns before reading the floor. No uninitialized storage pointer exists. Broken-policy/no-loan and retained-zero-lien regressions cover both branches. |
-| unused-return | 18 | Intentionally unused typed outputs or sub-record fields. Election progress uses canonical ranking status, not the ignored informational boolean from consider/removeSelected; runner-up reads intentionally discard unneeded ranking fields. Reference-order fuzzing and explicit finalization/next-cycle tests exercise these decisions. Review return-value drift with interface changes. |
+| unused-return | 20 | Intentionally unused typed outputs or sub-record fields. Election progress uses canonical ranking status, not the ignored informational boolean from consider/removeSelected; runner-up reads discard unneeded ranking fields. Office cancellation ignores the informational sync result after the queue independently validates and reconciles the canceled action. Land acquisition consumes verification status, not political citizenship fields, preserving its previous eligibility rule. Reference-order fuzzing, finalization/next-cycle, cancellation and land regressions exercise these decisions. Review return-value drift with interface changes. |
 
 ## Low and informational detector labels
 
@@ -36,7 +45,7 @@ movement. A matching baseline is a drift check, not proof of safety.
 | reentrancy-events | 27 | Includes CivicAppealReview.executeRuling emitting after the exact immutable app call. Votes are deleted first; the app closes/resolves the case before returning, and its ruling path makes no external state-changing callback. No arbitrary executor exists. |
 | timestamp | 115 | Delays, expiries, cadence and term-based authorization are intentionally time-dependent. OfficeRegistry checks the requested office's term expiry; it has no wallet/person reservation or other-office expiry condition. Civic filing/ruling deadlines are strict; timeout is inclusive, and upheld cases retain the later of notice and post-ruling delay. Boundary tests exist. Small timestamp variation and operator responsiveness remain assumptions. |
 | assembly | 53 | Primarily pinned cryptography/math/memory utilities and callback handling. The hook-reader blocks use fixed-size allocated output buffers, bounded staticcall gas and indexed words only within the exact validated record size. Gas-underfunding, malformed-width/bool/length, oversized-return and live-hook tests exercise these boundaries. Future gas repricing remains a compatibility risk. |
-| pragma | 1 | Dependency version ranges differ; first-party Solidity and compiler are pinned to 0.8.36. |
+| pragma | 1 | Dependency version ranges differ; first-party Solidity and compiler are pinned to 0.8.37. |
 | costly-loop | 17 | Bounded/genesis/explicit batch writes and incremental ranking. Whole-genesis gas and large-population costs need deployment/operational sizing. |
 | cyclomatic-complexity | 5 | Constructor/workflow maintainability warning. The registry uses a separate immutable ranking helper with no independent authority. |
 | solc-version | 5 | Dependency compiler ranges; actual build uses the recorded pinned compiler. |

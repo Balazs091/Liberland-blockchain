@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -393,6 +393,44 @@ abstract contract CongressElectionFixture is Test {
 
 /// @notice Covers Congress election scheduling, signed ballots, ranked outcomes, and runner-up replacement.
 contract CongressElectionsTest is CongressElectionFixture {
+    function testFuzz_Constructor_RejectsOverflowingScheduleDuration(uint8 field, uint64 duration) public {
+        field = uint8(bound(field, 0, 3));
+        duration = uint64(bound(duration, uint256(type(uint32).max) + 1, type(uint64).max));
+        uint64[4] memory durations =
+            [MINIMUM_NOMINATION_DURATION, MINIMUM_VOTING_DURATION, MAX_SCHEDULE_LEAD_TIME, ELECTION_CYCLE_DURATION];
+        durations[field] = duration;
+        if (field < 2) {
+            vm.expectRevert(abi.encodeWithSelector(CongressElectionPolicy.InvalidDuration.selector, duration));
+        } else if (field == 2) {
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    CongressElectionPolicy.InvalidScheduleLeadTime.selector, duration, MINIMUM_NOMINATION_DURATION
+                )
+            );
+        } else {
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    CongressElectionPolicy.InvalidCycleDuration.selector,
+                    duration,
+                    MINIMUM_NOMINATION_DURATION,
+                    MINIMUM_VOTING_DURATION
+                )
+            );
+        }
+        new CongressElectionPolicy(
+            address(candidateEligibilityPolicy),
+            address(votingPowerPolicy),
+            SEAT_COUNT,
+            RUNNER_UP_COUNT,
+            MAX_CANDIDATE_COUNT,
+            CANDIDATE_BOND_REQUIREMENT,
+            durations[0],
+            durations[1],
+            durations[2],
+            durations[3]
+        );
+    }
+
     function test_InterfacesExposeSelectors() public pure {
         assertTrue(ICandidateEligibilityPolicy.isEligibleCandidate.selector != bytes4(0));
         assertTrue(ICongressCandidateRegistry.createCycle.selector != bytes4(0));

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {IActionTimelock} from "../interfaces/IActionTimelock.sol";
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
@@ -881,10 +881,11 @@ contract SenateApp is ISenateApp {
         view
         returns (uint64 suspendedUntil)
     {
-        suspendedUntil = currentTimestamp + _currentSenatePowersPolicy().disbursementSuspensionPeriod();
-        if (suspendedUntil > actionExpiresAt) {
-            suspendedUntil = actionExpiresAt;
-        }
+        // Widen before adding: even a replacement policy's maximum uint64 duration cannot overflow before the
+        // existing action-expiry cap applies. The narrowed branch is proven no greater than a uint64 expiry.
+        uint256 requestedDeadline =
+            uint256(currentTimestamp) + _currentSenatePowersPolicy().disbursementSuspensionPeriod();
+        suspendedUntil = requestedDeadline > actionExpiresAt ? actionExpiresAt : uint64(requestedDeadline);
     }
 
     function _requireSuspendableDisbursement(bytes32 actionId)

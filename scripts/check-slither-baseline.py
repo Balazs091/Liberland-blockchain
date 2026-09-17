@@ -15,7 +15,7 @@ from pathlib import Path
 # Current manual triage and verification: docs/Release-Readiness.md.
 EXPECTED_COUNTS = {
     "High": 6,
-    "Medium": 66,
+    "Medium": 68,
     "Low": 264,
     "Informational": 94,
     "Optimization": 0,

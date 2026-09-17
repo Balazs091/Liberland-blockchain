@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 import {IInterestRatePolicy} from "../interfaces/IInterestRatePolicy.sol";
+import {InterestRateBounds} from "../libraries/InterestRateBounds.sol";
 
 /// @title KinkedInterestRatePolicy
 /// @notice Utilization-based interest policy with a steep slope after the target utilization.
+/// @dev Inputs are nominal APRs compounded every second, not effective annual yields (APYs).
 contract KinkedInterestRatePolicy is IInterestRatePolicy {
     uint256 private constant RAY = 1e27;
     uint256 private constant BPS = 10_000;
@@ -27,8 +29,18 @@ contract KinkedInterestRatePolicy is IInterestRatePolicy {
     /// @param slope2AnnualRateBps Added borrow APR from kink to full utilization, in basis points.
     /// @param kinkRay_ Target utilization scaled by 1e27.
     constructor(uint256 baseAnnualRateBps, uint256 slope1AnnualRateBps, uint256 slope2AnnualRateBps, uint256 kinkRay_) {
-        if (baseAnnualRateBps > BPS || slope1AnnualRateBps > BPS * 5 || slope2AnnualRateBps > BPS * 20) {
+        if (baseAnnualRateBps > InterestRateBounds.MAX_ANNUAL_RATE_BPS) {
             revert InvalidAnnualRateBps(baseAnnualRateBps);
+        }
+        if (slope1AnnualRateBps > InterestRateBounds.MAX_ANNUAL_RATE_BPS) {
+            revert InvalidAnnualRateBps(slope1AnnualRateBps);
+        }
+        if (slope2AnnualRateBps > InterestRateBounds.MAX_ANNUAL_RATE_BPS) {
+            revert InvalidAnnualRateBps(slope2AnnualRateBps);
+        }
+        uint256 maximumAnnualRateBps = baseAnnualRateBps + slope1AnnualRateBps + slope2AnnualRateBps;
+        if (maximumAnnualRateBps > InterestRateBounds.MAX_ANNUAL_RATE_BPS) {
+            revert InvalidAnnualRateBps(maximumAnnualRateBps);
         }
         if (kinkRay_ == 0 || kinkRay_ >= RAY) {
             revert InvalidKink(kinkRay_);

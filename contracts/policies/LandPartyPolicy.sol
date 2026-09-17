@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {ICompanyRegistry} from "../interfaces/ICompanyRegistry.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
@@ -82,9 +82,9 @@ contract LandPartyPolicy is ILandPartyPolicy {
     /// @inheritdoc ILandPartyPolicy
     function canAcquireLand(LandTypes.PartyRef calldata party) external view returns (bool eligible) {
         if (party.namespace == _PERSON_NAMESPACE) {
-            IdentityTypes.IdentityRecord memory record = _identityRegistry.getIdentityRecord(party.id);
-            return record.personId != bytes32(0)
-                && record.verificationStatus == IdentityTypes.VerificationStatus.Verified
+            (IdentityTypes.VerificationStatus verificationStatus,,,) = _identityRegistry.getCitizenshipSummary(party.id);
+            return _identityRegistry.identityExists(party.id)
+                && verificationStatus == IdentityTypes.VerificationStatus.Verified
                 && _identityRegistry.activeWalletOf(party.id) != address(0);
         }
         if (party.namespace == _COMPANY_NAMESPACE) {

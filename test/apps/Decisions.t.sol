@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -351,6 +351,29 @@ contract DecisionsTest is Test {
         vm.prank(CONGRESS_MEMBER_ONE);
         vm.expectRevert(abi.encodeWithSelector(IDecisionApp.CongressDecisionTermChanged.selector, decisionId, 1, 2));
         decisionApp.supportCongressDecision(decisionId);
+    }
+
+    function test_CongressDecisionRetainsPreparingMajorityAfterSameTermVacancies() public {
+        bytes32 decisionId = keccak256("decision.historical-majority");
+        vm.prank(CONGRESS_MEMBER_ONE);
+        decisionApp.createCongressRegisterOfficeDecision(
+            decisionId,
+            keccak256("office.historical-majority"),
+            OfficeTypes.OfficeKind.MinistryOfFinance,
+            "New office",
+            MINISTER_OF_FINANCE,
+            keccak256("current-rule"),
+            ""
+        );
+        vm.startPrank(address(congressAuthority));
+        congressCandidateRegistry.vacateAndFillSeat(CONGRESS_MEMBER_TWO, false, 0);
+        congressCandidateRegistry.vacateAndFillSeat(CONGRESS_MEMBER_THREE, false, 0);
+        vm.stopPrank();
+
+        assertEq(decisionApp.requiredCongressSupport(), 1);
+        assertEq(decisionApp.getDecision(decisionId).supportRequired, 2);
+        vm.expectRevert(abi.encodeWithSelector(IDecisionApp.CongressDecisionNotApproved.selector, decisionId, 1, 2));
+        decisionApp.executeCongressDecision(decisionId);
     }
 
     function test_CongressDecision_RegistersNewOfficeAfterMajoritySupport() public {

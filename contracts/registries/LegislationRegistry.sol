@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {KernelModule} from "../base/KernelModule.sol";
 import {ILegislationRegistry} from "../interfaces/ILegislationRegistry.sol";
@@ -87,6 +87,14 @@ contract LegislationRegistry is ILegislationRegistry, KernelModule {
     function recordRepeal(bytes32 measureId, LegislationTypes.RepealOrigin repealOrigin, bytes32 repealReference)
         external
     {
+        // Origin is caller-supplied metadata, not authority. Even a replacement Senate app cannot evade its
+        // sub-legal-only restriction by labeling its own call a referendum (or another repeal pathway).
+        if (
+            _isModuleCaller(KernelModuleIds.SENATE_APP, msg.sender)
+                && repealOrigin != LegislationTypes.RepealOrigin.Senate
+        ) {
+            revert UnauthorizedLegislationRepealCaller(msg.sender);
+        }
         // Petitioners cannot repeal directly, even if an old manifest points repeal authority at PublicVetoApp.
         if (repealOrigin == LegislationTypes.RepealOrigin.PublicVeto) {
             if (!_isModuleCaller(KernelModuleIds.ACTION_TIMELOCK, msg.sender)) {

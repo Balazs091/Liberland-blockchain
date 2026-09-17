@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {IStakeRegistry} from "../interfaces/IStakeRegistry.sol";
 import {IUnstakingPolicy} from "../interfaces/IUnstakingPolicy.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 /// @title UnstakingPolicy
 /// @notice Parameterizes the discrete 30-day unstake portion and welfare period.
@@ -12,6 +13,8 @@ contract UnstakingPolicy is IUnstakingPolicy {
     error InvalidWelfarePeriod(uint64 welfarePeriodSeconds);
 
     uint64 public constant YEAR = 365 days;
+    /// @notice Technical duration bound (~136 years), not the configured constitutional welfare period.
+    uint64 public constant MAX_WELFARE_PERIOD = type(uint32).max;
     uint16 private constant BPS_DENOMINATOR = 10_000;
 
     IStakeRegistry private immutable _stakeRegistry;
@@ -25,7 +28,7 @@ contract UnstakingPolicy is IUnstakingPolicy {
         if (stakeRegistryAddress == address(0) || stakeRegistryAddress.code.length == 0) {
             revert InvalidRegistry(stakeRegistryAddress);
         }
-        if (welfarePeriodSeconds == 0) {
+        if (welfarePeriodSeconds == 0 || welfarePeriodSeconds > MAX_WELFARE_PERIOD) {
             revert InvalidWelfarePeriod(welfarePeriodSeconds);
         }
         if (annualUnstakeRateBps_ == 0 || annualUnstakeRateBps_ > BPS_DENOMINATOR) {
@@ -59,7 +62,7 @@ contract UnstakingPolicy is IUnstakingPolicy {
 
     /// @inheritdoc IUnstakingPolicy
     function previewWelfareUntil(uint64 startTimestamp) external view returns (uint64 welfareUntil) {
-        return startTimestamp + _welfarePeriod;
+        return SafeCast.toUint64(uint256(startTimestamp) + _welfarePeriod);
     }
 
     /// @inheritdoc IUnstakingPolicy

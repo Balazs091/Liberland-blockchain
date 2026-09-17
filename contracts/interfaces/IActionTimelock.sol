@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
 import {IKernelModule} from "./IKernelModule.sol";
@@ -17,6 +17,7 @@ interface IActionTimelock is IKernelModule {
     error ActionNotExpired(bytes32 actionId, uint64 expiresAt);
     error ActionNotReady(bytes32 actionId, uint64 earliestExecutionTime);
     error InvalidActionExpiry(bytes32 actionId, uint64 expiresAt, uint64 earliestExecutionTime);
+    error InvalidActionSchedule(uint256 earliestExecutionTime, uint256 expiresAt);
     error InvalidActionBatchLength(uint256 actionCount);
     error InvalidActionPayload(bytes32 actionId);
     error InvalidDelayConfig(GovernanceTypes.TimelockDelayConfig config);

@@ -52,14 +52,24 @@ a migration history or evidence that any deployed address uses this source.
   revert; valid active records cannot be bypassed by lowering transaction gas.
 - Two public signatures initiate a repeal referendum; they are neither referendum votes nor final repeal. Show the
   vote, queue delay, action execution and registry result. Failed/canceled rounds need fresh petition signatures.
+  The ordinary absolute-stake quorum has no electorate-headcount condition: two sufficiently weighted eligible
+  voters can pass if others abstain. This is not limited to Sepolia.
 - Senate suspensions/renewals require a supporting seat index and published reason hash. Read `requiredSupport()`:
   every negative power needs a strict occupied-seat majority and at least two direct votes. No President proxy
-  functions exist. Acquiring a Senate seat requires current citizenship.
+  functions exist. Seats need not belong to distinct people. Acquiring a Senate seat requires current citizenship;
+  Senate repeal-origin metadata cannot bypass the registry's sub-legal scope.
+- Congress decisions use their stored `supportRequired` and same-cycle lock, not today's new-decision threshold.
+  PM removal uses the historical appointment tally. Show unavailable removal when vacancies leave too few members;
+  eligible runner-up succession is conditional, not a guarantee. PM and President are distinct offices.
+- Handle `InvalidAdoptionSchedule` / `InvalidActionSchedule` by correcting timestamp inputs, not increasing gas.
 
 ## Treasury, lending and registries
 
-- Payouts need an enacted budget and exact current permissions. Finance contribution rewards are LLM-only,
+- Payouts need an approved budget envelope and exact current permissions. Finance contribution rewards are LLM-only,
   admin-proposed, distinct-officer-approved and evidence-backed (`DisbursementType.ContributionReward == 7`); there is no Treasury mint path.
+- Budget approvals are Law-tier referendum decisions but do not create `LegislationRegistry` records. Public
+  repeal cannot revoke an envelope; there is no generic budget-revocation button. Keep budget expiry/accounting and
+  Senate controls over individual queued payouts distinct from legislation repeal.
 - Show proposer, approver and their appointment IDs; call `approvePayout(officeId, requestId)` before routing. A clerk may review or route
   a sensitive admin proposal. Revalidate the original proposer's class/limits, not just the routing signer's role.
   Removing an officer after routing does not cancel the action; use the cancellation path.
@@ -67,6 +77,7 @@ a migration history or evidence that any deployed address uses this source.
   budget-ledger `isRequestExecuted(requestId)` marker may already be true while queue state remains Queued; the
   pinned old vault receipt remains the synchronization evidence. Preserve consumed IDs across any budget-ledger
   migration and do not treat a replacement vault's false local receipt as proof that an old request was unpaid.
+  `cancelPayout` in the current source also reconciles an already Senate-canceled action without canceling it twice.
 - Pool positions are keyed by office and pool; support `poolSharesAt`/`withdrawFromPoolAt` for retired pools. Read `loanBookOf(personId)` and keep old
   loans tied to their originating pool until explicit closure, even if its lien reaches zero. Retired health,
   liquidation and bad-debt collateral are capped at the remaining lien; do not count later unpledged stake.
@@ -75,6 +86,9 @@ a migration history or evidence that any deployed address uses this source.
 - `currentDebtOf` previews interest; `totalBorrows`, `borrowIndex` and managed assets are stored checkpoints.
   `maxBorrowable` includes pending interest/reserves and scaled-debt rounding for the same state;
   still simulate before submission because other transactions or elapsed time can change capacity. There is no reserve claim.
+- Rates are nominal APR compounded per second, not APY. A policy's combined nominal ceiling is 200%; replacement
+  policies must report RAY and an accepted borrow rate. Handle `UnsupportedInterestRateScale` / `UnsupportedBorrowRate`.
+  `EmptyBookIndexReset` returns the index to RAY only at zero scaled debt without changing cash, shares or reserves.
 - Land transfers bind both title and parcel version hashes, parties, nonce, deadline, chain and app. Follow the
   exact [cadastre signing schema](../docs/Land-Cadastre.md), with current EOA/EIP-1271 signers and registrar execution.
 - Company child-state writes require Active/ComplianceWarning status. Office role reads must reflect term expiry,

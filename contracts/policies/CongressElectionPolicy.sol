@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {ICandidateEligibilityPolicy} from "../interfaces/ICandidateEligibilityPolicy.sol";
 import {ICongressElectionPolicy} from "../interfaces/ICongressElectionPolicy.sol";
@@ -18,6 +18,8 @@ contract CongressElectionPolicy is ICongressElectionPolicy {
     error InvalidScheduleLeadTime(uint64 maxScheduleLeadTime, uint64 minimumNominationDuration);
 
     uint256 internal constant NEGATIVE_ALLOCATION_DIVISOR = 3;
+    /// @notice Technical bound (~136 years) for configurable schedule durations, not the election cadence.
+    uint64 public constant MAX_SCHEDULE_DURATION = type(uint32).max;
 
     ICandidateEligibilityPolicy private immutable _candidateEligibilityPolicy;
     IVotingPowerPolicy private immutable _votingPowerPolicy;
@@ -70,16 +72,22 @@ contract CongressElectionPolicy is ICongressElectionPolicy {
                 ICandidateEligibilityPolicy(candidateEligibilityPolicyAddress).minimumCandidateStake()
             );
         }
-        if (minimumNominationDuration_ == 0) {
+        if (minimumNominationDuration_ == 0 || minimumNominationDuration_ > MAX_SCHEDULE_DURATION) {
             revert InvalidDuration(minimumNominationDuration_);
         }
-        if (minimumVotingDuration_ == 0) {
+        if (minimumVotingDuration_ == 0 || minimumVotingDuration_ > MAX_SCHEDULE_DURATION) {
             revert InvalidDuration(minimumVotingDuration_);
         }
-        if (maxScheduleLeadTime_ == 0 || maxScheduleLeadTime_ < minimumNominationDuration_) {
+        if (
+            maxScheduleLeadTime_ == 0 || maxScheduleLeadTime_ < minimumNominationDuration_
+                || maxScheduleLeadTime_ > MAX_SCHEDULE_DURATION
+        ) {
             revert InvalidScheduleLeadTime(maxScheduleLeadTime_, minimumNominationDuration_);
         }
-        if (cycleDuration_ < minimumNominationDuration_ + minimumVotingDuration_) {
+        if (
+            cycleDuration_ > MAX_SCHEDULE_DURATION
+                || cycleDuration_ < minimumNominationDuration_ + minimumVotingDuration_
+        ) {
             revert InvalidCycleDuration(cycleDuration_, minimumNominationDuration_, minimumVotingDuration_);
         }
 

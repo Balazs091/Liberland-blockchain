@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {KernelModule} from "../base/KernelModule.sol";
 import {ICompanyRegistry} from "../interfaces/ICompanyRegistry.sol";
@@ -354,7 +354,11 @@ contract CompanyRegistry is ICompanyRegistry, KernelModule {
         address filedBy
     ) external {
         _requireRegistryAuthority(msg.sender);
-        _getMutableCompanyRecord(companyId);
+        CompanyTypes.CompanyRecord storage companyRecord = _getMutableCompanyRecord(companyId);
+        // Filings outlive a rejected submission, so only an approved company may begin its filing history.
+        if (companyRecord.status == CompanyTypes.CompanyStatus.Pending) {
+            revert InvalidCompanyStatus(companyRecord.status);
+        }
         if (
             filingId == bytes32(0) || filingType == CompanyTypes.FilingType.Undefined || documentHash == bytes32(0)
                 || filedBy == address(0)

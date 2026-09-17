@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -107,6 +107,13 @@ contract IdentityAppTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(IIdentityApp.InvalidMigrationDelay.selector, uint64(0)));
         new IdentityApp(address(identityRegistry), address(officeRegistry), IDENTITY_OFFICE_ID, 0);
+
+        vm.expectRevert(abi.encodeWithSelector(IIdentityApp.InvalidMigrationDelay.selector, type(uint64).max));
+        new IdentityApp(address(identityRegistry), address(officeRegistry), IDENTITY_OFFICE_ID, type(uint64).max);
+
+        uint64 overMaximum = identityApp.MAX_MIGRATION_DELAY() + 1;
+        vm.expectRevert(abi.encodeWithSelector(IIdentityApp.InvalidMigrationDelay.selector, overMaximum));
+        new IdentityApp(address(identityRegistry), address(officeRegistry), IDENTITY_OFFICE_ID, overMaximum);
     }
 
     // --- A. Office-gated onboarding / management -------------------------------------------------------------

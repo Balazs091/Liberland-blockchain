@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {IGovernanceRouter} from "../interfaces/IGovernanceRouter.sol";
+import {IActionTimelock} from "../interfaces/IActionTimelock.sol";
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
 import {IOfficeExecutor} from "../interfaces/IOfficeExecutor.sol";
 import {IOfficePermissionPolicy} from "../interfaces/IOfficePermissionPolicy.sol";
@@ -261,6 +262,14 @@ contract OfficeExecutor is IOfficeExecutor {
         }
 
         if (request.state == TreasuryTypes.DisbursementState.Queued) {
+            IActionTimelock timelock = IActionTimelock(
+                IConstitutionKernel(_governanceRouter.kernel()).getModule(KernelModuleIds.ACTION_TIMELOCK)
+            );
+            if (timelock.getActionState(request.actionId) == GovernanceTypes.ActionState.Canceled) {
+                // Preserve the external veto outcome and release its budget without attempting cancellation twice.
+                _payoutQueue.syncPayoutState(requestId);
+                return;
+            }
             _governanceRouter.cancelAction(request.actionId);
         }
         _payoutQueue.cancelPayout(requestId);

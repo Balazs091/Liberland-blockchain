@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 /// @title IVotingPowerPolicy
 /// @notice Policy interface for governance voting power derived from political stake.

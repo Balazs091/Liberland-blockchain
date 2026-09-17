@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -345,6 +345,12 @@ contract ReferendaTest is Test {
         referendumApp.finalizeReferendum(referendumId);
         vm.warp(record.endTime);
         referendumApp.finalizeReferendum(referendumId);
+        // This is intentionally an ordinary weighted referendum, not an electorate-headcount majority. With
+        // everyone else abstaining, these two citizens meet the current absolute stake quorum and pass it.
+        ReferendumTypes.ReferendumRecord memory finalized = referendumRegistry.getReferendum(referendumId);
+        assertEq(finalized.forVoterCount, 2);
+        assertEq(finalized.againstVoterCount, 0);
+        assertEq(referendumRegistry.getReferendumResult(referendumId).headcountQuorumRequired, 0);
         bytes32 actionId = referendumRegistry.getReferendum(referendumId).enactmentActionId;
         GovernanceTypes.ActionRecord memory action = timelock.getAction(actionId);
         assertEq(uint8(action.actionType), uint8(GovernanceTypes.ActionType.LegislationRepeal));
@@ -620,6 +626,25 @@ contract ReferendaTest is Test {
         assertEq(referendumRecord.votingPowerSnapshotBlock, block.number - 1);
         assertEq(referendumRecord.referendumPolicy, address(referendumPolicy));
         assertEq(referendumRecord.votingPowerPolicy, address(votingPowerPolicy));
+    }
+
+    function test_CreateReferendum_RejectsOverflowingAdoptionScheduleBeforeRecordingVotes() public {
+        ReferendumTypes.LegislationProposal memory proposal =
+            _defaultProposal("overflow-measure", "overflow-proposal", "overflow-law");
+        proposal.endTime = type(uint64).max;
+        vm.prank(WALLET_ONE);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IReferendumRegistry.InvalidAdoptionSchedule.selector, proposal.endTime, proposal.adoptionDelay
+            )
+        );
+        referendumApp.createCitizenLegislationReferendum(proposal);
+
+        // The exact representable boundary remains valid: no arbitrary reduction of allowed voting duration.
+        proposal.endTime = type(uint64).max - proposal.adoptionDelay;
+        vm.prank(WALLET_ONE);
+        bytes32 referendumId = referendumApp.createCitizenLegislationReferendum(proposal);
+        assertEq(referendumRegistry.getReferendum(referendumId).endTime, proposal.endTime);
     }
 
     function test_CreateReferendum_TransfersProposalFeeToTreasury() public {

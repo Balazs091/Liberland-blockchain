@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 /// @title SenateTypes
 /// @notice Shared structs for bounded Senate seat state and negative-control support tracking.

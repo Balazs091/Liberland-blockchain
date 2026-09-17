@@ -57,6 +57,19 @@
   },
   {
     "type": "function",
+    "name": "MAX_SCHEDULE_DURATION",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "candidateBondRequirement",
     "inputs": [],
     "outputs": [

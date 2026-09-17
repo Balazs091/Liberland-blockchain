@@ -114,6 +114,10 @@ Governance uses bounded action types and never unrestricted calldata execution.
 - independently approved actions can execute atomically as a batch; each member remains separately executable,
   so dependency/intermediate-state review remains necessary
 
+The permanent timelock rejects zero or greater-than-`uint32.max` configured durations for every action class and
+its execution window. Schedules use widened arithmetic and reject unrepresentable timestamps. These are technical
+configuration bounds, not recommended political delays; both manifests retain their documented day-scale values.
+
 `ConstitutionKernel` assigns known IDs a module class:
 
 - `Core`: router and timelock; never repointable
@@ -241,7 +245,9 @@ LLM has an exact 70,000,000-token hard cap at 18 decimals. Production consumes a
 current supply are checked by the deployment script. Treasury custody has no mint or arbitrary token-call function:
 issuance and spending remain separate, and official rewards draw only from LLM already deposited in the vault.
 
-Treasury spending uses an explicit per-asset policy allowlist. Budget approvals are laws. Payouts record an actual proposer and distinct approving officer, bound to their office appointments. Routing
+Treasury spending uses an explicit per-asset policy allowlist. Budget approvals use Law-tier referenda but record
+budget envelopes, not LegislationRegistry entries. Ordinary public repeal therefore does not revoke an envelope
+or its queued payouts; this is the retained budget lifecycle. Payouts record an actual proposer and distinct approving officer, bound to their office appointments. Routing
 revalidates both appointments and the proposer's spending policy; known wallets of one person cannot approve twice. At execution, `TreasuryVault` independently matches the
 request ID, budget ID, amount, and asset against the stable budget registry commitment and rejects tokens whose
 recipient balance delta is not the exact requested amount.
@@ -254,7 +260,8 @@ release paid capacity or mark unexecuted commitments spent. A registry migration
 `OfficeExecutor` pins its queue immutably; a queue pointer alone does not redirect that executor or copy proposals.
 
 An authorized office may cancel a proposed payout directly. For a routed payout, `OfficeExecutor` first cancels its
-timelock action, then `PayoutQueue` records cancellation and releases the budget commitment. Permissionless
+timelock action, then `PayoutQueue` records cancellation and releases the budget commitment. If the action was
+already canceled externally, it synchronizes the original veto outcome without canceling a second time. Permissionless
 `syncPayoutState` can reconcile executed, Senate-canceled, or expired actions. Execution reconciliation verifies the
 disbursement against the vault address pinned in the queued action, not a later live vault pointer.
 
@@ -279,6 +286,12 @@ or policy replacement cannot retroactively reprice time that already passed. `cu
 growth, while `totalBorrows` and `borrowIndex` expose stored values until `accrueInterest` or another state-changing
 pool interaction checkpoints them.
 
+Rate inputs are nominal APR compounded each second, not APY. The policy and pool enforce a shared 200% nominal
+annual rate ceiling and the pool requires the policy's RAY scale. The existing 113% maximum launch rate is unchanged.
+When total scaled debt becomes zero, the borrow index and its interval reset to RAY without changing any remaining
+claim, reserves or LP shares. Never-cleared debt retains finite precision and arithmetic headroom; see
+[Lending and Treasury](Lending-And-Treasury.md) for numerical bounds and economic limitations.
+
 Stake liens raise the required active-stake floor and slashing cannot bypass that floor. The citizenship floor is
 snapshotted when a person's loan begins and cleared only when its owning pool explicitly closes the loan, even
 if liquidation previously exhausted the lien. This prevents a later policy increase from
@@ -298,9 +311,9 @@ A replacement pool cannot originate another loan for that person until the old l
 in the old pool. Budget commitments similarly retain their original accounting writer for bounded finalization or
 release after queue replacement, without granting the retired writer new reservation rights.
 
-Pending companies cannot accumulate directors, share classes, shares, or filings. Those child-state mutations are
-limited to `Active` or `ComplianceWarning` companies so rejection/resubmission cannot inherit hidden pre-approval
-state.
+Pending companies cannot accumulate directors, share classes, shares, or filings, so rejection/resubmission cannot
+inherit hidden pre-approval state. Director and share mutations require `Active` or `ComplianceWarning` status;
+already-approved `Suspended` and `Dissolving` companies may still file compliance documents. `Dissolved` is terminal.
 
 ## Deliberate constraints
 

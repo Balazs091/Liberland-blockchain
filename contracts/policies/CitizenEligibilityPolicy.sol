@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.36;
+pragma solidity 0.8.37;
 
 import {ICitizenEligibilityPolicy} from "../interfaces/ICitizenEligibilityPolicy.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
@@ -56,11 +56,17 @@ contract CitizenEligibilityPolicy is ICitizenEligibilityPolicy {
             return false;
         }
 
-        IdentityTypes.IdentityRecord memory record = _identityRegistry.getIdentityRecord(personId);
-        return record.personId != bytes32(0) && record.verificationStatus == IdentityTypes.VerificationStatus.Verified
-            && record.citizenshipStatus == IdentityTypes.CitizenshipStatus.Citizen
-            && record.ageClass == IdentityTypes.AgeClass.Adult && !record.finalSuspension
-            && _stakeRegistry.activeStakeOf(personId) >= _minimumCitizenStake;
+        // Eligibility must not copy arbitrary metadata into every vote and bounded electorate callback.
+        // An active wallet already proves this identity exists; only fixed-size civic facts affect eligibility.
+        (
+            IdentityTypes.VerificationStatus verificationStatus,
+            IdentityTypes.CitizenshipStatus citizenshipStatus,
+            IdentityTypes.AgeClass ageClass,
+            bool finalSuspension
+        ) = _identityRegistry.getCitizenshipSummary(personId);
+        return verificationStatus == IdentityTypes.VerificationStatus.Verified
+            && citizenshipStatus == IdentityTypes.CitizenshipStatus.Citizen && ageClass == IdentityTypes.AgeClass.Adult
+            && !finalSuspension && _stakeRegistry.activeStakeOf(personId) >= _minimumCitizenStake;
     }
 
     /// @inheritdoc ICitizenEligibilityPolicy

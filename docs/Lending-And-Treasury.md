@@ -19,7 +19,9 @@ exact `cap()`. The Treasury is a holder and spender, never an issuer: it has no 
   otherwise non-exact assets revert instead of silently underpaying the recipient.
 - `ContributionReward` payouts are LLM-only, Finance-admin-proposed, independently officer-approved, evidence-backed, and use the sensitive queue delay.
 - An office cancellation of a routed payout first cancels its queued timelock action; only then may `PayoutQueue`
-  mark it canceled and release the budget commitment.
+  mark it canceled and release the budget commitment. If the Senate has already canceled the action,
+  `OfficeExecutor.cancelPayout` instead synchronizes the existing cancellation, preserves the `Vetoed` outcome,
+  and releases the commitment without attempting to cancel twice.
 - Anyone may call `syncPayoutState` to reconcile an executed, Senate-canceled, or expired timelock action. For
   execution, it checks `isDisbursementExecuted(requestId)` on the vault address pinned into that action rather than
   a replacement live vault pointer.
@@ -113,6 +115,30 @@ utilization change, or governed policy replacement affects a new checkpoint; it 
 new configuration to time already elapsed. The constructor therefore takes six arguments and does not pin an
 interest-policy address.
 
+### Interest units and numerical operating bounds
+
+Annual rate parameters are **nominal APR**, divided into a per-second rate and compounded every second.
+They are not effective annual yields (APY), and debt does not follow a simple-interest formula. At a constant
+rate for a full 365-day year, the configured 5%, 13% and 113% nominal APR correspond to approximately 5.13%,
+13.88% and 209.57% effective debt growth, respectively. Actual utilization can change the rate between checkpoints.
+Frontends must label both units accurately; the 113% high-utilization ceiling needs explicit economic review.
+
+`InterestRateBounds` caps the sum of the three policy rate inputs at 20,000 basis points (200% nominal APR).
+This numerical ceiling preserves the existing 113% launch configuration. The pool independently requires the
+policy's `ray()` to equal `1e27` and rejects a per-second borrow rate above the same ceiling before storing it.
+A rejected replacement cannot poison the historical interval: replacing it with a valid policy restores accrual
+under the last accepted rate. Reverting or otherwise incompatible policies can still interrupt operations while
+selected; repairing them requires the ordinary governance route.
+
+At the maximum accepted rate, regression coverage verifies 50 years of uninterrupted accrual at the 1,000,000-USDC
+launch borrow cap and complete repayment without index/debt overflow. This is a finite numerical stress bound, not
+perpetual lending availability. Very large accumulated indices coarsen scaled-debt rounding while debt remains
+outstanding. When the final loan is fully repaid, liquidated or absorbed, the empty book resets its index to `1e27`
+and emits `EmptyBookIndexReset`. No remaining debt claim is repriced; cash, LP shares and reserves are untouched.
+The reset restores full precision for new small loans and starts a fresh rate interval. A book with never-cleared
+debt still needs explicit precision, arithmetic-headroom and migration review; constructor checks alone do not
+guarantee indefinite operation.
+
 Both launch manifests use 30% LTV, a 40% liquidation threshold, a 15% liquidation bonus, a 15% reserve factor, a
 1,000,000 USDC total borrow cap, and a fixed 1 LLM = 2 USDC oracle. Production additionally caps debt at 100,000
 USDC per person; the demo leaves that cap unlimited to simplify testing. The fixed value cannot be manipulated
@@ -122,6 +148,14 @@ accepted launch risk. Governance can replace the oracle policy after review with
 `LendingRiskParameterPolicy` rejects a configuration where
 `liquidationThreshold * (1 + liquidationBonus) > 100%`. This ensures a liquidation performed exactly at the
 threshold cannot require more collateral, including bonus, than the position's full quoted collateral value.
+
+That constructor condition does not guarantee recovery after a large price fall or prolonged unliquidated
+interest. For an already deeply underwater position, fixed-bonus partial liquidation can lower the remaining
+collateral-to-debt ratio even though it returns USDC and reduces debt. The pool permits such bounded recovery;
+requiring every partial liquidation to improve that ratio would block recovery precisely when no repayment can
+satisfy it. Seizure remains limited to recoverable collateral and retained floors. Changing the bonus, introducing
+an auction or mandating an atomic collateral-exhaustion/write-off procedure would change loss allocation and needs
+separate economic approval. Suppliers are not promised full principal recovery.
 
 When a person's first lien is created, `StakeLienRegistry` snapshots the current citizenship retained-stake floor.
 That value and the pool's loan ownership remain until explicit loan closure after full repayment or bad-debt
