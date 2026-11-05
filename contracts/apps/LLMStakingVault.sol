@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -107,7 +107,7 @@ contract LLMStakingVault is ILLMStakingVault, KernelModule, ReentrancyGuard {
         _requireIdentity(personId);
         _pullExact(msg.sender, amount);
         _stakeRegistry.increaseStake(personId, amount);
-        _requireBacked();
+        backingSurplus();
 
         emit LLMStaked(msg.sender, personId, amount, _stakeRegistry.activeStakeOf(personId), uint64(block.timestamp));
     }
@@ -161,7 +161,7 @@ contract LLMStakingVault is ILLMStakingVault, KernelModule, ReentrancyGuard {
         if (receivedAmount != releasedAmount) {
             revert StakeTransferAmountMismatch(releasedAmount, receivedAmount);
         }
-        _requireBacked();
+        backingSurplus();
 
         emit LLMUnstaked(
             recipient,
@@ -188,14 +188,6 @@ contract LLMStakingVault is ILLMStakingVault, KernelModule, ReentrancyGuard {
             revert UnknownActiveWallet(wallet);
         }
         return walletLink.personId;
-    }
-
-    function _requireBacked() private view {
-        uint256 balance = _token.balanceOf(address(this));
-        uint256 activeStake = _stakeRegistry.totalActiveStake();
-        if (balance < activeStake) {
-            revert BackingInvariantViolated(balance, activeStake);
-        }
     }
 
     function _requireAmount(uint256 amount) private pure {

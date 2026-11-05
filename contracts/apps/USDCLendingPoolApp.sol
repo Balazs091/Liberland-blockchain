@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -300,10 +300,11 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
     }
 
     /// @inheritdoc IUSDCLendingPoolApp
+    /// @dev A debt-free book needs no future rate/risk terms to return available cash to its share owners.
     function withdraw(uint256 assets, address receiver) external nonReentrant returns (uint256 shares) {
         _requireAmount(assets);
         _requireReceiver(receiver);
-        _accrueInterest();
+        _accrueInterest(_totalScaledDebt != 0);
 
         uint256 liquidity = availableLiquidity();
         if (liquidity < assets) {
@@ -321,7 +322,8 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
 
         _burn(msg.sender, shares);
         _usdc.safeTransfer(receiver, assets);
-        _checkpointAccrualConfiguration(true);
+        if (_totalScaledDebt == 0) _finishEmptyBookExit();
+        else _checkpointAccrualConfiguration(true);
 
         emit USDCWithdrawn(msg.sender, receiver, assets, shares);
     }
@@ -393,7 +395,12 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
 
     function _repay(address payer, bytes32 personId, uint256 amount) private returns (uint256 repaidAmount) {
         _requireAmount(amount);
-        _accrueInterest();
+        uint256 scaledDebt = _accountScaledDebt[personId];
+        // Only a full close of the entire book may omit selection of future policy terms. Interest/reserves
+        // through this transaction still use the already validated interval, just as in ordinary accrual.
+        bool closesEntireBook = scaledDebt != 0 && scaledDebt == _totalScaledDebt
+            && amount >= _debtAtIndex(scaledDebt, _previewBorrowIndex());
+        _accrueInterest(!closesEntireBook);
 
         uint256 debt = _storedDebtOf(personId);
         if (debt == 0) {
@@ -411,7 +418,8 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
             releasedLien = _stakeLienRegistry.lienedStakeOf(personId);
             _stakeLienRegistry.closeLoan(personId);
         }
-        _checkpointAccrualConfiguration(true);
+        if (_totalScaledDebt == 0) _finishEmptyBookExit();
+        else _checkpointAccrualConfiguration(true);
 
         emit USDCRepaid(payer, personId, repaidAmount, quote.remainingDebt, releasedLien, uint64(block.timestamp));
     }
@@ -525,35 +533,55 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
     }
 
     function _accrueInterest() private {
+        _accrueInterest(true);
+    }
+
+    /// @dev false is restricted to debt-free withdrawal or a prechecked full-book repayment. Callers must
+    ///      verify the actual book is empty afterward, or strictly refresh the policy before completing.
+    function _accrueInterest(bool refreshConfiguration) private {
         uint64 currentTimestamp = uint64(block.timestamp);
         if (!_accrualConfigurationInitialized) {
             _lastAccrualTimestamp = currentTimestamp;
-            _checkpointAccrualConfiguration(true);
+            if (refreshConfiguration) _checkpointAccrualConfiguration(true);
             return;
         }
 
         uint256 elapsed = currentTimestamp - _lastAccrualTimestamp;
-        if (elapsed == 0) {
-            _checkpointAccrualConfiguration(false);
-            return;
-        }
-        _lastAccrualTimestamp = currentTimestamp;
-        if (_totalScaledDebt == 0) {
-            _checkpointAccrualConfiguration(false);
-            return;
-        }
+        if (elapsed != 0) {
+            _lastAccrualTimestamp = currentTimestamp;
+            if (_totalScaledDebt != 0) {
+                uint256 totalBorrowsBefore = _storedTotalBorrows();
+                _borrowIndex = _borrowIndexAt(currentTimestamp);
+                uint256 totalBorrowsAfter = _storedTotalBorrows();
+                uint256 interestAccrued = totalBorrowsAfter - totalBorrowsBefore;
+                uint256 protocolReservesAccrued = _accrueProtocolReserves(interestAccrued);
+                _totalReserves += protocolReservesAccrued;
 
-        uint256 totalBorrowsBefore = _storedTotalBorrows();
-        _borrowIndex = _borrowIndexAt(currentTimestamp);
-        uint256 totalBorrowsAfter = _storedTotalBorrows();
-        uint256 interestAccrued = totalBorrowsAfter - totalBorrowsBefore;
-        uint256 protocolReservesAccrued = _accrueProtocolReserves(interestAccrued);
-        _totalReserves += protocolReservesAccrued;
+                emit InterestAccrued(
+                    interestAccrued,
+                    protocolReservesAccrued,
+                    totalBorrowsAfter,
+                    _totalReserves,
+                    _borrowIndex,
+                    currentTimestamp
+                );
+            }
+        }
+        if (refreshConfiguration) _checkpointAccrualConfiguration(false);
+    }
 
-        emit InterestAccrued(
-            interestAccrued, protocolReservesAccrued, totalBorrowsAfter, _totalReserves, _borrowIndex, currentTimestamp
-        );
-        _checkpointAccrualConfiguration(false);
+    /// @dev No debt remains whose future value depends on a policy. Preserve cash/reserves and the fractional
+    ///      reserve remainder, reset the empty-book index, and require fresh valid terms before any new interval.
+    function _finishEmptyBookExit() private {
+        assert(_totalScaledDebt == 0);
+        if (_borrowIndex != RAY) {
+            uint256 previousIndex = _borrowIndex;
+            _borrowIndex = RAY;
+            emit EmptyBookIndexReset(previousIndex, uint64(block.timestamp));
+        }
+        _rateCheckpointTimestamp = uint64(block.timestamp);
+        _rateCheckpointIndex = RAY;
+        _accrualConfigurationInitialized = false;
     }
 
     function _previewBorrowIndex() private view returns (uint256 indexRay) {
@@ -750,8 +778,8 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
 
     /// @dev Resolves the LLM/USDC price oracle live from the kernel so governance can swap the launch manual oracle
     ///      for a Uniswap V4 TWAP oracle by repointing the module, without redeploying this pool. Re-checks on every
-    ///      resolution that the oracle prices this pool's own USDC, so a wrong-asset/decimals oracle (which would
-    ///      mis-scale collateral) can never drive borrow limits or health.
+    ///      resolution that the oracle names this pool's own USDC. Replacement implementations must also be
+    ///      reviewed for the required quote units; matching the asset address does not verify their scaling.
     function _priceOracle() private view returns (ILLMPriceOraclePolicy oracle) {
         oracle = ILLMPriceOraclePolicy(_kernel.getModule(KernelModuleIds.LLM_USDC_PRICE_ORACLE_POLICY));
         if (oracle.asset() != address(_usdc)) {

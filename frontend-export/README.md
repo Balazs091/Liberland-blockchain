@@ -1,38 +1,44 @@
 # Frontend Export
 
-This folder is the clean handoff package for the frontend.
+This folder contains frontend ABIs, configuration examples and integration instructions.
 
-The API guidance describes the current source, not proof that an existing Sepolia address runs it. Keep the
-deployed revision and its matching ABIs separate from the current-source export; updating this folder does not
-upgrade contracts. See [deployment provenance](../docs/Sepolia-Demo-Deployment.md) before connecting a live client.
+The API guidance describes the current source. Before connecting a live client, confirm its deployed revision and
+use the matching ABIs. Source or export changes do not upgrade deployed contracts. See
+[deployment provenance](../docs/Sepolia-Demo-Deployment.md).
 
 ## Contents
 
-- `sepolia-demo.example.json`
+- [sepolia-demo.example.json](sepolia-demo.example.json)
   - schema for deployed contract addresses and seeded identifiers
-- `ethereum-mainnet.example.json`
+- [ethereum-mainnet.example.json](ethereum-mainnet.example.json)
   - schema for the production address manifest and imported Congress continuity fields
 - `sepolia-demo.json`
   - generated after a real demo deployment; ignored by Git so stale addresses are not committed
-- `FRONTEND-HOWTO.md`
+- [Frontend howto](FRONTEND-HOWTO.md)
   - page-by-page guidance for the first demo frontend screens
-- `INTEGRATION-CHECKLIST.md`
+- [Integration checklist](INTEGRATION-CHECKLIST.md)
   - current release requirements for configuration, consent, voting, counting, custody and signatures
-- `abis/`
+- [abis/](abis/)
   - generated ABI artifacts for the source contract set; regenerate the whole directory after every contract change
     and do not mix files from different revisions; CI checks exact ABI/source parity
-- `example-config.ts`
+- [example-config.ts](example-config.ts)
   - minimal example of how to wire the addresses into a React + `viem` + `wagmi` app
 
-## Network
+## Deployment profiles
 
-- network: `Sepolia`
-- chain ID: `11155111`
-- explorer: `https://sepolia.etherscan.io`
+| Profile | Chain ID | Frontend boundary |
+| --- | ---: | --- |
+| [Production](../docs/Ethereum-Mainnet-Deployment.md) | `1` | Two-stage genesis; separately deployed fixed-supply Liberland Merit and canonical Ethereum USDC |
+| [Original demo](../docs/Sepolia-Demo-Deployment.md) | `11155111` | Full demo with public-mint `LLMToken` and mock USDC |
+| [Governed staging](../docs/Sepolia-Governed-Deployment.md) | `11155111` | Full synthetic governance with fixed-supply `LiberlandMerit`, mock USDC and a replaceable restriction controller |
+| [Isolated foundation](../docs/Sepolia-Foundation-Deployment.md) | `11155111` | Token and synthetic restriction tests only; no voting, staking or lending |
 
-Production uses Ethereum mainnet (`chainId: 1`) and `deployments/ethereum-mainnet.json`. Reject any configuration whose `chainId` differs from the connected wallet chain.
+Use the confirmed manifest for the selected profile. Reject a configuration whose `chainId` differs from the
+connected wallet chain. Sepolia transactions can be checked on [Etherscan](https://sepolia.etherscan.io).
+Synthetic restriction tests do not install the proposed legal membership procedures or their full rights-policy
+integration.
 
-## Important notes
+## Integration rules
 
 - Do not use any file under `broadcast/`; it is generated Foundry transaction output
 - After running `DeployDemo.s.sol`, copy `deployments/sepolia-demo.json` to `frontend-export/sepolia-demo.json`
@@ -58,14 +64,18 @@ Production uses Ethereum mainnet (`chainId: 1`) and `deployments/ethereum-mainne
 - Router origins (`ReferendumApp`, `CongressElectionApp`, `SenateApp`, and `OfficeExecutor`) and the
   constitutional-review hook use the constitutional module threshold; only bounded apps without routing/review power
   use the ordinary module threshold
-- Coordinated app/authority upgrades use `ActionTimelock.executeActions(actionIds)` for atomic submission; members
-  remain individually executable, so reviewed intermediate states are necessary
+- Where `MODULE_UPGRADE_PLAN_REGISTRY` is installed, coordinated existing-module replacements use a published
+  immutable plan and `ReferendumApp.createCitizenModuleBundleReferendum(proposal)` or
+  `ReferendumApp.createCongressModuleBundleReferendum(proposal)`. The resulting single action changes all approved
+  pointers together. Fresh production and governed staging install that registry.
+  `ActionTimelock.executeActions(actionIds)` still groups separate actions whose members remain independently
+  executable. See [upgrade and liveness](../docs/Upgrade-And-Liveness.md) for the dependency and migration limits
 - the incumbent Senate cannot cancel or hold open the active referendum for its exact `SENATE_APP` replacement or
   cancel the resulting action; its queue hook is skipped only there. Constitutional review is skipped only for its
   own exact pointer replacement; all normal vote and queue checks still apply
 - optional negative-power hooks have a 100,000-gas budget and canonical ABI requirement. Underfunded calls revert;
-  genuinely reverting/over-budget/malformed probes are ignored. Mutual Senate/review blocking and broken referendum
-  dependencies remain recovery limits; see `../docs/Upgrade-And-Liveness.md`
+  reverting, over-budget or malformed probes are ignored. Mutual Senate/review blocking and broken referendum
+  dependencies remain recovery limits; see [upgrade and liveness](../docs/Upgrade-And-Liveness.md)
 - Official contribution rewards are LLM-only Finance-admin-proposed, distinct-officer-approved payouts from a referendum-approved budget and require a displayed evidence hash/URI; the Treasury never mints LLM
 - Senate treasury suspensions and renewals require a published-document hash submitted by a current supporting seat holder; display `DisbursementSuspension.reasonHash` with the active deadline
 - Two eligible citizens initiate a repeal referendum, not immediate repeal. Ordinary voting has an absolute stake
@@ -74,8 +84,8 @@ Production uses Ethereum mainnet (`chainId: 1`) and `deployments/ethereum-mainne
 - Budget approvals use Law-tier referenda but create budget envelopes, not `LegislationRegistry` law records.
   Public repeal does not revoke an envelope. Do not offer a budget-repeal button; show budget expiry and the
   separate Senate cancellation/suspension controls for queued payouts.
-- `DecisionApp`, `MinistryTreasury`, and lending are deployed by both manifests; production uses external USDC and
-  Sepolia uses mock USDC
+- Production, the original demo and governed staging deploy `DecisionApp`, `MinistryTreasury` and lending.
+  Production uses canonical Ethereum USDC; the two full Sepolia profiles use mock USDC
 - elected/executive role authority follows `IdentityRegistry.activeWalletOf(personId)` after migration; historical
   records may still show the wallet used when the record was created
 - candidacy is person-bound: keep the original application wallet as the durable ballot target, resolve withdrawal
@@ -85,11 +95,11 @@ Production uses Ethereum mainnet (`chainId: 1`) and `deployments/ethereum-mainne
   merged and must use the explicit closure workflow
 - expose `recallUnrepresentedSeat(seatIndex)` only when the seated person's `activeWalletOf(personId)` is zero; it is
   a permissionless representation recovery and reverts while the seat remains represented
-- For live onboarding demos, set `IDENTITY_ADMIN` to a wallet you control before deploying; that wallet becomes the registrar for `DemoCitizenGateway`
-- Sepolia intentionally exports the same address for `identityApp` and `demoCitizenGateway`; the gateway inherits
+- The original demo reads its registrar from `IDENTITY_ADMIN`; governed staging assigns that role to tester 1.
+  Use a wallet the tester controls
+- Both full Sepolia profiles export the same address for `identityApp` and `demoCitizenGateway`; the gateway inherits
   the standard `IdentityApp` workflows and is the only standing identity-registry writer
-- Verify deployment source against the ABIs. Source or documentation edits do not change deployed contracts.
-- Read `../docs/User-Journeys.md` before building role-gated screens; only Finance has an operational ministry office in v1
+- Read [user journeys](../docs/User-Journeys.md) before building role-gated screens; only Finance has an operational ministry office in v1
 
 ## Suggested first screens
 
@@ -112,6 +122,7 @@ Production uses Ethereum mainnet (`chainId: 1`) and `deployments/ethereum-mainne
   - `ReferendumRegistry`
   - `ReferendumPolicy`
   - `LegislationRegistry`
+  - `ModuleUpgradePlanRegistry` and `ReferendumProposalValidator` where installed; verify their manifest bindings
 - congress reads
   - `CongressElectionApp`
   - `CongressCandidateRegistry`
@@ -161,37 +172,38 @@ Production uses Ethereum mainnet (`chainId: 1`) and `deployments/ethereum-mainne
 
 For most frontend work, prefer these as entrypoints:
 
-- `ConstitutionKernel.json`
-- `GovernanceRouter.json`
-- `ActionTimelock.json`
-- `ReferendumApp.json`
-- `CongressElectionApp.json`
-- `SenateApp.json`
-- `PublicVetoApp.json`
-- `PresidentRegistry.json`
-- `DecisionApp.json`
-- `OfficeExecutor.json`
-- `LandRegistryApp.json`
-- `LandPartyPolicy.json`
-- `CompanyRegistryApp.json`
-- `USDCLendingPoolApp.json`
+- [ConstitutionKernel.json](abis/ConstitutionKernel.json)
+- [GovernanceRouter.json](abis/GovernanceRouter.json)
+- [ActionTimelock.json](abis/ActionTimelock.json)
+- [ReferendumApp.json](abis/ReferendumApp.json)
+- [CongressElectionApp.json](abis/CongressElectionApp.json)
+- [SenateApp.json](abis/SenateApp.json)
+- [PublicVetoApp.json](abis/PublicVetoApp.json)
+- [PresidentRegistry.json](abis/PresidentRegistry.json)
+- [DecisionApp.json](abis/DecisionApp.json)
+- [OfficeExecutor.json](abis/OfficeExecutor.json)
+- [LandRegistryApp.json](abis/LandRegistryApp.json)
+- [LandPartyPolicy.json](abis/LandPartyPolicy.json)
+- [CompanyRegistryApp.json](abis/CompanyRegistryApp.json)
+- [USDCLendingPoolApp.json](abis/USDCLendingPoolApp.json)
 
 Use registry and policy ABIs for detailed reads where needed. Do not assume the checked-in ABI directory matches an
 unverified local change: run the export script from the exact source revision used by the manifest.
 
-Both manifests expose `DecisionApp`, `MinistryTreasury`, the lending pool, lien registry, lending policy, and
-`LandPartyPolicy` addresses.
+The full protocol manifests expose `DecisionApp`, `MinistryTreasury`, the lending pool, lien registry, lending
+policies and `LandPartyPolicy`. The isolated foundation manifest covers its five test contracts only.
 Validate every required address and `chainId` against the intended deployment; do not silently omit current modules.
 
-## Demo flow
+## Original demo flow
 
-The intended public demo flow is:
+The original public-mint demo follows these steps. Governed staging uses fixed-supply LLM; give testers an allocation
+or transfer tokens to them instead of offering a mint action.
 
 1. User connects a fresh wallet
 2. User calls `registerSelf` on `DemoCitizenGateway`
 3. Registrar calls `confirmCitizenship`
 4. User calls `mint` on `LLMToken` with base-unit amounts (whole LLM * `1e18`, standard 18 decimals)
-5. User approves `DemoCitizenGateway` to spend the same whole-number `LLM` amount
+5. User approves `DemoCitizenGateway` to spend the same LLM amount in base units
 6. User calls `stake` or the discrete `unstake` flow
 7. The election screen reads the latest Congress cycle from `CongressCandidateRegistry.latestCycleId()`
 8. Citizens may apply during nomination; voting also requires eligibility/stake at that cycle's stored snapshot.
@@ -204,7 +216,8 @@ The intended public demo flow is:
 
 ## Refreshing the handoff package
 
-After changing contracts or deploying a new demo:
+Regenerate ABIs after contract changes. Copy a manifest only after confirming the selected deployment's receipts
+and runtime code. The commands below copy the original demo profile:
 
 On Linux/macOS:
 
@@ -220,7 +233,7 @@ Copy-Item deployments/sepolia-demo.json frontend-export/sepolia-demo.json
 & scripts/export-frontend-abis.ps1
 ```
 
-Then validate that the generated manifest has `identityApp == demoCitizenGateway`, reject zero/unexpected addresses,
+For that profile, validate that the manifest has `identityApp == demoCitizenGateway`, reject zero/unexpected addresses,
 and smoke-test the write flows before handing the package to another team.
 
 Create a zip only when you need to send the handoff folder outside Git:

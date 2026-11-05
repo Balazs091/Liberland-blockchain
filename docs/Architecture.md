@@ -9,12 +9,32 @@ this source documentation does not establish an upgrade to a public deployment.
 
 ## Layers
 
+The November development foundation adds internal decision-threshold, determination-hash, receipt-consumption and
+timed-restriction-set libraries. `MembershipRegistry` stores independent person-bound restriction orders. Both
+synthetic Sepolia profiles install it with a test writer; the production deployment script installs neither the
+membership registry nor the official `IdentityWriter`. The kernel recognises their State and Authority classes.
+Complete eligibility-policy integration and the legal decision workflows remain unfinished. Existing identity-office
+powers continue until those replacement workflows are integrated. Accepted recommendations, remaining
+concrete rule inputs and validation are recorded in [Phase A engineering progress](phase-a/ENGINEERING-PROGRESS.md).
+
 - `contracts/core`: canonical module registry, origin router, and explicit action timelock
 - `contracts/registries`: stable fact and accounting storage
 - `contracts/policies`: replaceable rule evaluation over registry facts
 - `contracts/apps`: bounded user and government workflows
 
 Registries are the source of truth. Policies define rules. Apps coordinate typed workflows. The router and timelock are the non-repointable execution trust root.
+
+Recovery follows the minimal approach: stable ledgers, bounded typed upgrades, existing governed repair and tested
+operational procedures. A separate recovery ballot is deferred. Consolidate identical internal logic while retaining
+independent authorization, queue/execution, snapshot, receipt and custody checks. Avoid general-purpose recovery or
+migration engines. [Complexity Review](Complexity-Review.md) records the measured cleanup and deliberate boundaries.
+
+The separate Sepolia foundation script prepares an isolated five-contract test environment for `LiberlandMerit`
+and `MembershipRegistry`. Its explicitly test-only controller can seed three fixed synthetic identities once during
+bootstrap and submit restriction effects as a designated test operator. Kernel bootstrap is then retired. This
+environment has no router, timelock, elections, staking, USDC or legal decision workflows; its controller is never
+a production authority. Both the script and controller reject other chain IDs. See
+[Sepolia foundation deployment](Sepolia-Foundation-Deployment.md).
 
 ## Implemented systems
 
@@ -113,6 +133,19 @@ Governance uses bounded action types and never unrestricted calldata execution.
 - treasury assets leave only through the authorized ERC20 path and an exact active budget commitment
 - independently approved actions can execute atomically as a batch; each member remains separately executable,
   so dependency/intermediate-state review remains necessary
+- a typed `ModuleBundleUpdate` instead executes one immutable plan of at most 16 sorted existing non-Core
+  replacements as a single action. A constitutional-threshold referendum commits the complete expected pointers,
+  new addresses/runtime hashes and evidence hash. Queue and execution recheck all members; the kernel writes all
+  pointers before its one optional citizen-policy rebuild callback. Senate/review controls remain. Senate and
+  constitutional-review replacements cannot be bundled, preserving their exact self-replacement exceptions
+
+`ModuleUpgradePlanRegistry` stores permissionlessly published, immutable, content-addressed plans. Publication
+grants no execution authority. Plan IDs bind chain, kernel and registry as well as contents. An action pins its
+original registry; repointing the canonical registry cannot reinterpret an existing plan. Future expected pointers
+allow a rollback ballot to open before cutover, but queueing and execution require the named incumbent then to be
+current. These plans do not migrate storage, custody or pending processes. `ReferendumApp` creates an immutable,
+read-only `ReferendumProposalValidator` helper to keep its runtime below Ethereum's size limit; the helper has no
+writer or governance authority. See [Recovery Plan](Recovery-Plan.md).
 
 The permanent timelock rejects zero or greater-than-`uint32.max` configured durations for every action class and
 its execution window. Schedules use widened arithmetic and reject unrepresentable timestamps. These are technical
@@ -129,7 +162,7 @@ configuration bounds, not recommended political delays; both manifests retain th
   module-governance threshold
 - `Undefined`: new extension IDs require the double threshold both to register and to replace later
 
-State evolution requires a separately reviewed migration/deployment; a pointer vote does not copy storage or move custody. `PAYOUT_QUEUE` is State-class because it stores requests. Same-ledger LLM vault handoff, exact-successor Treasury asset handoff, and retired-loan settlement are dedicated narrow operations, not generic state migration. Brand-new modules use `ModuleRegistration`; every non-core replacement uses `ModulePointerUpdate`. Both pass through an exact-address referendum, the timelock, and bounded Senate cancellation, while state/policy/authority/extension targets use the constitutional double threshold. Application replacement deliberately relies on voters approving reviewed bytecode and a compatible state/migration plan. Router-origin apps (`ReferendumApp`, `CongressElectionApp`, `SenateApp`, and `OfficeExecutor`), the constitutional-review hook, and the direct office writers (`DecisionApp` and `CabinetApp`) are classified as authorities, so changing any protocol-wide action source or execution gate cannot use the ordinary app threshold. The router prevents unsupported or malformed action classes, but it does not permanently assign supported types to political branches. Current branch limits live in the application implementations; changing a router origin therefore remains possible, but only through the constitutional threshold. Treasury disbursements remain independently constrained by the active budget commitment even if an approved origin module changes.
+State evolution requires a separately reviewed migration/deployment; a pointer vote does not copy storage or move custody. `PAYOUT_QUEUE` is State-class because it stores requests. Same-ledger LLM vault handoff, exact-successor Treasury asset handoff, and retired-loan settlement are dedicated narrow operations, not generic state migration. Brand-new modules use `ModuleRegistration`; individual non-core replacements use `ModulePointerUpdate`. Eligible related existing pointers can instead use one `ModuleBundleUpdate`, always at the constitutional threshold. All pass through an exact-address referendum, the timelock, and bounded Senate cancellation; individual state/policy/authority/extension targets also use the constitutional double threshold. Application replacement deliberately relies on voters approving reviewed bytecode and a compatible state/migration plan. Router-origin apps (`ReferendumApp`, `CongressElectionApp`, `SenateApp`, and `OfficeExecutor`), the constitutional-review hook, and the direct office writers (`DecisionApp` and `CabinetApp`) are classified as authorities, so changing any protocol-wide action source or execution gate cannot use the ordinary app threshold. The router prevents unsupported or malformed action classes, but it does not permanently assign supported types to political branches. Current branch limits live in the application implementations; changing a router origin therefore remains possible, but only through the constitutional threshold. Treasury disbursements remain independently constrained by the active budget commitment even if an approved origin module changes.
 
 Optional negative-power hooks receive a bounded 100,000-gas static call with fixed return buffers and exact canonical
 ABI validation. Absent, reverting, over-budget or malformed hooks are ignored; valid active cancellation,
@@ -241,9 +274,12 @@ Congress decisions are bound to the Congress term that prepared them. ERC20 tran
 
 System money is ERC20. LLM is governance/merit collateral; stablecoins are spending and lending assets. Native ETH is gas-only, and protocol contracts do not accept `msg.value`.
 
-LLM has an exact 70,000,000-token hard cap at 18 decimals. Production consumes an external token whose `cap()` and
-current supply are checked by the deployment script. Treasury custody has no mint or arbitrary token-call function:
-issuance and spending remain separate, and official rewards draw only from LLM already deposited in the vault.
+LLM has an exact 70,000,000-token hard cap at 18 decimals. The new non-upgradeable `LiberlandMerit` mints the configured
+positive genesis supply once to an explicit recipient; there are no later mint or administrator powers. A supply
+below the cap leaves the remainder permanently unmintable. The token is deployed separately before protocol genesis;
+the production script checks its denomination/cap/supply and pins lending to canonical Ethereum L1 USDC. Exact code
+verification remains necessary: metadata checks alone do not authenticate a token. Treasury custody has no mint or
+arbitrary token-call function; official rewards spend existing reserves. See [Production assets](Production-Assets.md).
 
 Treasury spending uses an explicit per-asset policy allowlist. Budget approvals use Law-tier referenda but record
 budget envelopes, not LegislationRegistry entries. Ordinary public repeal therefore does not revoke an envelope

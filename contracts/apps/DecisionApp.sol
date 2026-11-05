@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -35,6 +35,9 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
 
     mapping(bytes32 decisionId => DecisionTypes.DecisionRecord decisionRecord) private _decisionRecords;
     mapping(bytes32 decisionId => mapping(address member => bytes32 voterPersonId)) private _congressSupports;
+    // One canonical support receipt per person. Raw wallet records may be historical or reassigned; neither
+    // migration/recasting nor returning to an old wallet may revive a superseded or explicitly withdrawn intent.
+    mapping(bytes32 decisionId => mapping(bytes32 personId => address wallet)) private _congressSupportWallets;
     mapping(bytes32 decisionId => bool authorized) private _congressSourceAuthorizations;
 
     /// @param congressCandidateRegistryAddress The Congress registry used for active-member checks.
@@ -173,29 +176,17 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
         _requireNewDecisionId(decisionId);
         _validateTokenTransfer(source, token, recipient, amount);
 
-        ElectionTypes.CongressOfficeTerm memory term = _congressCandidateRegistry.getCurrentOfficeTerm();
-        uint32 supportRequired = _requiredCongressSupport(term);
-        uint64 preparedAt = uint64(block.timestamp);
-
-        DecisionTypes.DecisionRecord storage record = _decisionRecords[decisionId];
-        record.decisionId = decisionId;
-        record.scope = DecisionTypes.DecisionScope.Congress;
-        record.action = DecisionTypes.DecisionAction.ERC20Transfer;
-        record.status = DecisionTypes.DecisionStatus.Prepared;
-        record.congressCycleId = term.cycleId;
-        record.preparedBy = msg.sender;
+        DecisionTypes.DecisionRecord storage record = _storeBaseCongressDecision(
+            decisionId, DecisionTypes.DecisionAction.ERC20Transfer, metadataHash, metadataURI
+        );
         record.source = source;
         record.token = token;
         record.recipient = recipient;
         record.amount = amount;
-        record.metadataHash = metadataHash;
-        record.metadataURI = metadataURI;
-        record.supportRequired = supportRequired;
-        record.preparedAt = preparedAt;
 
         if (source == msg.sender) {
             _congressSourceAuthorizations[decisionId] = true;
-            emit CongressDecisionSourceAuthorizationUpdated(decisionId, source, true, preparedAt);
+            emit CongressDecisionSourceAuthorizationUpdated(decisionId, source, true, record.preparedAt);
         }
 
         _emitCongressDecisionPrepared(decisionId);
@@ -217,28 +208,16 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
         _requireNewDecisionId(decisionId);
         _validateOfficeRegistration(officeId, kind, name, admin);
 
-        ElectionTypes.CongressOfficeTerm memory term = _congressCandidateRegistry.getCurrentOfficeTerm();
-        uint32 supportRequired = _requiredCongressSupport(term);
-        uint64 preparedAt = uint64(block.timestamp);
-
-        DecisionTypes.DecisionRecord storage record = _decisionRecords[decisionId];
-        record.decisionId = decisionId;
-        record.scope = DecisionTypes.DecisionScope.Congress;
-        record.action = DecisionTypes.DecisionAction.RegisterOffice;
-        record.status = DecisionTypes.DecisionStatus.Prepared;
-        record.congressCycleId = term.cycleId;
-        record.preparedBy = msg.sender;
+        DecisionTypes.DecisionRecord storage record = _storeBaseCongressDecision(
+            decisionId, DecisionTypes.DecisionAction.RegisterOffice, metadataHash, metadataURI
+        );
         record.officeId = officeId;
         record.officeKind = kind;
         record.officeName = name;
         record.recipient = admin;
-        record.metadataHash = metadataHash;
-        record.metadataURI = metadataURI;
-        record.supportRequired = supportRequired;
-        record.preparedAt = preparedAt;
 
         emit CongressRegisterOfficeDecisionPrepared(
-            decisionId, officeId, msg.sender, kind, admin, supportRequired, metadataHash, preparedAt
+            decisionId, officeId, msg.sender, kind, admin, record.supportRequired, metadataHash, record.preparedAt
         );
 
         _recordCongressSupport(decisionId, msg.sender);
@@ -258,33 +237,21 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
         _requireNewDecisionId(decisionId);
         _validateMinistryFunding(officeId, source, token, amount);
 
-        ElectionTypes.CongressOfficeTerm memory term = _congressCandidateRegistry.getCurrentOfficeTerm();
-        uint32 supportRequired = _requiredCongressSupport(term);
-        uint64 preparedAt = uint64(block.timestamp);
-
-        DecisionTypes.DecisionRecord storage record = _decisionRecords[decisionId];
-        record.decisionId = decisionId;
-        record.scope = DecisionTypes.DecisionScope.Congress;
-        record.action = DecisionTypes.DecisionAction.FundMinistry;
-        record.status = DecisionTypes.DecisionStatus.Prepared;
-        record.congressCycleId = term.cycleId;
-        record.preparedBy = msg.sender;
+        DecisionTypes.DecisionRecord storage record = _storeBaseCongressDecision(
+            decisionId, DecisionTypes.DecisionAction.FundMinistry, metadataHash, metadataURI
+        );
         record.officeId = officeId;
         record.source = source;
         record.token = token;
         record.amount = amount;
-        record.metadataHash = metadataHash;
-        record.metadataURI = metadataURI;
-        record.supportRequired = supportRequired;
-        record.preparedAt = preparedAt;
 
         if (source == msg.sender) {
             _congressSourceAuthorizations[decisionId] = true;
-            emit CongressDecisionSourceAuthorizationUpdated(decisionId, source, true, preparedAt);
+            emit CongressDecisionSourceAuthorizationUpdated(decisionId, source, true, record.preparedAt);
         }
 
         emit CongressFundMinistryDecisionPrepared(
-            decisionId, officeId, msg.sender, token, amount, supportRequired, metadataHash, preparedAt
+            decisionId, officeId, msg.sender, token, amount, record.supportRequired, metadataHash, record.preparedAt
         );
 
         _recordCongressSupport(decisionId, msg.sender);
@@ -302,11 +269,17 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
             revert InvalidDecisionAction(record.action);
         }
         _requireCongressDecisionTerm(record);
-        if (!_isCurrentCongressSupport(decisionId, msg.sender)) {
+        bytes32 personId = _identityRegistry.resolveWalletToPersonId(msg.sender);
+        if (
+            personId == bytes32(0) || !_identityRegistry.hasActiveWalletLink(msg.sender)
+                || _congressSupportWallets[decisionId][personId] == address(0)
+        ) {
             return;
         }
 
-        delete _congressSupports[decisionId][msg.sender];
+        // A new active wallet may revoke the person's existing intent even without first re-endorsing it.
+        // Do not delete another wallet's raw record: that address may now represent another Congressperson.
+        delete _congressSupportWallets[decisionId][personId];
         record.supportCount -= 1;
 
         emit CongressDecisionSupportRemoved(
@@ -481,6 +454,28 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
         }
     }
 
+    function _storeBaseCongressDecision(
+        bytes32 decisionId,
+        DecisionTypes.DecisionAction action,
+        bytes32 metadataHash,
+        string calldata metadataURI
+    ) private returns (DecisionTypes.DecisionRecord storage record) {
+        ElectionTypes.CongressOfficeTerm memory term = _congressCandidateRegistry.getCurrentOfficeTerm();
+        uint32 supportRequired = _requiredCongressSupport(term);
+
+        record = _decisionRecords[decisionId];
+        record.decisionId = decisionId;
+        record.scope = DecisionTypes.DecisionScope.Congress;
+        record.action = action;
+        record.status = DecisionTypes.DecisionStatus.Prepared;
+        record.congressCycleId = term.cycleId;
+        record.preparedBy = msg.sender;
+        record.metadataHash = metadataHash;
+        record.metadataURI = metadataURI;
+        record.supportRequired = supportRequired;
+        record.preparedAt = uint64(block.timestamp);
+    }
+
     function _storeBaseMinistryDecision(
         bytes32 decisionId,
         bytes32 officeId,
@@ -536,13 +531,14 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
         if (personId == bytes32(0) || !_identityRegistry.hasActiveWalletLink(member)) {
             revert InvalidIdentityReference(personId);
         }
-        bytes32 previousPersonId = _congressSupports[decisionId][member];
-        if (previousPersonId == personId) {
+        address previousWallet = _congressSupportWallets[decisionId][personId];
+        if (previousWallet == member && _congressSupports[decisionId][member] == personId) {
             return;
         }
 
         _congressSupports[decisionId][member] = personId;
-        if (previousPersonId == bytes32(0)) {
+        _congressSupportWallets[decisionId][personId] = member;
+        if (previousWallet == address(0)) {
             record.supportCount += 1;
         }
 
@@ -566,7 +562,8 @@ contract DecisionApp is IDecisionApp, ReentrancyGuard {
     function _isCurrentCongressSupport(bytes32 decisionId, address member) private view returns (bool supported) {
         bytes32 voterPersonId = _congressSupports[decisionId][member];
         return voterPersonId != bytes32(0) && _identityRegistry.hasActiveWalletLink(member)
-            && _identityRegistry.resolveWalletToPersonId(member) == voterPersonId;
+            && _identityRegistry.resolveWalletToPersonId(member) == voterPersonId
+            && _congressSupportWallets[decisionId][voterPersonId] == member;
     }
 
     function _markExecuted(DecisionTypes.DecisionRecord storage record, address executor) private {

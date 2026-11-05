@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 /// @title OfficeTypes
 /// @notice Shared enums and structs for executive and ministry office administration.

@@ -1,0 +1,255 @@
+{
+  "package": "Phase A implementation and design",
+  "prepared_date": "2026-10-29",
+  "status": "IN_PROGRESS_DRAFT",
+  "implementation_authorized": true,
+  "deployment_authorized": false,
+  "source_commit": "dd0005c15d20754c50a0495cf6d48298b795e1a4",
+  "prior_analysis_remote_main": "dd0005c15d20754c50a0495cf6d48298b795e1a4",
+  "remote_verification_provenance": "Origin main rechecked by read-only git ls-remote on 3 November 2026; it remains dd0005c15d20754c50a0495cf6d48298b795e1a4. This does not verify deployed bytecode.",
+  "inputs": [
+    {
+      "name": "Liberland_MJ-CHAIN-2026-01_Dev_Brief_EN (1).html",
+      "sha256": "5d5f928829bd541ba33de6ecb8121c7a6803671632132f4f28777c377e58985a"
+    },
+    {
+      "name": "Liberland_Nobody_Decides_Alone.pptx",
+      "sha256": "b8cb44096153e5696237062801a9490efb5b2ab6acaec726f7906c574fba833a"
+    },
+    {
+      "name": "IMPLEMENTATION-ANALYSIS.txt",
+      "sha256": "e049370b1b2a359355697dd3c8886e5c935a9a6a7e7ad7706f10ee5c77570743"
+    }
+  ],
+  "current_scope": "Token/restriction and isolated Sepolia preparation plus predeployment engineering review; five defects corrected in the wider protocol. Unconditional liveness and production release are not approved.",
+  "prior_analysis_checks": {
+    "suites": 49,
+    "passed": 612,
+    "failed": 0,
+    "skipped": 0
+  },
+  "new_implementation_tests_run": true,
+  "prior_analysis_check_scope": "612 passing tests across 49 suites, build sizes and five gas stress tests in preceding analysis; not new-feature validation.",
+  "legal_text_authenticated": false,
+  "inventory_rule": "SOURCE_CONFIRMED means a cited declaration; selected demo rows now have CODE_OBSERVED_AT_BLOCK/NO_CODE_OBSERVED_AT_BLOCK. Production declarations remain unverified.",
+  "prototype_status": "Internal primitives, reference models and restriction registry implemented/tested; no complete typed admission/discipline/recovery workflow or new electorate certification.",
+  "submodules": [
+    "bf647bd6046f2f7da30d0c2bf435e5c76a780c1b lib/forge-std (v1.16.2)",
+    " 5fd1781b1454fd1ef8e722282f86f9293cacf256 lib/openzeppelin-contracts (v4.8.0-1122-g5fd1781b)"
+  ],
+  "user_selected_deployment_plan": {
+    "branch": "GENESIS",
+    "date": "2026-10-29",
+    "instruction": "Fresh production deployment; verify the existing demo separately",
+    "scope": "Planning choice only; no live-state or production-parameter verification implied."
+  },
+  "deployment_verification": {
+    "production": "Ethereum mainnet chain1 selected. No production deployment or transactions; LLM is to be implemented; canonical USDC address checked against Circle official documentation on 3 November. Genesis inputs not supplied.",
+    "demo": "Read-only observations at finalized Sepolia block 12020220",
+    "demo_block_hash": "0x9c77eb5eee0c60f06f23bfe9eae8ee89bb4afc5d27aeff40667c73ca34666054",
+    "source_bytecode_match": "Not established by this probe",
+    "transactions_sent": 0,
+    "provider_count": 1
+  },
+  "development_update": {
+    "date": "2026-11-02",
+    "instruction": "Proceed with the work; smart contract updates are allowed; prepare questions for decision makers.",
+    "scope_implemented": "Four internal unwired libraries, Solidity primitive tests, standalone snapshot/voting and financial models, questions document.",
+    "workflow_integration": "Not implemented or activated",
+    "formal_legal_answers": "Historical 2 November state: L01-L14 were OPEN. Superseded by recommendation acceptance on 3 November; concrete rules/evidence remain partly outstanding.",
+    "deployments_or_transactions": 0,
+    "current_verification": {
+      "forge_tests_passed": 652,
+      "forge_suites": 52,
+      "python_tests_passed": 34,
+      "frontend_abi_exports_unchanged": 52,
+      "slither_total_findings": 432,
+      "slither_delta": "Only informational pragma inventory fingerprint updated for four pinned0.8.37 additions;431otherreports match."
+    }
+  },
+  "updated_date": "2026-11-03",
+  "recommendation_acceptance": {
+    "date": "2026-11-03",
+    "source": "User instruction in this chat",
+    "instruction": "Regarding the questions, all of your recommendations are accepted. Continue the implementation.",
+    "implementation_authorized": true,
+    "recommendations": "All recommendations presented in the 2 November questions accepted; not a renewed approval request.",
+    "remaining": "Exact rules, full governing texts and evidence that the recommendations asked to identify remain partly unprovided. See LEGAL-DECISIONS.md and DECISION-MAKER-QUESTIONS.md.",
+    "deployment_authorized": false
+  },
+  "production_inputs": {
+    "network": {
+      "chain_id": 1,
+      "name": "Ethereum mainnet",
+      "status": "USER_CONFIRMED"
+    },
+    "llm": {
+      "name": "Liberland Merit",
+      "symbol": "LLM",
+      "decimals": 18,
+      "cap_base_units": "70000000000000000000000000",
+      "status": "IMPLEMENTATION_AUTHORISED_NOT_DEPLOYED",
+      "design": "Non-upgradeable fixed genesis supply; constructor recipient/amount pending; no post-deployment mint authority.",
+      "genesis_recipient": null,
+      "genesis_supply_base_units": null
+    },
+    "usdc": {
+      "chain_id": 1,
+      "address": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+      "decimals": 6,
+      "status": "CANONICAL_ISSUER_DOCUMENTATION_CHECKED",
+      "source": "https://developers.circle.com/stablecoins/usdc-contract-addresses",
+      "checked_date": "2026-11-03",
+      "live_controller_verification": "Not established by documentation lookup"
+    },
+    "genesis": {
+      "supplier": "User",
+      "status": "AWAITING_RECORDS",
+      "records_supplied": false,
+      "independent_checker": null,
+      "delivery_date": null
+    }
+  },
+  "engineering_continuation_2026_11_03": {
+    "date": "2026-11-03",
+    "public_network_deployments_or_transactions": 0,
+    "local_synthetic_rehearsal": {
+      "network": "Disposable localhost Anvil, chain ID1; not Ethereum mainnet",
+      "token_transactions": 1,
+      "protocol_preparation_transactions": 76,
+      "completion_transactions": 7,
+      "all_receipts_successful": true,
+      "usdc": "Local test double installed at the canonical address; no real-USDC runtime verification",
+      "genesis_people": 7,
+      "bootstrap_retired": true
+    },
+    "verification": {
+      "forge_tests_passed": 688,
+      "forge_suites": 55,
+      "forge_seed": "0x1103",
+      "python_reference_tests_passed": 34,
+      "frontend_abi_exports": 54,
+      "frontend_abi_exact_parity": true,
+      "format_and_build_sizes_passed": true,
+      "slither_version": "0.11.5",
+      "slither_total_findings": 437,
+      "slither_counts": {
+        "High": 6,
+        "Medium": 69,
+        "Low": 267,
+        "Informational": 95
+      },
+      "unchanged_prior_report_identities": 431,
+      "slither_delta": "One changed pragma inventory plus new optional internal return, three timestamp predicates and informational concrete cap override report; manually reviewed without suppressions.",
+      "python_tooling_tests_passed": 11
+    },
+    "runtime_bytes": {
+      "LiberlandMerit": 1925,
+      "MembershipRegistry": 7251
+    },
+    "not_integrated": [
+      "Official IdentityWriter",
+      "Appointment/admission workflows",
+      "Disciplinary/recovery workflows",
+      "Membership lifecycle and rights-policy bundle",
+      "Time-dependent electorate certification",
+      "Financial provenance and compensation",
+      "New land adjudication"
+    ],
+    "production_genesis_records_supplied": false
+  },
+  "sepolia_preparation_2026_11_03": {
+    "request": "Prepare deployment and run checks using synthetic accounts/balances",
+    "public_network_broadcasts": 0,
+    "script": "scripts/DeploySepoliaFoundation.s.sol",
+    "runbook": "docs/Sepolia-Foundation-Deployment.md",
+    "rehearsal": "scripts/rehearse-sepolia-foundation.sh",
+    "chain_id": 11155111,
+    "isolated_components": [
+      "ConstitutionKernel",
+      "IdentityRegistry",
+      "MembershipRegistry",
+      "LiberlandMerit",
+      "SepoliaMembershipController"
+    ],
+    "synthetic_person_count": 3,
+    "token_supply_base_units": "1000000000000000000000000",
+    "per_person_balance_base_units": "10000000000000000000000",
+    "operator_reserve_base_units": "970000000000000000000000",
+    "bootstrap_retired": true,
+    "real_legal_workflows": false,
+    "local_deployment_receipts": 11,
+    "local_smoke_receipts": 7,
+    "forge_tests_passed": 716,
+    "forge_suites": 57,
+    "forge_seed": "0x1103",
+    "python_reference_tests": 34,
+    "python_tooling_tests": 11,
+    "public_deployment_configuration": "Operator supplies Sepolia RPC and funded dedicated test key locally; do not send keys in chat.",
+    "slither": {
+      "findings": 445,
+      "counts": {
+        "High": 6,
+        "Medium": 69,
+        "Low": 275,
+        "Informational": 95
+      },
+      "unchanged_previous_report_identities": 436,
+      "delta": "Eight Low reports for fixed fixture seeding and synthetic success-event ordering; changed informational pragma inventory. Independently reviewed without suppressions."
+    },
+    "frontend_abis": 55,
+    "runtime_bytes": {
+      "SepoliaMembershipController": 4416
+    }
+  },
+  "predeployment_review_2026_11_03": {
+    "report": "docs/Predeployment-Review.md",
+    "changed_production_apps": [
+      "CabinetApp",
+      "DecisionApp",
+      "ReferendumApp"
+    ],
+    "verified_fixes": 5,
+    "optimized_tests_passed": 772,
+    "optimized_suites": 63,
+    "audit_tests_passed_before_api_additions": 759,
+    "invariant_properties": 24,
+    "audit_runs_per_property": 256,
+    "audit_depth": 256,
+    "reported_handler_calls_total": 1572864,
+    "api_gap_additions_in_final_suite": 13,
+    "reference_tests": 34,
+    "tooling_tests": 11,
+    "production_coverage": {
+      "lines_percent": 88.01,
+      "functions_percent": 93.58,
+      "branches_percent": 51.66
+    },
+    "isolated_five_contract_coverage": {
+      "lines_percent": 96.15,
+      "functions_percent": 100.0,
+      "branches_percent": 78.31
+    },
+    "production_zero_hit_instrumented_functions": 74,
+    "coverage_limit": "Single 1000-candidate instrumentation stress setup excluded only in coverage; optimized suite includes it. No universal correctness claim.",
+    "frontend_abis": 55,
+    "slither": {
+      "results": 447,
+      "High": 6,
+      "Medium": 69,
+      "Low": 277,
+      "Informational": 95,
+      "suppressed": false
+    },
+    "no_stuck_state_requirement_met": false,
+    "public_network_transactions": 0,
+    "retained_limits": [
+      "Incompatible approved governance dependencies can block repair",
+      "Veto/review cross-lock",
+      "Stateful pointer replacement does not migrate state",
+      "Broken financial policies can block exits until repair",
+      "Quorum/key loss and unresolved land locks",
+      "Isolated Sepolia has no governed upgrade or operator recovery route"
+    ]
+  }
+}

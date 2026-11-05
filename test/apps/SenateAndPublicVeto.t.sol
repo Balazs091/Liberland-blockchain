@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -196,6 +196,186 @@ contract SenateAndPublicVetoTest is Test {
         assertEq(result.supportSnapshot, supporters);
         assertEq(result.requiredSupportSnapshot, required);
         assertEq(result.canceled, supporters >= required);
+    }
+
+    function test_PredeploymentApi_CurrentSeatHolderCanClearAndReplaceSuccessor() public {
+        assertEq(senateApp.identityRegistry(), address(identityRegistry));
+        assertEq(senateApp.senateSeatRegistry(), address(senateSeatRegistry));
+        vm.prank(WALLET_ONE);
+        senateApp.nominateSuccessor(0, WALLET_TWO);
+        assertEq(senateSeatRegistry.getSeatRecord(0).nominatedSuccessor, WALLET_TWO);
+        vm.expectRevert(abi.encodeWithSelector(ISenateApp.NotSeatHolder.selector, uint32(0), outsider));
+        vm.prank(outsider);
+        senateApp.clearSuccessor(0);
+        vm.prank(WALLET_ONE);
+        senateApp.clearSuccessor(0);
+        SenateTypes.SenateSeatRecord memory cleared = senateSeatRegistry.getSeatRecord(0);
+        assertEq(cleared.nominatedSuccessor, address(0));
+        assertEq(cleared.nominatedSuccessorPersonId, bytes32(0));
+        assertEq(cleared.successorNominatedAt, 0);
+        assertEq(cleared.holderPersonId, PERSON_ONE_ID);
+        vm.prank(WALLET_ONE);
+        senateApp.transferMySeat(0, WALLET_FOUR);
+        vm.expectRevert(abi.encodeWithSelector(ISenateApp.NotSeatHolder.selector, uint32(0), WALLET_ONE));
+        vm.prank(WALLET_ONE);
+        senateApp.clearSuccessor(0);
+        vm.startPrank(WALLET_FOUR);
+        senateApp.nominateSuccessor(0, WALLET_TWO);
+        senateApp.clearSuccessor(0);
+        vm.stopPrank();
+        assertEq(senateSeatRegistry.getSeatRecord(0).holder, WALLET_FOUR);
+        assertEq(senateSeatRegistry.getSeatRecord(0).nominatedSuccessor, address(0));
+        assertEq(senateSeatRegistry.occupiedSeatCount(), 2);
+    }
+
+    function test_PredeploymentApi_CancellationWithdrawalReaddAndFailedMajorityPermitExecution() public {
+        assertEq(senateApp.governanceRouter(), address(router));
+        assertEq(senateApp.actionTimelock(), address(timelock));
+        bytes32 action = _queueModuleUpdate();
+        vm.prank(WALLET_ONE);
+        senateApp.supportActionCancellation(action, 0);
+        vm.prank(WALLET_THREE);
+        senateApp.supportActionCancellation(action, 1);
+        assertEq(senateApp.actionCancellationSupportCount(action), 2);
+        vm.expectRevert(abi.encodeWithSelector(ISenateApp.NotSeatHolder.selector, uint32(0), outsider));
+        vm.prank(outsider);
+        senateApp.removeActionCancellationSupport(action, 0);
+        vm.prank(WALLET_ONE);
+        senateApp.removeActionCancellationSupport(action, 0);
+        assertEq(senateApp.actionCancellationSupportCount(action), 1);
+        assertFalse(senateApp.getActionCancellationSupport(action, 0).supported);
+        assertEq(
+            uint8(senateApp.getActionCancellationSupport(action, 0).option), uint8(SenateTypes.VoteOption.Undefined)
+        );
+        vm.expectRevert(abi.encodeWithSelector(ISenateApp.SenateSupportNotActive.selector, action, uint32(0)));
+        vm.prank(WALLET_ONE);
+        senateApp.removeActionCancellationSupport(action, 0);
+        vm.prank(WALLET_ONE);
+        senateApp.supportActionCancellation(action, 0);
+        assertEq(senateApp.actionCancellationSupportCount(action), 2);
+        vm.prank(WALLET_ONE);
+        senateApp.removeActionCancellationSupport(action, 0);
+        vm.warp(timelock.getAction(action).earliestExecutionTime);
+        assertFalse(timelock.isActionExecutable(action));
+        senateApp.finalizeActionCancellation(action);
+        SenateTypes.ActionCancellationRecord memory result = senateApp.getActionCancellationRecord(action);
+        assertTrue(result.finalized);
+        assertFalse(result.canceled);
+        assertEq(result.supportSnapshot, 1);
+        assertEq(result.requiredSupportSnapshot, 2);
+        assertTrue(timelock.isActionExecutable(action));
+        timelock.executeAction(action);
+        assertEq(kernel.getModule(TARGET_MODULE_ID), address(replacementModule));
+        vm.expectRevert(abi.encodeWithSelector(ISenateApp.SenateProcessAlreadyFinalized.selector, action));
+        vm.prank(WALLET_THREE);
+        senateApp.removeActionCancellationSupport(action, 1);
+    }
+
+    function test_PredeploymentApi_ReferendumVetoWithdrawalRemainsVisibleAndCannotCancel() public {
+        assertEq(senateApp.referendumApp(), address(mockReferendumApp));
+        vm.prank(WALLET_ONE);
+        senateApp.supportReferendumVeto(ACTIVE_REFERENDUM_ID, 0);
+        vm.prank(WALLET_THREE);
+        senateApp.supportReferendumVeto(ACTIVE_REFERENDUM_ID, 1);
+        assertEq(senateApp.referendumVetoSupportCount(ACTIVE_REFERENDUM_ID), 2);
+        vm.expectRevert(abi.encodeWithSelector(ISenateApp.NotSeatHolder.selector, uint32(0), outsider));
+        vm.prank(outsider);
+        senateApp.removeReferendumVetoSupport(ACTIVE_REFERENDUM_ID, 0);
+        vm.prank(WALLET_ONE);
+        senateApp.removeReferendumVetoSupport(ACTIVE_REFERENDUM_ID, 0);
+        assertEq(senateApp.referendumVetoSupportCount(ACTIVE_REFERENDUM_ID), 1);
+        assertFalse(senateApp.getReferendumVetoSupport(ACTIVE_REFERENDUM_ID, 0).supported);
+        vm.prank(WALLET_ONE);
+        senateApp.supportReferendumVeto(ACTIVE_REFERENDUM_ID, 0);
+        assertEq(senateApp.referendumVetoSupportCount(ACTIVE_REFERENDUM_ID), 2);
+        vm.prank(WALLET_ONE);
+        senateApp.removeReferendumVetoSupport(ACTIVE_REFERENDUM_ID, 0);
+        vm.warp(senateApp.getReferendumVetoRecord(ACTIVE_REFERENDUM_ID).deadline);
+        senateApp.finalizeReferendumVeto(ACTIVE_REFERENDUM_ID);
+        SenateTypes.ReferendumVetoRecord memory result = senateApp.getReferendumVetoRecord(ACTIVE_REFERENDUM_ID);
+        assertTrue(result.finalized);
+        assertFalse(result.vetoed);
+        assertEq(result.supportSnapshot, 1);
+        assertEq(
+            uint8(referendumRegistry.getReferendum(ACTIVE_REFERENDUM_ID).status),
+            uint8(ReferendumTypes.ReferendumStatus.Active)
+        );
+        vm.expectRevert(abi.encodeWithSelector(ISenateApp.SenateProcessAlreadyFinalized.selector, ACTIVE_REFERENDUM_ID));
+        vm.prank(WALLET_THREE);
+        senateApp.removeReferendumVetoSupport(ACTIVE_REFERENDUM_ID, 1);
+    }
+
+    function test_PredeploymentApi_SubLegalWithdrawalCanFailThenFreshAttemptCanSucceed() public {
+        assertEq(senateApp.legislationRegistry(), address(legislationRegistry));
+        assertEq(senateApp.senatePowersPolicy(), address(senatePowersPolicy));
+        vm.prank(WALLET_ONE);
+        senateApp.supportSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID, 0);
+        vm.prank(WALLET_THREE);
+        senateApp.supportSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID, 1);
+        assertEq(senateApp.subLegalMeasureRepealSupportCount(SUB_LEGAL_MEASURE_ID), 2);
+        vm.expectRevert(abi.encodeWithSelector(ISenateApp.NotSeatHolder.selector, uint32(0), outsider));
+        vm.prank(outsider);
+        senateApp.removeSubLegalMeasureRepealSupport(SUB_LEGAL_MEASURE_ID, 0);
+        vm.prank(WALLET_ONE);
+        senateApp.removeSubLegalMeasureRepealSupport(SUB_LEGAL_MEASURE_ID, 0);
+        assertEq(senateApp.subLegalMeasureRepealSupportCount(SUB_LEGAL_MEASURE_ID), 1);
+        assertFalse(senateApp.getSubLegalMeasureRepealSupport(SUB_LEGAL_MEASURE_ID, 0).supported);
+        vm.prank(WALLET_ONE);
+        senateApp.supportSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID, 0);
+        assertEq(senateApp.subLegalMeasureRepealSupportCount(SUB_LEGAL_MEASURE_ID), 2);
+        vm.prank(WALLET_ONE);
+        senateApp.removeSubLegalMeasureRepealSupport(SUB_LEGAL_MEASURE_ID, 0);
+        SenateTypes.SubLegalMeasureRepealRecord memory first =
+            senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID);
+        vm.warp(first.deadline);
+        senateApp.finalizeSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID);
+        assertFalse(senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID).repealed);
+        assertTrue(legislationRegistry.getLegislationRecord(SUB_LEGAL_MEASURE_ID).active);
+        vm.prank(WALLET_ONE);
+        senateApp.supportSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID, 0);
+        assertEq(senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID).attemptNonce, first.attemptNonce + 1);
+        assertEq(senateApp.subLegalMeasureRepealSupportCount(SUB_LEGAL_MEASURE_ID), 1);
+        vm.prank(WALLET_THREE);
+        senateApp.supportSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID, 1);
+        vm.warp(senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID).deadline);
+        senateApp.finalizeSubLegalMeasureRepeal(SUB_LEGAL_MEASURE_ID);
+        assertTrue(senateApp.getSubLegalMeasureRepealRecord(SUB_LEGAL_MEASURE_ID).repealed);
+        assertTrue(legislationRegistry.getLegislationRecord(SUB_LEGAL_MEASURE_ID).repealed);
+    }
+
+    function test_PredeploymentApi_SuspensionWithdrawalBlocksApprovalAndRenewalButLapses() public {
+        bytes32 action = _queueTreasuryDisbursement();
+        _supportDisbursementSuspension(action);
+        vm.expectRevert(abi.encodeWithSelector(ISenateApp.NotSeatHolder.selector, uint32(0), outsider));
+        vm.prank(outsider);
+        senateApp.removeDisbursementSuspensionSupport(action, 0);
+        vm.prank(WALLET_ONE);
+        senateApp.removeDisbursementSuspensionSupport(action, 0);
+        vm.expectRevert(
+            abi.encodeWithSelector(ISenateApp.SenateSupportNotReached.selector, action, uint256(1), uint256(2))
+        );
+        vm.prank(WALLET_THREE);
+        senateApp.suspendDisbursement(action, 1, DISBURSEMENT_SUSPENSION_REASON);
+        assertFalse(senateApp.getDisbursementSuspension(action).exists);
+        vm.prank(WALLET_ONE);
+        senateApp.supportDisbursementSuspension(action, 0);
+        vm.prank(WALLET_ONE);
+        senateApp.suspendDisbursement(action, 0, DISBURSEMENT_SUSPENSION_REASON);
+        SenateTypes.DisbursementSuspension memory published = senateApp.getDisbursementSuspension(action);
+        vm.prank(WALLET_ONE);
+        senateApp.removeDisbursementSuspensionSupport(action, 0);
+        assertEq(senateApp.getDisbursementSuspension(action).suspendedUntil, published.suspendedUntil);
+        vm.warp(published.suspendedUntil - 1 days);
+        vm.expectRevert(
+            abi.encodeWithSelector(ISenateApp.SenateSupportNotReached.selector, action, uint256(1), uint256(2))
+        );
+        vm.prank(WALLET_THREE);
+        senateApp.renewDisbursementSuspension(action, 1, DISBURSEMENT_RENEWAL_REASON);
+        assertFalse(timelock.isActionExecutable(action));
+        vm.warp(published.suspendedUntil);
+        assertTrue(timelock.isActionExecutable(action));
+        timelock.executeAction(action);
+        assertEq(usdc.balanceOf(TREASURY_RECIPIENT), 250 * 1e6);
     }
 
     function test_OneRemainingSeatCannotExerciseNegativePowerAlone() public {

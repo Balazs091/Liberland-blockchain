@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 /// @title KernelModuleIds
 /// @notice Canonical module identifiers used by the protocol contracts.
@@ -7,6 +7,8 @@ library KernelModuleIds {
     bytes32 internal constant GOVERNANCE_ROUTER = keccak256("core.governance-router");
     bytes32 internal constant ACTION_TIMELOCK = keccak256("core.action-timelock");
     bytes32 internal constant IDENTITY_REGISTRY = keccak256("registry.identity");
+    bytes32 internal constant MEMBERSHIP_REGISTRY = keccak256("registry.membership");
+    bytes32 internal constant MODULE_UPGRADE_PLAN_REGISTRY = keccak256("registry.module-upgrade-plan");
     bytes32 internal constant CONGRESS_CANDIDATE_REGISTRY = keccak256("registry.congress-candidate");
     bytes32 internal constant LEGISLATION_REGISTRY = keccak256("registry.legislation");
     bytes32 internal constant REFERENDUM_REGISTRY = keccak256("registry.referendum");
@@ -28,6 +30,7 @@ library KernelModuleIds {
     bytes32 internal constant CONGRESS_CANDIDATE_REGISTRY_AUTHORITY =
         keccak256("authority.congress-candidate-registry");
     bytes32 internal constant IDENTITY_REGISTRY_AUTHORITY = keccak256("authority.identity-registry");
+    bytes32 internal constant IDENTITY_WRITER = keccak256("authority.identity-writer");
     bytes32 internal constant CIVIC_APPEAL_AUTHORITY = keccak256("authority.civic-appeal");
     bytes32 internal constant INITIAL_SETUP_AUTHORITY = keccak256("authority.initial-setup");
     bytes32 internal constant LAND_REGISTRY_AUTHORITY = keccak256("authority.land-registry");

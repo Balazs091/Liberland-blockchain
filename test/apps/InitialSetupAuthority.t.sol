@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -135,6 +135,53 @@ contract InitialSetupAuthorityTest is Test {
 
         vm.expectRevert(InitialSetupAuthority.SetupAuthorityAlreadySealed.selector);
         setupAuthority.increaseStake(PERSON_ONE_ID, 1);
+    }
+
+    function test_PredeploymentApi_SetupConfiguresStakeAndOfficeThenPermanentlyRetiresItsWrites() public {
+        address clerk = address(0xF1C1);
+        address nextAdmin = address(0xF1A2);
+        _configureCitizen(PERSON_ONE_ID, WALLET_ONE, 10_000);
+        setupAuthority.createOffice(
+            FINANCE_OFFICE_ID, OfficeTypes.OfficeKind.MinistryOfFinance, "Genesis Finance", FINANCE_ADMIN
+        );
+
+        vm.roll(block.number + 1);
+        setupAuthority.setProtectedStakeFloor(PERSON_ONE_ID, 6_000);
+        assertEq(stakeRegistry.protectedStakeFloorOf(PERSON_ONE_ID), 6_000);
+        assertEq(setupAuthority.lastCitizenMutationBlock(), block.number);
+        setupAuthority.setOfficeClerk(FINANCE_OFFICE_ID, clerk, true);
+        assertEq(uint8(officeRegistry.roleOf(FINANCE_OFFICE_ID, clerk)), uint8(OfficeTypes.OfficeRole.Clerk));
+        setupAuthority.renameOffice(FINANCE_OFFICE_ID, "Reviewed Genesis Finance");
+        assertEq(officeRegistry.getOfficeRecord(FINANCE_OFFICE_ID).name, "Reviewed Genesis Finance");
+        setupAuthority.transferOfficeAdmin(FINANCE_OFFICE_ID, nextAdmin);
+        assertEq(uint8(officeRegistry.roleOf(FINANCE_OFFICE_ID, FINANCE_ADMIN)), uint8(OfficeTypes.OfficeRole.None));
+        assertEq(uint8(officeRegistry.roleOf(FINANCE_OFFICE_ID, nextAdmin)), uint8(OfficeTypes.OfficeRole.Admin));
+        // Changing administration invalidates the previous clerk roster; setup must appoint the intended clerk again.
+        assertEq(uint8(officeRegistry.roleOf(FINANCE_OFFICE_ID, clerk)), uint8(OfficeTypes.OfficeRole.None));
+        setupAuthority.setOfficeClerk(FINANCE_OFFICE_ID, clerk, true);
+        setupAuthority.setOfficeActive(FINANCE_OFFICE_ID, false);
+        assertFalse(officeRegistry.getOfficeRecord(FINANCE_OFFICE_ID).active);
+        assertEq(uint8(officeRegistry.roleOf(FINANCE_OFFICE_ID, nextAdmin)), uint8(OfficeTypes.OfficeRole.None));
+        setupAuthority.setOfficeActive(FINANCE_OFFICE_ID, true);
+        assertEq(uint8(officeRegistry.roleOf(FINANCE_OFFICE_ID, nextAdmin)), uint8(OfficeTypes.OfficeRole.Admin));
+
+        setupAuthority.seal();
+        kernel.disableBootstrapAuthority();
+        assertTrue(setupAuthority.isSealed());
+        vm.expectRevert(InitialSetupAuthority.SetupAuthorityAlreadySealed.selector);
+        setupAuthority.setProtectedStakeFloor(PERSON_ONE_ID, 1);
+        vm.expectRevert(InitialSetupAuthority.SetupAuthorityAlreadySealed.selector);
+        setupAuthority.setOfficeClerk(FINANCE_OFFICE_ID, clerk, false);
+        vm.expectRevert(InitialSetupAuthority.SetupAuthorityAlreadySealed.selector);
+        setupAuthority.transferOfficeAdmin(FINANCE_OFFICE_ID, FINANCE_ADMIN);
+        vm.expectRevert(InitialSetupAuthority.SetupAuthorityAlreadySealed.selector);
+        setupAuthority.renameOffice(FINANCE_OFFICE_ID, "Unauthorized late rewrite");
+        vm.expectRevert(InitialSetupAuthority.SetupAuthorityAlreadySealed.selector);
+        setupAuthority.setOfficeActive(FINANCE_OFFICE_ID, false);
+        assertEq(stakeRegistry.protectedStakeFloorOf(PERSON_ONE_ID), 6_000);
+        assertEq(officeRegistry.getOfficeRecord(FINANCE_OFFICE_ID).admin, nextAdmin);
+        assertEq(officeRegistry.getOfficeRecord(FINANCE_OFFICE_ID).name, "Reviewed Genesis Finance");
+        assertTrue(officeRegistry.getOfficeRecord(FINANCE_OFFICE_ID).active);
     }
 
     function test_SeedCongressTerm_RevertsWhenLatestCycleIsUnfinalized() public {

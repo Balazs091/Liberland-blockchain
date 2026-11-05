@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {IReferendumRegistry} from "../interfaces/IReferendumRegistry.sol";
 import {KernelModule} from "../base/KernelModule.sol";
@@ -112,6 +112,7 @@ contract ReferendumRegistry is IReferendumRegistry, KernelModule {
                 && referendumInput.referendumClass != ReferendumTypes.ReferendumClass.CongressElectionPolicy
                 && referendumInput.referendumClass != ReferendumTypes.ReferendumClass.BudgetApproval
                 && referendumInput.referendumClass != ReferendumTypes.ReferendumClass.ModuleGovernance
+                && referendumInput.referendumClass != ReferendumTypes.ReferendumClass.ModuleBundle
         ) {
             revert InvalidReferendumClass(referendumInput.referendumClass);
         }
@@ -146,6 +147,18 @@ contract ReferendumRegistry is IReferendumRegistry, KernelModule {
             }
         } else if (referendumInput.referendumClass == ReferendumTypes.ReferendumClass.ModuleGovernance) {
             _validateModuleGovernanceReferendum(referendumInput);
+        } else if (referendumInput.referendumClass == ReferendumTypes.ReferendumClass.ModuleBundle) {
+            if (
+                referendumInput.targetModule != KernelModuleIds.ACTION_TIMELOCK
+                    || referendumInput.proposedModuleAddress == address(0)
+                    || referendumInput.proposedModuleAddress.code.length == 0 || referendumInput.registerNewModule
+                    || !referendumInput.requiresSupermajority
+                    || referendumInput.legislationTier != LegislationTypes.LegislationTier.Undefined
+                    || referendumInput.amendsMeasureId != bytes32(0)
+                    || referendumInput.legislationTextHash != bytes32(0)
+            ) {
+                revert InvalidProposedModule(referendumInput.targetModule, referendumInput.proposedModuleAddress);
+            }
         } else if (referendumInput.referendumClass == ReferendumTypes.ReferendumClass.BudgetApproval) {
             _validateBudgetApprovalReferendum(referendumInput);
         } else {

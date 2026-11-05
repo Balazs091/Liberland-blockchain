@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -88,7 +88,7 @@ contract DeployDemoIntegrationHarness is DeployDemo {
     }
 
     function llmForTest() external view returns (LLMToken) {
-        return _llmToken;
+        return LLMToken(address(_llmToken));
     }
 
     function stakeRegistryForTest() external view returns (StakeRegistry) {

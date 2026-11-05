@@ -75,6 +75,11 @@ read the whole metadata document link. Constructor duration bounds do not change
 Evidence: `test/apps/CongressElections.t.sol`, `test/apps/CabinetApp.t.sol`, `test/apps/Decisions.t.sol`, and
 `test/scripts/DeployDemoTiming.t.sol`.
 
+Prime Minister appointment choices and Congress decision support retain raw wallet provenance but use canonical
+person receipts. Recasting from a new wallet supersedes the earlier receipt; returning to an old key cannot revive
+a superseded choice or withdrawn support. A serving minister must resign or reach term expiry before becoming Prime
+Minister, matching the existing inverse incompatibility. See [predeployment review](Predeployment-Review.md).
+
 ## Prime Minister, ministers, and clerks
 
 - A strict majority of the current occupied Congress seats appoints the Prime Minister. The recorded winning tally

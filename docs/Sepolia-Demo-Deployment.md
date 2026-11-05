@@ -17,10 +17,11 @@ Deployed on **8 September 2026**, Sepolia chain ID **11155111**, from source com
 Transaction fees totaled **0.113412787493617145 Sepolia ETH**. This is a testnet demonstration with mock tokens
 and seeded records, not a production deployment or mainnet authorization.
 
-The current source is pinned to **Solidity 0.8.37** and also contains contract-level changes to configuration bounds,
+The current source is pinned to **Solidity 0.8.38** and also contains contract-level changes to configuration bounds,
 governance validation, payout reconciliation and lending arithmetic. These local changes have **not** been deployed
 to the addresses below. Reproducing the recorded deployment requires its source revision and 0.8.36 compiler, not
-the current checkout. [Compiler Upgrade](Compiler-Upgrade.md) records the earlier compiler-only comparison;
+the current checkout. [Toolchain Upgrade](Toolchain-Upgrade.md) records the current compiler/dependency update;
+[Compiler Upgrade](Compiler-Upgrade.md) retains the earlier compiler-only comparison;
 [Release Readiness](Release-Readiness.md) describes the current candidate.
 
 The September deployment checks recorded identical `deployments/sepolia-demo.json` and

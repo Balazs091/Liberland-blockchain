@@ -13,10 +13,16 @@ a migration history or evidence that any deployed address uses this source.
   policy, authority, state or extension replacement needs the constitutional threshold, including election policies.
 - Keep a process's pinned policy and completed-block snapshot. Do not replace them with the latest policy when
   displaying a live vote. Senate negative-control processes intentionally use their current policy.
-- Use atomic typed action batches for paired app/authority changes, with a reviewed migration. No arbitrary executor
-  exists. Members remain individually executable, so intermediate states still require review. Constitutional review
-  and Senate have narrowly scoped self-replacement exceptions, not protection against mutual blocking or a broken
-  referendum/policy/electorate. See [Upgrade and Liveness](../docs/Upgrade-And-Liveness.md).
+- Use the new single-action typed module bundle for paired existing app/authority changes, with a reviewed migration.
+  Append-only enum values are referendum class `ModuleBundle = 7` and action type `ModuleBundleUpdate = 13`.
+  Publish an immutable `ModuleUpgradePlanRegistry` plan, then call the citizen/Congress bundle proposal method with
+  its exact registry and plan ID. Show all expected incumbents, successors, runtime hashes and evidence commitment;
+  plan publication itself is not approval. Bundles always require constitutional thresholds and contain at most
+  16 sorted distinct non-Core IDs, excluding Senate and constitutional review.
+- Legacy `executeActions` batches retain individually executable members. A bundle instead has one action ID and
+  cannot be partly executed. Senate/review have narrowly scoped single-replacement exceptions, not protection
+  against mutual blocking or a broken referendum/policy/electorate. See
+  [Upgrade and Liveness](../docs/Upgrade-And-Liveness.md) and [Recovery Plan](../docs/Recovery-Plan.md).
 
 ## Identity, stake and authority continuity
 

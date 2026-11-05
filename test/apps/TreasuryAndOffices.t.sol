@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -146,6 +146,65 @@ contract TreasuryAndOfficesTest is Test {
         assertTrue(ISenateApp.supportActionCancellation.selector != bytes4(0));
         assertTrue(ITreasuryVault.receiveTokenDeposit.selector != bytes4(0));
         assertTrue(ITreasurySpendingPolicy.isPayoutAllowed.selector != bytes4(0));
+    }
+
+    function test_PredeploymentApi_OfficeAdminCanRenameWithoutChangingRolesOrApprovals() public {
+        vm.prank(MINISTER_OF_FINANCE);
+        officeExecutor.assignClerk(FINANCE_OFFICE_ID, FINANCE_CLERK);
+        OfficeTypes.OfficeRecord memory beforeRename = officeRegistry.getOfficeRecord(FINANCE_OFFICE_ID);
+        bytes32 adminAuthorization = officeRegistry.authorizationId(FINANCE_OFFICE_ID, MINISTER_OF_FINANCE);
+        bytes32 clerkAuthorization = officeRegistry.authorizationId(FINANCE_OFFICE_ID, FINANCE_CLERK);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IOfficeExecutor.UnauthorizedOfficeAction.selector,
+                FINANCE_CLERK,
+                FINANCE_OFFICE_ID,
+                OfficeTypes.OfficeActionClass.ManageOfficeMetadata
+            )
+        );
+        vm.prank(FINANCE_CLERK);
+        officeExecutor.renameOffice(FINANCE_OFFICE_ID, "Not a clerk action");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IOfficeExecutor.UnauthorizedOfficeAction.selector,
+                IDENTITY_ADMIN,
+                FINANCE_OFFICE_ID,
+                OfficeTypes.OfficeActionClass.ManageOfficeMetadata
+            )
+        );
+        vm.prank(IDENTITY_ADMIN);
+        officeExecutor.renameOffice(FINANCE_OFFICE_ID, "Wrong office admin");
+        vm.expectRevert(
+            abi.encodeWithSelector(IOfficeRegistry.UnauthorizedOfficeRegistryCaller.selector, MINISTER_OF_FINANCE)
+        );
+        vm.prank(MINISTER_OF_FINANCE);
+        officeRegistry.renameOffice(FINANCE_OFFICE_ID, "Cannot bypass executor");
+        vm.expectRevert(abi.encodeWithSelector(IOfficeRegistry.InvalidOfficeId.selector, FINANCE_OFFICE_ID));
+        vm.prank(MINISTER_OF_FINANCE);
+        officeExecutor.renameOffice(FINANCE_OFFICE_ID, "");
+        vm.warp(block.timestamp + 1);
+        vm.prank(MINISTER_OF_FINANCE);
+        officeExecutor.renameOffice(FINANCE_OFFICE_ID, "Finance public service office");
+        OfficeTypes.OfficeRecord memory renamed = officeRegistry.getOfficeRecord(FINANCE_OFFICE_ID);
+        assertEq(renamed.name, "Finance public service office");
+        assertEq(renamed.admin, beforeRename.admin);
+        assertEq(uint8(renamed.kind), uint8(beforeRename.kind));
+        assertEq(renamed.createdAt, beforeRename.createdAt);
+        assertGt(renamed.lastUpdatedAt, beforeRename.lastUpdatedAt);
+        assertEq(officeRegistry.authorizationId(FINANCE_OFFICE_ID, MINISTER_OF_FINANCE), adminAuthorization);
+        assertEq(officeRegistry.authorizationId(FINANCE_OFFICE_ID, FINANCE_CLERK), clerkAuthorization);
+        assertTrue(officeRegistry.getClerkRecord(FINANCE_OFFICE_ID, FINANCE_CLERK).active);
+        assertEq(officeRegistry.getOfficeRecord(IDENTITY_OFFICE_ID).name, "Identity Office");
+        vm.prank(MINISTER_OF_FINANCE);
+        officeExecutor.setOfficeActive(FINANCE_OFFICE_ID, false);
+        vm.prank(MINISTER_OF_FINANCE);
+        officeExecutor.renameOffice(FINANCE_OFFICE_ID, "Finance temporarily closed");
+        assertFalse(officeRegistry.getOfficeRecord(FINANCE_OFFICE_ID).active);
+        assertEq(officeRegistry.getOfficeRecord(FINANCE_OFFICE_ID).name, "Finance temporarily closed");
+        vm.prank(MINISTER_OF_FINANCE);
+        officeExecutor.setOfficeActive(FINANCE_OFFICE_ID, true);
+        assertTrue(officeRegistry.isOfficeAdmin(FINANCE_OFFICE_ID, MINISTER_OF_FINANCE));
+        assertTrue(officeRegistry.isOfficeClerk(FINANCE_OFFICE_ID, FINANCE_CLERK));
     }
 
     function test_TreasurySpendingPolicy_RejectsZeroLlmAsset() public {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {ICabinetApp} from "../interfaces/ICabinetApp.sol";
 import {ICitizenEligibilityPolicy} from "../interfaces/ICitizenEligibilityPolicy.sol";
@@ -65,6 +65,9 @@ contract CabinetApp is ICabinetApp {
     }
 
     mapping(address voter => CongressBallot ballot) private _appointmentBallots;
+    // A recast from a migrated wallet supersedes that person's earlier wallet receipt permanently. Retain the
+    // raw wallet records for provenance, but never revive an older choice if the person later returns to that key.
+    mapping(bytes32 voterPersonId => address latestWallet) private _appointmentVoterWallets;
     mapping(address voter => CongressBallot ballot) private _removalBallots;
     mapping(ExecutiveTypes.MinistryKind ministry => mapping(address voter => CongressBallot ballot)) private
         _dismissalBallots;
@@ -227,12 +230,12 @@ contract CabinetApp is ICabinetApp {
 
     /// @inheritdoc ICabinetApp
     function removalVoteCount() external view returns (uint256 voteCount) {
-        return _removalVoteCount();
+        return _countCurrentCongressBallots(_removalBallots, _removalNonce);
     }
 
     /// @inheritdoc ICabinetApp
     function dismissalVoteCount(ExecutiveTypes.MinistryKind ministry) external view returns (uint256 voteCount) {
-        return _dismissalVoteCount(ministry);
+        return _countCurrentCongressBallots(_dismissalBallots[ministry], _dismissalNonce[ministry]);
     }
 
     /// @inheritdoc ICabinetApp
@@ -273,6 +276,9 @@ contract CabinetApp is ICabinetApp {
         if (!_currentCitizenEligibilityPolicy().isCitizenInGoodStanding(candidate)) {
             return false;
         }
+        if (_isSittingMinister(candidate)) {
+            return false;
+        }
 
         return _appointmentVoteCount(candidate) * 2 > _occupiedSeatCount();
     }
@@ -283,7 +289,8 @@ contract CabinetApp is ICabinetApp {
             return false;
         }
 
-        return _removalVoteCount() >= _executiveRegistry.primeMinisterAppointmentSupport();
+        return _countCurrentCongressBallots(_removalBallots, _removalNonce)
+            >= _executiveRegistry.primeMinisterAppointmentSupport();
     }
 
     /// @inheritdoc ICabinetApp
@@ -295,7 +302,9 @@ contract CabinetApp is ICabinetApp {
             return false;
         }
 
-        return _dismissalVoteCount(ministry) * 2 > _occupiedSeatCount();
+        return
+            _countCurrentCongressBallots(_dismissalBallots[ministry], _dismissalNonce[ministry]) * 2
+                > _occupiedSeatCount();
     }
 
     /// @inheritdoc ICabinetApp
@@ -308,10 +317,12 @@ contract CabinetApp is ICabinetApp {
         uint256 cycleId = _currentCongressCycleId();
         uint64 nonce = _appointmentNonce;
         uint64 castAt = uint64(block.timestamp);
+        bytes32 voterPersonId = _identityRegistry.resolveWalletToPersonId(msg.sender);
+        _appointmentVoterWallets[voterPersonId] = msg.sender;
 
         _appointmentBallots[msg.sender] = CongressBallot({
             target: candidate,
-            voterPersonId: _identityRegistry.resolveWalletToPersonId(msg.sender),
+            voterPersonId: voterPersonId,
             targetPersonId: _identityRegistry.resolveWalletToPersonId(candidate),
             congressCycleId: cycleId,
             ballotNonce: nonce,
@@ -328,6 +339,10 @@ contract CabinetApp is ICabinetApp {
         }
         if (!_currentCitizenEligibilityPolicy().isCitizenInGoodStanding(candidate)) {
             revert CandidateNotInGoodStanding(candidate);
+        }
+        // Enforce the same person-bound incompatibility in both appointment directions, including migration.
+        if (_isSittingMinister(candidate)) {
+            revert MinisterAlreadyServing(candidate);
         }
 
         uint256 voteCount = _appointmentVoteCount(candidate);
@@ -384,7 +399,7 @@ contract CabinetApp is ICabinetApp {
         }
 
         address sittingPrimeMinister = _executiveRegistry.primeMinister();
-        uint256 removalVotes = _removalVoteCount();
+        uint256 removalVotes = _countCurrentCongressBallots(_removalBallots, _removalNonce);
         uint256 appointmentSupport = _executiveRegistry.primeMinisterAppointmentSupport();
         if (removalVotes < appointmentSupport) {
             revert RemovalThresholdNotReached(removalVotes, appointmentSupport);
@@ -485,7 +500,7 @@ contract CabinetApp is ICabinetApp {
         }
 
         address sittingMinister = _executiveRegistry.getMinister(ministry).minister;
-        uint256 dismissalVotes = _dismissalVoteCount(ministry);
+        uint256 dismissalVotes = _countCurrentCongressBallots(_dismissalBallots[ministry], _dismissalNonce[ministry]);
         uint256 occupiedSeats = _occupiedSeatCount();
         if (dismissalVotes * 2 <= occupiedSeats) {
             revert DismissalMajorityNotReached(ministry, dismissalVotes, occupiedSeats);
@@ -560,6 +575,7 @@ contract CabinetApp is ICabinetApp {
             if (
                 ballot.target == candidate && _isActiveWalletForPerson(candidate, ballot.targetPersonId)
                     && _isActiveWalletForPerson(members[index], ballot.voterPersonId)
+                    && _appointmentVoterWallets[ballot.voterPersonId] == members[index]
                     && ballot.congressCycleId == cycleId && ballot.ballotNonce == nonce
             ) {
                 voteCount += 1;
@@ -567,27 +583,15 @@ contract CabinetApp is ICabinetApp {
         }
     }
 
-    function _removalVoteCount() private view returns (uint256 voteCount) {
+    function _countCurrentCongressBallots(mapping(address => CongressBallot) storage ballots, uint64 nonce)
+        private
+        view
+        returns (uint256 voteCount)
+    {
         uint256 cycleId = _currentCongressCycleId();
-        uint64 nonce = _removalNonce;
         address[] memory members = _congressCandidateRegistry.currentCongressMembers();
         for (uint256 index = 0; index < members.length; ++index) {
-            CongressBallot memory ballot = _removalBallots[members[index]];
-            if (
-                _isActiveWalletForPerson(members[index], ballot.voterPersonId) && ballot.congressCycleId == cycleId
-                    && ballot.ballotNonce == nonce
-            ) {
-                voteCount += 1;
-            }
-        }
-    }
-
-    function _dismissalVoteCount(ExecutiveTypes.MinistryKind ministry) private view returns (uint256 voteCount) {
-        uint256 cycleId = _currentCongressCycleId();
-        uint64 nonce = _dismissalNonce[ministry];
-        address[] memory members = _congressCandidateRegistry.currentCongressMembers();
-        for (uint256 index = 0; index < members.length; ++index) {
-            CongressBallot memory ballot = _dismissalBallots[ministry][members[index]];
+            CongressBallot memory ballot = ballots[members[index]];
             if (
                 _isActiveWalletForPerson(members[index], ballot.voterPersonId) && ballot.congressCycleId == cycleId
                     && ballot.ballotNonce == nonce

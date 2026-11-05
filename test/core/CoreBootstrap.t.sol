@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -146,6 +146,21 @@ contract CoreBootstrapTest is Test {
         assertEq(
             uint256(kernel.moduleClass(KernelModuleIds.LAND_PARTY_POLICY)), uint256(GovernanceTypes.ModuleClass.Policy)
         );
+    }
+
+    function test_MembershipFactsAndWriterRetainSensitiveModuleClasses() public {
+        ConstitutionKernel kernel = new ConstitutionKernel(address(this));
+        assertEq(
+            uint256(kernel.moduleClass(KernelModuleIds.MEMBERSHIP_REGISTRY)), uint256(GovernanceTypes.ModuleClass.State)
+        );
+        assertEq(
+            uint256(kernel.moduleClass(KernelModuleIds.IDENTITY_WRITER)), uint256(GovernanceTypes.ModuleClass.Authority)
+        );
+        // An identifier/classification alone neither registers a writer nor grants registry authority.
+        vm.expectRevert(
+            abi.encodeWithSelector(IConstitutionKernel.ModuleNotRegistered.selector, KernelModuleIds.IDENTITY_WRITER)
+        );
+        kernel.getModule(KernelModuleIds.IDENTITY_WRITER);
     }
 
     function test_RouterOriginsAndConstitutionalReviewUseAuthorityClass() public {

@@ -3,12 +3,13 @@
 Measured on 11 September 2026 against commit `ccea1facde0cedb491dc864a2f4dc00e3a04c4bd`.
 This is a historical compiler-only comparison, not a measurement of the subsequent application changes in the
 current checkout. That isolated upgrade reduced compilation time, but did not reduce measured transaction execution
-gas or contract sizes. Current verification is recorded separately in [Release Readiness](Release-Readiness.md).
+gas or contract sizes. The current source now uses Solidity 0.8.38; see
+[Toolchain Upgrade](Toolchain-Upgrade.md) and [Release Readiness](Release-Readiness.md).
 
 ## Scope and compiler changes
 
 All 175 first-party Solidity files in that comparison, including tests and deployment scripts, pinned `pragma solidity 0.8.37;`.
-Foundry uses `0.8.37+commit.f401782d`, replacing `0.8.36+commit.8a079791`. Dependency revisions and their upstream
+That comparison used `0.8.37+commit.f401782d`, replacing `0.8.36+commit.8a079791`. Dependency revisions and their upstream
 pragmas are unchanged. Both comparisons use Forge 1.7.1, Osaka, optimizer enabled with 200 runs and no via-IR.
 The downloaded Linux compiler's SHA-256 was checked against the official binary manifest:
 `5de843c2c93563cc66425c99a4fb13fdbf32b4c4ae07469480faaf126e14404a`.

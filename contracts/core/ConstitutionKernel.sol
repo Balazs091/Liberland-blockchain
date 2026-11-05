@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
 import {IElectorateRegistry} from "../interfaces/IElectorateRegistry.sol";
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
+import {ModuleUpgradeRules} from "../libraries/ModuleUpgradeRules.sol";
 
 /// @title ConstitutionKernel
 /// @notice Canonical registry of governed module pointers for the protocol.
@@ -111,6 +112,40 @@ contract ConstitutionKernel is IConstitutionKernel {
     }
 
     /// @inheritdoc IConstitutionKernel
+    function governanceUpdateModules(GovernanceTypes.ModuleUpdate[] calldata updates) external {
+        _requireGovernanceCaller(msg.sender);
+        ModuleUpgradeRules.validateCount(updates.length);
+        bytes32 previousId;
+        bool rebuildCitizenPolicy;
+        // Complete validation before the first write; no callback can observe a partially installed bundle.
+        for (uint256 i; i < updates.length; ++i) {
+            GovernanceTypes.ModuleUpdate calldata update = updates[i];
+            GovernanceTypes.ModuleRecord storage current = _moduleRecords[update.moduleId];
+            if (current.moduleAddress == address(0) || current.status != GovernanceTypes.ModuleStatus.Active) {
+                revert ModuleNotRegistered(update.moduleId);
+            }
+            ModuleUpgradeRules.validateEntry(
+                update, previousId, _moduleClass(update.moduleId), current.moduleAddress, true
+            );
+            previousId = update.moduleId;
+            if (update.moduleId == KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY) rebuildCitizenPolicy = true;
+        }
+        for (uint256 i; i < updates.length; ++i) {
+            _setModuleRecord(updates[i].moduleId, updates[i].newModuleAddress, false);
+        }
+        if (rebuildCitizenPolicy) _beginCitizenPolicyRebuild();
+        // A replacement rebuild callback cannot complete an unrelated queued action that changes this result.
+        for (uint256 i; i < updates.length; ++i) {
+            address actual = _moduleRecords[updates[i].moduleId].moduleAddress;
+            if (actual != updates[i].newModuleAddress) {
+                revert ModuleUpgradeRules.ModuleUpdateExpectedAddressMismatch(
+                    updates[i].moduleId, updates[i].newModuleAddress, actual
+                );
+            }
+        }
+    }
+
+    /// @inheritdoc IConstitutionKernel
     function governanceRegisterModule(bytes32 moduleId, address moduleAddress) external {
         _requireGovernanceCaller(msg.sender);
         if (_moduleClass(moduleId) == GovernanceTypes.ModuleClass.Core) {
@@ -124,6 +159,12 @@ contract ConstitutionKernel is IConstitutionKernel {
     }
 
     function _setModule(bytes32 moduleId, address moduleAddress, bool allowRegistration) private {
+        bool replacesExisting = _moduleRecords[moduleId].moduleAddress != address(0);
+        _setModuleRecord(moduleId, moduleAddress, allowRegistration);
+        if (replacesExisting && moduleId == KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY) _beginCitizenPolicyRebuild();
+    }
+
+    function _setModuleRecord(bytes32 moduleId, address moduleAddress, bool allowRegistration) private {
         if (moduleId == bytes32(0)) {
             revert InvalidModuleId(moduleId);
         }
@@ -167,11 +208,12 @@ contract ConstitutionKernel is IConstitutionKernel {
         currentRecord.lastUpdatedAt = timestamp;
 
         emit ModuleReplaced(moduleId, previousModule, moduleAddress, timestamp);
-        if (moduleId == KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY) {
-            address electorateRegistry = _moduleRecords[KernelModuleIds.ELECTORATE_REGISTRY].moduleAddress;
-            if (electorateRegistry != address(0)) {
-                IElectorateRegistry(electorateRegistry).beginPolicyRebuild();
-            }
+    }
+
+    function _beginCitizenPolicyRebuild() private {
+        address electorateRegistry = _moduleRecords[KernelModuleIds.ELECTORATE_REGISTRY].moduleAddress;
+        if (electorateRegistry != address(0)) {
+            IElectorateRegistry(electorateRegistry).beginPolicyRebuild();
         }
     }
 
@@ -209,7 +251,9 @@ contract ConstitutionKernel is IConstitutionKernel {
             return GovernanceTypes.ModuleClass.Core;
         }
         if (
-            moduleId == KernelModuleIds.IDENTITY_REGISTRY || moduleId == KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY
+            moduleId == KernelModuleIds.IDENTITY_REGISTRY || moduleId == KernelModuleIds.MEMBERSHIP_REGISTRY
+                || moduleId == KernelModuleIds.MODULE_UPGRADE_PLAN_REGISTRY
+                || moduleId == KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY
                 || moduleId == KernelModuleIds.LEGISLATION_REGISTRY || moduleId == KernelModuleIds.REFERENDUM_REGISTRY
                 || moduleId == KernelModuleIds.SENATE_SEAT_REGISTRY || moduleId == KernelModuleIds.STAKE_REGISTRY
                 || moduleId == KernelModuleIds.LLM_STAKING_VAULT || moduleId == KernelModuleIds.STAKE_LIEN_REGISTRY
@@ -242,7 +286,7 @@ contract ConstitutionKernel is IConstitutionKernel {
                 || moduleId == KernelModuleIds.COMPANY_REGISTRY_AUTHORITY
                 || moduleId == KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY_AUTHORITY
                 || moduleId == KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY
-                || moduleId == KernelModuleIds.INITIAL_SETUP_AUTHORITY
+                || moduleId == KernelModuleIds.IDENTITY_WRITER || moduleId == KernelModuleIds.INITIAL_SETUP_AUTHORITY
                 || moduleId == KernelModuleIds.LAND_REGISTRY_AUTHORITY
                 || moduleId == KernelModuleIds.LEGISLATION_REGISTRY_AUTHORITY
                 || moduleId == KernelModuleIds.LEGISLATION_REPEAL_AUTHORITY

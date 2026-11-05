@@ -169,6 +169,41 @@
   },
   {
     "type": "function",
+    "name": "governanceUpdateModules",
+    "inputs": [
+      {
+        "name": "updates",
+        "type": "tuple[]",
+        "internalType": "struct GovernanceTypes.ModuleUpdate[]",
+        "components": [
+          {
+            "name": "moduleId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "expectedCurrentAddress",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "newModuleAddress",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "newRuntimeCodeHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "isAuthorizedModule",
     "inputs": [
       {
@@ -292,6 +327,17 @@
   },
   {
     "type": "error",
+    "name": "ForbiddenBundledModule",
+    "inputs": [
+      {
+        "name": "moduleId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InvalidBootstrapAuthority",
     "inputs": [
       {
@@ -346,6 +392,49 @@
   },
   {
     "type": "error",
+    "name": "InvalidModuleUpdateAddress",
+    "inputs": [
+      {
+        "name": "moduleId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "moduleAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidModuleUpdateCount",
+    "inputs": [
+      {
+        "name": "count",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidModuleUpdateOrder",
+    "inputs": [
+      {
+        "name": "previousId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "moduleId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "ModuleAddressUnchanged",
     "inputs": [
       {
@@ -384,6 +473,48 @@
   },
   {
     "type": "error",
+    "name": "ModuleUpdateExpectedAddressMismatch",
+    "inputs": [
+      {
+        "name": "moduleId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "expected",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "actual",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ModuleUpdateRuntimeHashMismatch",
+    "inputs": [
+      {
+        "name": "moduleId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "expected",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "actual",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "NotBootstrapAuthority",
     "inputs": [
       {
@@ -399,6 +530,22 @@
     "inputs": [
       {
         "name": "caller",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnchangedModuleUpdate",
+    "inputs": [
+      {
+        "name": "moduleId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "moduleAddress",
         "type": "address",
         "internalType": "address"
       }

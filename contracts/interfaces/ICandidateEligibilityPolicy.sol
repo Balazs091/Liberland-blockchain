@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 /// @title ICandidateEligibilityPolicy
 /// @notice Policy interface for determining whether a wallet may stand for Congress.

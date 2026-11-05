@@ -16,11 +16,16 @@ kill -0 "$audit_anvil_pid"
 audit_rpc='http://127.0.0.1:18560'
 export PRIVATE_KEY='0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
 audit_deployer=$(cast wallet address --private-key "$PRIVATE_KEY")
-forge create contracts/mocks/LLMToken.sol:LLMToken --rpc-url "$audit_rpc" --private-key "$PRIVATE_KEY" --broadcast --json > ../evidence/rehearsal-llm.json
-forge create contracts/mocks/MockUSDC.sol:MockUSDC --rpc-url "$audit_rpc" --private-key "$PRIVATE_KEY" --broadcast --json > ../evidence/rehearsal-usdc.json
-export LLM_TOKEN=$(jq -r .deployedTo ../evidence/rehearsal-llm.json)
-export USDC_TOKEN=$(jq -r .deployedTo ../evidence/rehearsal-usdc.json)
-cast send "$LLM_TOKEN" 'mint(address,uint256)' "$audit_deployer" 100000000000000000000000 --rpc-url "$audit_rpc" --private-key "$PRIVATE_KEY" > ../evidence/rehearsal-mint.log
+export LLM_GENESIS_RECIPIENT="$audit_deployer"
+export LLM_GENESIS_SUPPLY=100000000000000000000000
+export LLM_GENESIS_MANIFEST_HASH=$(cast keccak 'synthetic-local-genesis-not-production')
+forge script scripts/DeployMerit.s.sol:DeployMerit --rpc-url "$audit_rpc" --broadcast --slow -vv > ../evidence/rehearsal-llm.log 2>&1
+export LLM_TOKEN=$(jq -r .llmToken deployments/ethereum-mainnet-merit.json)
+export USDC_TOKEN='0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
+# LOCAL ONLY: install a test double at the pinned address. This is not a fork or verification of real USDC.
+audit_usdc_runtime=$(forge inspect contracts/mocks/MockUSDC.sol:MockUSDC deployedBytecode)
+cast rpc anvil_setCode "$USDC_TOKEN" "$audit_usdc_runtime" --rpc-url "$audit_rpc" > ../evidence/rehearsal-usdc-fixture.json
+test "$(cast call "$LLM_TOKEN" 'totalSupply()(uint256)' --rpc-url "$audit_rpc" | cut -d ' ' -f 1)" = "$LLM_GENESIS_SUPPLY"
 export FINANCE_ADMIN=$(printf '0x%040x' 4097)
 export IDENTITY_ADMIN=$(printf '0x%040x' 4098)
 export LAND_ADMIN=$(printf '0x%040x' 4099)
@@ -50,7 +55,7 @@ export GENESIS_SENATE_SEAT_0_CITIZEN_INDEX=0
 export GENESIS_SENATE_SEAT_1_CITIZEN_INDEX=1
 export GENESIS_PRESIDENT_CITIZEN_INDEX=0
 export GENESIS_PRESIDENT_MANDATE_HASH=$(printf '0x%064x' 456)
-audit_timestamp=$(cast block latest --rpc-url "$audit_rpc" --json | jq -r .timestamp)
+audit_timestamp=$(cast block latest --rpc-url "$audit_rpc" --json | jq -r '(.data // .).timestamp')
 export GENESIS_CONGRESS_CYCLE_END_TIMESTAMP=$(( (audit_timestamp / 86400 + 30) * 86400 + 61200 ))
 forge script scripts/Deploy.s.sol:Deploy --sig 'run()' --rpc-url "$audit_rpc" --broadcast --slow --gas-estimate-multiplier 200 -vv > ../evidence/rehearsal-prepare.log 2>&1
 audit_kernel=$(jq -r .constitutionKernel deployments/ethereum-mainnet.json)
@@ -79,5 +84,36 @@ for audit_index in {0..4}; do
 done
 audit_office_executor=$(jq -r .officeExecutor deployments/ethereum-mainnet.json)
 test "$(cast call "$audit_office_executor" 'bootstrapAuthority()(address)' --rpc-url "$audit_rpc")" = '0x0000000000000000000000000000000000000000'
+# Confirm the recorded immutable helper/token runtimes against code mined on this disposable chain.
+: > ../evidence/runtime-hashes.jsonl
+for audit_pair in 'moduleUpgradePlanRegistry:moduleUpgradePlanRegistryRuntimeHash' 'referendumProposalValidator:referendumProposalValidatorRuntimeHash'; do
+  audit_address=$(jq -r ".${audit_pair%%:*}" deployments/ethereum-mainnet.json)
+  audit_expected=$(jq -r ".${audit_pair##*:}" deployments/ethereum-mainnet.json)
+  audit_runtime=$(cast code "$audit_address" --rpc-url "$audit_rpc")
+  test "$audit_runtime" != '0x'
+  audit_observed=$(cast keccak "$audit_runtime")
+  test "${audit_observed,,}" = "${audit_expected,,}"
+  jq -nc --arg address "$audit_address" --arg expected "$audit_expected" --arg observed "$audit_observed" \
+    '{address:$address,expected:$expected,observed:$observed}' >> ../evidence/runtime-hashes.jsonl
+done
+audit_expected=$(jq -r .runtimeCodeHash deployments/ethereum-mainnet-merit.json)
+audit_observed=$(cast keccak "$(cast code "$LLM_TOKEN" --rpc-url "$audit_rpc")")
+test "${audit_observed,,}" = "${audit_expected,,}"
+jq -nc --arg address "$LLM_TOKEN" --arg expected "$audit_expected" --arg observed "$audit_observed" \
+  '{address:$address,expected:$expected,observed:$observed}' >> ../evidence/runtime-hashes.jsonl
+cp deployments/ethereum-mainnet.json deployments/ethereum-mainnet-merit.json ../evidence/
+cp broadcast/DeployMerit.s.sol/1/run-latest.json ../evidence/merit-deployment-receipts.json
+cp broadcast/Deploy.s.sol/1/run-latest.json ../evidence/genesis-prepare-receipts.json
+# Foundry 1.9 records each entry point under its own latest alias.
+audit_completion_receipts='broadcast/Deploy.s.sol/1/completeGenesis-latest.json'
+if [[ ! -f "$audit_completion_receipts" ]]; then
+  audit_completion_receipts='broadcast/Deploy.s.sol/1/run-latest.json'
+fi
+cp "$audit_completion_receipts" ../evidence/genesis-completion-receipts.json
+# Retain both timestamped stage records as well.
+for audit_broadcast in broadcast/Deploy.s.sol/1/run-*.json; do
+  [[ "$audit_broadcast" == */run-latest.json ]] && continue
+  cp "$audit_broadcast" "../evidence/genesis-$(basename "$audit_broadcast")"
+done
 echo "Synthetic rehearsal evidence: $audit_work/evidence"
-echo 'PASS: local two-stage deployment, seven seats in manifest, setup sealed, kernel/router bootstrap retired; Osaka transaction gas cap enforced.'
+echo 'PASS: fixed-supply LLM, local-only USDC fixture, two-stage deployment, seven seats, setup sealed, kernel/router bootstrap retired; Osaka transaction gas cap enforced.'

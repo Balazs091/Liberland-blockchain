@@ -1,106 +1,147 @@
-# Auditor Handoff
+# Auditor handoff
 
-This source package is submitted for independent external security review, not production authorization.
-The accompanying documents describe current behavior, verification evidence and known limitations; they are
-not a security certification. Assess the complete implementation and independently reproduce relevant checks.
+Audit the implemented contracts and deployment paths against the exact submitted source revision. The proposed
+Phase A legal workflows need a separate scope; the current foundations and synthetic staging do not complete them.
+[Comprehensive Review](Comprehensive-Review.md) records the 5 November candidate and verification;
+[Release Readiness](Release-Readiness.md) lists the retained controls and launch requirements.
 
-## Exact target
+## Identify the target
 
-The package's `PROVENANCE.json` must record the packaged commit/tree, tested implementation revision,
-separately deployed revision, toolchain and recursive submodule revisions.
-`SOURCE-SHA256.txt` binds every packaged source/dependency file; `PACKAGE-SHA256.txt` also binds evidence.
-The outer ZIP has a separate SHA-256 file. Publication status in an archived package describes its creation time;
-publishing the repository later does not change that archive or its recorded revision.
+For a Git submission, record the complete commit and tree, toolchain and recursive submodule revisions. Include all
+new contracts, tests and scripts before creating that commit. A tracked-only archive of an earlier commit can omit
+untracked implementation files.
 
-The current checkout uses Solidity 0.8.37 and includes application and configuration hardening beyond the isolated
-compiler upgrade. Previously prepared archives and Sepolia verification records do not identify this build.
-A new submission must freeze this source and regenerate provenance/checksums; see
-[Release Readiness](Release-Readiness.md) for current evidence and [Compiler Upgrade](Compiler-Upgrade.md) for the
-separate historical compiler-only benchmark.
+For a source archive, identify the immutable artifact by its SHA-256 and complete source inventory. Its
+`PROVENANCE.json` must distinguish a published commit from a working-tree snapshot based on an older commit.
+A working-tree snapshot must record its base commit, state that no candidate commit has been published, and bind
+all included project and dependency files. Do not label the base commit as the revision containing the changes.
 
-`source/` contains the entire tracked current source, tests, scripts, constitutional input, documentation and
-52 generated frontend ABIs, plus the exact pinned dependency sources. No production keys, actual genesis personal
-data, live deployment manifests, build caches, Git history or private development records are included in `source/`.
-The separate `deployment/` folder supplies the confirmed public Sepolia manifest, transaction/runtime/wiring checks
-and per-contract explorer status. Its 48 Exact Match and 3 Similar Match records are distinguished explicitly;
-the latter still require Etherscan approval for exact-label conversion. See [Sepolia Deployment](Sepolia-Demo-Deployment.md).
-These demo records and public reviewer addresses do not substitute for verified production genesis or controllers.
-The source archive intentionally has no `.git`; provenance records its originating commit rather than pretending
-that a new repository initialization reproduces that commit.
+Use `SOURCE-SHA256.txt` for source/dependency contents, `PACKAGE-SHA256.txt` for the full package and a separate
+checksum for the outer archive. Verify those files before reproducing the checks. The source archive excludes Git
+metadata, local settings, production keys, real genesis personal data, credential caches and generated build output.
+
+The current export manifest contains **58 frontend ABIs**. The source uses Solidity 0.8.38 and the dependencies
+recorded in [Toolchain Upgrade](Toolchain-Upgrade.md), following the internal changes in
+[Complexity Review](Complexity-Review.md). Earlier audit archives and public Sepolia records refer to different
+source and toolchain revisions.
+
+## Package contents
+
+| Path | Contents |
+| --- | --- |
+| `source/` | Complete contracts, interfaces, tests, scripts/configuration, docs, constitutional input, 58 ABIs and exact recursive dependency sources |
+| `evidence/` | Source inventories, validation summaries, full and invariant test logs, build sizes, ABI/storage comparisons, measured gas changes, coverage/limitations, raw Slither/triage and local rehearsal receipts/manifests/runtime checks |
+| `PROVENANCE.json` | Target identity, source-inventory digest, tool/dependency versions, evidence revisions and publication status |
+| Checksum files | Source/dependency, package and archive integrity checks |
+
+Supply every file claimed by the package notes. Local workspace paths in historical reports are context; the
+submission needs the corresponding portable evidence files. The package-level README explains its relative paths.
+A complete Git checkout instead uses pinned submodules and generates fresh evidence with the freeze script.
+
+Historical public Sepolia records may be supplied separately and labelled with their deployed revision. The
+8 September deployment's explorer results do not verify current bytecode. Local synthetic deployment receipts also
+do not establish public deployment or authenticate real production controllers.
 
 ## Scope and reading order
 
-1. [External Scope](Audit-Scope.md), [Architecture](Architecture.md), [Governance](Governance.md) and
+1. [Audit Scope](Audit-Scope.md), [Architecture](Architecture.md), [Governance](Governance.md) and
    [Upgrade and Liveness](Upgrade-And-Liveness.md).
-2. [Release Readiness](Release-Readiness.md) for verification evidence, current controls and known limitations.
-3. [Static Triage](Static-Analysis-Triage.md); full unsuppressed JSON is in package evidence.
-4. [Constitution Alignment](Constitution-Alignment.md) and the pinned PDF, as separate legal/design inputs.
-5. Both deployment scripts/manifests and [Frontend Checklist](../frontend-export/INTEGRATION-CHECKLIST.md).
+2. [Comprehensive Review](Comprehensive-Review.md) for current checks, and [Release Readiness](Release-Readiness.md)
+   for retained limits; [Toolchain Upgrade](Toolchain-Upgrade.md) and [Complexity Review](Complexity-Review.md)
+   for preceding toolchain and implementation changes.
+3. [Phase A status](phase-a/README.md), [engineering progress](phase-a/ENGINEERING-PROGRESS.md) and
+   [legal decisions](phase-a/LEGAL-DECISIONS.md) for implemented/proposed boundaries.
+4. [Static Analysis Notes](Static-Analysis-Triage.md), with the full unsuppressed report in the evidence.
+5. [Constitution Alignment](Constitution-Alignment.md), the pinned PDF, applicable deployment guides and
+   [Frontend Checklist](../frontend-export/INTEGRATION-CHECKLIST.md).
 
-Review every production source and deployment path, including upgrade, custody, lending and optional hooks.
-Mocks/demo modules are in scope for separation and misuse risks, but they are not production assets or authorities.
+Review every production source and deployment path, including custody, lending, replacement and optional hooks.
+Include demo/test modules for misuse and separation risks. The membership ledger is implemented, but its official
+writer, collective legal procedures and complete rights-to-policy integration remain future work. The Sepolia
+Congress controller can record effects only for its fixed synthetic subjects.
 
 ## Trust boundaries to challenge
 
-- Immutable router/timelock trust root versus constitutional-threshold replaceable authority, policy and state pointers.
-- Canonical registries versus pinned policy snapshots and derived election-ranking state.
-- Person identity versus wallets, term/occupancy/appointment nonces and historical alias reassignment.
-- Civic proposer/approver versus independent fixed review committee; exact case binding, conflicts, lost keys,
-  deadline edges, competing rulings, timeout, committee rotation and app migration.
-- Treasury budget commitments versus office approvals, routed historical actions and independent vault execution.
-- Exact successor custody handoff versus ledger migration, stable one-shot payout receipts versus queue/vault
-  replacement, and retired original-writer commitment reconciliation versus new reservation authority.
-- Lending scaled-debt/reserve arithmetic, token custody, current/historical stake floors, quote execution, bad debt,
-  donations, policy replacement, retired-book collateral bounds and fixed-price economic failure.
-- Atomic land consent/version transitions versus company lifecycle, director loss and off-chain legal evidence.
-- Prepared production genesis versus confirmed-block completion and irreversible bootstrap retirement.
+- Permanent kernel/router/timelock versus constitutionally governed replaceable policies, authorities and state pointers.
+- Stable registries versus process-pinned policies, snapshots and derived election rankings.
+- People versus wallets, term/occupancy/appointment nonces and reassigned historical addresses.
+- Civic notice/approval versus the pinned 3-of-5 review committee, conflicts, consent, expiry and app replacement.
+- Budget commitments versus office approvals, queued actions, vault receipts and original-writer reconciliation.
+- Exact-successor asset handoff versus record/process migration and permanent consumed payout IDs.
+- Lending debt/reserve arithmetic, quote execution, fixed-price economic failure, donations, policy faults, retired
+  collateral bounds and debt-free/final-global-loan settlement.
+- Land consent/versioning versus company lifecycle, director availability and off-chain evidence.
+- Prepared genesis versus confirmed-block completion and permanent bootstrap retirement.
 
-No permanent superadmin, generic delegatecall executor, unrestricted referendum calldata or committee asset
-custody is intended. Prove that every reachable path respects these boundaries.
+The separate recovery ballot remains deferred. Broken governance dependencies and Senate/review cross-lock can
+prevent repair. Check those limits against the project's launch assumptions.
 
-The design uses the documented governance routes and provides no permanent recovery ballot.
-Sole-route dependency failure and Senate/review cross-lock are explicit recovery limits. Challenge
-these as launch assumptions; do not accept an assertion that all contracts are impossible to freeze. Also review
-intermediate pointer states: an atomic execution batch does not prevent someone executing a ready member alone.
+Legacy `executeActions` batches have independently executable members. A `ModuleBundleUpdate` instead approves and
+executes one indivisible plan of at most 16 eligible existing pointers. It retains delays and negative controls,
+excludes Core/Senate/review replacements, and does not copy records or custody. Verify both behaviors.
 
-## Reproduction
+## Reproduce the checks
 
-Use Forge 1.7.1, Solidity 0.8.37 and Slither 0.11.5 with the included pinned dependencies.
-The deployable profile uses Osaka, optimizer 200; do not raise code-size or transaction-gas limits to hide failures.
+Use Forge 1.9.0, Solidity 0.8.38, Slither 0.11.6 and crytic-compile 0.4.2 with the pinned dependencies.
+Dependencies are forge-std 1.17.0 and OpenZeppelin Contracts 5.7.0, at the exact revisions in `foundry.lock`.
+Project Python checks require Python 3.10 or later; CI verifies Python 3.15.2. With Python 3.15, the current `ckzg`
+dependency builds from source and needs a C compiler (CI uses GCC). Install the pinned analyzer in a virtual environment.
+The deployable profile uses Osaka and optimizer 200. Keep normal code-size and transaction-gas limits.
 
-For a clean Git checkout of the frozen commit, run `bash scripts/audit-freeze-check.sh`. For the ZIP's source tree,
-verify checksums from the package root, then run these equivalent checks from `source/`:
+For a complete clean Git checkout of the candidate commit:
+
+```bash
+git submodule update --init --recursive
+bash scripts/audit-freeze-check.sh
+```
+
+For an archive, first verify its package/source checksums, then run from `source/`:
 
 ```bash
 bash scripts/verify-constitution-source.sh
 python3 -m unittest discover -s scripts -p 'test_*.py'
+python3 -m unittest discover -s test/reference -p 'test_*.py'
 forge fmt --check
 forge build --sizes
 forge test -vvv
 forge coverage --report summary --no-match-test test_Governance_OpenAdmissionFinalizes1000CandidatesInBoundedChunks
-FOUNDRY_PROFILE=audit forge test --match-path 'test/invariant/*.t.sol' --fuzz-seed 0x709 -vvv
+for invariant_seed in 0x709 0x110338 0x381; do
+  FOUNDRY_PROFILE=audit forge test --match-path 'test/invariant/*.t.sol' --fuzz-seed "$invariant_seed" -vvv
+done
 python3 scripts/check-docs.py --check-abis
 python3 scripts/check-slither-baseline.py
 ```
 
-The coverage-only exclusion is deliberate and visible: instrumentation exhausts the harness budget while setting up
-1,000 candidates. The optimized full test suite requires that stress instance; coverage uses the
-100-candidate fixture for the same code path. Broad coverage percentages include test/script instrumentation.
-Run additional seeds, property models and adversarial cases; this bounded campaign is not formal verification.
+The archive has no Git history, so repository-history and clean-tree checks apply to the Git submission. Archive
+checksums bind its files. The reference/tooling tests and contract checks above work without Git metadata.
 
-`bash scripts/rehearse-local-genesis.sh` creates an isolated temporary source copy, launches a loopback-only Anvil
-on port 18560, uses a publicly known test key with mock assets, and exercises both production genesis invocations.
-It does not load the source checkout's `.env` or use a public RPC. It retains synthetic evidence and stops its node
-on exit. Do not fund that key with real assets. Local mock deployment is not a production-state fork.
+If analyzer entrypoints have stale installation paths, point `SLITHER_PYTHON` at the virtual environment's Python
+executable. Both the baseline checker and freeze script support it:
 
-## Expected deliverables from independent review
+```bash
+SLITHER_PYTHON=/path/to/slither-venv/bin/python python3 scripts/check-slither-baseline.py
+```
 
-Report reproducible, revision-bound findings with preconditions, impact, exact code paths, regression tests and
-remediation verification. Separate privileged-governance trust assumptions, constitutional choices, economic risks
-and exploitable implementation defects. Include fresh bytecode/gas measurements, asset/proxy review, migration and
-genesis validation, and limitations of the audit.
+Slither runs without suppressions. Baseline counts and normalized finding identities must both match; review a
+changed report before changing the baseline. Coverage excludes only the 1,000-candidate instrumentation fixture;
+the optimized suite includes it and coverage runs the 100-candidate path. Raw anchor warnings and branch gaps stay
+with the results. Foundry groups each contract's invariant predicates into one campaign. The audit profile uses
+three seeds, each with 256 runs × 256 calls across eight test contracts. All 24 predicates must pass per seed,
+including a single-predicate result that has no grouped `invariant_count` field. This retains the earlier aggregate
+handler-call budget while adding seed diversity; old and new framework test totals are not directly comparable.
+Run further seeds and adversarial cases as part of the independent audit.
 
-The owner must separately provide verified real genesis data, intended production token addresses/configuration,
-reviewer/office-controller attestations, legal procedures and the frontend/operations environment. These are not
-fabricated or substituted by the synthetic fixtures in this package. A fresh reviewed deployment or explicit
-state/custody/process migration is necessary before any existing chain can use this revision.
+The local rehearsal scripts create temporary source copies, use loopback-only Anvil chains and known test keys,
+and stop their nodes on exit. They exercise production genesis, governed Sepolia upgrades/rollback, or the isolated
+foundation profile. They do not load the checkout's local settings or use public RPCs. Production rehearsal uses a
+local USDC test double and synthetic genesis; a production-state fork remains separate work.
+
+## Findings and remaining inputs
+
+Report each finding with the target revision, preconditions, impact, exact code path, reproducing test and remediation
+verification. Distinguish exploitable defects from governance trust assumptions, economic exposure and constitutional
+choices. Include bytecode/gas measurements and the limits of the audit.
+
+Production still needs verified genesis identities/stake/roles, exact asset code and controller review, independent
+reviewer/office-controller attestations, approved notice/evidence procedures, liquidity/funding and operational
+approval. [Recovery Decisions](Recovery-Decisions.md) records unresolved powers and the deferred repair-ballot choice.

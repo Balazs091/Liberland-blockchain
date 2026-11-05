@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
 
@@ -48,6 +48,12 @@ interface IConstitutionKernel {
     /// @param moduleId The module identifier to update.
     /// @param moduleAddress The new active module address.
     function governanceUpdateModule(bytes32 moduleId, address moduleAddress) external;
+
+    /// @notice Atomically replaces an exact bounded set of existing non-Core module pointers.
+    /// @dev Only the timelock. Every expected pointer and new runtime hash is checked before any write;
+    ///      any citizen-policy rebuild runs only after the entire new bundle is installed.
+    /// @param updates Sorted unique module updates from the approved immutable plan.
+    function governanceUpdateModules(GovernanceTypes.ModuleUpdate[] calldata updates) external;
 
     /// @notice Registers a new module pointer through the governed execution path.
     /// @param moduleId The module identifier to register.

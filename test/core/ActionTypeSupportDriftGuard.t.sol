@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -47,14 +47,15 @@ contract ActionTypeSupportDriftGuardTest is Test {
             }
         }
 
-        // Six bounded types, including the approved typed Law-tier repeal.
-        assertEq(supportedSeen, 6, "canonical supported-set cardinality changed");
+        // Seven bounded types, including indivisible module-upgrade plans.
+        assertEq(supportedSeen, 7, "canonical supported-set cardinality changed");
         assertFalse(_isCanonicallySupported(GovernanceTypes.ActionType.Undefined), "Undefined must never be supported");
     }
 
     /// @dev The one intended list of timelock-flow action types. Update this — and all three contracts — together.
     function _isCanonicallySupported(GovernanceTypes.ActionType actionType) private pure returns (bool supported) {
         return actionType == GovernanceTypes.ActionType.ModulePointerUpdate
+            || actionType == GovernanceTypes.ActionType.ModuleBundleUpdate
             || actionType == GovernanceTypes.ActionType.ModuleRegistration
             || actionType == GovernanceTypes.ActionType.TreasuryBudgetApproval
             || actionType == GovernanceTypes.ActionType.LegislationEnactment

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {IActionTimelock} from "../interfaces/IActionTimelock.sol";
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
@@ -103,6 +103,7 @@ contract GovernanceRouter is IGovernanceRouter {
     /// @inheritdoc IGovernanceRouter
     function isActionTypeSupported(GovernanceTypes.ActionType actionType) public pure returns (bool supported) {
         return actionType == GovernanceTypes.ActionType.ModulePointerUpdate
+            || actionType == GovernanceTypes.ActionType.ModuleBundleUpdate
             || actionType == GovernanceTypes.ActionType.ModuleRegistration
             || actionType == GovernanceTypes.ActionType.TreasuryBudgetApproval
             || actionType == GovernanceTypes.ActionType.LegislationEnactment
@@ -195,6 +196,9 @@ contract GovernanceRouter is IGovernanceRouter {
         view
         returns (bool valid)
     {
+        if (actionType == GovernanceTypes.ActionType.ModuleBundleUpdate) {
+            return moduleId == KernelModuleIds.ACTION_TIMELOCK && _isTargetModuleRegistered(moduleId);
+        }
         if (moduleId == bytes32(0)) {
             return false;
         }

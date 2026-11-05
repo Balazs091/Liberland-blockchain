@@ -2,8 +2,10 @@
 
 System money is ERC20: LLM for governance/merit and stablecoins for spending and lending. Native ETH is gas-only; protocol contracts do not accept `msg.value`.
 
-LLM uses 18 decimals and is hard-capped at `70_000_000e18`. Production requires the external token to expose that
-exact `cap()`. The Treasury is a holder and spender, never an issuer: it has no minting or arbitrary token-call path.
+LLM uses 18 decimals and is hard-capped at `70_000_000e18`. The production `LiberlandMerit` is a separately deployed,
+non-upgradeable fixed-genesis-supply asset with no later mint authority. Production validates its metadata and pins
+the lending asset to canonical Ethereum L1 USDC. Exact token code/controller verification remains necessary. See
+[Production assets](Production-Assets.md). The Treasury is a holder and spender, never an issuer.
 
 ## Treasury vault and spending
 
@@ -190,6 +192,13 @@ current surplus and recorded lien, so newly added unpledged stake cannot revive 
 The active pool's prior all-active-surplus collateral economics are unchanged.
 Pools have no general direct stake-transfer permission. Old deposits/withdrawals remain callable, subject to
 liquidity, token and policy constraints. Do not market a retired pool as the current source of new loans.
+
+A debt-free withdrawal and a repayment closing the entire global loan book do not need to select future rate/risk
+terms. They accrue the already validated interval, preserve reserves, require exact receipt and close the lien
+normally, then invalidate future configuration until valid policies are checked again. This permits those bounded
+exits if a replaceable future policy is broken. Partial repayment, closing only one of several borrowers and
+withdrawal with outstanding debt remain strict. New deposits/borrowing/liquidation do not gain a policy bypass.
+An ongoing-debt fallback requires the separate economic/legal decision in [Recovery Decisions](Recovery-Decisions.md).
 
 After approved same-ledger LLM vault replacement, anyone may call the retired vault's `handoffBacking()` to send its
 complete balance to the exact current governed successor, with matching kernel, token and identity/stake ledgers,

@@ -3,7 +3,11 @@
 The kernel permits governed replacement of every non-Core module ID. That is an address-update capability, not a
 guarantee that every faulty module, record set or asset position can be recovered. This document is the operational
 boundary for the current source. Existing deployments do not acquire these protections from a documentation or ABI
-update. See [Governance](Governance.md) and the revision-specific [Release Readiness](Release-Readiness.md).
+update. See [Governance](Governance.md), the revision-specific [Release Readiness](Release-Readiness.md), and the
+[predeployment review](Predeployment-Review.md), which adds concrete healthy-upgrade, rollback and stuck-state tests.
+The later [governance and recovery review](Governance-Recovery-Review.md) records the typed indivisible upgrade route
+and bounded financial exits. [Recovery Plan](Recovery-Plan.md) is the current runbook, with unresolved authority
+choices in [Recovery Decisions](Recovery-Decisions.md).
 
 ## What can change
 
@@ -20,7 +24,7 @@ update. See [Governance](Governance.md) and the revision-specific [Release Readi
 | Stable fact registries | Constitutional-threshold pointer replacement | Most apps/policies pin registry addresses. Replacing one registry requires its complete dependent bundle and a separately built, reconciled migration; there is no generic import/copy primitive |
 | LLM custody vault | Constitutional-threshold replacement plus `handoffBacking()` on the retired vault | Only the exact governed successor with the same kernel, token, identity registry and stake registry may receive backing. This is same-ledger custody handoff, not record migration |
 | USDC lending pool | Constitutional-threshold replacement plus settlement of the retired book | Existing debt/LP shares remain in the old pool. Each person's loan owner is retained until explicit closure; new borrowing cannot take over another pool's open position |
-| Ministry treasury | State-class constitutional-threshold replacement | Office balances and pool shares remain in the original instance; historical operations still depend on its original office registry and compatible live policy. No generic balance import or sweep is provided |
+| Ministry treasury | State-class constitutional-threshold replacement | Office balances and pool shares remain in the original instance; historical operations resolve the current office registry and require preserved office IDs/authority plus compatible live policy. No generic balance import or sweep is provided |
 | New extension ID | Constitutional-threshold registration and subsequent replacement | Registration supplies no migration, arbitrary-call power or exception to existing custody/authority checks |
 
 Read `ConstitutionKernel.moduleClass(moduleId)` from the reviewed release instead of deriving authority from a
@@ -99,12 +103,14 @@ This is independent of the immutable router's deliberately broader origin/action
 2. Build and rehearse any actual record/process migration before presenting the pointer proposal. There is no
    generic migration action in the timelock. Reconcile record counts, aggregate assets, historical snapshots,
    liens, commitments, nonces and unresolved cases against a production-state fork.
-3. Obtain each required typed referendum approval. Before activation, ensure all queued actions pin the expected
-   old addresses, their execution windows overlap, and every applicable negative-power check is satisfied.
-4. Submit coordinated pointer updates through `ActionTimelock.executeActions(actionIds)` in reviewed dependency
-   order. This transaction is atomic, but the actions are not an indivisible stored group: any ready member may
-   also be executed individually. Review intermediate states and front-running; operator batching alone is not
-   an on-chain dependency lock.
+3. Publish the immutable plan for related existing non-Core pointers and obtain one constitutional-threshold
+   `ModuleBundle` approval. Every member names its expected incumbent and replacement runtime hash. Preplan and
+   rehearse the reverse transition as well. Plans contain at most 16 sorted distinct IDs; Senate and review hooks
+   keep their separate exact replacement routes. Queueing requires all expected incumbents already current.
+4. Execute the one delayed `ModuleBundleUpdate` action after all applicable negative controls clear. Every member
+   changes together or the entire transaction reverts. Legacy `executeActions(actionIds)` remains a convenience
+   batch whose members may execute individually; do not use it as a dependency lock. A separate registration or
+   Senate/review replacement still needs review of its own intermediate states and windows.
 5. Complete the narrowly supported custody/retirement operations below, verify all live getters/writers, and
    publish the new exact-bytecode manifest. Do not infer successful activation from a generated local file.
 

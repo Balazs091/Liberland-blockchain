@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {IHeadOfStateApp} from "../interfaces/IHeadOfStateApp.sol";
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
@@ -111,7 +111,7 @@ contract HeadOfStateApp is IHeadOfStateApp {
         if (_presidentRegistry.isPresidentInTerm()) {
             return false;
         }
-        if (!_isActiveSenatorWallet(candidate)) {
+        if (_resolveSeatHolderPersonId(candidate) == bytes32(0)) {
             return false;
         }
 
@@ -126,7 +126,8 @@ contract HeadOfStateApp is IHeadOfStateApp {
         }
 
         _requireSeatHolder(seatIndex, msg.sender);
-        if (!_isActiveSenatorWallet(candidate)) {
+        bytes32 candidatePersonId = _resolveSeatHolderPersonId(candidate);
+        if (candidatePersonId == bytes32(0)) {
             revert CandidateNotSeatHolder(candidate);
         }
 
@@ -136,7 +137,7 @@ contract HeadOfStateApp is IHeadOfStateApp {
 
         _seatBallots[seatIndex] = SeatBallot({
             candidate: candidate,
-            candidatePersonId: _resolveSeatHolderPersonId(candidate),
+            candidatePersonId: candidatePersonId,
             seatOccupancyNonce: occupancyNonce,
             electionCycle: cycle,
             castAt: currentTimestamp
@@ -151,7 +152,8 @@ contract HeadOfStateApp is IHeadOfStateApp {
         if (_presidentRegistry.isPresidentInTerm()) {
             revert PresidentAlreadyInTerm(sittingPresident);
         }
-        if (!_isActiveSenatorWallet(candidate)) {
+        bytes32 candidatePersonId = _resolveSeatHolderPersonId(candidate);
+        if (candidatePersonId == bytes32(0)) {
             revert CandidateNotSeatHolder(candidate);
         }
 
@@ -161,7 +163,6 @@ contract HeadOfStateApp is IHeadOfStateApp {
             revert ElectionMajorityNotReached(candidate, voteCount, occupiedSeats);
         }
 
-        bytes32 candidatePersonId = _resolveSeatHolderPersonId(candidate);
         uint64 termStart = uint64(block.timestamp);
         uint64 termEnd = termStart + PRESIDENT_TERM;
         bytes32 mandateHash = _electionMandateHash(candidate, termStart);
@@ -182,10 +183,10 @@ contract HeadOfStateApp is IHeadOfStateApp {
         if (slot >= 2) {
             revert InvalidVicePresidentSlot(slot);
         }
-        if (!_isActiveSenatorWallet(vp)) {
+        bytes32 resolvedPersonId = _resolveSeatHolderPersonId(vp);
+        if (resolvedPersonId == bytes32(0)) {
             revert VicePresidentNotSeatHolder(vp);
         }
-        bytes32 resolvedPersonId = _resolveSeatHolderPersonId(vp);
         if (resolvedPersonId == _presidentRegistry.currentPresidentPersonId()) {
             revert InvalidVicePresidentCandidate(vp);
         }
@@ -269,7 +270,7 @@ contract HeadOfStateApp is IHeadOfStateApp {
 
     function _resolveSeatHolderPersonId(address holder) private view returns (bytes32 personId) {
         personId = _resolveActivePersonId(holder);
-        if (!_senateSeatRegistry.isActiveSeatHolderPerson(personId)) {
+        if (personId == bytes32(0) || !_senateSeatRegistry.isActiveSeatHolderPerson(personId)) {
             return bytes32(0);
         }
     }
@@ -288,11 +289,6 @@ contract HeadOfStateApp is IHeadOfStateApp {
         ) {
             revert NotPresident(caller);
         }
-    }
-
-    function _isActiveSenatorWallet(address wallet) private view returns (bool active) {
-        bytes32 personId = _resolveActivePersonId(wallet);
-        return personId != bytes32(0) && _senateSeatRegistry.isActiveSeatHolderPerson(personId);
     }
 
     function _isActiveWalletForPerson(address wallet, bytes32 personId) private view returns (bool active) {

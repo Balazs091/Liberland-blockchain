@@ -185,6 +185,57 @@
   },
   {
     "type": "function",
+    "name": "createCitizenModuleBundleReferendum",
+    "inputs": [
+      {
+        "name": "proposal",
+        "type": "tuple",
+        "internalType": "struct ReferendumTypes.ModuleBundleProposal",
+        "components": [
+          {
+            "name": "proposalMetadataHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "planId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "planRegistry",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "startTime",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "endTime",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "adoptionDelay",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "referendumId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "createCitizenModuleGovernanceReferendum",
     "inputs": [
       {
@@ -522,6 +573,57 @@
   },
   {
     "type": "function",
+    "name": "createCongressModuleBundleReferendum",
+    "inputs": [
+      {
+        "name": "proposal",
+        "type": "tuple",
+        "internalType": "struct ReferendumTypes.ModuleBundleProposal",
+        "components": [
+          {
+            "name": "proposalMetadataHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "planId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "planRegistry",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "startTime",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "endTime",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "adoptionDelay",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      }
+    ],
+    "outputs": [
+      {
+        "name": "referendumId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "createCongressModuleGovernanceReferendum",
     "inputs": [
       {
@@ -818,6 +920,67 @@
   },
   {
     "type": "function",
+    "name": "previewModuleBundleReferendumId",
+    "inputs": [
+      {
+        "name": "origin",
+        "type": "uint8",
+        "internalType": "enum ReferendumTypes.ProposalOrigin"
+      },
+      {
+        "name": "proposal",
+        "type": "tuple",
+        "internalType": "struct ReferendumTypes.ModuleBundleProposal",
+        "components": [
+          {
+            "name": "proposalMetadataHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "planId",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "planRegistry",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "startTime",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "endTime",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "adoptionDelay",
+            "type": "uint64",
+            "internalType": "uint64"
+          }
+        ]
+      },
+      {
+        "name": "proposerReference",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "referendumId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
     "name": "previewModuleGovernanceReferendumId",
     "inputs": [
       {
@@ -1043,6 +1206,19 @@
       }
     ],
     "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "proposalValidator",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "validator",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",

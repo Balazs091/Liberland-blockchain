@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 /// @title ILLMPriceOraclePolicy
 /// @notice Policy interface for converting LLM stake units and a borrow asset.

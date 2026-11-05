@@ -4,10 +4,18 @@ This document defines the review surface for an external security, economic, dep
 audit. It does not assert mainnet approval. Solidity and deployed bytecode are authoritative when documentation
 disagrees.
 
+The later [Complexity Review](Complexity-Review.md) covers internal consolidation of ten contracts against the same
+public interfaces and storage layouts. Recheck equivalent guards, event/receipt effects and measured gas tradeoffs.
+No separate recovery ballot or additional authority is in scope for implementation under the current instruction.
+
 ## In scope
 
 - every Solidity source under `contracts/`, including mocks where they expose demo/test trust assumptions;
-- both deployment scripts, `scripts/DeploymentScriptBase.sol`, and both network parameter manifests;
+- production token/protocol and demo deployment scripts, `scripts/DeploymentScriptBase.sol`, and both network parameter manifests;
+- the isolated Sepolia foundation deployment, synthetic fixture library, test controller and local rehearsal;
+- the separate full governed Sepolia profile, fixed-supply token, synthetic Congress controller and upgrade/rollback rehearsal;
+- immutable module-upgrade plans, constitutional bundle ballots, exact runtime/expected-pointer checks and the kernel's all-or-nothing update;
+- debt-free lending exits and final global-loan settlement while replaceable future policies are unavailable;
 - bootstrap, authority retirement, module registration, and generated address-manifest correctness;
 - external LLM/USDC assumptions, stake and treasury custody, lending economics, and contribution-reward funding;
 - cross-module authorization, replacement/migration paths, denial-of-service bounds, and accounting invariants;
@@ -16,16 +24,38 @@ disagrees.
 - the pinned constitutional source and deliberate differences recorded in `docs/Constitution-Alignment.md`.
 
 The production target is Ethereum mainnet (chain ID 1). Sepolia (chain ID 11155111) is an accelerated demonstration
-environment with mock assets and demo-only onboarding powers.
+environment with mock USDC, synthetic token allocations and demo-only onboarding powers.
+
+The separate [Sepolia foundation runbook](Sepolia-Foundation-Deployment.md) covers only the new token and restriction
+registry plus their real kernel/identity dependencies and an explicitly synthetic controller. Review its hard
+Sepolia chain gates, operator-only typed methods, fixed subject set, one-time identity seeding, receipt/nonces,
+retired bootstrap and manifest/read-back checks. It has no governance, custody, staking or legal decision process;
+test operator transactions simulate effects rather than authenticate real findings. Existing mainnet and old demo
+deployment paths are not extended with this authority.
+
+The [governed Sepolia runbook](Sepolia-Governed-Deployment.md) defines a new full synthetic deployment with voting,
+the normal delayed upgrade route and a replaceable Congress-controlled membership test controller. It does not
+retrofit the old isolated deployment. Its fixed four-subject controller records test effects, without implementing
+the proposed legal admission, discipline or appeal process. Mock USDC and accelerated timings remain test-only.
+Review the controller's current identity/writer/Congress checks and complete sealed-bootstrap manifest. Neither
+Sepolia profile adds a permanent recovery key to production.
 
 ## Build profile
 
-- Solidity: pinned `0.8.37`
+The new internal decision libraries, `LiberlandMerit`, `MembershipRegistry`, their interfaces/types and
+`scripts/DeployMerit.s.sol` are within source-review scope. `MembershipRegistry` consumes `TimedRestrictionSet` but
+has no production writer or official legal decision workflow. Governed Sepolia uses a synthetic writer only. Its
+source counters do not detect clock-only expiry and must not
+certify electorate readiness. Review the new kernel State/Authority classifications, live writer replacement and
+the production canonical-USDC preflight. Primitive/model tests do not establish completed admission, disciplinary,
+financial or electorate workflows. [Engineering progress](phase-a/ENGINEERING-PROGRESS.md) records that boundary.
+
+- Solidity: pinned `0.8.38`
 - EVM target: pinned `osaka`
 - optimizer: enabled, 200 runs
-- framework: Foundry
-- static analysis: Slither, without source-level finding suppressions
-- dependencies: `forge-std` and OpenZeppelin Contracts, pinned as Git submodules
+- framework: Foundry 1.9.0
+- static analysis: Slither 0.11.6 with crytic-compile 0.4.2, without source-level finding suppressions
+- dependencies: `forge-std` 1.17.0 and OpenZeppelin Contracts 5.7.0, pinned as Git submodules
 - generated frontend ABIs: `frontend-export/abis/`
 
 Auditors should record exact tool and submodule revisions, then independently run `forge fmt --check`,
@@ -105,8 +135,10 @@ failure-path coverage and challenge the assumptions.
    review powers use the ordinary module threshold.
    Active referenda and elections pin their starting policies. Senate negative-control processes intentionally use
    the live Senate policy, so a policy replacement may immediately affect their threshold or duration. Atomic action
-   batches support coordinated pointer changes, but members remain independently executable; review every
-   intermediate state, not only the intended batch. A pointer does not migrate storage/custody, and defective approved
+   batches retain independently executable members. The new typed bundle is instead a single indivisible action,
+   limited to 16 sorted existing non-Core IDs and excluding Senate/review replacements. Review exact plan hashes,
+   expected pointers, runtime hashes, delayed negative controls, callback rollback and preplanned reverse transitions.
+   A pointer does not migrate storage/custody, and defective approved
    `ReferendumApp` bytecode can disable the only current referendum path. The project rejects a permanent recovery
    admin and requires bytecode, interface, paired-pointer, state/custody migration, and fork review instead. The
    incumbent Senate cannot cancel or hold open the active referendum for its exact replacement, and its queued-action
@@ -136,15 +168,17 @@ failure-path coverage and challenge the assumptions.
    Protected/retained floors and later unpledged stake beyond a retired lien are not recoverable collateral. The oracle/risk/rate policies are
    replaceable; replacing the pool itself requires state/custody migration.
 5. **Production deployment parity — script and configuration verification.** Both manifests deploy `DecisionApp`,
-   `MinistryTreasury`, and lending. Production requires a six-decimal `USDC_TOKEN`, registers the pool as lien and
+   `MinistryTreasury`, and lending. Production pins six-decimal canonical Ethereum USDC, registers the pool as lien and
    liquidation authority, wires `DecisionApp` as ministry funding authority, and exports every address. Review
    module-batch completeness and environment/output parity independently. During production genesis,
    `InitialSetupAuthority` exclusively controls the Congress registry until the continuity cycle is seeded; the
    script then activates `CongressElectionApp` before readiness and sealing.
 6. **Genesis and asset verification — open operator launch blocker.** Identities, stake, Senate, seven Congress
    incumbents, President, offices, admins, treasury assets/limits, reward reserve, and continuity time are inputs.
-   The deployer must hold exact stake backing. The script checks LLM decimals/cap/supply and USDC decimals, but an
-   independent reviewer must prove exact token bytecode and proxy/upgrade surfaces cannot bypass assumptions.
+   The deployer must hold exact stake backing. `DeployMerit` records the explicit genesis recipient/supply, allocation
+   reference hash, constructor arguments and runtime hash; that record is not proof of legal approval or successful
+   broadcast. `Deploy` checks LLM decimals/cap/supply and the pinned USDC address/code/decimals before broadcast.
+   Independent review must authenticate exact LLM bytecode and USDC's issuer-controlled proxy/upgrade assumptions.
 7. **Person-bound authority and office lifecycle — verification target.** Congress, Senate, President, Prime
    Minister, minister, and term-bound ministry-office authority follows the identity registry's active wallet.
    Candidacy is person-bound within each cycle: its canonical application wallet remains a stable ballot target even

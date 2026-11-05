@@ -1,8 +1,10 @@
 """Ensure equal severity totals cannot hide a substituted finding."""
 
 import importlib.util
+import os
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 SPEC = importlib.util.spec_from_file_location("check_slither", Path(__file__).with_name("check-slither-baseline.py"))
 CHECK = importlib.util.module_from_spec(SPEC)
@@ -10,6 +12,14 @@ SPEC.loader.exec_module(CHECK)
 
 
 class FindingIdentityTest(unittest.TestCase):
+    def test_default_scanner_uses_installed_entrypoint(self):
+        with patch.dict(os.environ, {"SLITHER_PYTHON": ""}):
+            self.assertEqual(CHECK.slither_command(), ["slither"])
+
+    def test_explicit_interpreter_remains_one_argument(self):
+        with patch.dict(os.environ, {"SLITHER_PYTHON": "/tool path/python"}):
+            self.assertEqual(CHECK.slither_command(), ["/tool path/python", "-m", "slither"])
+
     def finding(self, description="App.f() (contracts/App.sol#10-15) calls Registry.write()"):
         return {"check": "calls-loop", "impact": "Low", "confidence": "Medium", "description": description}
 

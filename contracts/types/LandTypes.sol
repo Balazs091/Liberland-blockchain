@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 /// @title LandTypes
 /// @notice Shared value types for cadastral facts and typed land workflows.

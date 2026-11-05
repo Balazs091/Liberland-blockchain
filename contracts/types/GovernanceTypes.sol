@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {LegislationTypes} from "./LegislationTypes.sol";
 import {TreasuryTypes} from "./TreasuryTypes.sol";
@@ -20,7 +20,8 @@ library GovernanceTypes {
         EmergencyUnpause,
         LegislationEnactment,
         LegislationRepeal,
-        ModuleRegistration
+        ModuleRegistration,
+        ModuleBundleUpdate
     }
 
     enum ActionOrigin {
@@ -68,6 +69,20 @@ library GovernanceTypes {
 
     struct ModuleUpdatePayload {
         address newModuleAddress;
+    }
+
+    /// @notice One exact, pre-reviewed pointer replacement in an indivisible upgrade plan.
+    struct ModuleUpdate {
+        bytes32 moduleId;
+        address expectedCurrentAddress;
+        address newModuleAddress;
+        bytes32 newRuntimeCodeHash;
+    }
+
+    /// @notice Immutable plan reference; the plan ID binds its complete contents and evidence.
+    struct ModuleBundleUpdatePayload {
+        address planRegistry;
+        bytes32 planId;
     }
 
     struct LegislationEnactmentPayload {

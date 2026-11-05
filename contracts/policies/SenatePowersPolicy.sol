@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {ISenatePowersPolicy} from "../interfaces/ISenatePowersPolicy.sol";
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
@@ -52,6 +52,7 @@ contract SenatePowersPolicy is ISenatePowersPolicy {
     {
         return actionRecord.actionId != bytes32(0) && actionRecord.state == GovernanceTypes.ActionState.Queued
             && (actionRecord.actionType == GovernanceTypes.ActionType.ModulePointerUpdate
+                || actionRecord.actionType == GovernanceTypes.ActionType.ModuleBundleUpdate
                 || actionRecord.actionType == GovernanceTypes.ActionType.ModuleRegistration
                 || actionRecord.actionType == GovernanceTypes.ActionType.TreasuryBudgetApproval
                 || actionRecord.actionType == GovernanceTypes.ActionType.LegislationEnactment

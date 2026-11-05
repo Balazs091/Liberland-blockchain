@@ -69,7 +69,8 @@ Copy `.env.example` to `.env` and configure:
 - `MAINNET_RPC_URL`, `PRIVATE_KEY`, and `ETHERSCAN_API_KEY`;
 - the deployed `LLM_TOKEN`, which must use 18 decimals, expose an immutable `cap()` of exactly
   `70_000_000e18`, and be included in the treasury asset allowlist;
-- the deployed six-decimal `USDC_TOKEN` used by the launch lending pool;
+- canonical Ethereum L1 USDC, pinned to `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48` (6 decimals);
+  the optional legacy `USDC_TOKEN` environment entry must match;
 - all remaining treasury assets and per-payout limits;
 - a deployer LLM balance at least equal to the sum of all `GENESIS_CITIZEN_*_ACTIVE_STAKE` values;
 - at least seven eligible genesis citizens;
@@ -81,6 +82,26 @@ Copy `.env.example` to `.env` and configure:
 - all five independent `CIVIC_REVIEWER_0` through `CIVIC_REVIEWER_4` public addresses.
 
 Do not commit secrets or real genesis personal metadata to the repository.
+
+## Production LLM deployment
+
+The project now includes [LiberlandMerit](../contracts/tokens/LiberlandMerit.sol) and a separate
+[token deployment script](../scripts/DeployMerit.s.sol). The token has 18 decimals, the existing 70 million cap,
+and a fixed positive supply minted only in its constructor. There are no owner/minter/proxy/pause powers. Actual
+genesis supply and recipient await the user's allocation records. A smaller supply permanently forfeits unused
+capacity; staged issuance is not reserved through a hidden role.
+
+Before running that script, supply `LLM_GENESIS_RECIPIENT`, `LLM_GENESIS_SUPPLY` in base units, and
+`LLM_GENESIS_MANIFEST_HASH` for the reviewed allocation record. It rejects other chains and invalid inputs before
+broadcast. The output `deployments/ethereum-mainnet-merit.json` records constructor arguments and runtime hash;
+simulation output alone is not evidence of a successful deployment. Verify the broadcast receipt and exact runtime,
+then use that token address as `LLM_TOKEN` for protocol genesis. Recipient control must arrange the already-existing
+deployer backing requirement; the constructor does not assume that the deployer owns the allocation.
+
+The new restriction registry is deliberately absent from the standing production manifest until its authenticated
+writer, legal procedures and rights-policy bundle are integrated. This script remains the existing protocol
+deployment path, not a certificate that the proposal's collective procedures are complete. See
+[Production assets](Production-Assets.md) and [Phase A progress](phase-a/ENGINEERING-PROGRESS.md).
 
 During genesis, the script temporarily approves `LLMStakingVault`, pulls each citizen's configured stake from the deployer, credits the matching person ID, and clears the approval. Deployment reverts if the token transfer is short or aggregate backing would be insufficient.
 
@@ -110,7 +131,7 @@ See [Governance](Governance.md) before representing budget cancellation powers t
 
 Compile and test first:
 
-Use the pinned Solidity 0.8.37/Osaka build profile in `foundry.toml`; changing compiler or target settings requires
+Use the pinned Solidity 0.8.38/Osaka build profile in `foundry.toml`; changing compiler or target settings requires
 fresh bytecode, size and verification evidence.
 
 ```bash
@@ -180,6 +201,17 @@ The production script deploys the core governance, identity/stake (including `LL
 `ElectorateRegistry`), elections, referenda, Senate/public veto, bounded `DecisionApp`, treasury/offices,
 `MinistryTreasury`, land/company registries, and the stake-backed USDC lending stack. It does not deploy demo
 helpers, mock tokens, demo balances, or seeded demo workflows.
+
+Fresh deployments also install `ModuleUpgradePlanRegistry` as the kernel's `registry.module-upgrade-plan` State
+module. Permissionless publication stores an immutable plan and its review-evidence commitment; it grants no
+execution authority. Ordinary referendum governance, waiting periods and the timelock approve and execute an exact
+atomic bundle of dependent pointer replacements. Bundles validate the expected old addresses and replacement
+runtime hashes; they neither migrate storage nor replace the core router/timelock. Review each state migration
+separately. The preparation manifest exports `moduleUpgradePlanRegistry` and its runtime hash, plus the referendum
+app's immutable read-only `referendumProposalValidator` and its runtime hash. Verify both against mined code and
+check the registry's `kernel()` binding and the app's `proposalValidator()` getter before activation. The helper is
+part of that app's bytecode review, with no independent administrator or module pointer. See
+[Upgrade and liveness](Upgrade-And-Liveness.md) and [Recovery plan](Recovery-Plan.md).
 
 Live referendum and election creation after genesis uses the last completed block. It requires the selected
 `VotingPowerPolicy` to pin the current kernel electorate and calls

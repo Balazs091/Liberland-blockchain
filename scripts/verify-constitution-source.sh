@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repository_root="$(git rev-parse --show-toplevel)"
+repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source_path="$repository_root/docs/constitutional-sources/2024-09-24 Constitution.pdf"
 expected_sha256="a24e56a4077d3513d3467091bdd81ea445208d4f5d1cde207ba87effe076bee6"
 

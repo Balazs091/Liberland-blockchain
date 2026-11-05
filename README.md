@@ -1,151 +1,117 @@
 # Liberland EVM
 
-Liberland EVM is a constitution-aligned governance protocol in Solidity.
+Solidity contracts for Liberland governance, identity, staking, treasury, lending, company records and land records
+on Ethereum. Governance executes typed actions after the required votes and delays. Officers carry out their
+assigned identity, treasury and registration duties through separate permission checks.
 
-It is not a generic DAO and it must not rely on hidden super-admin powers, arbitrary execution helpers, or broad emergency backdoors.
+## Status
 
-## Current status
+The source is ready for implementation review. Mainnet launch still requires an independent audit, approved legal
+procedures, verified genesis and asset inputs, and operational sign-off. A separate recovery ballot is deferred.
 
-The implemented contract surface includes:
+The [comprehensive review](docs/Comprehensive-Review.md) records the 5 November code review and publication checks.
+[Toolchain Upgrade](docs/Toolchain-Upgrade.md) records the compiler and dependency update verified on 3 November.
+[Complexity Review](docs/Complexity-Review.md) records the earlier internal cleanup and its measurements.
+[Release Readiness](docs/Release-Readiness.md) records the audit handoff requirements and known limits.
+The [Phase A package](docs/phase-a/README.md) distinguishes implemented foundations from proposed legal workflows.
 
-- core governance lifecycle with a bounded action timelock
-- consent-based identity onboarding/migration, two-officer recovery, delayed civic changes, stake, and voting power
-- referenda, Tier 1/Tier 2 enactment after adoption delay, Senate cancellation, Senate active-referendum veto, Senate sub-legal repeal, direct-majority Senate voting without proxy substitution, and public veto flows
-- open Congress candidacy, deterministic recurring cycles, person-bound signed-allocation ballots, bounded resumable counting, runner-up succession, and zero-active-wallet seat recovery
-- treasury, Law-tier referendum-approved budget envelopes, office, and payout routing flows
-- an office-authorized, versioned land cadastre with stable legal-party IDs, dual-consent transfers, atomic parcel
-  operations, and a separate company registry with official directors, filings, and share ledgers
-- stake-backed USDC lending with stake liens, utilization-based interest, treasury reserves, and liquidation into active staked LLM
-- bounded Congress and ministry decisions for ERC20 movement, ministry clerk decisions, and LLM transfer-and-stake decisions
-- production initial setup authority for genesis citizens, Senate seats, Congress members, and offices, with a readiness check and permanent seal
-- canonical LLM staking custody with aggregate backing checks and checkpointed electorate aggregates and eligibility
-- process-pinned governance policies and last-completed-block stake/eligibility snapshots for live referenda and elections
-- exact-address module evolution through referenda and the timelock: state/policy/authority/extension changes use the
-  constitutional double threshold, including every router origin and the constitutional-review hook, while only
-  bounded non-origin apps use the ordinary module threshold
-- person-bound elected/executive authority that follows an approved active-wallet migration
-- person-bound candidacy that survives wallet migration without duplicate applications or ballot entries
-- a 70,000,000 LLM hard-cap requirement and evidence-backed, budgeted contribution rewards with no Treasury mint power
-- globally indexed lending debt, loan-start retained-stake floors, and office-and-pool-keyed ministry lending shares
-- Sepolia demo deployment script with seeded read-state and live onboarding helpers
+## Implemented contracts
 
-## Auditor orientation
+| Area | Current behavior |
+| --- | --- |
+| Governance | Referenda, constitutional double thresholds, adoption delays, typed enactment, Senate negative powers and public repeal petitions |
+| Elections and offices | Open Congress candidacy, signed allocation ballots, resumable counting, runner-up succession, President and Cabinet procedures |
+| Identity and stake | Consent-based onboarding and wallet migration, two-officer lost-key recovery, civic notices/appeals, one active wallet, backed LLM stake and historical electorate snapshots |
+| Treasury and decisions | Budget envelopes, office approvals, queued payouts and bounded Congress/ministry decisions with source consent |
+| Lending | Stake-backed USDC loans, indexed debt, retained stake floors, interest/reserves, liquidation and retired-book settlement |
+| Land and companies | Versioned land records, stable legal parties, dual-consent transfers, atomic parcel operations, company directors, filings and share ledgers |
+| Assets and new foundations | Fixed-supply `LiberlandMerit` with a 70-million cap and 18 decimals; independent membership-restriction records; immutable module-upgrade plans |
 
-- `docs/README.md`
-- `docs/Architecture.md`
-- `docs/Governance.md`
-- `docs/Upgrade-And-Liveness.md`
-- `docs/Protocol-Parameters.md`
-- `docs/Release-Readiness.md`
-- `docs/Audit-Scope.md`
-- `docs/Constitution-Alignment.md`
-- `docs/constitutional-sources/README.md`
-- `docs/Land-Cadastre.md`
-- `docs/User-Journeys.md`
-- the applicable network deployment guide under `docs/`
+Registries hold canonical records; replaceable policies evaluate them; applications coordinate workflows. The
+kernel, router and timelock form the permanent execution core. Elections and referenda retain their pinned policies
+and completed-block snapshots. Elected authority follows a person's active wallet.
 
-## Repository layout
+Related existing modules can change through one indivisible upgrade plan. A pointer change does not move records,
+assets or unfinished proceedings. Governance dependency failures and Senate/review deadlocks remain documented
+limits. See [Architecture](docs/Architecture.md) and [Upgrade and Liveness](docs/Upgrade-And-Liveness.md).
 
-```text
-contracts/
-  apps/
-  core/
-  interfaces/
-  libraries/
-  mocks/
-  policies/
-  registries/
-  types/
-docs/
-frontend-export/
-scripts/
-test/
-```
+Membership restrictions are not yet integrated into every eligibility policy. Collective admission, discipline and
+annulment procedures still need their approved rules and implementation; the staging controller uses synthetic data.
 
-## Tooling
+## Build and test
 
-- Solidity `0.8.37`
-- Foundry `1.7.1` for build, test, formatting, and scripts
-- Anvil for local execution
-- Slither `0.11.5` for static analysis
+Use Foundry **1.9.0**, Solidity **0.8.38**, Slither **0.11.6** and crytic-compile **0.4.2**.
+Dependencies are pinned to forge-std **1.17.0** and OpenZeppelin Contracts **5.7.0**.
+The deployable profile targets Osaka with optimizer 200 and no via-IR. Python verification tools require Python
+3.10 or later; CI uses Python 3.15.2 for Slither. Install the analyzer versions in a virtual environment.
+Python 3.15 installations need a C compiler to build the current `ckzg` dependency; CI uses GCC.
 
-Ensure the Foundry binaries are available on your `PATH` before running commands.
-
-After cloning, initialize submodules:
+After cloning:
 
 ```bash
 git submodule update --init --recursive
-```
-
-## Commands
-
-```bash
 forge fmt --check
 forge build --sizes
 forge test -vvv
-forge coverage --report summary --no-match-test test_Governance_OpenAdmissionFinalizes1000CandidatesInBoundedChunks
+python3 -m unittest discover -s scripts -p 'test_*.py'
+python3 -m unittest discover -s test/reference -p 'test_*.py'
+python3 scripts/check-repository-hygiene.py --history
 python3 scripts/check-docs.py --check-abis
 python3 scripts/check-slither-baseline.py
 ```
 
-The Slither helper prints the full unsuppressed report and requires fresh manual triage if severity counts or
-normalized finding identities change. The pinned constitutional PDF is verified by `scripts/verify-constitution-source.sh`. After the
-candidate commit exists, run the complete clean-tree gate with `bash scripts/audit-freeze-check.sh`.
+The hygiene check reports locations and categories without printing credential values. Its pattern scan does not
+cover every possible secret format. Slither runs without suppressions; changed counts or finding identities require
+manual review before updating the baseline.
 
-The coverage-only exclusion avoids the instrumentation budget of the 1,000-candidate setup; that stress test
-remains mandatory in the optimized full suite. Coverage exercises the same count path with 100 candidates.
+For coverage and the deeper stateful campaigns:
 
-## Deployment Outputs
+```bash
+forge coverage --report summary --no-match-test test_Governance_OpenAdmissionFinalizes1000CandidatesInBoundedChunks
+for invariant_seed in 0x709 0x110338 0x381; do
+  FOUNDRY_PROFILE=audit forge test --match-path 'test/invariant/*.t.sol' --fuzz-seed "$invariant_seed" -vvv
+done
+```
 
-Deployment scripts write generated address files under `deployments/`. Those files are ignored by Git because they are environment-specific and can become stale after contract changes.
+The 1,000-candidate stress test remains in the complete optimized suite. Coverage uses the 100-candidate fixture
+because instrumentation exceeds the larger fixture's test gas budget. Coverage warnings and branch gaps are recorded
+with the results. Foundry groups each contract's invariant predicates into one campaign. The audit profile runs
+three seeds, each at 256 runs × 256 calls across eight test contracts; all 24 predicates must pass in every seed.
+This retains the earlier number of handler calls across three seeds. Compare predicate coverage and handler calls
+when comparing results from different Foundry versions.
 
-Deployment parameters are network-specific and intentionally kept in separate manifests:
+For a frozen, clean Git commit, run `bash scripts/audit-freeze-check.sh`. It checks source/history hygiene, pinned
+dependencies, build/test/coverage/static results, ABI parity and working-tree cleanliness before and after the run.
+If a moved virtual environment leaves stale analyzer entrypoints, set `SLITHER_PYTHON` to that environment's Python
+executable for the baseline or freeze command. See [Auditor Handoff](docs/Auditor-Handoff.md).
 
-- `scripts/parameters/SepoliaDemoParameters.sol`: Sepolia demo, including 3-day Congress cycles
-- `scripts/parameters/EthereumMainnetParameters.sol`: Ethereum mainnet production, including seven Congress seats and 90-day cycles
+## Deployment profiles
 
-See `docs/Sepolia-Demo-Deployment.md` and `docs/Ethereum-Mainnet-Deployment.md` for operators. Frontend developers should start with `frontend-export/INTEGRATION-CHECKLIST.md` and `frontend-export/FRONTEND-HOWTO.md`.
+| Profile | Guide | Assets and authority |
+| --- | --- | --- |
+| Ethereum mainnet | [Production deployment](docs/Ethereum-Mainnet-Deployment.md) | Fixed-supply LLM, canonical L1 USDC, user-supplied genesis and sealed two-stage setup |
+| Governed Sepolia | [Governed staging](docs/Sepolia-Governed-Deployment.md) | Fixed-supply test LLM, mock USDC, controlled synthetic voters and real governed upgrade/rollback exercises |
+| Isolated Sepolia foundation | [Foundation test](docs/Sepolia-Foundation-Deployment.md) | Five-contract token/restriction fixture with three synthetic people and a test operator; no governance route |
+| Original Sepolia demo | [Demo deployment](docs/Sepolia-Demo-Deployment.md) | Public-mint mock assets, seeded state and live demo onboarding |
 
-For a public demo deployment, run `scripts/DeployDemo.s.sol`, then copy the generated `deployments/sepolia-demo.json` to `frontend-export/sepolia-demo.json` for the frontend handoff package.
-The [current public Sepolia deployment](docs/Sepolia-Demo-Deployment.md#current-public-deployment) records the
-8 September 2026 addresses, confirmed configuration and exact-versus-similar explorer verification status.
-In the current demo, `identityApp` and `demoCitizenGateway` intentionally resolve to the same deployed contract:
-`DemoCitizenGateway` inherits the standard `IdentityApp` workflows so the demo has one standing identity-registry
-writer.
+Mainnet setup has two invocations. Preparation seeds citizens, stake, Senate, President and offices. After confirmed
+seeding blocks, `completeGenesis(address)` installs the seven Congress incumbents and continuity cycle, activates
+standing writers, checks readiness, seals setup and retires bootstrap authority.
 
-Ethereum mainnet setup requires two invocations. `Deploy.run()` prepares contracts and seeds citizens, stake,
-Senate, President and offices, leaving Congress/referendum writers with setup and `genesisComplete: false`.
-After confirmed seeding blocks, `completeGenesis(address)` imports the seven incumbents and live continuity cycle,
-activates standing writers, checks readiness, seals setup and retires all bootstrap authorities. Only the completed,
-on-chain-verified `deployments/ethereum-mainnet.json` is suitable for a frontend.
+Scripts write generated manifests under `deployments/`. A simulation can also write these files. Use confirmed
+receipts and runtime/source checks before handing addresses to a frontend. Generated manifests are ignored by Git;
+tracked examples describe the configuration shape.
 
-Both network scripts deploy the bounded `DecisionApp`, `MinistryTreasury`, and lending stack. Production uses an
-explicit external six-decimal USDC address and the conservative fixed-price launch parameters; Sepolia uses mock
-assets and demo-only onboarding. See `docs/Audit-Scope.md` for the review boundary and
-`docs/Protocol-Parameters.md` for the current parameter table.
+The recorded public Sepolia deployment runs an earlier revision. Source edits do not change its bytecode.
+[Deployment records](docs/Sepolia-Demo-Deployment.md#recorded-public-deployment) identify that historical revision.
 
-The demo deployment is transaction-heavy and should be rehearsed against a Sepolia-compatible local node or fork before using a rate-limited public RPC.
+## Repository and review guides
 
-The source is an audit candidate, not mainnet-approved. The approved civic appeal, two-officer Finance and direct-majority
-Senate rules are implemented. Independent external review, verified deployment inputs and production-state fork/migration
-rehearsal remain launch requirements. See `docs/Governance.md`.
+Contracts are under `contracts/apps`, `core`, `interfaces`, `libraries`, `policies`, `registries`, `tokens` and `types`.
+`contracts/mocks` contains test/demo code. Tests, reference models and invariant handlers are under `test`.
+`scripts` contains deployment and verification tools; `frontend-export` contains compiled ABI exports and examples.
 
-Non-Core pointers are replaceable, but recovery is conditional on working governance dependencies. The current
-political routes deliberately retain sole-referendum-path and cross-hook-veto deadlock risks; there is no general
-record/custody migration executor. Supported same-ledger LLM handoff and retired-loan settlement are narrow paths,
-not an absolute no-freeze guarantee. See [Upgrade and Liveness](docs/Upgrade-And-Liveness.md).
-
-Start an independent review with [Auditor Handoff](docs/Auditor-Handoff.md).
-
-The current source uses Solidity 0.8.37. [Compiler Upgrade](docs/Compiler-Upgrade.md) records the measured
-historical compiler-only comparison. The local source also contains subsequent implementation hardening;
-neither set of changes is deployed by editing the source. Existing Sepolia addresses still run the recorded 0.8.36
-revision. Current checks and improvements are in [Release Readiness](docs/Release-Readiness.md).
-
-Ordinary voting thresholds and the existing PM/decision rules are retained, including their low-turnout and
-vacancy limits. Budget approval records an envelope, not a repealable law-registry entry: ordinary law repeal does
-not revoke that spending authority. See [Governance](docs/Governance.md).
-
-Repository documentation is audit orientation, not an audit verdict. Revision-specific test, coverage, static
-analysis, and runtime-size evidence belongs in `docs/Release-Readiness.md` and must be refreshed before the
-external-audit handoff.
+Start with [Auditor Handoff](docs/Auditor-Handoff.md), [Audit Scope](docs/Audit-Scope.md) and the
+[documentation index](docs/README.md). Frontend work starts with the
+[integration checklist](frontend-export/INTEGRATION-CHECKLIST.md) and [frontend guide](frontend-export/FRONTEND-HOWTO.md).
+The [constitutional source](docs/constitutional-sources/README.md) has its own hash check.

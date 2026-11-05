@@ -1,18 +1,16 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 import {IGovernanceRouter} from "../interfaces/IGovernanceRouter.sol";
-import {ICongressElectionPolicy} from "../interfaces/ICongressElectionPolicy.sol";
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
-import {ITreasurySpendingPolicy} from "../interfaces/ITreasurySpendingPolicy.sol";
-import {IBudgetEnvelopeRegistry} from "../interfaces/IBudgetEnvelopeRegistry.sol";
 import {IElectorateRegistry} from "../interfaces/IElectorateRegistry.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
 import {ILegislationRegistry} from "../interfaces/ILegislationRegistry.sol";
 import {IReferendumApp} from "../interfaces/IReferendumApp.sol";
+import {ReferendumProposalValidator} from "../policies/ReferendumProposalValidator.sol";
 import {IReferendumPolicy} from "../interfaces/IReferendumPolicy.sol";
 import {IReferendumRegistry} from "../interfaces/IReferendumRegistry.sol";
 import {BoundedGovernanceHook} from "../libraries/BoundedGovernanceHook.sol";
@@ -37,6 +35,7 @@ contract ReferendumApp is IReferendumApp {
     ILegislationRegistry private immutable _legislationRegistry;
     IReferendumRegistry private immutable _referendumRegistry;
     IGovernanceRouter private immutable _governanceRouter;
+    ReferendumProposalValidator private immutable _proposalValidator;
 
     /// @param identityRegistryAddress The identity registry used to resolve citizen proposer references.
     /// @param legislationRegistryAddress The legislation registry used for successful enactment records.
@@ -75,6 +74,7 @@ contract ReferendumApp is IReferendumApp {
         _legislationRegistry = ILegislationRegistry(legislationRegistryAddress);
         _referendumRegistry = IReferendumRegistry(referendumRegistryAddress);
         _governanceRouter = IGovernanceRouter(governanceRouterAddress);
+        _proposalValidator = new ReferendumProposalValidator(legislationRegistryAddress, governanceRouterAddress);
     }
 
     /// @inheritdoc IReferendumApp
@@ -151,7 +151,9 @@ contract ReferendumApp is IReferendumApp {
         ReferendumTypes.ModuleGovernanceProposal calldata proposal,
         bytes32 proposerReference
     ) external pure returns (bytes32 referendumId) {
-        return _previewModuleGovernanceReferendumId(proposalOrigin, proposal, proposerReference);
+        return _previewModuleGovernanceReferendumId(
+            proposalOrigin, proposal, proposerReference, ReferendumTypes.ReferendumClass.ModuleGovernance
+        );
     }
 
     /// @inheritdoc IReferendumApp
@@ -216,7 +218,7 @@ contract ReferendumApp is IReferendumApp {
             proposal.emergency,
             proposalOrigin
         );
-        _validateBudgetProposal(proposal);
+        _proposalValidator.validateBudget(proposal);
 
         bytes32 proposerReference = _resolveProposerReference(proposalOrigin);
         referendumId = _previewBudgetApprovalReferendumId(proposal, proposerReference);
@@ -228,7 +230,9 @@ contract ReferendumApp is IReferendumApp {
         external
         returns (bytes32 referendumId)
     {
-        return _createModuleGovernanceReferendum(proposal, ReferendumTypes.ProposalOrigin.Citizen);
+        return _createModuleGovernanceReferendum(
+            proposal, ReferendumTypes.ProposalOrigin.Citizen, ReferendumTypes.ReferendumClass.ModuleGovernance
+        );
     }
 
     /// @inheritdoc IReferendumApp
@@ -236,7 +240,66 @@ contract ReferendumApp is IReferendumApp {
         external
         returns (bytes32 referendumId)
     {
-        return _createModuleGovernanceReferendum(proposal, ReferendumTypes.ProposalOrigin.Congress);
+        return _createModuleGovernanceReferendum(
+            proposal, ReferendumTypes.ProposalOrigin.Congress, ReferendumTypes.ReferendumClass.ModuleGovernance
+        );
+    }
+
+    /// @inheritdoc IReferendumApp
+    function proposalValidator() external view returns (address validator) {
+        return address(_proposalValidator);
+    }
+
+    /// @inheritdoc IReferendumApp
+    function previewModuleBundleReferendumId(
+        ReferendumTypes.ProposalOrigin origin,
+        ReferendumTypes.ModuleBundleProposal calldata proposal,
+        bytes32 proposerReference
+    ) external pure returns (bytes32 referendumId) {
+        return _previewModuleGovernanceReferendumId(
+            origin, _bundleProposal(proposal), proposerReference, ReferendumTypes.ReferendumClass.ModuleBundle
+        );
+    }
+
+    /// @inheritdoc IReferendumApp
+    function createCitizenModuleBundleReferendum(ReferendumTypes.ModuleBundleProposal calldata proposal)
+        external
+        returns (bytes32 referendumId)
+    {
+        return _createModuleGovernanceReferendum(
+            _bundleProposal(proposal),
+            ReferendumTypes.ProposalOrigin.Citizen,
+            ReferendumTypes.ReferendumClass.ModuleBundle
+        );
+    }
+
+    /// @inheritdoc IReferendumApp
+    function createCongressModuleBundleReferendum(ReferendumTypes.ModuleBundleProposal calldata proposal)
+        external
+        returns (bytes32 referendumId)
+    {
+        return _createModuleGovernanceReferendum(
+            _bundleProposal(proposal),
+            ReferendumTypes.ProposalOrigin.Congress,
+            ReferendumTypes.ReferendumClass.ModuleBundle
+        );
+    }
+
+    function _bundleProposal(ReferendumTypes.ModuleBundleProposal calldata proposal)
+        private
+        pure
+        returns (ReferendumTypes.ModuleGovernanceProposal memory mapped)
+    {
+        return ReferendumTypes.ModuleGovernanceProposal({
+            proposalMetadataHash: proposal.proposalMetadataHash,
+            proposalId: proposal.planId,
+            targetModule: KernelModuleIds.ACTION_TIMELOCK,
+            newModuleAddress: proposal.planRegistry,
+            registerNewModule: false,
+            startTime: proposal.startTime,
+            endTime: proposal.endTime,
+            adoptionDelay: proposal.adoptionDelay
+        });
     }
 
     /// @inheritdoc IReferendumApp
@@ -335,7 +398,10 @@ contract ReferendumApp is IReferendumApp {
             enactedMeasureId = referendumRecord.proposedMeasureId;
             if (referendumRecord.referendumClass == ReferendumTypes.ReferendumClass.CongressElectionPolicy) {
                 enactmentActionId = _queueCongressElectionPolicyUpdate(referendumId, referendumRecord);
-            } else if (referendumRecord.referendumClass == ReferendumTypes.ReferendumClass.ModuleGovernance) {
+            } else if (
+                referendumRecord.referendumClass == ReferendumTypes.ReferendumClass.ModuleGovernance
+                    || referendumRecord.referendumClass == ReferendumTypes.ReferendumClass.ModuleBundle
+            ) {
                 enactmentActionId = _queueModuleGovernance(referendumId, referendumRecord);
             } else if (referendumRecord.referendumClass == ReferendumTypes.ReferendumClass.BudgetApproval) {
                 enactmentActionId = _queueBudgetApproval(referendumId, referendumRecord);
@@ -410,7 +476,7 @@ contract ReferendumApp is IReferendumApp {
             proposal.emergency,
             proposalOrigin
         );
-        _validateProposalTargets(referendumClass, proposal);
+        _proposalValidator.validateLegislation(referendumClass, proposal);
 
         bytes32 proposerReference = _resolveProposerReference(proposalOrigin);
         referendumId = _previewReferendumId(referendumClass, proposalOrigin, proposal, proposerReference);
@@ -432,7 +498,7 @@ contract ReferendumApp is IReferendumApp {
             false,
             proposalOrigin
         );
-        _validateProposedCongressElectionPolicy(proposal.newPolicy);
+        _proposalValidator.validateElectionPolicy(proposal.newPolicy);
 
         bytes32 proposerReference = _resolveProposerReference(proposalOrigin);
         referendumId = _previewCongressElectionPolicyReferendumId(proposalOrigin, proposal, proposerReference);
@@ -440,20 +506,27 @@ contract ReferendumApp is IReferendumApp {
     }
 
     function _createModuleGovernanceReferendum(
-        ReferendumTypes.ModuleGovernanceProposal calldata proposal,
-        ReferendumTypes.ProposalOrigin proposalOrigin
+        ReferendumTypes.ModuleGovernanceProposal memory proposal,
+        ReferendumTypes.ProposalOrigin proposalOrigin,
+        ReferendumTypes.ReferendumClass referendumClass
     ) private returns (bytes32 referendumId) {
-        ReferendumTypes.ReferendumClass referendumClass = ReferendumTypes.ReferendumClass.ModuleGovernance;
         _authorizeProposalAndCollectFee(referendumClass, proposalOrigin);
 
         _validateReferendumSchedule(
             referendumClass, proposal.startTime, proposal.endTime, proposal.adoptionDelay, false, proposalOrigin
         );
-        _validateModuleGovernanceProposal(proposal);
+        if (referendumClass == ReferendumTypes.ReferendumClass.ModuleBundle) {
+            _proposalValidator.validateBundle(proposal);
+        } else {
+            _proposalValidator.validateModule(proposal);
+        }
 
         bytes32 proposerReference = _resolveProposerReference(proposalOrigin);
-        referendumId = _previewModuleGovernanceReferendumId(proposalOrigin, proposal, proposerReference);
-        _storeModuleGovernanceReferendumProposal(referendumId, proposalOrigin, proposal, proposerReference);
+        referendumId =
+            _previewModuleGovernanceReferendumId(proposalOrigin, proposal, proposerReference, referendumClass);
+        _storeModuleGovernanceReferendumProposal(
+            referendumId, proposalOrigin, proposal, proposerReference, referendumClass
+        );
     }
 
     function _validateReferendumSchedule(
@@ -464,14 +537,14 @@ contract ReferendumApp is IReferendumApp {
         bool emergency,
         ReferendumTypes.ProposalOrigin proposalOrigin
     ) private view {
-        uint64 minimumDuration = emergency
-            ? _currentReferendumPolicy().emergencyVotingDuration()
-            : _currentReferendumPolicy().minimumVotingDuration();
+        IReferendumPolicy policy = _currentReferendumPolicy();
+        uint64 minimumDuration = emergency ? policy.emergencyVotingDuration() : policy.minimumVotingDuration();
         if (startTime < block.timestamp || endTime <= startTime || endTime - startTime < minimumDuration) {
             revert InvalidVotingWindow(startTime, endTime, minimumDuration);
         }
-        if (adoptionDelay > _currentReferendumPolicy().maximumAdoptionDelay()) {
-            revert InvalidAdoptionDelay(adoptionDelay, _currentReferendumPolicy().maximumAdoptionDelay());
+        uint64 maximumDelay = policy.maximumAdoptionDelay();
+        if (adoptionDelay > maximumDelay) {
+            revert InvalidAdoptionDelay(adoptionDelay, maximumDelay);
         }
         if (emergency) {
             if (referendumClass == ReferendumTypes.ReferendumClass.ConstitutionalAmendment) {
@@ -483,64 +556,11 @@ contract ReferendumApp is IReferendumApp {
 
             return;
         }
-        if (
-            proposalOrigin == ReferendumTypes.ProposalOrigin.Citizen
-                && adoptionDelay != _currentReferendumPolicy().standardAdoptionDelay()
-        ) {
-            revert InvalidAdoptionDelay(adoptionDelay, _currentReferendumPolicy().standardAdoptionDelay());
-        }
-    }
-
-    function _validateProposalTargets(
-        ReferendumTypes.ReferendumClass referendumClass,
-        ReferendumTypes.LegislationProposal calldata proposal
-    ) private view {
-        if (
-            referendumClass == ReferendumTypes.ReferendumClass.ConstitutionalAmendment
-                && !LegislationTypes.isConstitutionalTier(proposal.legislationTier)
-        ) {
-            revert InvalidLegislationTier(uint8(proposal.legislationTier));
-        }
-        if (
-            referendumClass == ReferendumTypes.ReferendumClass.Legislation
-                && !LegislationTypes.isLawTier(proposal.legislationTier)
-        ) {
-            revert InvalidLegislationTier(uint8(proposal.legislationTier));
-        }
-        if (proposal.amendsMeasureId != bytes32(0) && !_legislationRegistry.legislationExists(proposal.amendsMeasureId))
-        {
-            revert UnknownAmendmentTarget(proposal.amendsMeasureId);
-        }
-        if (_legislationRegistry.legislationExists(proposal.proposedMeasureId)) {
-            revert MeasureAlreadyEnacted(proposal.proposedMeasureId);
-        }
-    }
-
-    function _validateModuleGovernanceProposal(ReferendumTypes.ModuleGovernanceProposal calldata proposal)
-        private
-        view
-    {
-        // Core execution modules (governance-router, action-timelock) are intentionally NOT repointable through a
-        // referendum at any threshold: they are the trust root that enforces the timelock and origin routing, so
-        // live-swapping either one would let a single passing proposal bypass every downstream safeguard it is meant
-        // to gate. Authorities (including router-origin and constitutional-review modules), policies, state-bearing
-        // modules, and unclassified extension IDs require the constitutional supermajority; bounded application
-        // pointers without protocol-wide routing or review powers use the ordinary threshold. The kernel cannot verify
-        // state continuity, so state-bearing replacements additionally require an audited migration plan.
-        if (
-            proposal.targetModule == bytes32(0) || proposal.newModuleAddress == address(0)
-                || proposal.newModuleAddress.code.length == 0 || _isCoreModule(proposal.targetModule)
-        ) {
-            revert InvalidModuleGovernanceProposal(
-                proposal.targetModule, proposal.newModuleAddress, proposal.registerNewModule
-            );
-        }
-
-        bool moduleActive = _isActiveModule(proposal.targetModule);
-        if (proposal.registerNewModule == moduleActive) {
-            revert InvalidModuleGovernanceProposal(
-                proposal.targetModule, proposal.newModuleAddress, proposal.registerNewModule
-            );
+        if (proposalOrigin == ReferendumTypes.ProposalOrigin.Citizen) {
+            uint64 standardDelay = policy.standardAdoptionDelay();
+            if (adoptionDelay != standardDelay) {
+                revert InvalidAdoptionDelay(adoptionDelay, standardDelay);
+            }
         }
     }
 
@@ -688,12 +708,14 @@ contract ReferendumApp is IReferendumApp {
     function _storeModuleGovernanceReferendumProposal(
         bytes32 referendumId,
         ReferendumTypes.ProposalOrigin proposalOrigin,
-        ReferendumTypes.ModuleGovernanceProposal calldata proposal,
-        bytes32 proposerReference
+        ReferendumTypes.ModuleGovernanceProposal memory proposal,
+        bytes32 proposerReference,
+        ReferendumTypes.ReferendumClass referendumClass
     ) private {
         // Repointing a rule-defining module (authority/policy/registry) must clear the constitutional
         // double-threshold, so it takes the same electorate snapshot amendments take at creation.
-        bool requiresSupermajority = _requiresGovernanceSupermajority(proposal.targetModule);
+        bool requiresSupermajority = referendumClass == ReferendumTypes.ReferendumClass.ModuleBundle
+            || _requiresGovernanceSupermajority(proposal.targetModule);
         uint48 votingPowerSnapshotBlock = _lastCompletedBlock();
         (uint256 snapshotHeadcount, uint256 snapshotVotingPower) = _electorateSnapshotAt(votingPowerSnapshotBlock);
         if (!requiresSupermajority) {
@@ -702,7 +724,7 @@ contract ReferendumApp is IReferendumApp {
         }
 
         ReferendumTypes.ReferendumRecordInput memory referendumInput = ReferendumTypes.ReferendumRecordInput({
-            referendumClass: ReferendumTypes.ReferendumClass.ModuleGovernance,
+            referendumClass: referendumClass,
             proposalOrigin: proposalOrigin,
             proposalMetadataHash: proposal.proposalMetadataHash,
             proposedMeasureId: proposal.proposalId,
@@ -806,12 +828,13 @@ contract ReferendumApp is IReferendumApp {
 
     function _previewModuleGovernanceReferendumId(
         ReferendumTypes.ProposalOrigin proposalOrigin,
-        ReferendumTypes.ModuleGovernanceProposal calldata proposal,
-        bytes32 proposerReference
+        ReferendumTypes.ModuleGovernanceProposal memory proposal,
+        bytes32 proposerReference,
+        ReferendumTypes.ReferendumClass referendumClass
     ) private pure returns (bytes32 referendumId) {
         return keccak256(
             abi.encode(
-                ReferendumTypes.ReferendumClass.ModuleGovernance,
+                referendumClass,
                 proposalOrigin,
                 proposal.proposalMetadataHash,
                 proposal.proposalId,
@@ -841,18 +864,13 @@ contract ReferendumApp is IReferendumApp {
                 amendsMeasureId: referendumRecord.amendsMeasureId
             });
 
-        GovernanceTypes.ActionRequest memory request = GovernanceTypes.ActionRequest({
-            actionType: GovernanceTypes.ActionType.LegislationEnactment,
-            origin: GovernanceTypes.ActionOrigin.Referendum,
-            originReference: referendumId,
-            policyReference: _policyReference(referendumRecord),
-            targetModule: KernelModuleIds.LEGISLATION_REGISTRY,
-            payload: abi.encode(payload),
-            requestedExecutionTime: _requestedExecutionTime(referendumId, referendumRecord),
-            expiresAt: 0
-        });
-
-        actionId = _governanceRouter.routeAction(request);
+        return _routeReferendumAction(
+            referendumId,
+            referendumRecord,
+            GovernanceTypes.ActionType.LegislationEnactment,
+            KernelModuleIds.LEGISLATION_REGISTRY,
+            abi.encode(payload)
+        );
     }
 
     function _queueCongressElectionPolicyUpdate(
@@ -862,41 +880,35 @@ contract ReferendumApp is IReferendumApp {
         GovernanceTypes.ModuleUpdatePayload memory payload =
             GovernanceTypes.ModuleUpdatePayload({newModuleAddress: referendumRecord.proposedModuleAddress});
 
-        GovernanceTypes.ActionRequest memory request = GovernanceTypes.ActionRequest({
-            actionType: GovernanceTypes.ActionType.ModulePointerUpdate,
-            origin: GovernanceTypes.ActionOrigin.Referendum,
-            originReference: referendumId,
-            policyReference: _policyReference(referendumRecord),
-            targetModule: referendumRecord.targetModule,
-            payload: abi.encode(payload),
-            requestedExecutionTime: _requestedExecutionTime(referendumId, referendumRecord),
-            expiresAt: 0
-        });
-
-        actionId = _governanceRouter.routeAction(request);
+        return _routeReferendumAction(
+            referendumId,
+            referendumRecord,
+            GovernanceTypes.ActionType.ModulePointerUpdate,
+            referendumRecord.targetModule,
+            abi.encode(payload)
+        );
     }
 
     function _queueModuleGovernance(bytes32 referendumId, ReferendumTypes.ReferendumRecord memory referendumRecord)
         private
         returns (bytes32 actionId)
     {
-        GovernanceTypes.ModuleUpdatePayload memory payload =
-            GovernanceTypes.ModuleUpdatePayload({newModuleAddress: referendumRecord.proposedModuleAddress});
+        bool bundle = referendumRecord.referendumClass == ReferendumTypes.ReferendumClass.ModuleBundle;
+        bytes memory payload = bundle
+            ? abi.encode(
+                GovernanceTypes.ModuleBundleUpdatePayload(
+                    referendumRecord.proposedModuleAddress, referendumRecord.proposedMeasureId
+                )
+            )
+            : abi.encode(GovernanceTypes.ModuleUpdatePayload(referendumRecord.proposedModuleAddress));
 
-        GovernanceTypes.ActionRequest memory request = GovernanceTypes.ActionRequest({
-            actionType: referendumRecord.registerNewModule
+        GovernanceTypes.ActionType actionType = bundle
+            ? GovernanceTypes.ActionType.ModuleBundleUpdate
+            : referendumRecord.registerNewModule
                 ? GovernanceTypes.ActionType.ModuleRegistration
-                : GovernanceTypes.ActionType.ModulePointerUpdate,
-            origin: GovernanceTypes.ActionOrigin.Referendum,
-            originReference: referendumId,
-            policyReference: _policyReference(referendumRecord),
-            targetModule: referendumRecord.targetModule,
-            payload: abi.encode(payload),
-            requestedExecutionTime: _requestedExecutionTime(referendumId, referendumRecord),
-            expiresAt: 0
-        });
-
-        actionId = _governanceRouter.routeAction(request);
+                : GovernanceTypes.ActionType.ModulePointerUpdate;
+        return
+            _routeReferendumAction(referendumId, referendumRecord, actionType, referendumRecord.targetModule, payload);
     }
 
     function _queueBudgetApproval(bytes32 referendumId, ReferendumTypes.ReferendumRecord memory referendumRecord)
@@ -906,13 +918,31 @@ contract ReferendumApp is IReferendumApp {
         GovernanceTypes.TreasuryBudgetApprovalPayload memory payload =
             _budgetApprovalPayload(referendumId, referendumRecord);
 
+        return _routeReferendumAction(
+            referendumId,
+            referendumRecord,
+            GovernanceTypes.ActionType.TreasuryBudgetApproval,
+            KernelModuleIds.BUDGET_ENVELOPE_REGISTRY,
+            abi.encode(payload)
+        );
+    }
+
+    /// @dev The typed callers above select the target and payload. Keep the common origin, pinned policy,
+    ///      adoption deadline and expiry convention together; the router/timelock still validate every action.
+    function _routeReferendumAction(
+        bytes32 referendumId,
+        ReferendumTypes.ReferendumRecord memory referendumRecord,
+        GovernanceTypes.ActionType actionType,
+        bytes32 targetModule,
+        bytes memory payload
+    ) private returns (bytes32 actionId) {
         GovernanceTypes.ActionRequest memory request = GovernanceTypes.ActionRequest({
-            actionType: GovernanceTypes.ActionType.TreasuryBudgetApproval,
+            actionType: actionType,
             origin: GovernanceTypes.ActionOrigin.Referendum,
             originReference: referendumId,
             policyReference: _policyReference(referendumRecord),
-            targetModule: KernelModuleIds.BUDGET_ENVELOPE_REGISTRY,
-            payload: abi.encode(payload),
+            targetModule: targetModule,
+            payload: payload,
             requestedExecutionTime: _requestedExecutionTime(referendumId, referendumRecord),
             expiresAt: 0
         });
@@ -989,25 +1019,6 @@ contract ReferendumApp is IReferendumApp {
         return referendumRecord.endTime + _referendumRegistry.adoptionDelayOf(referendumId);
     }
 
-    function _validateBudgetProposal(ReferendumTypes.BudgetApprovalProposal calldata proposal) private view {
-        IConstitutionKernel kernel = IConstitutionKernel(_governanceRouter.kernel());
-        if (
-            proposal.budgetId == bytes32(0) || proposal.budgetLawTextHash == bytes32(0)
-                || proposal.budget.officeId == bytes32(0)
-                || proposal.budget.disbursementType == TreasuryTypes.DisbursementType.Undefined
-                || proposal.budget.asset == address(0) || proposal.budget.asset.code.length == 0
-                || proposal.budget.allocatedAmount == 0 || proposal.budget.endsAt <= proposal.budget.startsAt
-                || IBudgetEnvelopeRegistry(kernel.getModule(KernelModuleIds.BUDGET_ENVELOPE_REGISTRY))
-                    .budgetExists(proposal.budgetId)
-                // Fail fast: an asset the spending policy does not allow would produce an approved-but-unspendable
-                // budget (payouts require ITreasurySpendingPolicy.isAssetAllowed). Best-effort at creation time.
-                || !ITreasurySpendingPolicy(kernel.getModule(KernelModuleIds.TREASURY_SPENDING_POLICY))
-                    .isAssetAllowed(proposal.budget.asset)
-        ) {
-            revert InvalidBudgetProposal(proposal.budgetId);
-        }
-    }
-
     function _requireNoPendingSenateVeto(bytes32 referendumId, ReferendumTypes.ReferendumRecord memory referendumRecord)
         private
         view
@@ -1046,27 +1057,6 @@ contract ReferendumApp is IReferendumApp {
             && referendumRecord.targetModule == KernelModuleIds.SENATE_APP;
     }
 
-    function _validateProposedCongressElectionPolicy(address newPolicyAddress) private view {
-        if (newPolicyAddress == address(0) || newPolicyAddress.code.length == 0) {
-            revert InvalidProposedCongressElectionPolicy(newPolicyAddress);
-        }
-
-        address currentPolicyAddress =
-            IConstitutionKernel(_governanceRouter.kernel()).getModule(KernelModuleIds.CONGRESS_ELECTION_POLICY);
-        ICongressElectionPolicy currentPolicy = ICongressElectionPolicy(currentPolicyAddress);
-        ICongressElectionPolicy newPolicy = ICongressElectionPolicy(newPolicyAddress);
-
-        bool sameNonTimingRules = newPolicy.candidateEligibilityPolicy() == currentPolicy.candidateEligibilityPolicy()
-            && newPolicy.votingPowerPolicy() == currentPolicy.votingPowerPolicy()
-            && newPolicy.seatCount() == currentPolicy.seatCount()
-            && newPolicy.runnerUpCount() == currentPolicy.runnerUpCount()
-            && newPolicy.maxCandidateCount() == currentPolicy.maxCandidateCount()
-            && newPolicy.candidateBondRequirement() == currentPolicy.candidateBondRequirement();
-        if (!sameNonTimingRules) {
-            revert InvalidProposedCongressElectionPolicy(newPolicyAddress);
-        }
-    }
-
     function _isActiveModule(bytes32 moduleId) private view returns (bool active) {
         try IConstitutionKernel(_governanceRouter.kernel()).getModuleRecord(moduleId) returns (
             GovernanceTypes.ModuleRecord memory moduleRecord
@@ -1076,10 +1066,6 @@ contract ReferendumApp is IReferendumApp {
         } catch {
             return false;
         }
-    }
-
-    function _isCoreModule(bytes32 moduleId) private pure returns (bool coreModule) {
-        return moduleId == KernelModuleIds.GOVERNANCE_ROUTER || moduleId == KernelModuleIds.ACTION_TIMELOCK;
     }
 
     function _currentReferendumPolicy() private view returns (IReferendumPolicy policy) {
@@ -1106,7 +1092,7 @@ contract ReferendumApp is IReferendumApp {
     /// @dev Policy, authority (including router-origin and constitutional-review modules), state-bearing, and
     ///      unclassified modules use the constitutional threshold. Bounded applications without protocol-wide routing
     ///      or review powers use the ordinary threshold. Core `governance-router` and `action-timelock` are blocked
-    ///      upstream in `_validateModuleGovernanceProposal` and never reach here. The dedicated Congress-election-policy
+    ///      upstream in `ReferendumProposalValidator.validateModule` and never reach here. The dedicated Congress-election-policy
     ///      referendum also requires the constitutional threshold: matching metadata cannot constrain bytecode.
     /// @param moduleId The target module identifier being repointed or registered.
     /// @return requiresSupermajority Whether the repoint must clear the constitutional double-threshold.

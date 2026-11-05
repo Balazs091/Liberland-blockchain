@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {Test} from "forge-std/Test.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
@@ -9,12 +9,16 @@ import {ICivicAppealReview} from "../../contracts/interfaces/ICivicAppealReview.
 import {Deploy} from "../../scripts/Deploy.s.sol";
 import {ITreasurySpendingPolicy} from "../../contracts/interfaces/ITreasurySpendingPolicy.sol";
 import {LLMToken} from "../../contracts/mocks/LLMToken.sol";
+import {LiberlandMerit} from "../../contracts/tokens/LiberlandMerit.sol";
+import {EthereumMainnetParameters} from "../../scripts/parameters/EthereumMainnetParameters.sol";
 import {MockUSDC} from "../../contracts/mocks/MockUSDC.sol";
 import {IConstitutionKernel} from "../../contracts/interfaces/IConstitutionKernel.sol";
 import {KernelModuleIds} from "../../contracts/libraries/KernelModuleIds.sol";
 import {IdentityTypes} from "../../contracts/types/IdentityTypes.sol";
 import {ElectionTypes} from "../../contracts/types/ElectionTypes.sol";
 import {OfficeTypes} from "../../contracts/types/OfficeTypes.sol";
+import {ModuleUpgradePlanRegistry} from "../../contracts/registries/ModuleUpgradePlanRegistry.sol";
+import {ReferendumApp} from "../../contracts/apps/ReferendumApp.sol";
 
 contract ConfigurableCapLlmToken is ERC20 {
     uint256 public immutable cap;
@@ -37,6 +41,11 @@ contract DeployGenesisHarness is Deploy {
         _validateUsdcToken();
     }
 
+    function loadProductionTokensForTest() external returns (address llm, address usdc) {
+        _loadProductionTokens();
+        return (_llmTokenAddress, _usdcTokenAddress);
+    }
+
     function deployForTest() external {
         address deployer = address(this);
 
@@ -47,9 +56,10 @@ contract DeployGenesisHarness is Deploy {
         _civicReviewers = [address(0xA001), address(0xA002), address(0xA003), address(0xA004), address(0xA005)];
 
         // System money is ERC20: genesis wiring needs a deployed LLM token plus the treasury spending asset set.
-        _llmTokenAddress = address(new LLMToken());
-        LLMToken(_llmTokenAddress).mint(address(this), 100_000 * 1e18);
-        address usdcToken = address(new MockUSDC());
+        _llmTokenAddress = address(new LiberlandMerit(address(this), 100_000 * 1e18));
+        // Local test double at the canonical address; this is not a mainnet USDC fork or code attestation.
+        vm.etch(EthereumMainnetParameters.USDC_TOKEN, address(new MockUSDC()).code);
+        address usdcToken = EthereumMainnetParameters.USDC_TOKEN;
         _usdcTokenAddress = usdcToken;
         _treasuryAssetLimits.push(
             ITreasurySpendingPolicy.AssetSpendingLimit({
@@ -164,6 +174,10 @@ contract DeployGenesisHarness is Deploy {
         return address(_initialSetupAuthority);
     }
 
+    function snapshotForTest() external view returns (Deployment memory) {
+        return _snapshot(address(this));
+    }
+
     function productionLaunchModules()
         external
         view
@@ -240,8 +254,35 @@ contract DeployGenesisTest is Test {
         DeployGenesisHarness harness = new DeployGenesisHarness();
         LLMToken eighteenDecimalToken = new LLMToken();
 
+        vm.etch(EthereumMainnetParameters.USDC_TOKEN, address(eighteenDecimalToken).code);
         vm.expectRevert("USDC token must use 6 decimals");
-        harness.validateUsdcTokenForTest(address(eighteenDecimalToken));
+        harness.validateUsdcTokenForTest(EthereumMainnetParameters.USDC_TOKEN);
+    }
+
+    function test_ProductionValidationRejectsSixDecimalUsdcLookalike() public {
+        DeployGenesisHarness harness = new DeployGenesisHarness();
+        MockUSDC lookalike = new MockUSDC();
+        vm.expectRevert("USDC_TOKEN must be canonical Ethereum USDC");
+        harness.validateUsdcTokenForTest(address(lookalike));
+    }
+
+    function test_ProductionTokenPreflightPinsUsdcAndRejectsInvalidConfiguration() public {
+        DeployGenesisHarness harness = new DeployGenesisHarness();
+        LiberlandMerit merit = new LiberlandMerit(address(this), 100_000 * 1e18);
+        // Forge's environment is process-global; mutation cases run sequentially to avoid cross-test races.
+        vm.setEnv("LLM_TOKEN", vm.toString(address(merit)));
+        vm.setEnv("USDC_TOKEN", vm.toString(EthereumMainnetParameters.USDC_TOKEN));
+        vm.etch(EthereumMainnetParameters.USDC_TOKEN, address(new MockUSDC()).code);
+        (address llm, address usdc) = harness.loadProductionTokensForTest();
+        assertEq(llm, address(merit));
+        assertEq(usdc, EthereumMainnetParameters.USDC_TOKEN);
+        vm.setEnv("USDC_TOKEN", vm.toString(address(new MockUSDC())));
+        vm.expectRevert("USDC_TOKEN must be canonical Ethereum USDC");
+        harness.loadProductionTokensForTest();
+        vm.setEnv("USDC_TOKEN", vm.toString(EthereumMainnetParameters.USDC_TOKEN));
+        vm.etch(EthereumMainnetParameters.USDC_TOKEN, hex"");
+        vm.expectRevert("USDC_TOKEN must be a contract");
+        harness.loadProductionTokensForTest();
     }
 
     function test_DeploySeedsDeterministicGenesisBeforeSeal() public {
@@ -298,6 +339,35 @@ contract DeployGenesisTest is Test {
         assertEq(landAuthority, landApp);
 
         _assertProductionLendingParameters(harness);
+        _assertProductionUpgradeTopology(harness);
+    }
+
+    function _assertProductionUpgradeTopology(DeployGenesisHarness harness) private {
+        Deploy.Deployment memory deployment = harness.snapshotForTest();
+        IConstitutionKernel kernel = IConstitutionKernel(deployment.kernel);
+        ModuleUpgradePlanRegistry plans = ModuleUpgradePlanRegistry(deployment.moduleUpgradePlanRegistry);
+        assertEq(kernel.getModule(KernelModuleIds.MODULE_UPGRADE_PLAN_REGISTRY), address(plans));
+        assertEq(plans.kernel(), address(kernel));
+        assertEq(
+            uint256(kernel.moduleClass(KernelModuleIds.MODULE_UPGRADE_PLAN_REGISTRY)),
+            uint256(GovernanceTypes.ModuleClass.State)
+        );
+        assertTrue(deployment.referendumProposalValidator.code.length != 0);
+        assertEq(deployment.referendumProposalValidator, ReferendumApp(deployment.referendumApp).proposalValidator());
+
+        // Plan publication remains permissionless after sealing; it grants no pointer-changing authority.
+        ModuleUpgradePlanRegistry replacement = new ModuleUpgradePlanRegistry(address(kernel));
+        GovernanceTypes.ModuleUpdate[] memory updates = new GovernanceTypes.ModuleUpdate[](1);
+        updates[0] = GovernanceTypes.ModuleUpdate(
+            KernelModuleIds.MODULE_UPGRADE_PLAN_REGISTRY,
+            address(plans),
+            address(replacement),
+            address(replacement).codehash
+        );
+        vm.prank(address(0xC111));
+        bytes32 planId = plans.publishPlan(updates, keccak256("synthetic production upgrade review evidence"));
+        assertTrue(plans.planExists(planId));
+        assertEq(kernel.getModule(KernelModuleIds.MODULE_UPGRADE_PLAN_REGISTRY), address(plans));
     }
 
     function _assertProductionLendingParameters(DeployGenesisHarness harness) private view {

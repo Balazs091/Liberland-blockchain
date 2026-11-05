@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {ITreasurySpendingPolicy} from "../interfaces/ITreasurySpendingPolicy.sol";
 import {OfficeTypes} from "../types/OfficeTypes.sol";

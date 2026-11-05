@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {ILandRegistry} from "../interfaces/ILandRegistry.sol";
 import {KernelModule} from "../base/KernelModule.sol";
@@ -673,7 +673,6 @@ contract LandRegistry is ILandRegistry, KernelModule {
         parcelRecord.createdAt = currentTimestamp;
         parcelRecord.updatedAt = currentTimestamp;
         _writeParcelInput(parcelRecord, input);
-        _parcelByNumberHash[input.parcelNumberHash] = parcelId;
         _parcelIds.push(parcelId);
     }
 

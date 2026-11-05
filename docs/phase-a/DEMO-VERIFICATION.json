@@ -1,0 +1,1224 @@
+{
+  "requested_date": "2026-10-29",
+  "purpose": "Separate read-only verification of historical Sepolia demo; fresh production deployment remains independent",
+  "started_at_utc": "2026-10-29T15:06:52.705590+00:00",
+  "rpc_methods_allowed": [
+    "eth_call",
+    "eth_chainId",
+    "eth_getBlockByNumber",
+    "eth_getCode"
+  ],
+  "transactions_sent": 0,
+  "private_keys_used": false,
+  "attempts": [
+    {
+      "endpoint": "https://ethereum-sepolia-rpc.publicnode.com",
+      "chainId_response": {
+        "jsonrpc": "2.0",
+        "result": "0xaa36a7",
+        "id": 1
+      }
+    }
+  ],
+  "status": "OBSERVED",
+  "limitations": [
+    "No creation-input or source-revision runtime comparison is performed by this probe.",
+    "Single public provider; no independent provider agreement established.",
+    "Public demo has documented mint/self-registration surfaces and is not production.",
+    "DemoSetupAuthority.isSealed() reverted; that is not a supported public sealing check for this historical demo. Its retirement assessment uses absent setup module, no current module pointing at it, and zero bootstrap authorities.",
+    "A full historical event/case/loan-owner export and all current wallets or controllers were not enumerated.",
+    "The pinned finalized block comes from one provider and was not independently cross-checked."
+  ],
+  "endpoint": "https://ethereum-sepolia-rpc.publicnode.com",
+  "chain_id": 11155111,
+  "block": {
+    "tag_requested": "finalized",
+    "number": 12020220,
+    "number_hex": "0xb769fc",
+    "hash": "0x9c77eb5eee0c60f06f23bfe9eae8ee89bb4afc5d27aeff40667c73ca34666054",
+    "timestamp": 1793285460
+  },
+  "kernel_modules": {
+    "GOVERNANCE_ROUTER": {
+      "jsonrpc": "2.0",
+      "id": 0,
+      "result": "0x0000000000000000000000000b0837206d59283f4e4da5cd9392d66249a5f6ee",
+      "decoded_address": "0x0b0837206d59283f4e4da5cd9392d66249a5f6ee",
+      "module_string": "core.governance-router"
+    },
+    "ACTION_TIMELOCK": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": "0x000000000000000000000000412a0d1a0b54324ce53f74d694e513b166e01e32",
+      "decoded_address": "0x412a0d1a0b54324ce53f74d694e513b166e01e32",
+      "module_string": "core.action-timelock"
+    },
+    "IDENTITY_REGISTRY": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": "0x00000000000000000000000002f62e4696766350b19edd4a4544a37ae28aff96",
+      "decoded_address": "0x02f62e4696766350b19edd4a4544a37ae28aff96",
+      "module_string": "registry.identity"
+    },
+    "CONGRESS_CANDIDATE_REGISTRY": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "result": "0x000000000000000000000000c15e221fe9884e8a73885e929f4d6c2d804c24de",
+      "decoded_address": "0xc15e221fe9884e8a73885e929f4d6c2d804c24de",
+      "module_string": "registry.congress-candidate"
+    },
+    "LEGISLATION_REGISTRY": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "result": "0x0000000000000000000000000f7febc5409282477559c11d5012fe35275e8155",
+      "decoded_address": "0x0f7febc5409282477559c11d5012fe35275e8155",
+      "module_string": "registry.legislation"
+    },
+    "REFERENDUM_REGISTRY": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "result": "0x000000000000000000000000e69b1b32d16cb9b92698c5e6db5cfd2d18ef0774",
+      "decoded_address": "0xe69b1b32d16cb9b92698c5e6db5cfd2d18ef0774",
+      "module_string": "registry.referendum"
+    },
+    "SENATE_SEAT_REGISTRY": {
+      "jsonrpc": "2.0",
+      "id": 6,
+      "result": "0x000000000000000000000000f16600d777c7e5572ea178b1864bd0d0c4f39963",
+      "decoded_address": "0xf16600d777c7e5572ea178b1864bd0d0c4f39963",
+      "module_string": "registry.senate-seat"
+    },
+    "STAKE_REGISTRY": {
+      "jsonrpc": "2.0",
+      "id": 7,
+      "result": "0x00000000000000000000000089ae2a62658df638eaf0b6c2e293ea68743dc590",
+      "decoded_address": "0x89ae2a62658df638eaf0b6c2e293ea68743dc590",
+      "module_string": "registry.stake"
+    },
+    "LLM_STAKING_VAULT": {
+      "jsonrpc": "2.0",
+      "id": 8,
+      "result": "0x0000000000000000000000003ce327c63d71da4b1d4c299819d3de988476c9a5",
+      "decoded_address": "0x3ce327c63d71da4b1d4c299819d3de988476c9a5",
+      "module_string": "registry.llm-staking-vault"
+    },
+    "STAKE_LIEN_REGISTRY": {
+      "jsonrpc": "2.0",
+      "id": 9,
+      "result": "0x0000000000000000000000004422995410a9c905d369ffec39bd2406f34e63dc",
+      "decoded_address": "0x4422995410a9c905d369ffec39bd2406f34e63dc",
+      "module_string": "registry.stake-lien"
+    },
+    "LAND_REGISTRY": {
+      "jsonrpc": "2.0",
+      "id": 10,
+      "result": "0x000000000000000000000000f54674788bc02a59a7753da943792d3702318b1d",
+      "decoded_address": "0xf54674788bc02a59a7753da943792d3702318b1d",
+      "module_string": "registry.land"
+    },
+    "COMPANY_REGISTRY": {
+      "jsonrpc": "2.0",
+      "id": 11,
+      "result": "0x000000000000000000000000ee5010566426d48abe531311b8d78a79fa8650bc",
+      "decoded_address": "0xee5010566426d48abe531311b8d78a79fa8650bc",
+      "module_string": "registry.company"
+    },
+    "TREASURY_VAULT": {
+      "jsonrpc": "2.0",
+      "id": 12,
+      "result": "0x00000000000000000000000025b155d0944b77b75261fe5bdd781a888778ac56",
+      "decoded_address": "0x25b155d0944b77b75261fe5bdd781a888778ac56",
+      "module_string": "registry.treasury-vault"
+    },
+    "BUDGET_ENVELOPE_REGISTRY": {
+      "jsonrpc": "2.0",
+      "id": 13,
+      "result": "0x000000000000000000000000cf97c12bc175816e4e302f22d28a7e138ea6bafc",
+      "decoded_address": "0xcf97c12bc175816e4e302f22d28a7e138ea6bafc",
+      "module_string": "registry.budget-envelope"
+    },
+    "OFFICE_REGISTRY": {
+      "jsonrpc": "2.0",
+      "id": 14,
+      "result": "0x000000000000000000000000a9a34da20ae49a1bcbafdda4d850c619ec2af811",
+      "decoded_address": "0xa9a34da20ae49a1bcbafdda4d850c619ec2af811",
+      "module_string": "registry.office"
+    },
+    "PRESIDENT_REGISTRY": {
+      "jsonrpc": "2.0",
+      "id": 15,
+      "result": "0x00000000000000000000000087b5be83471a6e558266bdafaa11c8759205c1be",
+      "decoded_address": "0x87b5be83471a6e558266bdafaa11c8759205c1be",
+      "module_string": "registry.president"
+    },
+    "EXECUTIVE_REGISTRY": {
+      "jsonrpc": "2.0",
+      "id": 16,
+      "result": "0x000000000000000000000000047209419c9bcf4d748de0f4f5ab627ebe9413c0",
+      "decoded_address": "0x047209419c9bcf4d748de0f4f5ab627ebe9413c0",
+      "module_string": "registry.executive"
+    },
+    "ELECTORATE_REGISTRY": {
+      "jsonrpc": "2.0",
+      "id": 17,
+      "result": "0x00000000000000000000000080317c9316c45e3d7308536f5938396127f23ded",
+      "decoded_address": "0x80317c9316c45e3d7308536f5938396127f23ded",
+      "module_string": "registry.electorate-checkpoint"
+    },
+    "BUDGET_ENVELOPE_ACCOUNTING_AUTHORITY": {
+      "jsonrpc": "2.0",
+      "id": 18,
+      "result": "0x000000000000000000000000f7083515538e4b898f4673ac65e8f077ad72541f",
+      "decoded_address": "0xf7083515538e4b898f4673ac65e8f077ad72541f",
+      "module_string": "authority.budget-envelope-accounting"
+    },
+    "BUDGET_ENVELOPE_REGISTRY_AUTHORITY": {
+      "jsonrpc": "2.0",
+      "id": 19,
+      "result": "0x000000000000000000000000412a0d1a0b54324ce53f74d694e513b166e01e32",
+      "decoded_address": "0x412a0d1a0b54324ce53f74d694e513b166e01e32",
+      "module_string": "authority.budget-envelope-registry"
+    },
+    "COMPANY_REGISTRY_AUTHORITY": {
+      "jsonrpc": "2.0",
+      "id": 20,
+      "result": "0x00000000000000000000000010f89bbbf219eaad66c14164db2148d8d303cc33",
+      "decoded_address": "0x10f89bbbf219eaad66c14164db2148d8d303cc33",
+      "module_string": "authority.company-registry"
+    },
+    "CONGRESS_CANDIDATE_REGISTRY_AUTHORITY": {
+      "jsonrpc": "2.0",
+      "id": 21,
+      "result": "0x0000000000000000000000006e23a6be61feb38233f7e3e4eddf93d1f5606ef7",
+      "decoded_address": "0x6e23a6be61feb38233f7e3e4eddf93d1f5606ef7",
+      "module_string": "authority.congress-candidate-registry"
+    },
+    "IDENTITY_REGISTRY_AUTHORITY": {
+      "jsonrpc": "2.0",
+      "id": 22,
+      "result": "0x000000000000000000000000f79741031fecf4b19143012347f3c03ff2457bdf",
+      "decoded_address": "0xf79741031fecf4b19143012347f3c03ff2457bdf",
+      "module_string": "authority.identity-registry"
+    },
+    "CIVIC_APPEAL_AUTHORITY": {
+      "jsonrpc": "2.0",
+      "id": 23,
+      "result": "0x0000000000000000000000003a0beb2bb9b2a0ac30fe0cac1f666298d45fbdb9",
+      "decoded_address": "0x3a0beb2bb9b2a0ac30fe0cac1f666298d45fbdb9",
+      "module_string": "authority.civic-appeal"
+    },
+    "INITIAL_SETUP_AUTHORITY": {
+      "jsonrpc": "2.0",
+      "id": 24,
+      "error": {
+        "code": 3,
+        "message": "execution reverted",
+        "data": "0x74fce4050f38ad808f8baf25944d93de60df0b58f9710778dd9f1c8c950a9719434bd71e"
+      },
+      "decoded_address": null,
+      "module_string": "authority.initial-setup"
+    },
+    "LAND_REGISTRY_AUTHORITY": {
+      "jsonrpc": "2.0",
+      "id": 25,
+      "result": "0x0000000000000000000000005709936621db78af4bded6e6cb3ba31cc2840ea9",
+      "decoded_address": "0x5709936621db78af4bded6e6cb3ba31cc2840ea9",
+      "module_string": "authority.land-registry"
+    },
+    "LEGISLATION_REGISTRY_AUTHORITY": {
+      "jsonrpc": "2.0",
+      "id": 26,
+      "result": "0x000000000000000000000000412a0d1a0b54324ce53f74d694e513b166e01e32",
+      "decoded_address": "0x412a0d1a0b54324ce53f74d694e513b166e01e32",
+      "module_string": "authority.legislation-registry"
+    },
+    "LEGISLATION_REPEAL_AUTHORITY": {
+      "jsonrpc": "2.0",
+      "id": 27,
+      "result": "0x000000000000000000000000412a0d1a0b54324ce53f74d694e513b166e01e32",
+      "decoded_address": "0x412a0d1a0b54324ce53f74d694e513b166e01e32",
+      "module_string": "authority.legislation-repeal"
+    },
+    "OFFICE_REGISTRY_AUTHORITY": {
+      "jsonrpc": "2.0",
+      "id": 28,
+      "result": "0x00000000000000000000000024ae0f4135f333e9ef7aa40127c2d59e7b18e0f8",
+      "decoded_address": "0x24ae0f4135f333e9ef7aa40127c2d59e7b18e0f8",
+      "module_string": "authority.office-registry"
+    },
+    "PRESIDENT_REGISTRY_AUTHORITY": {
+      "jsonrpc": "2.0",
+      "id": 29,
+      "result": "0x000000000000000000000000261923a21df2439913dbd306baa569d06ebb0b05",
+      "decoded_address": "0x261923a21df2439913dbd306baa569d06ebb0b05",
+      "module_string": "authority.president-registry"
+    },
+    "EXECUTIVE_REGISTRY_AUTHORITY": {
+      "jsonrpc": "2.0",
+      "id": 0,
+      "result": "0x0000000000000000000000006f6c2daabf3af6dedac8d94f578e313e903686ec",
+      "decoded_address": "0x6f6c2daabf3af6dedac8d94f578e313e903686ec",
+      "module_string": "authority.executive-registry"
+    },
+    "REFERENDUM_REGISTRY_AUTHORITY": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": "0x000000000000000000000000b80815f832a76636536a123f90f55cf7257aa794",
+      "decoded_address": "0xb80815f832a76636536a123f90f55cf7257aa794",
+      "module_string": "authority.referendum-registry"
+    },
+    "SENATE_SEAT_REGISTRY_AUTHORITY": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": "0x000000000000000000000000cafb3f5778fdcd9030ed75a72a738999cdda45a0",
+      "decoded_address": "0xcafb3f5778fdcd9030ed75a72a738999cdda45a0",
+      "module_string": "authority.senate-seat-registry"
+    },
+    "STAKE_LIEN_REGISTRY_AUTHORITY": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "result": "0x000000000000000000000000ca6f28606ef91cbba300f63a9ea87b8a7c9d2085",
+      "decoded_address": "0xca6f28606ef91cbba300f63a9ea87b8a7c9d2085",
+      "module_string": "authority.stake-lien-registry"
+    },
+    "STAKE_USER_GATEWAY_AUTHORITY": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "result": "0x000000000000000000000000f79741031fecf4b19143012347f3c03ff2457bdf",
+      "decoded_address": "0xf79741031fecf4b19143012347f3c03ff2457bdf",
+      "module_string": "authority.stake-user-gateway"
+    },
+    "STAKE_LIQUIDATION_AUTHORITY": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "result": "0x000000000000000000000000ca6f28606ef91cbba300f63a9ea87b8a7c9d2085",
+      "decoded_address": "0xca6f28606ef91cbba300f63a9ea87b8a7c9d2085",
+      "module_string": "authority.stake-liquidation"
+    },
+    "STAKE_REGISTRY_AUTHORITY": {
+      "jsonrpc": "2.0",
+      "id": 6,
+      "result": "0x0000000000000000000000003ce327c63d71da4b1d4c299819d3de988476c9a5",
+      "decoded_address": "0x3ce327c63d71da4b1d4c299819d3de988476c9a5",
+      "module_string": "authority.stake-registry"
+    },
+    "CANDIDATE_ELIGIBILITY_POLICY": {
+      "jsonrpc": "2.0",
+      "id": 7,
+      "result": "0x000000000000000000000000af155ca50c311f6089ce51c68b59fef4f5adb933",
+      "decoded_address": "0xaf155ca50c311f6089ce51c68b59fef4f5adb933",
+      "module_string": "policy.candidate-eligibility"
+    },
+    "CITIZEN_ELIGIBILITY_POLICY": {
+      "jsonrpc": "2.0",
+      "id": 8,
+      "result": "0x0000000000000000000000001c1af2e1c6ed2953b5db6e8580c0a3a4576e652d",
+      "decoded_address": "0x1c1af2e1c6ed2953b5db6e8580c0a3a4576e652d",
+      "module_string": "policy.citizen-eligibility"
+    },
+    "CONGRESS_ELECTION_POLICY": {
+      "jsonrpc": "2.0",
+      "id": 9,
+      "result": "0x0000000000000000000000002e3f003e2504b6dc3385cf72d090f992f1873ab9",
+      "decoded_address": "0x2e3f003e2504b6dc3385cf72d090f992f1873ab9",
+      "module_string": "policy.congress-election"
+    },
+    "OFFICE_PERMISSION_POLICY": {
+      "jsonrpc": "2.0",
+      "id": 10,
+      "result": "0x0000000000000000000000002e34197fce34b2aa6fcb0b2a9fcfa46c291e0a31",
+      "decoded_address": "0x2e34197fce34b2aa6fcb0b2a9fcfa46c291e0a31",
+      "module_string": "policy.office-permission"
+    },
+    "LAND_PARTY_POLICY": {
+      "jsonrpc": "2.0",
+      "id": 11,
+      "result": "0x000000000000000000000000aaa517472e545bb6fbb2c258a1b7173f293406f3",
+      "decoded_address": "0xaaa517472e545bb6fbb2c258a1b7173f293406f3",
+      "module_string": "policy.land-party"
+    },
+    "REFERENDUM_POLICY": {
+      "jsonrpc": "2.0",
+      "id": 12,
+      "result": "0x000000000000000000000000da80228a038f8cb26def8f16b79ad8753a777a03",
+      "decoded_address": "0xda80228a038f8cb26def8f16b79ad8753a777a03",
+      "module_string": "policy.referendum"
+    },
+    "SENATE_POWERS_POLICY": {
+      "jsonrpc": "2.0",
+      "id": 13,
+      "result": "0x000000000000000000000000cdccb37ee4b46af911fdc159164fd09c08e95252",
+      "decoded_address": "0xcdccb37ee4b46af911fdc159164fd09c08e95252",
+      "module_string": "policy.senate-powers"
+    },
+    "TREASURY_SPENDING_POLICY": {
+      "jsonrpc": "2.0",
+      "id": 14,
+      "result": "0x00000000000000000000000006b565481bf2e16e4f9ca4ce94f55b35748d6d92",
+      "decoded_address": "0x06b565481bf2e16e4f9ca4ce94f55b35748d6d92",
+      "module_string": "policy.treasury-spending"
+    },
+    "VOTING_POWER_POLICY": {
+      "jsonrpc": "2.0",
+      "id": 15,
+      "result": "0x00000000000000000000000014f49067af7ea6fe3fcbc3663e00620693da078f",
+      "decoded_address": "0x14f49067af7ea6fe3fcbc3663e00620693da078f",
+      "module_string": "policy.voting-power"
+    },
+    "UNSTAKING_POLICY": {
+      "jsonrpc": "2.0",
+      "id": 16,
+      "result": "0x0000000000000000000000007ead764c1228587dee96e38f01fa0619b1b11db6",
+      "decoded_address": "0x7ead764c1228587dee96e38f01fa0619b1b11db6",
+      "module_string": "policy.unstaking"
+    },
+    "LLM_USDC_PRICE_ORACLE_POLICY": {
+      "jsonrpc": "2.0",
+      "id": 17,
+      "result": "0x0000000000000000000000003be7c059e2c9bf772d11a0e9eabeb7cecc52bc56",
+      "decoded_address": "0x3be7c059e2c9bf772d11a0e9eabeb7cecc52bc56",
+      "module_string": "policy.llm-usdc-price-oracle"
+    },
+    "USDC_INTEREST_RATE_POLICY": {
+      "jsonrpc": "2.0",
+      "id": 18,
+      "result": "0x000000000000000000000000df9fc00ac7f283b1f07e7464708c9503e28e9239",
+      "decoded_address": "0xdf9fc00ac7f283b1f07e7464708c9503e28e9239",
+      "module_string": "policy.usdc-interest-rate"
+    },
+    "LENDING_RISK_PARAMETER_POLICY": {
+      "jsonrpc": "2.0",
+      "id": 19,
+      "result": "0x00000000000000000000000067ae34a03620221f6c5dbb04da05f456775aea37",
+      "decoded_address": "0x67ae34a03620221f6c5dbb04da05f456775aea37",
+      "module_string": "policy.lending-risk-parameter"
+    },
+    "CABINET_APP": {
+      "jsonrpc": "2.0",
+      "id": 20,
+      "result": "0x0000000000000000000000006f6c2daabf3af6dedac8d94f578e313e903686ec",
+      "decoded_address": "0x6f6c2daabf3af6dedac8d94f578e313e903686ec",
+      "module_string": "app.cabinet"
+    },
+    "CONGRESS_ELECTION_APP": {
+      "jsonrpc": "2.0",
+      "id": 21,
+      "result": "0x0000000000000000000000006e23a6be61feb38233f7e3e4eddf93d1f5606ef7",
+      "decoded_address": "0x6e23a6be61feb38233f7e3e4eddf93d1f5606ef7",
+      "module_string": "app.congress-election"
+    },
+    "COMPANY_REGISTRY_APP": {
+      "jsonrpc": "2.0",
+      "id": 22,
+      "result": "0x00000000000000000000000010f89bbbf219eaad66c14164db2148d8d303cc33",
+      "decoded_address": "0x10f89bbbf219eaad66c14164db2148d8d303cc33",
+      "module_string": "app.company-registry"
+    },
+    "DECISION_APP": {
+      "jsonrpc": "2.0",
+      "id": 23,
+      "result": "0x000000000000000000000000d4188b1c63e0496c7ff04998d85d62f7a5644e6d",
+      "decoded_address": "0xd4188b1c63e0496c7ff04998d85d62f7a5644e6d",
+      "module_string": "app.decision"
+    },
+    "HEAD_OF_STATE_APP": {
+      "jsonrpc": "2.0",
+      "id": 24,
+      "result": "0x000000000000000000000000261923a21df2439913dbd306baa569d06ebb0b05",
+      "decoded_address": "0x261923a21df2439913dbd306baa569d06ebb0b05",
+      "module_string": "app.head-of-state"
+    },
+    "LAND_REGISTRY_APP": {
+      "jsonrpc": "2.0",
+      "id": 25,
+      "result": "0x0000000000000000000000005709936621db78af4bded6e6cb3ba31cc2840ea9",
+      "decoded_address": "0x5709936621db78af4bded6e6cb3ba31cc2840ea9",
+      "module_string": "app.land-registry"
+    },
+    "OFFICE_EXECUTOR": {
+      "jsonrpc": "2.0",
+      "id": 26,
+      "result": "0x00000000000000000000000024ae0f4135f333e9ef7aa40127c2d59e7b18e0f8",
+      "decoded_address": "0x24ae0f4135f333e9ef7aa40127c2d59e7b18e0f8",
+      "module_string": "app.office-executor"
+    },
+    "PAYOUT_QUEUE": {
+      "jsonrpc": "2.0",
+      "id": 27,
+      "result": "0x000000000000000000000000f7083515538e4b898f4673ac65e8f077ad72541f",
+      "decoded_address": "0xf7083515538e4b898f4673ac65e8f077ad72541f",
+      "module_string": "app.payout-queue"
+    },
+    "PUBLIC_VETO_APP": {
+      "jsonrpc": "2.0",
+      "id": 28,
+      "result": "0x000000000000000000000000e9b4d93bdd19605b67ce417ed6da0a417fc82d78",
+      "decoded_address": "0xe9b4d93bdd19605b67ce417ed6da0a417fc82d78",
+      "module_string": "app.public-veto"
+    },
+    "REFERENDUM_APP": {
+      "jsonrpc": "2.0",
+      "id": 29,
+      "result": "0x000000000000000000000000b80815f832a76636536a123f90f55cf7257aa794",
+      "decoded_address": "0xb80815f832a76636536a123f90f55cf7257aa794",
+      "module_string": "app.referendum"
+    },
+    "SENATE_APP": {
+      "jsonrpc": "2.0",
+      "id": 0,
+      "result": "0x000000000000000000000000cafb3f5778fdcd9030ed75a72a738999cdda45a0",
+      "decoded_address": "0xcafb3f5778fdcd9030ed75a72a738999cdda45a0",
+      "module_string": "app.senate"
+    },
+    "USDC_LENDING_POOL_APP": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": "0x000000000000000000000000ca6f28606ef91cbba300f63a9ea87b8a7c9d2085",
+      "decoded_address": "0xca6f28606ef91cbba300f63a9ea87b8a7c9d2085",
+      "module_string": "app.usdc-lending-pool"
+    },
+    "MINISTRY_TREASURY": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": "0x0000000000000000000000006843411bec0de4ac92e1bde5d6e3a64a5182bead",
+      "decoded_address": "0x6843411bec0de4ac92e1bde5d6e3a64a5182bead",
+      "module_string": "app.ministry-treasury"
+    },
+    "MINISTRY_TREASURY_FUNDING_AUTHORITY": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "result": "0x000000000000000000000000d4188b1c63e0496c7ff04998d85d62f7a5644e6d",
+      "decoded_address": "0xd4188b1c63e0496c7ff04998d85d62f7a5644e6d",
+      "module_string": "authority.ministry-treasury-funding"
+    },
+    "CONSTITUTIONAL_REVIEW": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "error": {
+        "code": 3,
+        "message": "execution reverted",
+        "data": "0x74fce40554e92455364ffe6f68688fb87a2cfd43e9dcbcae77045b48edc688860e4a3fcd"
+      },
+      "decoded_address": null,
+      "module_string": "app.constitutional-review"
+    }
+  },
+  "manifest_addresses": {
+    "actionTimelock": {
+      "address": "0x412A0d1a0b54324ce53f74d694E513b166e01E32",
+      "code_bytes": 15025,
+      "code_hash": "0xeb91d77824a1a184871bc8653bef59e77a3ee52e6a9febd8edcd2a9b8efa29b9",
+      "has_code": true
+    },
+    "budgetEnvelopeRegistry": {
+      "address": "0xCf97C12bC175816e4e302f22D28a7e138EA6bafc",
+      "code_bytes": 5645,
+      "code_hash": "0xcd62b380dab189e419ffcc87158fe09d68fc6ac453476d4e4e799c7bdb1a5cfe",
+      "has_code": true
+    },
+    "cabinetApp": {
+      "address": "0x6f6C2DAaBF3AF6dEDAc8d94F578e313E903686EC",
+      "code_bytes": 18156,
+      "code_hash": "0x9ccb9d969beb778861c7911a3a71b18fd0cf6ad61edac69bf33fc8666588cf71",
+      "has_code": true
+    },
+    "candidateEligibilityPolicy": {
+      "address": "0xAF155Ca50c311f6089ce51c68B59FEF4f5AdB933",
+      "code_bytes": 946,
+      "code_hash": "0xf9c224317141d44ea68be93efdc71cae8779966c35895920af1894df2f89574e",
+      "has_code": true
+    },
+    "citizenEligibilityPolicy": {
+      "address": "0x1c1af2e1c6ED2953b5Db6E8580C0A3a4576E652d",
+      "code_bytes": 2143,
+      "code_hash": "0x95259561069bfb3851460fc3f38f744ec01e4744eff79d14a9d0672df531df0c",
+      "has_code": true
+    },
+    "civicAppealReview": {
+      "address": "0x3a0beB2Bb9B2a0AC30fE0Cac1f666298d45FBDB9",
+      "code_bytes": 3792,
+      "code_hash": "0xf428cc4946eb04203c9e98fe69838b1e935c5777ca7464b2317ad1e6e66fc369",
+      "has_code": true
+    },
+    "civicReviewer0": {
+      "address": "0x3Eb08E01848c92C928C59e11f3a58Ac1f506EEC6",
+      "code_bytes": 0,
+      "code_hash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+      "has_code": false
+    },
+    "civicReviewer1": {
+      "address": "0x36d56588B9387D46B87fFa45077497d1c7E66d13",
+      "code_bytes": 0,
+      "code_hash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+      "has_code": false
+    },
+    "civicReviewer2": {
+      "address": "0x725151460Dd50c333A20D837a8aD9E58Cce19D65",
+      "code_bytes": 0,
+      "code_hash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+      "has_code": false
+    },
+    "civicReviewer3": {
+      "address": "0xD5466f1ECC07f7e06d61eaea25c740AB5f7C3060",
+      "code_bytes": 0,
+      "code_hash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+      "has_code": false
+    },
+    "civicReviewer4": {
+      "address": "0xd8A2082530f892Ef2b3597d2ED505b658a181705",
+      "code_bytes": 0,
+      "code_hash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+      "has_code": false
+    },
+    "companyRegistry": {
+      "address": "0xee5010566426d48abE531311b8d78a79fA8650bC",
+      "code_bytes": 10471,
+      "code_hash": "0x92a6c818cf97c8a30f8cc51c8a8fe1e7ae452ddbbfc5ad6c3e1783b541c3f1d8",
+      "has_code": true
+    },
+    "companyRegistryApp": {
+      "address": "0x10F89bbbF219Eaad66C14164db2148D8d303CC33",
+      "code_bytes": 4687,
+      "code_hash": "0x3edf414baad5e3ccc252c84a7668eccd555539f11c390c006457d3956a4921df",
+      "has_code": true
+    },
+    "companyRegistryOfficeAdmin": {
+      "address": "0x1d421beC4bD2BC2F9875928b1f3480b74C1039F5",
+      "code_bytes": 0,
+      "code_hash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+      "has_code": false
+    },
+    "congressCandidateRegistry": {
+      "address": "0xC15e221fE9884e8A73885e929F4D6c2d804C24dE",
+      "code_bytes": 23904,
+      "code_hash": "0x1212198ad709f1b186c7e5689cb9f8398bbd94f64cab8c47e3e8751f708f343d",
+      "has_code": true
+    },
+    "congressElectionApp": {
+      "address": "0x6e23a6be61Feb38233F7e3E4edDF93d1F5606eF7",
+      "code_bytes": 16600,
+      "code_hash": "0x7b4dfef3c832aee05ad7635e0af3de6524c9985a5f0dc2b41cdfea43457f2b2a",
+      "has_code": true
+    },
+    "congressElectionPolicy": {
+      "address": "0x2e3f003e2504B6Dc3385CF72D090f992F1873aB9",
+      "code_bytes": 2491,
+      "code_hash": "0x1de99c5a0bf88eeb7e62b13876405deb2040140f75760fd6f0801d812bc08398",
+      "has_code": true
+    },
+    "constitutionKernel": {
+      "address": "0xb23e1b6186cCF3E270bcab888467834Ba1e51818",
+      "code_bytes": 6020,
+      "code_hash": "0x50cd7200dd52812e418fed7a2f846864d3b35186d49ee99b09008e86190f5fd3",
+      "has_code": true
+    },
+    "decisionApp": {
+      "address": "0xd4188B1C63e0496C7ff04998d85d62f7a5644e6D",
+      "code_bytes": 15908,
+      "code_hash": "0xb300279de5317ec1ab2d1b9a62622a02b9c44b97a73f7ec305dd2bd20550e7d2",
+      "has_code": true
+    },
+    "demoAuthority": {
+      "address": "0x03c42dF67aca28B530D1ADD4d083e515EBdF0D3f",
+      "code_bytes": 7264,
+      "code_hash": "0xb36432a8b56820ec67d0bbd20cf7a3d29549e733c37c7e1d8073a9c7c34cdc6e",
+      "has_code": true
+    },
+    "demoCitizenGateway": {
+      "address": "0xF79741031fEcf4b19143012347f3c03ff2457bDf",
+      "code_bytes": 23253,
+      "code_hash": "0xb62b565392884ed55830a5f8ef6567cff6403a56c79e8712bde1737e56c0097a",
+      "has_code": true
+    },
+    "deployer": {
+      "address": "0x6319d5531045fdA2E91fe43f363eE80b8BCD7DDc",
+      "code_bytes": 0,
+      "code_hash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+      "has_code": false
+    },
+    "electorateRegistry": {
+      "address": "0x80317C9316C45e3D7308536f5938396127f23deD",
+      "code_bytes": 6453,
+      "code_hash": "0xda70951076d1b64471175e3b6c4fca3fa42540445e353c0adf91c76d23650cd0",
+      "has_code": true
+    },
+    "executiveRegistry": {
+      "address": "0x047209419C9BcF4d748DE0F4f5aB627eBE9413c0",
+      "code_bytes": 3736,
+      "code_hash": "0xf686e8ff5586cfd2918da6036901245877ca617f1cf7cd4c4355744b142f5500",
+      "has_code": true
+    },
+    "financeClerk": {
+      "address": "0x1d421beC4bD2BC2F9875928b1f3480b74C1039F5",
+      "code_bytes": 0,
+      "code_hash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+      "has_code": false
+    },
+    "financeOfficeAdmin": {
+      "address": "0x6319d5531045fdA2E91fe43f363eE80b8BCD7DDc",
+      "code_bytes": 0,
+      "code_hash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+      "has_code": false
+    },
+    "governanceRouter": {
+      "address": "0x0b0837206d59283f4e4dA5Cd9392d66249a5F6EE",
+      "code_bytes": 4680,
+      "code_hash": "0x0af98799dba632bdbeb62c30f56d8833a4431319ea5fa33feba6d0eaa6689024",
+      "has_code": true
+    },
+    "headOfStateApp": {
+      "address": "0x261923A21dF2439913dBd306bAA569D06Ebb0B05",
+      "code_bytes": 7985,
+      "code_hash": "0x3da8a87e44b65a2897e77445322dcb6413f47a256e5e60a742ff128e5e774de8",
+      "has_code": true
+    },
+    "identityApp": {
+      "address": "0xF79741031fEcf4b19143012347f3c03ff2457bDf",
+      "code_bytes": 23253,
+      "code_hash": "0xb62b565392884ed55830a5f8ef6567cff6403a56c79e8712bde1737e56c0097a",
+      "has_code": true
+    },
+    "identityOfficeAdmin": {
+      "address": "0x6319d5531045fdA2E91fe43f363eE80b8BCD7DDc",
+      "code_bytes": 0,
+      "code_hash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+      "has_code": false
+    },
+    "identityRegistry": {
+      "address": "0x02f62e4696766350b19EdD4a4544a37AE28AFf96",
+      "code_bytes": 7269,
+      "code_hash": "0xc377e9b93c91257fe5d66cf41778b520b04e38a45b1f1f32aa13fa5f6e775ee3",
+      "has_code": true
+    },
+    "landOfficeAdmin": {
+      "address": "0x6319d5531045fdA2E91fe43f363eE80b8BCD7DDc",
+      "code_bytes": 0,
+      "code_hash": "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470",
+      "has_code": false
+    },
+    "landPartyPolicy": {
+      "address": "0xAaA517472E545Bb6fBb2C258a1B7173f293406F3",
+      "code_bytes": 4809,
+      "code_hash": "0x4f7f8b0b96446dbed73a5d66594f154421b24d420186f0fd3b504a02af2fb2e5",
+      "has_code": true
+    },
+    "landRegistry": {
+      "address": "0xF54674788BC02a59A7753Da943792D3702318B1d",
+      "code_bytes": 18616,
+      "code_hash": "0xe9ca9366532239c3ea607a2abdb3d7eaa725f1e8663c3ccb66809ce8171ba208",
+      "has_code": true
+    },
+    "landRegistryApp": {
+      "address": "0x5709936621Db78AF4bDED6E6CB3ba31Cc2840Ea9",
+      "code_bytes": 12576,
+      "code_hash": "0x2e5f9d1f8dfd45876b45a842948b6c4c65e539115b19abdc111decbbeb2b34cd",
+      "has_code": true
+    },
+    "legislationRegistry": {
+      "address": "0x0f7feBc5409282477559c11d5012fe35275e8155",
+      "code_bytes": 3526,
+      "code_hash": "0xb433429b147ae1d6963e681eca4fff166d0024db32026eb7874e40049bcb2ad5",
+      "has_code": true
+    },
+    "lendingInterestRatePolicy": {
+      "address": "0xdF9Fc00Ac7f283B1F07e7464708c9503E28E9239",
+      "code_bytes": 1189,
+      "code_hash": "0x72302cda1b263772fe30d341d7c357ca68de592f0e385f5d9477f825826c5c2b",
+      "has_code": true
+    },
+    "lendingPool": {
+      "address": "0xca6F28606eF91cbBa300f63A9ea87B8a7C9d2085",
+      "code_bytes": 17429,
+      "code_hash": "0xaff0505eefe0c41d0b4f10af1422c03876fa1b35e128751e52a0d4b156095475",
+      "has_code": true
+    },
+    "lendingRiskPolicy": {
+      "address": "0x67AE34A03620221F6c5dBB04da05f456775aEa37",
+      "code_bytes": 465,
+      "code_hash": "0x852f97f5fb86f11717120c51a124a4c17bcacc655135f451672a726f5de1f257",
+      "has_code": true
+    },
+    "llmToken": {
+      "address": "0xd85512FEa2a3fC98d67D5a7A6c31f54b88611Ca3",
+      "code_bytes": 2123,
+      "code_hash": "0x9e326e3d0934db5b474b9fae44c6c1959150deddbd853329cfd2ffc3ed0d2660",
+      "has_code": true
+    },
+    "llmUsdcOracle": {
+      "address": "0x3be7C059E2c9bf772d11a0e9eAbeB7cECc52bc56",
+      "code_bytes": 874,
+      "code_hash": "0xddf6fcc8402f02f49285300c7d81a04287a4a04bae0e406810903a1112c2a65a",
+      "has_code": true
+    },
+    "ministryTreasury": {
+      "address": "0x6843411BeC0dE4ac92e1BdE5D6E3A64a5182bEAD",
+      "code_bytes": 6764,
+      "code_hash": "0x0e672083afa8db76e200034cef4608aaafa1f45fda97a132c2829adea8f89f28",
+      "has_code": true
+    },
+    "officeExecutor": {
+      "address": "0x24AE0F4135f333E9eF7aa40127C2D59e7b18e0F8",
+      "code_bytes": 10741,
+      "code_hash": "0x56ad3b1d73541ae21bc23622ac0ecce89d79526b4f9c49b6c422000b7862995f",
+      "has_code": true
+    },
+    "officePermissionPolicy": {
+      "address": "0x2e34197fCE34b2aa6fCb0B2a9fCfA46c291e0A31",
+      "code_bytes": 1056,
+      "code_hash": "0xb63d48020dfae6213c8cfcae8278207621a3dbdfefa76347f73c1f82a4d639eb",
+      "has_code": true
+    },
+    "officeRegistry": {
+      "address": "0xa9a34da20AE49a1BCBaFdda4D850C619Ec2af811",
+      "code_bytes": 8209,
+      "code_hash": "0x45a66bb58427793db42e1ff9157e4aaa601e7ef80dafe3a8afdb385ea96f1c58",
+      "has_code": true
+    },
+    "payoutQueue": {
+      "address": "0xF7083515538e4B898f4673ac65E8f077Ad72541f",
+      "code_bytes": 8571,
+      "code_hash": "0xa2ec24aab4ec342b45cb596679218316ac6ffe7d8bc6f54bfe5f0315d39f1e27",
+      "has_code": true
+    },
+    "presidentRegistry": {
+      "address": "0x87B5be83471a6E558266bdAFaa11C8759205c1BE",
+      "code_bytes": 2562,
+      "code_hash": "0x0e6657488382d72cab32795dbeec46181fbbb035665ee12aae2cd1e497dbfb7a",
+      "has_code": true
+    },
+    "publicVetoApp": {
+      "address": "0xE9b4D93Bdd19605B67CE417eD6DA0A417fC82D78",
+      "code_bytes": 8016,
+      "code_hash": "0x28e82248b706c5473fba5f9db402229ac7af20c066c86a0bc4f721fd960e66ec",
+      "has_code": true
+    },
+    "referendumApp": {
+      "address": "0xb80815F832A76636536A123f90f55Cf7257aA794",
+      "code_bytes": 22809,
+      "code_hash": "0xde63881d7d75184821def75be8c964d8feb8ae7174ee40bc69662ed1af4cd14f",
+      "has_code": true
+    },
+    "referendumPolicy": {
+      "address": "0xDA80228a038f8cB26dEf8F16b79Ad8753A777A03",
+      "code_bytes": 3666,
+      "code_hash": "0xfd436ad232671cd34eca25c0e01ab6108402a6eab6db742adef037c13ac4a99f",
+      "has_code": true
+    },
+    "referendumRegistry": {
+      "address": "0xe69b1b32d16cB9b92698c5E6DB5cfd2D18Ef0774",
+      "code_bytes": 12115,
+      "code_hash": "0x2e5608e62d3922ebaba8d8ff5e467b5f7f3a5c3d4d7ff039cdeae1052fc934ce",
+      "has_code": true
+    },
+    "senateApp": {
+      "address": "0xcAfB3f5778fdcd9030ED75A72a738999CDDa45A0",
+      "code_bytes": 20240,
+      "code_hash": "0x5852480612f19a76e871757d7f50da7334ea7953af4b5e4c519429dfd5501a73",
+      "has_code": true
+    },
+    "senatePowersPolicy": {
+      "address": "0xCdCcB37eE4B46Af911FdC159164fd09C08e95252",
+      "code_bytes": 748,
+      "code_hash": "0xaf316afd154adc9e1420dfe4be1e3d94b6c9a1ca38b52a24e1a40b6f4814037a",
+      "has_code": true
+    },
+    "senateSeatRegistry": {
+      "address": "0xf16600d777C7e5572Ea178B1864Bd0d0C4f39963",
+      "code_bytes": 5413,
+      "code_hash": "0xa223856dcadb8ac01a8e71b90d39e8a630156d7563efbeda348a75f87a1e8d44",
+      "has_code": true
+    },
+    "stakeLienRegistry": {
+      "address": "0x4422995410A9c905D369Ffec39bD2406F34e63DC",
+      "code_bytes": 4264,
+      "code_hash": "0x7c86a74227946883d68a8ead229d16648a908b06a715ba6f3cf9953f4db93790",
+      "has_code": true
+    },
+    "stakeRegistry": {
+      "address": "0x89AE2a62658df638eaF0B6c2E293EA68743DC590",
+      "code_bytes": 7455,
+      "code_hash": "0x86d67b108e20af8288d5dd3948f3505d209d401fd2fe710ede1227cf163708ca",
+      "has_code": true
+    },
+    "stakingVault": {
+      "address": "0x3ce327c63D71DA4b1d4C299819D3de988476c9a5",
+      "code_bytes": 7929,
+      "code_hash": "0x24c6bb73810cb1dece429f90133bf52a7f4c072481c20844a3242e5f607118d6",
+      "has_code": true
+    },
+    "treasurySpendingPolicy": {
+      "address": "0x06b565481bf2e16e4F9CA4Ce94f55B35748D6d92",
+      "code_bytes": 1781,
+      "code_hash": "0xc0d04936b569b5b2868de13100d68ff45fe0c0a334e0ffc71c934d66f9b00dee",
+      "has_code": true
+    },
+    "treasuryVault": {
+      "address": "0x25b155d0944b77B75261fe5Bdd781a888778aC56",
+      "code_bytes": 5124,
+      "code_hash": "0x259097e6e4b0a0ee7b5a690d82091c500ef3344f67245145be7745976b6e0680",
+      "has_code": true
+    },
+    "unstakingPolicy": {
+      "address": "0x7eAd764C1228587DEE96E38F01fa0619B1B11Db6",
+      "code_bytes": 1497,
+      "code_hash": "0x185febba421bb19eecd5233abccc8be1ed6bb4c01511346b49eb56efe6f14568",
+      "has_code": true
+    },
+    "usdcToken": {
+      "address": "0xD6D6299565fC6ad520e543A525b2274CFbdEa1F3",
+      "code_bytes": 1962,
+      "code_hash": "0x305027f7a0d62ef0dbce770e56b1a4f9674821c1b0fe6f70af9c54456bf60888",
+      "has_code": true
+    },
+    "votingPowerPolicy": {
+      "address": "0x14F49067AF7EA6fe3fcbc3663E00620693Da078F",
+      "code_bytes": 1628,
+      "code_hash": "0x3a89739b6ecde0daa3ef73705b773e7606e1abfe9acc4c7dd62b0a8fc0a99e54",
+      "has_code": true
+    }
+  },
+  "calls": {
+    "constitutionKernel.bootstrapAuthority": {
+      "jsonrpc": "2.0",
+      "id": 0,
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "governanceRouter.bootstrapAuthority": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "officeExecutor.bootstrapAuthority": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "identityApp.identityRegistry()": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "result": "0x00000000000000000000000002f62e4696766350b19edd4a4544a37ae28aff96"
+    },
+    "identityApp.officeRegistry()": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "result": "0x000000000000000000000000a9a34da20ae49a1bcbafdda4d850c619ec2af811"
+    },
+    "identityApp.identityOfficeId()": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "result": "0x7645c5d62c6e9d8e43201e738015df356478515cee331c6344276e866e82687e"
+    },
+    "demoCitizenGateway.identityRegistry()": {
+      "jsonrpc": "2.0",
+      "id": 6,
+      "result": "0x00000000000000000000000002f62e4696766350b19edd4a4544a37ae28aff96"
+    },
+    "civicAppealReview.identityApp()": {
+      "jsonrpc": "2.0",
+      "id": 7,
+      "result": "0x000000000000000000000000f79741031fecf4b19143012347f3c03ff2457bdf"
+    },
+    "electorateRegistry.isReady()": {
+      "jsonrpc": "2.0",
+      "id": 8,
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000001"
+    },
+    "electorateRegistry.identityRegistry()": {
+      "jsonrpc": "2.0",
+      "id": 9,
+      "result": "0x00000000000000000000000002f62e4696766350b19edd4a4544a37ae28aff96"
+    },
+    "electorateRegistry.stakeRegistry()": {
+      "jsonrpc": "2.0",
+      "id": 10,
+      "result": "0x00000000000000000000000089ae2a62658df638eaf0b6c2e293ea68743dc590"
+    },
+    "stakingVault.identityRegistry()": {
+      "jsonrpc": "2.0",
+      "id": 11,
+      "result": "0x00000000000000000000000002f62e4696766350b19edd4a4544a37ae28aff96"
+    },
+    "stakingVault.stakeRegistry()": {
+      "jsonrpc": "2.0",
+      "id": 12,
+      "result": "0x00000000000000000000000089ae2a62658df638eaf0b6c2e293ea68743dc590"
+    },
+    "stakingVault.token()": {
+      "jsonrpc": "2.0",
+      "id": 13,
+      "result": "0x000000000000000000000000d85512fea2a3fc98d67d5a7a6c31f54b88611ca3"
+    },
+    "stakeRegistry.totalActiveStake()": {
+      "jsonrpc": "2.0",
+      "id": 14,
+      "result": "0x00000000000000000000000000000000000000000000098774738bc822200000"
+    },
+    "congressCandidateRegistry.rankingStore()": {
+      "jsonrpc": "2.0",
+      "id": 15,
+      "result": "0x000000000000000000000000540c5431a1d0877eff9ee94d3c793f6beb7782b4"
+    },
+    "votingPowerPolicy.identityRegistry()": {
+      "jsonrpc": "2.0",
+      "id": 16,
+      "result": "0x00000000000000000000000002f62e4696766350b19edd4a4544a37ae28aff96"
+    },
+    "votingPowerPolicy.stakeRegistry()": {
+      "jsonrpc": "2.0",
+      "id": 17,
+      "result": "0x00000000000000000000000089ae2a62658df638eaf0b6c2e293ea68743dc590"
+    },
+    "votingPowerPolicy.citizenEligibilityPolicy()": {
+      "jsonrpc": "2.0",
+      "id": 18,
+      "result": "0x0000000000000000000000001c1af2e1c6ed2953b5db6e8580c0a3a4576e652d"
+    },
+    "votingPowerPolicy.electorateRegistry()": {
+      "jsonrpc": "2.0",
+      "id": 19,
+      "result": "0x00000000000000000000000080317c9316c45e3d7308536f5938396127f23ded"
+    },
+    "candidateEligibilityPolicy.identityRegistry()": {
+      "jsonrpc": "2.0",
+      "id": 20,
+      "result": "0x00000000000000000000000002f62e4696766350b19edd4a4544a37ae28aff96"
+    },
+    "candidateEligibilityPolicy.stakeRegistry()": {
+      "jsonrpc": "2.0",
+      "id": 21,
+      "result": "0x00000000000000000000000089ae2a62658df638eaf0b6c2e293ea68743dc590"
+    },
+    "candidateEligibilityPolicy.citizenEligibilityPolicy()": {
+      "jsonrpc": "2.0",
+      "id": 22,
+      "result": "0x0000000000000000000000001c1af2e1c6ed2953b5db6e8580c0a3a4576e652d"
+    },
+    "congressElectionPolicy.candidateEligibilityPolicy()": {
+      "jsonrpc": "2.0",
+      "id": 23,
+      "result": "0x000000000000000000000000af155ca50c311f6089ce51c68b59fef4f5adb933"
+    },
+    "congressElectionPolicy.votingPowerPolicy()": {
+      "jsonrpc": "2.0",
+      "id": 24,
+      "result": "0x00000000000000000000000014f49067af7ea6fe3fcbc3663e00620693da078f"
+    },
+    "lendingPool.stakeRegistry()": {
+      "jsonrpc": "2.0",
+      "id": 25,
+      "result": "0x00000000000000000000000089ae2a62658df638eaf0b6c2e293ea68743dc590"
+    },
+    "lendingPool.stakeLienRegistry()": {
+      "jsonrpc": "2.0",
+      "id": 26,
+      "result": "0x0000000000000000000000004422995410a9c905d369ffec39bd2406f34e63dc"
+    },
+    "lendingPool.identityRegistry()": {
+      "jsonrpc": "2.0",
+      "id": 27,
+      "result": "0x00000000000000000000000002f62e4696766350b19edd4a4544a37ae28aff96"
+    },
+    "lendingPool.totalBorrows()": {
+      "jsonrpc": "2.0",
+      "id": 28,
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "lendingPool.availableLiquidity()": {
+      "jsonrpc": "2.0",
+      "id": 29,
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "lendingPool.totalReserves()": {
+      "jsonrpc": "2.0",
+      "id": 0,
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000000"
+    },
+    "civicAppealReview.reviewerAt.0": {
+      "jsonrpc": "2.0",
+      "id": 1,
+      "result": "0x0000000000000000000000003eb08e01848c92c928c59e11f3a58ac1f506eec6"
+    },
+    "civicAppealReview.reviewerAt.1": {
+      "jsonrpc": "2.0",
+      "id": 2,
+      "result": "0x00000000000000000000000036d56588b9387d46b87ffa45077497d1c7e66d13"
+    },
+    "civicAppealReview.reviewerAt.2": {
+      "jsonrpc": "2.0",
+      "id": 3,
+      "result": "0x000000000000000000000000725151460dd50c333a20d837a8ad9e58cce19d65"
+    },
+    "civicAppealReview.reviewerAt.3": {
+      "jsonrpc": "2.0",
+      "id": 4,
+      "result": "0x000000000000000000000000d5466f1ecc07f7e06d61eaea25c740ab5f7c3060"
+    },
+    "civicAppealReview.reviewerAt.4": {
+      "jsonrpc": "2.0",
+      "id": 5,
+      "result": "0x000000000000000000000000d8a2082530f892ef2b3597d2ed505b658a181705"
+    },
+    "stakingVault.LLMbalance": {
+      "jsonrpc": "2.0",
+      "id": 6,
+      "result": "0x00000000000000000000000000000000000000000000098774738bc822200000"
+    },
+    "officeRole.financeOfficeAdmin": {
+      "jsonrpc": "2.0",
+      "id": 7,
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000001"
+    },
+    "officeRole.identityOfficeAdmin": {
+      "jsonrpc": "2.0",
+      "id": 8,
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000001"
+    },
+    "officeRole.landOfficeAdmin": {
+      "jsonrpc": "2.0",
+      "id": 9,
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000001"
+    },
+    "officeRole.companyRegistryOfficeAdmin": {
+      "jsonrpc": "2.0",
+      "id": 10,
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000001"
+    },
+    "officeRole.financeClerk": {
+      "jsonrpc": "2.0",
+      "id": 11,
+      "result": "0x0000000000000000000000000000000000000000000000000000000000000002"
+    },
+    "demoAuthority.isSealed()": {
+      "jsonrpc": "2.0",
+      "id": 12,
+      "error": {
+        "code": 3,
+        "message": "execution reverted"
+      }
+    }
+  },
+  "child_ranking_store": {
+    "address": "0x540c5431a1d0877eff9ee94d3c793f6beb7782b4",
+    "code_bytes": 7718,
+    "code_hash": "0x6a50c7db4812cdd34c30b968c728a89ed96ec8edf1a45d9dd176622313b7f87c",
+    "has_code": true
+  },
+  "canonical_identity_authority": "0xf79741031fecf4b19143012347f3c03ff2457bdf",
+  "historical_gateway_equals_identity_manifest": true,
+  "historical_identity_authority_current_match": true,
+  "historical_pair_backing_check": {
+    "vault_balance": 45000000000000000000000,
+    "total_active_stake": 45000000000000000000000,
+    "balance_covers_active": true,
+    "canonical_vault_match": true,
+    "canonical_stake_match": true
+  },
+  "finished_at_utc": "2026-10-29T15:06:54.942419+00:00",
+  "historical_binding_comparisons": {
+    "civicAppealReview.identityApp()": {
+      "observed": "0xf79741031fecf4b19143012347f3c03ff2457bdf",
+      "expected": "0xF79741031fEcf4b19143012347f3c03ff2457bDf",
+      "matches": true
+    },
+    "votingPowerPolicy.identityRegistry()": {
+      "observed": "0x02f62e4696766350b19edd4a4544a37ae28aff96",
+      "expected": "0x02f62e4696766350b19EdD4a4544a37AE28AFf96",
+      "matches": true
+    },
+    "votingPowerPolicy.stakeRegistry()": {
+      "observed": "0x89ae2a62658df638eaf0b6c2e293ea68743dc590",
+      "expected": "0x89AE2a62658df638eaF0B6c2E293EA68743DC590",
+      "matches": true
+    },
+    "votingPowerPolicy.citizenEligibilityPolicy()": {
+      "observed": "0x1c1af2e1c6ed2953b5db6e8580c0a3a4576e652d",
+      "expected": "0x1c1af2e1c6ED2953b5Db6E8580C0A3a4576E652d",
+      "matches": true
+    },
+    "votingPowerPolicy.electorateRegistry()": {
+      "observed": "0x80317c9316c45e3d7308536f5938396127f23ded",
+      "expected": "0x80317C9316C45e3D7308536f5938396127f23deD",
+      "matches": true
+    },
+    "candidateEligibilityPolicy.identityRegistry()": {
+      "observed": "0x02f62e4696766350b19edd4a4544a37ae28aff96",
+      "expected": "0x02f62e4696766350b19EdD4a4544a37AE28AFf96",
+      "matches": true
+    },
+    "candidateEligibilityPolicy.stakeRegistry()": {
+      "observed": "0x89ae2a62658df638eaf0b6c2e293ea68743dc590",
+      "expected": "0x89AE2a62658df638eaF0B6c2E293EA68743DC590",
+      "matches": true
+    },
+    "candidateEligibilityPolicy.citizenEligibilityPolicy()": {
+      "observed": "0x1c1af2e1c6ed2953b5db6e8580c0a3a4576e652d",
+      "expected": "0x1c1af2e1c6ED2953b5Db6E8580C0A3a4576E652d",
+      "matches": true
+    },
+    "congressElectionPolicy.candidateEligibilityPolicy()": {
+      "observed": "0xaf155ca50c311f6089ce51c68b59fef4f5adb933",
+      "expected": "0xAF155Ca50c311f6089ce51c68B59FEF4f5AdB933",
+      "matches": true
+    },
+    "congressElectionPolicy.votingPowerPolicy()": {
+      "observed": "0x14f49067af7ea6fe3fcbc3663e00620693da078f",
+      "expected": "0x14F49067AF7EA6fe3fcbc3663E00620693Da078F",
+      "matches": true
+    },
+    "lendingPool.stakeRegistry()": {
+      "observed": "0x89ae2a62658df638eaf0b6c2e293ea68743dc590",
+      "expected": "0x89AE2a62658df638eaF0B6c2E293EA68743DC590",
+      "matches": true
+    },
+    "lendingPool.stakeLienRegistry()": {
+      "observed": "0x4422995410a9c905d369ffec39bd2406f34e63dc",
+      "expected": "0x4422995410A9c905D369Ffec39bD2406F34e63DC",
+      "matches": true
+    },
+    "lendingPool.identityRegistry()": {
+      "observed": "0x02f62e4696766350b19edd4a4544a37ae28aff96",
+      "expected": "0x02f62e4696766350b19EdD4a4544a37AE28AFf96",
+      "matches": true
+    },
+    "civicAppealReview.reviewerAt.0": {
+      "observed": "0x3eb08e01848c92c928c59e11f3a58ac1f506eec6",
+      "expected": "0x3Eb08E01848c92C928C59e11f3a58Ac1f506EEC6",
+      "matches": true
+    },
+    "civicAppealReview.reviewerAt.1": {
+      "observed": "0x36d56588b9387d46b87ffa45077497d1c7e66d13",
+      "expected": "0x36d56588B9387D46B87fFa45077497d1c7E66d13",
+      "matches": true
+    },
+    "civicAppealReview.reviewerAt.2": {
+      "observed": "0x725151460dd50c333a20d837a8ad9e58cce19d65",
+      "expected": "0x725151460Dd50c333A20D837a8aD9E58Cce19D65",
+      "matches": true
+    },
+    "civicAppealReview.reviewerAt.3": {
+      "observed": "0xd5466f1ecc07f7e06d61eaea25c740ab5f7c3060",
+      "expected": "0xD5466f1ECC07f7e06d61eaea25c740AB5f7C3060",
+      "matches": true
+    },
+    "civicAppealReview.reviewerAt.4": {
+      "observed": "0xd8a2082530f892ef2b3597d2ed505b658a181705",
+      "expected": "0xd8A2082530f892Ef2b3597d2ED505b658a181705",
+      "matches": true
+    }
+  },
+  "summary": {
+    "module_ids_queried": 65,
+    "registered_modules_returned": 63,
+    "manifest_address_labels_queried": 62,
+    "unique_manifest_addresses_with_code": 50,
+    "child_ranking_store_has_code": true,
+    "all_compared_historical_bindings_match": true,
+    "module_not_registered_error_selector": "0x74fce405",
+    "unregistered_module_ids": [
+      "INITIAL_SETUP_AUTHORITY",
+      "CONSTITUTIONAL_REVIEW"
+    ],
+    "demo_setup_address_present_as_current_module": false,
+    "source_runtime_match_verified": false
+  }
+}

@@ -1,0 +1,482 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:liberland:phase-a:draft-migration-manifest:1",
+  "title": "Phase A draft migration manifest",
+  "description": "Review structure only. Does not authorise execution or verify roots, law, chain state, signatures or cutover safety.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "formatVersion",
+    "status",
+    "executionAuthorized",
+    "sourceCommit",
+    "targetChainId",
+    "deploymentBranch",
+    "inventory",
+    "releaseId",
+    "legalRulesHash",
+    "mappingVersion",
+    "recordEncodingStatus",
+    "inputRoot",
+    "modules",
+    "records",
+    "activeProcessTreatment",
+    "openLegalDecisions",
+    "specificationGates",
+    "approvals"
+  ],
+  "properties": {
+    "formatVersion": {
+      "const": 1
+    },
+    "status": {
+      "const": "DRAFT"
+    },
+    "executionAuthorized": {
+      "const": false
+    },
+    "sourceCommit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "targetChainId": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "deploymentBranch": {
+      "enum": [
+        "UNRESOLVED",
+        "GENESIS",
+        "DEMO",
+        "LIVE"
+      ]
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blockNumber",
+        "blockHash",
+        "kernel",
+        "evidenceCommitment"
+      ],
+      "properties": {
+        "blockNumber": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "blockHash": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kernel": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{40}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "evidenceCommitment": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^0x[0-9a-fA-F]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "releaseId": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "legalRulesHash": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "mappingVersion": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "recordEncodingStatus": {
+      "enum": [
+        "UNRESOLVED",
+        "SPECIFIED_NOT_VERIFIED"
+      ]
+    },
+    "inputRoot": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^0x[0-9a-fA-F]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "moduleIdPreimage",
+          "currentAddress",
+          "targetAddress",
+          "targetRuntimeHash",
+          "operation",
+          "dependencyCommitment"
+        ],
+        "properties": {
+          "moduleIdPreimage": {
+            "type": "string",
+            "minLength": 1
+          },
+          "currentAddress": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^0x[0-9a-fA-F]{40}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "targetAddress": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^0x[0-9a-fA-F]{40}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "targetRuntimeHash": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^0x[0-9a-fA-F]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "operation": {
+            "enum": [
+              "KEEP",
+              "REGISTER",
+              "REPOINT",
+              "UNRESOLVED"
+            ]
+          },
+          "dependencyCommitment": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^0x[0-9a-fA-F]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "leafIndex",
+          "kind",
+          "subjectId",
+          "expectedOldStateHash",
+          "targetPayloadCommitment",
+          "mappingDecisionRef"
+        ],
+        "properties": {
+          "leafIndex": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "kind": {
+            "enum": [
+              "IDENTITY",
+              "MEMBERSHIP",
+              "WALLET_LINK",
+              "CASE",
+              "RECEIPT",
+              "FINANCIAL",
+              "LAND"
+            ]
+          },
+          "subjectId": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{64}$"
+          },
+          "expectedOldStateHash": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^0x[0-9a-fA-F]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "targetPayloadCommitment": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^0x[0-9a-fA-F]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mappingDecisionRef": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "activeProcessTreatment": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "category",
+          "treatment",
+          "legalDecision",
+          "evidenceCommitment"
+        ],
+        "properties": {
+          "category": {
+            "type": "string",
+            "minLength": 1
+          },
+          "treatment": {
+            "enum": [
+              "UNRESOLVED",
+              "COMPLETE_ORIGINAL",
+              "APPROVED_IMPORT",
+              "APPROVED_RESTART",
+              "EXACT_COMPATIBILITY"
+            ]
+          },
+          "legalDecision": {
+            "type": "string",
+            "enum": [
+              "L01",
+              "L02",
+              "L03",
+              "L04",
+              "L05",
+              "L06",
+              "L07",
+              "L08",
+              "L09",
+              "L10",
+              "L11",
+              "L12",
+              "L13",
+              "L14"
+            ]
+          },
+          "evidenceCommitment": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^0x[0-9a-fA-F]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "openLegalDecisions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "L01",
+          "L02",
+          "L03",
+          "L04",
+          "L05",
+          "L06",
+          "L07",
+          "L08",
+          "L09",
+          "L10",
+          "L11",
+          "L12",
+          "L13",
+          "L14"
+        ]
+      }
+    },
+    "specificationGates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "S01",
+        "S02",
+        "S03",
+        "S04",
+        "S05",
+        "S06",
+        "S07"
+      ],
+      "properties": {
+        "S01": {
+          "enum": [
+            "OPEN",
+            "REVIEWED_NOT_EXECUTION_APPROVAL"
+          ]
+        },
+        "S02": {
+          "enum": [
+            "OPEN",
+            "REVIEWED_NOT_EXECUTION_APPROVAL"
+          ]
+        },
+        "S03": {
+          "enum": [
+            "OPEN",
+            "REVIEWED_NOT_EXECUTION_APPROVAL"
+          ]
+        },
+        "S04": {
+          "enum": [
+            "OPEN",
+            "REVIEWED_NOT_EXECUTION_APPROVAL"
+          ]
+        },
+        "S05": {
+          "enum": [
+            "OPEN",
+            "REVIEWED_NOT_EXECUTION_APPROVAL"
+          ]
+        },
+        "S06": {
+          "enum": [
+            "OPEN",
+            "REVIEWED_NOT_EXECUTION_APPROVAL"
+          ]
+        },
+        "S07": {
+          "enum": [
+            "OPEN",
+            "REVIEWED_NOT_EXECUTION_APPROVAL"
+          ]
+        }
+      }
+    },
+    "approvals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "role",
+          "personReference",
+          "decision",
+          "evidenceCommitment"
+        ],
+        "properties": {
+          "role": {
+            "enum": [
+              "LEGAL",
+              "ENGINEERING",
+              "SECURITY",
+              "OPERATOR",
+              "RELEASE"
+            ]
+          },
+          "personReference": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "decision": {
+            "enum": [
+              "PENDING",
+              "REVIEWED_DRAFT_ONLY"
+            ]
+          },
+          "evidenceCommitment": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^0x[0-9a-fA-F]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

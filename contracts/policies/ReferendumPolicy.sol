@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {ICongressElectionApp} from "../interfaces/ICongressElectionApp.sol";
 import {ICitizenEligibilityPolicy} from "../interfaces/ICitizenEligibilityPolicy.sol";
@@ -170,6 +170,7 @@ contract ReferendumPolicy is IReferendumPolicy {
             referendumClass == ReferendumTypes.ReferendumClass.Legislation
                 || referendumClass == ReferendumTypes.ReferendumClass.CongressElectionPolicy
                 || referendumClass == ReferendumTypes.ReferendumClass.ModuleGovernance
+                || referendumClass == ReferendumTypes.ReferendumClass.ModuleBundle
         ) {
             if (proposalOrigin == ReferendumTypes.ProposalOrigin.Citizen) {
                 return _isBondedCitizenProposer(proposer);
@@ -208,6 +209,9 @@ contract ReferendumPolicy is IReferendumPolicy {
         uint256 electorateVotingPowerSnapshot,
         bool requiresSupermajority
     ) external view returns (ReferendumTypes.PolicyOutcome memory outcome) {
+        if (referendumClass == ReferendumTypes.ReferendumClass.ModuleBundle) {
+            requiresSupermajority = true;
+        }
         uint256 turnout = forVotes + againstVotes;
 
         // Rule-defining module repoints (requiresSupermajority) clear the same double-threshold as

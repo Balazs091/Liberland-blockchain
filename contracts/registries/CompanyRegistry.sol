@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {KernelModule} from "../base/KernelModule.sol";
 import {ICompanyRegistry} from "../interfaces/ICompanyRegistry.sol";
@@ -88,11 +88,9 @@ contract CompanyRegistry is ICompanyRegistry, KernelModule {
     /// @inheritdoc ICompanyRegistry
     function submitCompany(bytes32 companyId, address founder, CompanyTypes.CompanyInput calldata input) external {
         _requireRegistryAuthority(msg.sender);
-        _validateNewCompany(companyId, founder, input);
-
         // A previously rejected id is reusable (its record is fully overwritten below); only a brand-new id is
         // appended to the enumeration so it is never listed twice.
-        bool isResubmission = companyExists(companyId);
+        bool isResubmission = _validateNewCompany(companyId, founder, input);
 
         uint64 currentTimestamp = uint64(block.timestamp);
         _companies[companyId] = CompanyTypes.CompanyRecord({
@@ -384,6 +382,7 @@ contract CompanyRegistry is ICompanyRegistry, KernelModule {
     function _validateNewCompany(bytes32 companyId, address founder, CompanyTypes.CompanyInput calldata input)
         private
         view
+        returns (bool isResubmission)
     {
         if (
             companyId == bytes32(0) || founder == address(0) || input.nameHash == bytes32(0)
@@ -394,7 +393,8 @@ contract CompanyRegistry is ICompanyRegistry, KernelModule {
             revert InvalidCompanyPayload(companyId);
         }
         // An existing id may only be reused when its prior submission was rejected; live/pending ids are immutable.
-        if (companyExists(companyId) && _companies[companyId].status != CompanyTypes.CompanyStatus.Rejected) {
+        isResubmission = companyExists(companyId);
+        if (isResubmission && _companies[companyId].status != CompanyTypes.CompanyStatus.Rejected) {
             revert InvalidCompanyPayload(companyId);
         }
         bytes32 existingCompanyId = _companyByNameHash[input.nameHash];

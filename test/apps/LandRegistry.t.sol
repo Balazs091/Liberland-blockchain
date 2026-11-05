@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {Test} from "forge-std/Test.sol";
+import {IERC1271} from "@openzeppelin/contracts/interfaces/IERC1271.sol";
 import {ERC1271WalletMock} from "@openzeppelin/contracts/mocks/ERC1271WalletMock.sol";
 
 import {LandRegistryApp} from "../../contracts/apps/LandRegistryApp.sol";
@@ -19,6 +20,31 @@ import {CompanyTypes} from "../../contracts/types/CompanyTypes.sol";
 import {IdentityTypes} from "../../contracts/types/IdentityTypes.sol";
 import {LandTypes} from "../../contracts/types/LandTypes.sol";
 import {OfficeTypes} from "../../contracts/types/OfficeTypes.sol";
+
+/// @notice A director wallet that requires canonical ABI padding and approval of the exact digest/signature pair.
+contract StrictERC1271DirectorWalletMock is IERC1271 {
+    address private immutable _approver = msg.sender;
+    bytes32 private _approvedDigest;
+    bytes32 private _approvedSignatureHash;
+    bool private _approved;
+
+    function approve(bytes32 digest, bytes calldata signature) external {
+        require(msg.sender == _approver);
+        _approvedDigest = digest;
+        _approvedSignatureHash = keccak256(signature);
+        _approved = true;
+    }
+
+    function isValidSignature(bytes32 digest, bytes calldata signature) external view returns (bytes4) {
+        if (msg.data.length != 100 + ((signature.length + 31) / 32) * 32) return 0xffffffff;
+        for (uint256 index = 100 + signature.length; index < msg.data.length; ++index) {
+            if (msg.data[index] != 0) return 0xffffffff;
+        }
+        return _approved && digest == _approvedDigest && keccak256(signature) == _approvedSignatureHash
+            ? IERC1271.isValidSignature.selector
+            : bytes4(0xffffffff);
+    }
+}
 
 /// @title LandRegistryTest
 /// @notice Covers stable parties, signed transfers, version lineage, split powers, and atomic parcel operations.
@@ -344,6 +370,89 @@ contract LandRegistryTest is Test {
         assertEq(landRegistry.getTitle(TITLE_ID).holder.id, BUYER_PERSON_ID);
     }
 
+    function test_CompanyTitleSupportsStrictEip1271PaddingFor65ByteSignature() public {
+        StrictERC1271DirectorWalletMock directorSafe = _strictDirectorCompanyTitle();
+        LandTypes.TitleTransferRequest memory request = _transferRequest(TITLE_ID, _personParty(BUYER_PERSON_ID));
+        bytes32 digest = landRegistryApp.hashTitleTransferAuthorization(request);
+        bytes memory signature = _signature(COMPANY_DIRECTOR_KEY, digest);
+        assertEq(signature.length, 65);
+        directorSafe.approve(digest, signature);
+
+        vm.prank(LAND_ADMIN);
+        landRegistryApp.transferTitle(request, address(directorSafe), signature, buyer, _signature(BUYER_KEY, digest));
+
+        LandTypes.TitleRecord memory title = landRegistry.getTitle(TITLE_ID);
+        assertEq(title.holder.namespace, landPartyPolicy.personNamespace());
+        assertEq(title.holder.id, BUYER_PERSON_ID);
+        assertEq(title.revision, 2);
+        assertEq(landRegistryApp.titleTransferNonce(TITLE_ID), 1);
+    }
+
+    function test_StrictEip1271RejectsChangedSignatureOrDigestWithoutConsumingTitleNonce() public {
+        StrictERC1271DirectorWalletMock directorSafe = _strictDirectorCompanyTitle();
+        LandTypes.TitleTransferRequest memory request = _transferRequest(TITLE_ID, _personParty(BUYER_PERSON_ID));
+        bytes32 digest = landRegistryApp.hashTitleTransferAuthorization(request);
+        bytes memory signature = _signature(COMPANY_DIRECTOR_KEY, digest);
+        directorSafe.approve(digest, signature);
+        bytes32 titleBefore = keccak256(abi.encode(landRegistry.getTitle(TITLE_ID)));
+        bytes memory invalidSignature = _signature(COMPANY_DIRECTOR_KEY, digest);
+        invalidSignature[0] = bytes1(uint8(invalidSignature[0]) ^ 1);
+        bytes memory expectedError = abi.encodeWithSelector(
+            ILandRegistryApp.InvalidSignature.selector,
+            landPartyPolicy.partyKey(landRegistry.getTitle(TITLE_ID).holder),
+            address(directorSafe)
+        );
+
+        vm.expectRevert(expectedError);
+        vm.prank(LAND_ADMIN);
+        landRegistryApp.transferTitle(
+            request, address(directorSafe), invalidSignature, buyer, _signature(BUYER_KEY, digest)
+        );
+        assertEq(keccak256(abi.encode(landRegistry.getTitle(TITLE_ID))), titleBefore);
+        assertEq(landRegistryApp.titleTransferNonce(TITLE_ID), 0);
+
+        bytes32 originalTransactionId = request.transactionId;
+        request.transactionId = keccak256("unapproved.transfer.transaction");
+        bytes32 unapprovedDigest = landRegistryApp.hashTitleTransferAuthorization(request);
+        vm.expectRevert(expectedError);
+        vm.prank(LAND_ADMIN);
+        landRegistryApp.transferTitle(
+            request, address(directorSafe), signature, buyer, _signature(BUYER_KEY, unapprovedDigest)
+        );
+        assertEq(keccak256(abi.encode(landRegistry.getTitle(TITLE_ID))), titleBefore);
+        assertEq(landRegistryApp.titleTransferNonce(TITLE_ID), 0);
+
+        request.transactionId = originalTransactionId;
+        vm.prank(LAND_ADMIN);
+        landRegistryApp.transferTitle(request, address(directorSafe), signature, buyer, _signature(BUYER_KEY, digest));
+        assertEq(landRegistry.getTitle(TITLE_ID).holder.id, BUYER_PERSON_ID);
+        assertEq(landRegistryApp.titleTransferNonce(TITLE_ID), 1);
+    }
+
+    function test_StrictEip1271DirectorRejectsTruncatedOrNonzeroPadding() public {
+        StrictERC1271DirectorWalletMock directorSafe = new StrictERC1271DirectorWalletMock();
+        bytes32 digest = keccak256("strict.director.approved.digest");
+        bytes memory signature = _signature(COMPANY_DIRECTOR_KEY, digest);
+        directorSafe.approve(digest, signature);
+        bytes memory callData = abi.encodeCall(IERC1271.isValidSignature, (digest, signature));
+        (bool success, bytes memory result) = address(directorSafe).staticcall(callData);
+        assertTrue(success);
+        assertEq(abi.decode(result, (bytes4)), IERC1271.isValidSignature.selector);
+
+        bytes memory truncated = new bytes(100 + signature.length);
+        for (uint256 index = 0; index < truncated.length; ++index) {
+            truncated[index] = callData[index];
+        }
+        (success, result) = address(directorSafe).staticcall(truncated);
+        assertTrue(success);
+        assertEq(abi.decode(result, (bytes4)), bytes4(0xffffffff));
+
+        callData[callData.length - 1] = 0x01;
+        (success, result) = address(directorSafe).staticcall(callData);
+        assertTrue(success);
+        assertEq(abi.decode(result, (bytes4)), bytes4(0xffffffff));
+    }
+
     function test_CurrentAppOnlyClosesExpiredLease() public {
         vm.prank(LAND_CLERK);
         landRegistryApp.submitParcelDraft(
@@ -620,6 +729,29 @@ contract LandRegistryTest is Test {
         landRegistryApp.adjustBoundary(first, second, keccak256("tx.boundary"));
         assertEq(landRegistry.getParcel(PARCEL_ID).revision, firstBefore.revision + 1);
         assertEq(landRegistry.getParcel(PARCEL_TWO_ID).revision, secondBefore.revision + 1);
+    }
+
+    function _strictDirectorCompanyTitle() private returns (StrictERC1271DirectorWalletMock directorSafe) {
+        directorSafe = new StrictERC1271DirectorWalletMock();
+        CompanyTypes.CompanyInput memory input = CompanyTypes.CompanyInput({
+            registrationNumberHash: bytes32(0),
+            nameHash: keccak256("strict.company.name"),
+            jurisdictionHash: keccak256("strict.company.jurisdiction"),
+            registeredOfficeHash: keccak256("strict.company.office"),
+            metadataHash: keccak256("strict.company.metadata"),
+            articlesHash: keccak256("strict.company.articles"),
+            uboHash: keccak256("strict.company.ubo"),
+            registeredCapital: 1_000_000
+        });
+        companyRegistry.submitCompany(COMPANY_ID, vm.addr(COMPANY_DIRECTOR_KEY), input);
+        companyRegistry.approveCompany(COMPANY_ID, keccak256("LLC-STRICT"));
+        companyRegistry.setDirector(COMPANY_ID, address(directorSafe), keccak256("strict.director"), true);
+        _activateParcelWithTitle(
+            PARCEL_ID,
+            TITLE_ID,
+            "parcel.strict",
+            LandTypes.PartyRef({namespace: landPartyPolicy.companyNamespace(), id: COMPANY_ID})
+        );
     }
 
     function _activateParcelWithTitle(

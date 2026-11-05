@@ -20,4 +20,27 @@ frontend-export.zip
 
 # Dotenv files
 .env
-.env.local
+.env.*
+*.env
+*.env.*
+!.env.example
+!.env.*.example
+!*.env.example
+
+# Private signing material; public test keys remain explicit in the local rehearsal sources.
+*.key
+*.pem
+*.p12
+*.pfx
+*.keystore
+keystore/
+keystores/
+id_rsa
+id_ed25519
+
+# Local coverage and raw scanner output (reviewed source baselines stay in scripts/).
+/coverage/
+/lcov.info
+/*.lcov
+/coverage*.json
+/slither*.json

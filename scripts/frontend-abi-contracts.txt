@@ -26,9 +26,12 @@ LandPartyPolicy
 LandRegistry
 LandRegistryApp
 LegislationRegistry
+LiberlandMerit
 LendingRiskParameterPolicy
 LLMStakingVault
 LLMToken
+MembershipRegistry
+ModuleUpgradePlanRegistry
 MinistryTreasury
 MockUSDC
 OfficeExecutor
@@ -39,10 +42,13 @@ PresidentRegistry
 PublicVetoApp
 ReferendumApp
 ReferendumPolicy
+ReferendumProposalValidator
 ReferendumRegistry
 SenateApp
 SenatePowersPolicy
 SenateSeatRegistry
+SepoliaMembershipController
+SepoliaGovernedMembershipController
 StakeLienRegistry
 StakeRegistry
 TreasurySpendingPolicy

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {ICandidateEligibilityPolicy} from "../interfaces/ICandidateEligibilityPolicy.sol";
 import {ICongressCandidateRegistry} from "../interfaces/ICongressCandidateRegistry.sol";
@@ -476,6 +476,7 @@ contract CongressElectionApp is ICongressElectionApp {
             nominationStart < currentTime || nominationStart >= votingStart || votingStart >= votingEnd
                 || votingStart - nominationStart < minimumNominationDuration
                 || votingEnd - votingStart < minimumVotingDuration
+                || votingEnd - nominationStart > policy.cycleDuration()
         ) {
             revert InvalidElectionWindow(nominationStart, votingStart, votingEnd);
         }

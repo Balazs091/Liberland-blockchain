@@ -1,17 +1,20 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {IActionTimelock} from "../interfaces/IActionTimelock.sol";
 import {IBudgetEnvelopeRegistry} from "../interfaces/IBudgetEnvelopeRegistry.sol";
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
 import {ILegislationRegistry} from "../interfaces/ILegislationRegistry.sol";
 import {ITreasuryVault} from "../interfaces/ITreasuryVault.sol";
+import {IModuleUpgradePlanRegistry} from "../interfaces/IModuleUpgradePlanRegistry.sol";
 import {GovernanceTypes} from "../types/GovernanceTypes.sol";
 import {LegislationTypes} from "../types/LegislationTypes.sol";
 import {SenateTypes} from "../types/SenateTypes.sol";
 import {TreasuryTypes} from "../types/TreasuryTypes.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {BoundedGovernanceHook} from "../libraries/BoundedGovernanceHook.sol";
+import {ModuleUpgradePlanHash} from "../libraries/ModuleUpgradePlanHash.sol";
+import {ModuleUpgradeRules} from "../libraries/ModuleUpgradeRules.sol";
 
 /// @title ActionTimelock
 /// @notice Delayed execution queue for explicit privileged governance actions.
@@ -229,7 +232,7 @@ contract ActionTimelock is IActionTimelock {
             revert ActionNotFound(actionId);
         }
 
-        actionRecord.state = _deriveMemoryState(actionRecord);
+        actionRecord.state = _effectiveState(actionRecord.state, actionRecord.expiresAt);
     }
 
     /// @inheritdoc IActionTimelock
@@ -260,6 +263,7 @@ contract ActionTimelock is IActionTimelock {
         if (
             actionType == GovernanceTypes.ActionType.ModulePointerUpdate
                 || actionType == GovernanceTypes.ActionType.ModuleRegistration
+                || actionType == GovernanceTypes.ActionType.ModuleBundleUpdate
         ) {
             return _moduleGovernanceDelay;
         }
@@ -282,6 +286,7 @@ contract ActionTimelock is IActionTimelock {
     /// @inheritdoc IActionTimelock
     function isActionTypeSupported(GovernanceTypes.ActionType actionType) public pure returns (bool supported) {
         return actionType == GovernanceTypes.ActionType.ModulePointerUpdate
+            || actionType == GovernanceTypes.ActionType.ModuleBundleUpdate
             || actionType == GovernanceTypes.ActionType.ModuleRegistration
             || actionType == GovernanceTypes.ActionType.TreasuryBudgetApproval
             || actionType == GovernanceTypes.ActionType.LegislationEnactment
@@ -290,6 +295,12 @@ contract ActionTimelock is IActionTimelock {
     }
 
     function _executeAction(GovernanceTypes.ActionRecord storage actionRecord) private {
+        if (actionRecord.actionType == GovernanceTypes.ActionType.ModuleBundleUpdate) {
+            GovernanceTypes.ModuleUpdate[] memory updates =
+                _decodeModuleBundlePayload(actionRecord.payload, actionRecord.actionId, actionRecord.targetModule);
+            _kernel.governanceUpdateModules(updates);
+            return;
+        }
         if (actionRecord.actionType == GovernanceTypes.ActionType.LegislationRepeal) {
             GovernanceTypes.LegislationRepealPayload memory payload =
                 _decodeLegislationRepealPayload(actionRecord.payload, actionRecord.actionId, actionRecord.targetModule);
@@ -320,14 +331,14 @@ contract ActionTimelock is IActionTimelock {
                 .recordBudgetApproval(
                     payload.budgetId,
                     TreasuryTypes.BudgetEnvelopeInput({
-                    officeId: payload.officeId,
-                    disbursementType: payload.disbursementType,
-                    asset: payload.asset,
-                    allocatedAmount: payload.allocatedAmount,
-                    startsAt: payload.startsAt,
-                    endsAt: payload.endsAt,
-                    policyReference: payload.policyReference
-                })
+                        officeId: payload.officeId,
+                        disbursementType: payload.disbursementType,
+                        asset: payload.asset,
+                        allocatedAmount: payload.allocatedAmount,
+                        startsAt: payload.startsAt,
+                        endsAt: payload.endsAt,
+                        policyReference: payload.policyReference
+                    })
                 );
             return;
         }
@@ -406,6 +417,11 @@ contract ActionTimelock is IActionTimelock {
     }
 
     function _validateQueuedAction(GovernanceTypes.ActionRequest calldata request, bytes32 actionId) private view {
+        if (request.actionType == GovernanceTypes.ActionType.ModuleBundleUpdate) {
+            if (request.origin != GovernanceTypes.ActionOrigin.Referendum) revert InvalidActionPayload(actionId);
+            _decodeModuleBundlePayload(request.payload, actionId, request.targetModule);
+            return;
+        }
         if (request.actionType == GovernanceTypes.ActionType.LegislationRepeal) {
             GovernanceTypes.LegislationRepealPayload memory payload =
                 _decodeLegislationRepealPayload(request.payload, actionId, request.targetModule);
@@ -415,11 +431,10 @@ contract ActionTimelock is IActionTimelock {
             ) revert InvalidActionPayload(actionId);
             return;
         }
-        if (request.actionType == GovernanceTypes.ActionType.ModulePointerUpdate) {
-            _decodeModuleUpdatePayload(request.payload, actionId, request.targetModule);
-            return;
-        }
-        if (request.actionType == GovernanceTypes.ActionType.ModuleRegistration) {
+        if (
+            request.actionType == GovernanceTypes.ActionType.ModulePointerUpdate
+                || request.actionType == GovernanceTypes.ActionType.ModuleRegistration
+        ) {
             _decodeModuleUpdatePayload(request.payload, actionId, request.targetModule);
             return;
         }
@@ -451,6 +466,44 @@ contract ActionTimelock is IActionTimelock {
         payload = abi.decode(payloadData, (GovernanceTypes.ModuleUpdatePayload));
         if (payload.newModuleAddress == address(0) || payload.newModuleAddress.code.length == 0) {
             revert IConstitutionKernel.InvalidModuleAddress(targetModule, payload.newModuleAddress);
+        }
+    }
+
+    /// @dev Only immutable exact plan content is consumed. The context target is this timelock, never a Core update.
+    function _decodeModuleBundlePayload(bytes memory payloadData, bytes32 actionId, bytes32 targetModule)
+        private
+        view
+        returns (GovernanceTypes.ModuleUpdate[] memory updates)
+    {
+        if (targetModule != KernelModuleIds.ACTION_TIMELOCK || payloadData.length != 64) {
+            revert InvalidActionPayload(actionId);
+        }
+        GovernanceTypes.ModuleBundleUpdatePayload memory payload =
+            abi.decode(payloadData, (GovernanceTypes.ModuleBundleUpdatePayload));
+        if (payload.planRegistry == address(0) || payload.planRegistry.code.length == 0 || payload.planId == bytes32(0))
+        {
+            revert InvalidActionPayload(actionId);
+        }
+        IModuleUpgradePlanRegistry registry = IModuleUpgradePlanRegistry(payload.planRegistry);
+        if (registry.kernel() != address(_kernel)) revert InvalidActionPayload(actionId);
+        bytes32 evidenceHash;
+        (updates, evidenceHash) = registry.getPlan(payload.planId);
+        if (
+            evidenceHash == bytes32(0)
+                || ModuleUpgradePlanHash.hash(
+                        block.chainid, address(_kernel), payload.planRegistry, evidenceHash, updates
+                    ) != payload.planId
+        ) {
+            revert InvalidActionPayload(actionId);
+        }
+        ModuleUpgradeRules.validateCount(updates.length);
+        bytes32 previousId;
+        for (uint256 i; i < updates.length; ++i) {
+            GovernanceTypes.ModuleUpdate memory update = updates[i];
+            ModuleUpgradeRules.validateEntry(
+                update, previousId, _kernel.moduleClass(update.moduleId), _kernel.getModule(update.moduleId), true
+            );
+            previousId = update.moduleId;
         }
     }
 
@@ -545,16 +598,8 @@ contract ActionTimelock is IActionTimelock {
         return _effectiveState(actionRecord.state, actionRecord.expiresAt);
     }
 
-    function _deriveMemoryState(GovernanceTypes.ActionRecord memory actionRecord)
-        private
-        view
-        returns (GovernanceTypes.ActionState state)
-    {
-        return _effectiveState(actionRecord.state, actionRecord.expiresAt);
-    }
-
     /// @dev A still-`Queued` action whose expiry has passed reports as `Expired` without a state write; every other
-    ///      state is returned verbatim. Shared by the storage and memory derivations so the rule lives in one place.
+    ///      state is returned verbatim for both stored records and returned copies.
     function _effectiveState(GovernanceTypes.ActionState storedState, uint64 expiresAt)
         private
         view
@@ -636,7 +681,44 @@ contract ActionTimelock is IActionTimelock {
         }
 
         try _kernel.getModule(actionRecord.targetModule) returns (address moduleAddress) {
-            return moduleAddress == actionRecord.targetModuleAddress;
+            if (moduleAddress != actionRecord.targetModuleAddress) return false;
+            return actionRecord.actionType != GovernanceTypes.ActionType.ModuleBundleUpdate
+                || _moduleBundleTargetsCurrent(actionRecord.payload);
+        } catch {
+            return false;
+        }
+    }
+
+    /// @dev Readiness is fail-closed on missing plans or stale members. Execution repeats full validation.
+    function _moduleBundleTargetsCurrent(bytes memory payloadData) private view returns (bool) {
+        if (payloadData.length != 64) return false;
+        GovernanceTypes.ModuleBundleUpdatePayload memory payload =
+            abi.decode(payloadData, (GovernanceTypes.ModuleBundleUpdatePayload));
+        IModuleUpgradePlanRegistry registry = IModuleUpgradePlanRegistry(payload.planRegistry);
+        try registry.kernel() returns (address planKernel) {
+            if (planKernel != address(_kernel)) return false;
+        } catch {
+            return false;
+        }
+        try registry.getPlan(payload.planId) returns (GovernanceTypes.ModuleUpdate[] memory updates, bytes32 evidence) {
+            if (
+                updates.length == 0 || updates.length > ModuleUpgradeRules.MAX_UPDATES || evidence == bytes32(0)
+                    || ModuleUpgradePlanHash.hash(
+                            block.chainid, address(_kernel), payload.planRegistry, evidence, updates
+                        ) != payload.planId
+            ) return false;
+            for (uint256 i; i < updates.length; ++i) {
+                if (
+                    updates[i].newModuleAddress.code.length == 0
+                        || updates[i].newModuleAddress.codehash != updates[i].newRuntimeCodeHash
+                ) return false;
+                try _kernel.getModule(updates[i].moduleId) returns (address actual) {
+                    if (actual != updates[i].expectedCurrentAddress) return false;
+                } catch {
+                    return false;
+                }
+            }
+            return true;
         } catch {
             return false;
         }

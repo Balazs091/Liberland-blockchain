@@ -1,0 +1,122 @@
+{
+  "formatVersion": 1,
+  "status": "DRAFT",
+  "executionAuthorized": false,
+  "sourceCommit": "dd0005c15d20754c50a0495cf6d48298b795e1a4",
+  "targetChainId": 1,
+  "deploymentBranch": "GENESIS",
+  "inventory": {
+    "blockNumber": null,
+    "blockHash": null,
+    "kernel": null,
+    "evidenceCommitment": null
+  },
+  "releaseId": null,
+  "legalRulesHash": null,
+  "mappingVersion": null,
+  "recordEncodingStatus": "UNRESOLVED",
+  "inputRoot": null,
+  "modules": [],
+  "records": [],
+  "activeProcessTreatment": [
+    {
+      "category": "civic_notices_and_appeals",
+      "treatment": "UNRESOLVED",
+      "legalDecision": "L10",
+      "evidenceCommitment": null
+    },
+    {
+      "category": "wallet_recovery_and_migration",
+      "treatment": "UNRESOLVED",
+      "legalDecision": "L10",
+      "evidenceCommitment": null
+    },
+    {
+      "category": "referenda_and_election_cycles",
+      "treatment": "UNRESOLVED",
+      "legalDecision": "L10",
+      "evidenceCommitment": null
+    },
+    {
+      "category": "final_unused_and_consumed_receipts",
+      "treatment": "UNRESOLVED",
+      "legalDecision": "L10",
+      "evidenceCommitment": null
+    },
+    {
+      "category": "loan_books_and_lp_shares",
+      "treatment": "UNRESOLVED",
+      "legalDecision": "L10",
+      "evidenceCommitment": null
+    },
+    {
+      "category": "land_disputes_and_locks",
+      "treatment": "UNRESOLVED",
+      "legalDecision": "L10",
+      "evidenceCommitment": null
+    },
+    {
+      "category": "treasury_commitments_and_queued_actions",
+      "treatment": "UNRESOLVED",
+      "legalDecision": "L10",
+      "evidenceCommitment": null
+    }
+  ],
+  "openLegalDecisions": [
+    "L01",
+    "L02",
+    "L03",
+    "L04",
+    "L05",
+    "L06",
+    "L07",
+    "L08",
+    "L09",
+    "L10",
+    "L11",
+    "L12",
+    "L13",
+    "L14"
+  ],
+  "specificationGates": {
+    "S01": "OPEN",
+    "S02": "OPEN",
+    "S03": "OPEN",
+    "S04": "OPEN",
+    "S05": "OPEN",
+    "S06": "OPEN",
+    "S07": "OPEN"
+  },
+  "approvals": [
+    {
+      "role": "LEGAL",
+      "personReference": null,
+      "decision": "PENDING",
+      "evidenceCommitment": null
+    },
+    {
+      "role": "ENGINEERING",
+      "personReference": null,
+      "decision": "PENDING",
+      "evidenceCommitment": null
+    },
+    {
+      "role": "SECURITY",
+      "personReference": null,
+      "decision": "PENDING",
+      "evidenceCommitment": null
+    },
+    {
+      "role": "OPERATOR",
+      "personReference": null,
+      "decision": "PENDING",
+      "evidenceCommitment": null
+    },
+    {
+      "role": "RELEASE",
+      "personReference": null,
+      "decision": "PENDING",
+      "evidenceCommitment": null
+    }
+  ]
+}

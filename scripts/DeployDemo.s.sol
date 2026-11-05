@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {console2} from "forge-std/console2.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 import {CabinetApp} from "../contracts/apps/CabinetApp.sol";
 import {CompanyRegistryApp} from "../contracts/apps/CompanyRegistryApp.sol";
@@ -144,7 +145,7 @@ contract DeployDemo is DeploymentScriptBase {
     ExecutiveRegistry internal _executiveRegistry;
     DemoSetupAuthority internal _demoAuthority;
     DemoCitizenGateway internal _demoCitizenGateway;
-    LLMToken internal _llmToken;
+    IERC20 internal _llmToken;
     MockUSDC internal _usdcToken;
     CitizenEligibilityPolicy internal _citizenEligibilityPolicy;
     UnstakingPolicy internal _unstakingPolicy;
@@ -258,9 +259,24 @@ contract DeployDemo is DeploymentScriptBase {
 
     function run() external returns (Deployment memory deployment) {
         require(block.chainid == SepoliaDemoParameters.CHAIN_ID, "demo deployment requires Sepolia");
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+        uint256 deployerPrivateKey = _deployerPrivateKey();
         address deployer = vm.addr(deployerPrivateKey);
+        _loadConfiguration(deployer);
+        vm.startBroadcast(deployerPrivateKey);
+        _deployCompleteDemo(deployer);
+        vm.stopBroadcast();
 
+        deployment = _snapshot(deployer);
+        _writeDeploymentJson(deployment);
+        _logDeployment(deployment);
+    }
+
+    /// @dev Network-specific profiles use their own credential variable without weakening the chain gate.
+    function _deployerPrivateKey() internal view virtual returns (uint256) {
+        return vm.envUint("PRIVATE_KEY");
+    }
+
+    function _loadConfiguration(address deployer) internal virtual {
         _financeOfficeAdmin = vm.envOr("FINANCE_ADMIN", deployer);
         _identityOfficeAdmin = vm.envOr("IDENTITY_ADMIN", address(0xB0B));
         _landOfficeAdmin = vm.envOr("LAND_ADMIN", address(0xCAFE));
@@ -269,27 +285,25 @@ contract DeployDemo is DeploymentScriptBase {
         _financeClerk = vm.envOr("FINANCE_CLERK", address(0xD00D));
         _treasuryPrefundUsdc = vm.envOr("TREASURY_PREFUND_USDC", uint256(0));
         _treasuryPrefundLlm = vm.envOr("TREASURY_PREFUND_LLM", uint256(0));
+    }
 
-        vm.startBroadcast(deployerPrivateKey);
-
+    function _deployCompleteDemo(address deployer) internal {
         _deployCore(deployer);
         _deployRegistries();
         _deployDemoAuthority(deployer);
         _deployPoliciesAndApps(deployer);
         _registerBootstrapModules();
         _seedDemoState(deployer);
+        _installTestExtensions();
         _switchToFinalDemoWiring();
         _prefundTreasury();
         _officeExecutor.disableBootstrapAuthority();
         _router.disableBootstrapAuthority();
         _kernel.disableBootstrapAuthority();
-
-        vm.stopBroadcast();
-
-        deployment = _snapshot(deployer);
-        _writeDeploymentJson(deployment);
-        _logDeployment(deployment);
     }
+
+    /// @dev Optional profile extensions are installed before the same irreversible setup retirement.
+    function _installTestExtensions() internal virtual {}
 
     function _deployCore(address deployer) internal {
         _kernel = new ConstitutionKernel(deployer);
@@ -319,7 +333,7 @@ contract DeployDemo is DeploymentScriptBase {
         _officeRegistry = new OfficeRegistry(address(_kernel));
         _presidentRegistry = new PresidentRegistry(address(_kernel));
         _executiveRegistry = new ExecutiveRegistry(address(_kernel));
-        _llmToken = new LLMToken();
+        _llmToken = _deployLlmToken();
         _usdcToken = new MockUSDC();
         _stakingVault = new LLMStakingVault(
             address(_kernel), address(_identityRegistry), address(_stakeRegistry), address(_llmToken)
@@ -730,12 +744,12 @@ contract DeployDemo is DeploymentScriptBase {
         _kernel.bootstrapSetModules(moduleIds, moduleAddresses);
     }
 
-    function _seedDemoState(address deployer) internal {
-        address walletTwo = address(0xB0B);
-        address walletThree = address(0xCAFE);
-        address walletFour = address(0xD00D);
+    function _seedDemoState(address deployer) internal virtual {
+        address walletTwo = _seededWallet(0);
+        address walletThree = _seededWallet(1);
+        address walletFour = _seededWallet(2);
 
-        _llmToken.mint(address(_stakingVault), 45_000 * ONE_LLM);
+        _fundLlm(address(_stakingVault), 45_000 * ONE_LLM);
 
         _demoAuthority.seedCitizen(
             DEMO_PERSON_ONE, deployer, 20_000 * ONE_LLM, "ipfs://demo/citizen-one.json", keccak256("demo-citizen-one")
@@ -1085,8 +1099,24 @@ contract DeployDemo is DeploymentScriptBase {
     function _prefundTreasury() internal {
         _usdcToken.mint(address(_treasuryVault), DEMO_OPERATIONS_BUDGET_AMOUNT + _treasuryPrefundUsdc);
         if (_treasuryPrefundLlm != 0) {
-            _llmToken.mint(address(_treasuryVault), _treasuryPrefundLlm);
+            _fundLlm(address(_treasuryVault), _treasuryPrefundLlm);
         }
+    }
+
+    /// @dev Default demo asset remains public-mint; governed staging overrides with the fixed-supply token.
+    function _deployLlmToken() internal virtual returns (IERC20) {
+        return IERC20(address(new LLMToken()));
+    }
+
+    function _fundLlm(address recipient, uint256 amount) internal virtual {
+        LLMToken(address(_llmToken)).mint(recipient, amount);
+    }
+
+    function _seededWallet(uint256 index) internal view virtual returns (address) {
+        if (index == 0) return address(0xB0B);
+        if (index == 1) return address(0xCAFE);
+        require(index == 2, "invalid demo wallet index");
+        return address(0xD00D);
     }
 
     function _congressElectionPolicyReference() internal view returns (bytes32 policyReference) {
@@ -1281,11 +1311,23 @@ contract DeployDemo is DeploymentScriptBase {
         // parse every value losslessly with BigInt.
         vm.serializeString(deploymentKey, "treasuryPrefundUsdc", vm.toString(deployment.treasuryPrefundUsdc));
         vm.serializeString(deploymentKey, "treasuryPrefundLlm", vm.toString(deployment.treasuryPrefundLlm));
-        string memory json =
+        string memory originalJson =
             vm.serializeString(deploymentKey, "stakingBackingSurplus", vm.toString(deployment.stakingBackingSurplus));
-
-        string memory path = string.concat(vm.projectRoot(), "/deployments/sepolia-demo.json");
+        string memory json = _decorateDeploymentManifest(deploymentKey, originalJson);
+        string memory path = string.concat(vm.projectRoot(), _deploymentManifestPath());
         vm.writeJson(json, path);
+    }
+
+    function _decorateDeploymentManifest(string memory, string memory originalJson)
+        internal
+        virtual
+        returns (string memory)
+    {
+        return originalJson;
+    }
+
+    function _deploymentManifestPath() internal pure virtual returns (string memory) {
+        return "/deployments/sepolia-demo.json";
     }
 
     function _logDeployment(Deployment memory deployment) internal view {

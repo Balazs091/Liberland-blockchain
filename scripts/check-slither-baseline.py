@@ -5,6 +5,7 @@ from __future__ import annotations
 import collections
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
@@ -15,11 +16,17 @@ from pathlib import Path
 # Current manual triage and verification: docs/Release-Readiness.md.
 EXPECTED_COUNTS = {
     "High": 6,
-    "Medium": 68,
-    "Low": 264,
-    "Informational": 94,
+    "Medium": 70,
+    "Low": 292,
+    "Informational": 96,
     "Optimization": 0,
 }
+
+
+def slither_command() -> list[str]:
+    """Use one explicit interpreter when a virtual-environment entrypoint has a stale installation path."""
+    interpreter = os.environ.get("SLITHER_PYTHON")
+    return [interpreter, "-m", "slither"] if interpreter else ["slither"]
 
 
 def finding_fingerprints(detectors: list[dict]) -> dict[str, int]:
@@ -39,7 +46,7 @@ def main() -> int:
     with tempfile.TemporaryDirectory(prefix="liberland-slither-") as temporary_directory:
         report_path = Path(temporary_directory) / "report.json"
         completed = subprocess.run(
-            ["slither", ".", "--json", str(report_path), "--fail-none"],
+            [*slither_command(), ".", "--json", str(report_path), "--fail-none"],
             check=False,
         )
         if completed.returncode != 0:

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -165,11 +165,6 @@ contract MinistryTreasury is KernelModule, ReentrancyGuard, IMinistryTreasury {
     {
         _requireAmount(amount);
         _requireMinister(officeId, msg.sender);
-
-        uint256 officeShares = _poolShares[officeId][pool];
-        if (officeShares == 0) {
-            revert NoMinistryPoolShares(officeId, pool);
-        }
 
         return _withdrawFromPool(officeId, IUSDCLendingPoolApp(pool), amount);
     }

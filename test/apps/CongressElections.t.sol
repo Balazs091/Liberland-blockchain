@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {Test} from "forge-std/Test.sol";
 
@@ -157,9 +157,13 @@ abstract contract CongressElectionFixture is Test {
     ///         dropped when the person re-votes from the new wallet.
 
     function _assertOpenAdmissionCount(uint256 count) internal {
+        // Seeding represents many prior transactions. Keep its aggregate cost outside the test budget;
+        // candidate admission and every finalization chunk remain metered below.
+        vm.pauseGasMetering();
         for (uint256 i; i < count; ++i) {
             _registerCitizen(bytes32(1000 + i), address(uint160(1000 + i)), 6_000);
         }
+        vm.resumeGasMetering();
         vm.roll(block.number + 1);
         (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycle) = _createCycle();
         vm.warp(cycle.nominationStart);
@@ -393,6 +397,35 @@ abstract contract CongressElectionFixture is Test {
 
 /// @notice Covers Congress election scheduling, signed ballots, ranked outcomes, and runner-up replacement.
 contract CongressElectionsTest is CongressElectionFixture {
+    function test_PredeploymentApi_RecallReplacesAnIneligibleMemberAndUpdatesThePublicReadSurface() public {
+        // A client can discover the exact current contracts before submitting the ordinary election workflow.
+        assertEq(congressElectionApp.identityRegistry(), address(identityRegistry));
+        assertEq(congressElectionApp.congressCandidateRegistry(), address(congressCandidateRegistry));
+        assertEq(congressElectionApp.candidateEligibilityPolicy(), address(candidateEligibilityPolicy));
+        assertEq(congressElectionApp.congressElectionPolicy(), address(congressElectionPolicy));
+        assertEq(congressElectionApp.votingPowerPolicy(), address(votingPowerPolicy));
+        assertEq(congressElectionApp.currentCongressCycleId(), 0);
+        uint256 cycleId = _finalizeDefaultCongressTerm();
+        assertEq(congressElectionApp.currentCongressCycleId(), cycleId);
+        assertTrue(congressElectionApp.isCongressMember(WALLET_ONE));
+
+        vm.expectRevert(abi.encodeWithSelector(ICongressElectionApp.MemberStillEligible.selector, WALLET_ONE));
+        congressElectionApp.recallMember(WALLET_ONE);
+        IdentityTypes.IdentityRecordInput memory changed = _defaultIdentityInput();
+        changed.citizenshipStatus = IdentityTypes.CitizenshipStatus.Suspended;
+        _setIdentityRecord(PERSON_ONE_ID, changed);
+        vm.prank(address(0xBEEF));
+        (uint32 seatIndex, address replacement) = congressElectionApp.recallMember(WALLET_ONE);
+        assertEq(seatIndex, 0);
+        assertEq(replacement, WALLET_TWO);
+        assertFalse(congressElectionApp.isCongressMember(WALLET_ONE));
+        assertTrue(congressElectionApp.isCongressMember(WALLET_TWO));
+        assertEq(congressElectionApp.currentCongressCycleId(), cycleId);
+        _assertSeatHolder(0, cycleId, WALLET_TWO, 3, true);
+        vm.expectRevert(abi.encodeWithSelector(ICongressElectionApp.NotActiveCongressMember.selector, WALLET_ONE));
+        congressElectionApp.recallMember(WALLET_ONE);
+    }
+
     function testFuzz_Constructor_RejectsOverflowingScheduleDuration(uint8 field, uint64 duration) public {
         field = uint8(bound(field, 0, 3));
         duration = uint64(bound(duration, uint256(type(uint32).max) + 1, type(uint64).max));
@@ -513,6 +546,94 @@ contract CongressElectionsTest is CongressElectionFixture {
         assertEq(nextCycle.nominationStart, cycleRecord.votingEnd);
         assertEq(nextCycle.votingStart, cycleRecord.votingEnd + MINIMUM_NOMINATION_DURATION);
         assertEq(nextCycle.votingEnd, cycleRecord.votingEnd + ELECTION_CYCLE_DURATION);
+    }
+
+    function test_InitialElectionWindow_RejectsMaximumVotingEndFromUnregisteredCaller() public {
+        address caller = address(0xBAD);
+        assertFalse(identityRegistry.hasActiveWalletLink(caller));
+        uint64 nominationStart = uint64(block.timestamp);
+        uint64 votingStart = nominationStart + MINIMUM_NOMINATION_DURATION;
+        vm.prank(caller);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICongressElectionApp.InvalidElectionWindow.selector, nominationStart, votingStart, type(uint64).max
+            )
+        );
+        congressElectionApp.createElectionCycle(nominationStart, votingStart, type(uint64).max);
+        assertEq(congressCandidateRegistry.latestCycleId(), 0);
+    }
+
+    function test_InitialElectionWindow_RejectsOneSecondOverPolicyDuration() public {
+        uint64 nominationStart = uint64(block.timestamp);
+        uint64 votingStart = nominationStart + MINIMUM_NOMINATION_DURATION;
+        uint64 votingEnd = nominationStart + ELECTION_CYCLE_DURATION + 1;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICongressElectionApp.InvalidElectionWindow.selector, nominationStart, votingStart, votingEnd
+            )
+        );
+        congressElectionApp.createElectionCycle(nominationStart, votingStart, votingEnd);
+        assertEq(congressCandidateRegistry.latestCycleId(), 0);
+    }
+
+    function test_InitialElectionWindow_AcceptsExactPolicyDuration() public {
+        uint64 nominationStart = uint64(block.timestamp);
+        uint64 votingStart = nominationStart + MINIMUM_NOMINATION_DURATION;
+        uint64 votingEnd = nominationStart + ELECTION_CYCLE_DURATION;
+        uint256 cycleId = congressElectionApp.createElectionCycle(nominationStart, votingStart, votingEnd);
+        ElectionTypes.CongressCycleRecord memory cycle = congressCandidateRegistry.getCycle(cycleId);
+        assertEq(cycle.nominationStart, nominationStart);
+        assertEq(cycle.votingStart, votingStart);
+        assertEq(cycle.votingEnd, votingEnd);
+        vm.warp(votingEnd);
+        congressElectionApp.finalizeElection(cycleId);
+        assertEq(congressElectionApp.createNextElectionCycle(), cycleId + 1);
+    }
+
+    function test_InitialElectionWindow_AcceptsShorterCycleAndKeepsRecurringCadence() public {
+        uint64 recurringDuration = ELECTION_CYCLE_DURATION + 1 days;
+        CongressElectionPolicy policy = new CongressElectionPolicy(
+            address(candidateEligibilityPolicy),
+            address(votingPowerPolicy),
+            SEAT_COUNT,
+            RUNNER_UP_COUNT,
+            MAX_CANDIDATE_COUNT,
+            CANDIDATE_BOND_REQUIREMENT,
+            MINIMUM_NOMINATION_DURATION,
+            MINIMUM_VOTING_DURATION,
+            MAX_SCHEDULE_LEAD_TIME,
+            recurringDuration
+        );
+        kernel.bootstrapSetModule(KernelModuleIds.CONGRESS_ELECTION_POLICY, address(policy));
+        (uint256 cycleId, ElectionTypes.CongressCycleRecord memory cycle) = _createCycle();
+        assertLt(cycle.votingEnd - cycle.nominationStart, recurringDuration);
+        vm.warp(cycle.votingEnd);
+        congressElectionApp.finalizeElection(cycleId);
+        uint256 nextCycleId = congressElectionApp.createNextElectionCycle();
+        ElectionTypes.CongressCycleRecord memory next = congressCandidateRegistry.getCycle(nextCycleId);
+        assertEq(next.votingEnd - next.nominationStart, recurringDuration);
+    }
+
+    function test_InitialElectionWindow_StillRejectsShortNominationAndVotingPeriods() public {
+        uint64 nominationStart = uint64(block.timestamp);
+        uint64 votingStart = nominationStart + MINIMUM_NOMINATION_DURATION - 1;
+        uint64 votingEnd = nominationStart + ELECTION_CYCLE_DURATION;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICongressElectionApp.InvalidElectionWindow.selector, nominationStart, votingStart, votingEnd
+            )
+        );
+        congressElectionApp.createElectionCycle(nominationStart, votingStart, votingEnd);
+
+        votingStart = nominationStart + MINIMUM_NOMINATION_DURATION;
+        votingEnd = votingStart + MINIMUM_VOTING_DURATION - 1;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICongressElectionApp.InvalidElectionWindow.selector, nominationStart, votingStart, votingEnd
+            )
+        );
+        congressElectionApp.createElectionCycle(nominationStart, votingStart, votingEnd);
+        assertEq(congressCandidateRegistry.latestCycleId(), 0);
     }
 
     function test_CreateNextElectionCycle_UsesPolicyCadenceForInitialCycle() public {

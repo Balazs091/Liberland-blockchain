@@ -124,6 +124,12 @@ signatures. EOAs and EIP-1271 wallets are supported. `expectedParcelVersionHash`
 `getParcel(getTitle(titleId).parcelId).versionHash`. Any parcel revision, including boundary adjustment, invalidates
 existing transfer intent even if the title itself is unchanged. Refresh both versions and obtain both signatures again.
 
+Signer removal prevents execution while that address is unauthorized; it does not permanently cancel earlier
+signatures. If the same director or office administrator is reappointed before the deadline, an old consent can
+become usable again when its versions and nonce are still current. There is no appointment epoch in the signed
+payload. Use short consent deadlines and review outstanding signatures before reappointment. Permanent cancellation
+on removal would need an explicitly approved and tested change to the authorization model.
+
 `sellerPartyKey` and `newHolderPartyKey` are `keccak256(abi.encode(namespace, id))`. `anchorHash` is
 `keccak256(abi.encode(schemaId, schemaVersion, contentHash, sourceDocumentHash, lineageHash))`. Frontends should call
 the app's digest helper instead of duplicating EIP-712 encoding when possible.

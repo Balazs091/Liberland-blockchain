@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 /// @title ICivicAppealReview
 /// @notice Fixed five-member, three-approval authority for exact civic appeals; no general executor.

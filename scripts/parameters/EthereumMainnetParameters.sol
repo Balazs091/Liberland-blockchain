@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {LLMTokenConstants} from "../../contracts/libraries/LLMTokenConstants.sol";
 
@@ -7,6 +7,8 @@ import {LLMTokenConstants} from "../../contracts/libraries/LLMTokenConstants.sol
 /// @notice Canonical production deployment parameters for Ethereum mainnet.
 library EthereumMainnetParameters {
     uint256 internal constant CHAIN_ID = 1;
+    /// @dev Circle's native Ethereum L1 USDC proxy; never a bridged representation or a configurable lookalike.
+    address internal constant USDC_TOKEN = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
 
     uint256 internal constant ONE_LLM = 1e18;
     uint256 internal constant ONE_USDC = 1e6;

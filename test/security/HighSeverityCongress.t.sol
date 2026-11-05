@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {CongressElectionFixture} from "../apps/CongressElections.t.sol";
 import {ElectionTypes} from "../../contracts/types/ElectionTypes.sol";

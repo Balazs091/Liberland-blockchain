@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {LlmBackedUSDCFixture, ConstantInterestRatePolicy} from "../apps/LlmBackedUSDC.t.sol";
 import {IUSDCLendingPoolApp} from "../../contracts/interfaces/IUSDCLendingPoolApp.sol";

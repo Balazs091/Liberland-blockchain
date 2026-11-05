@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {ILendingRiskParameterPolicy} from "../interfaces/ILendingRiskParameterPolicy.sol";
 
@@ -9,8 +9,8 @@ import {ILendingRiskParameterPolicy} from "../interfaces/ILendingRiskParameterPo
 ///      `policy.lending-risk-parameter` module through a module-governance referendum (constitutional double
 ///      threshold, per the module-governance rules). Because the pool reads these live, a repoint takes effect on
 ///      the next interaction — including making existing positions liquidatable if the threshold is lowered — so
-///      changes must go through the timelock's review window. The constructor enforces hard bounds so that no
-///      configured (or repointed) policy can set economically nonsensical values.
+///      changes must go through the timelock's review window. This implementation's constructor enforces the
+///      parameter bounds below; replacement implementations require review of their own validation rules.
 contract LendingRiskParameterPolicy is ILendingRiskParameterPolicy {
     uint256 internal constant BPS = 10_000;
 

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {LegislationTypes} from "./LegislationTypes.sol";
 import {TreasuryTypes} from "./TreasuryTypes.sol";
@@ -14,7 +14,8 @@ library ReferendumTypes {
         CongressElectionPolicy,
         BudgetApproval,
         ModuleGovernance,
-        LegislationRepeal
+        LegislationRepeal,
+        ModuleBundle
     }
 
     enum ProposalOrigin {
@@ -75,6 +76,16 @@ library ReferendumTypes {
         bytes32 targetModule;
         address newModuleAddress;
         bool registerNewModule;
+        uint64 startTime;
+        uint64 endTime;
+        uint64 adoptionDelay;
+    }
+
+    /// @notice An exact immutable upgrade plan voted through the ordinary referendum authority.
+    struct ModuleBundleProposal {
+        bytes32 proposalMetadataHash;
+        bytes32 planId;
+        address planRegistry;
         uint64 startTime;
         uint64 endTime;
         uint64 adoptionDelay;

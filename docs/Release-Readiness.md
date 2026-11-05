@@ -1,15 +1,57 @@
-# Release Readiness
+# Release readiness
 
-Status: local implementation, configuration and documentation checks are recorded below. The working source is
-not yet a frozen release commit. Freeze a new revision and regenerate the audit package before submission;
-previously prepared packages do not contain this build.
-**Not authorized for mainnet launch**.
-The package's `PROVENANCE.json` identifies the exact source commit, tree, dependency revisions and toolchain.
-Verify the package checksums before relying on its contents.
+The implemented source can be submitted for an external implementation audit. Production launch still needs that
+audit, approved legal workflows, verified genesis/assets and operational approval. The separate recovery ballot
+remains deferred.
+
+For a commit-based handoff, include every new source/test/script, freeze one commit and tree, and pass
+`bash scripts/audit-freeze-check.sh` on a clean checkout. A working-tree archive must instead identify its exact
+source inventory and archive checksum, record its base commit, and state that the candidate has not been published.
+[Auditor Handoff](Auditor-Handoff.md) defines both formats.
+
+## Current engineering evidence
+
+[Comprehensive Review](Comprehensive-Review.md) records the 5 November internal audit, first-election duration fix,
+final verification and new source archive. Its revision-specific evidence supersedes the figures below for the
+current candidate. The earlier reports remain historical records.
+
+[Toolchain Upgrade](Toolchain-Upgrade.md) records the Solidity 0.8.38 build, updated dependencies and fresh
+verification of this candidate. Source hashes, bytecode and scanner identities from earlier runs do not establish
+verification of the updated build. A new audit package must identify the new source and toolchain.
+
+The updated build passes 795 ordinary/fuzz test instances and 24 invariant properties, with no failures or skips.
+Three deeper invariant seeds pass 1,572,864 handler calls. All 58 ABI exports and 73 compared storage layouts remain
+compatible; 220 localhost deployment/recovery transactions succeed. Current first-party coverage is 89.04% of
+reported lines and 54.27% of branches. The 464 unsuppressed scanner labels retain the reviewed limitations below.
+
+### Earlier 3 November verification
+
+The following figures belong to [Complexity Review](Complexity-Review.md), before the compiler/dependency update.
+The separately checksummed publication snapshot preserves that earlier source and its evidence.
+
+| Check | Recorded result |
+| --- | --- |
+| Complete optimized suite | 816 passed in 67 suites; zero failed/skipped |
+| Extended stateful campaign | 24 invariant properties plus six supporting tests; 256 runs at depth 256; 1,572,864 reported handler calls |
+| Coverage | 815 tests passed with the one documented instrumentation exception; first-party non-mock lines 88.24%, functions 93.94%, branches 52.83% |
+| Static analysis | 465 unsuppressed labels, 460 normalized identities: 6 High, 72 Medium, 292 Low, 95 Informational; reviewed deltas retained |
+| Interfaces and layout | 58 exact ABI exports; 834 function entries; all ten simplified contracts retain their compiled storage layouts |
+| Local deployment | Fresh production setup and governed Sepolia deployment/upgrade/rollback rehearsals passed; no current-source public deployment |
+| Reference/tooling tests | 34 reference-model tests; 20 repository verification-tool tests |
+
+Coverage has 197,548 recorded anchor warnings and finite branch/state coverage. Scanner labels are not confirmed
+vulnerability counts. The raw reports, source hashes, before/after comparisons and rehearsal evidence belong with
+the submitted target. [Complexity Review](Complexity-Review.md) records the measurements and limits;
+[Static Analysis Notes](Static-Analysis-Triage.md) records detector triage.
+
+Phase A's token/restriction foundations and governed staging are implemented. Collective admission, discipline,
+annulment, the official writer and complete membership-policy integration remain separate work with concrete legal
+inputs outstanding. See [Phase A status](phase-a/README.md), [Recovery Plan](Recovery-Plan.md) and
+[Recovery Decisions](Recovery-Decisions.md).
 
 ## Submission contents and scope
 
-The submission includes current contracts, interfaces, tests, deployment scripts, network parameters, documentation,
+The submission must include current contracts, interfaces, tests, deployment scripts, network parameters, documentation,
 frontend ABIs and pinned dependency source, with reproducible verification evidence. Review every production path,
 not just the test-covered scenarios. Mocks and demo-only modules are included to make their separation explicit;
 they are not production assets or authorities.
@@ -52,8 +94,9 @@ Passing tests support these implementation descriptions; they do not establish t
    explicit transition design. Custody/loan/commitment helpers do not import identity, land, company, electorate,
    civic cases, debt or LP records. Exact successor getters check compatibility, not honest bytecode. Replacing a
    ledger requires preserving its receipts, facts and pending obligations through a separately reviewed migration.
-4. **Atomic batches do not lock members together.** `executeActions` is atomic for that invocation, but ready
-   members can also execute individually. Review intermediate pointer states and overlapping execution windows.
+4. **Separate actions do not lock members together.** `executeActions` retains independently executable members.
+   Use the new typed module bundle for related existing non-Core pointers: it commits and executes the complete
+   group in one action. Bundles exclude Senate/review replacements and do not migrate state or custody.
 5. **Optional hook compatibility is a trust boundary.** Failure is fail-open under the documented ABI/gas contract.
    The core cannot distinguish accidental failure from intentional incompatibility. Future hook implementations
    and chain gas repricing require renewed compatibility checks.
@@ -78,12 +121,12 @@ Passing tests support these implementation descriptions; they do not establish t
 [Upgrade and Liveness](Upgrade-And-Liveness.md) contains the module-by-module dependency and recovery map.
 These limits must be included in audit scoping and launch-risk decisions, not treated as deployment guarantees.
 
-## Verification evidence
+## Historical September verification evidence
 
 Verification is source-specific. Package provenance must identify this implementation and its tests; do not reuse
 a source archive or verification manifest from a different revision. Fuzzed coverage reruns may vary slightly.
 
-Current toolchain: Forge 1.7.1, Solidity 0.8.37, Slither 0.11.5; Osaka, optimizer 200, no via-IR in deployable builds.
+Historical toolchain: Forge 1.7.1, Solidity 0.8.37, Slither 0.11.5; Osaka, optimizer 200, no via-IR in deployable builds.
 The source is tested without raising deployment-size or transaction-cap settings to conceal failures.
 Checks below were run on 17 September 2026 against the local working source derived from
 `ccea1facde0cedb491dc864a2f4dc00e3a04c4bd`, including application changes beyond compiler pragmas.
@@ -92,7 +135,7 @@ The workspace evidence directory `Full-Solidity-Review-2026-09-17`, alongside th
 hashes, test/coverage logs, unsuppressed static output and the source-specific review. It is not a committed release
 archive or a replacement for the final clean-tree gate.
 
-### Current local checks
+### Earlier local checks
 
 | Check | Recorded result |
 | --- | --- |
@@ -103,7 +146,7 @@ archive or a replacement for the final clean-tree gate.
 | Verification-tool tests | **11 passed**; documentation/ABI inventory and static-fingerprint tests |
 | Unsuppressed static analysis | **432 labels**, 427 distinct normalized fingerprints: 6 High, 68 Medium, 264 Low, 94 Informational. Two informational-return reports and ten changed descriptions were reviewed; no detector was suppressed. See [Static Analysis Notes](Static-Analysis-Triage.md). |
 
-| Check | Current local result |
+| Check | Historical September result |
 | --- | --- |
 | Coverage campaign | **611 passed, 0 failed**, 49 suites; one 1,000-candidate stress instance excluded only from instrumentation and required in the optimized suite; a 100-candidate fixture covers the same counting path |
 | Aggregate instrumented coverage | Lines **82.10% (7,997/9,740)**; statements **84.75% (9,266/10,933)**; branches **49.75% (794/1,596)**; functions **89.00% (1,262/1,418)** |

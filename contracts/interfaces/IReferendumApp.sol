@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {ReferendumTypes} from "../types/ReferendumTypes.sol";
 
@@ -163,6 +163,27 @@ interface IReferendumApp {
     /// @param proposal The module-governance proposal payload.
     /// @return referendumId The created referendum identifier.
     function createCongressModuleGovernanceReferendum(ReferendumTypes.ModuleGovernanceProposal calldata proposal)
+        external
+        returns (bytes32 referendumId);
+
+    /// @notice Returns the fixed read-only validator created by this app; it has no governance authority.
+    function proposalValidator() external view returns (address validator);
+
+    /// @notice Previews the exact ID of a typed atomic-module-bundle ballot.
+    function previewModuleBundleReferendumId(
+        ReferendumTypes.ProposalOrigin origin,
+        ReferendumTypes.ModuleBundleProposal calldata proposal,
+        bytes32 proposerReference
+    ) external pure returns (bytes32 referendumId);
+
+    /// @notice Creates a citizen-origin vote for an immutable update plan under the constitutional threshold.
+    /// @dev One approved plan becomes one queued action; it grants no new execution or recovery authority.
+    function createCitizenModuleBundleReferendum(ReferendumTypes.ModuleBundleProposal calldata proposal)
+        external
+        returns (bytes32 referendumId);
+
+    /// @notice Creates a Congress-origin atomic-update vote under the same constitutional threshold.
+    function createCongressModuleBundleReferendum(ReferendumTypes.ModuleBundleProposal calldata proposal)
         external
         returns (bytes32 referendumId);
 

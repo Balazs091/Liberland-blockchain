@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.37;
+pragma solidity 0.8.38;
 
 import {console2} from "forge-std/console2.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -51,6 +51,7 @@ import {ElectorateRegistry} from "../contracts/registries/ElectorateRegistry.sol
 import {IdentityRegistry} from "../contracts/registries/IdentityRegistry.sol";
 import {LandRegistry} from "../contracts/registries/LandRegistry.sol";
 import {LegislationRegistry} from "../contracts/registries/LegislationRegistry.sol";
+import {ModuleUpgradePlanRegistry} from "../contracts/registries/ModuleUpgradePlanRegistry.sol";
 import {OfficeRegistry} from "../contracts/registries/OfficeRegistry.sol";
 import {PresidentRegistry} from "../contracts/registries/PresidentRegistry.sol";
 import {ReferendumRegistry} from "../contracts/registries/ReferendumRegistry.sol";
@@ -111,6 +112,7 @@ contract Deploy is DeploymentScriptBase {
     LLMStakingVault internal _stakingVault;
     StakeLienRegistry internal _stakeLienRegistry;
     LegislationRegistry internal _legislationRegistry;
+    ModuleUpgradePlanRegistry internal _moduleUpgradePlanRegistry;
     ReferendumRegistry internal _referendumRegistry;
     CongressCandidateRegistry internal _congressCandidateRegistry;
     SenateSeatRegistry internal _senateSeatRegistry;
@@ -184,6 +186,7 @@ contract Deploy is DeploymentScriptBase {
         address stakeLienRegistry;
         address electorateRegistry;
         address legislationRegistry;
+        address moduleUpgradePlanRegistry;
         address referendumRegistry;
         address congressCandidateRegistry;
         address senateSeatRegistry;
@@ -209,6 +212,7 @@ contract Deploy is DeploymentScriptBase {
         address lendingRiskPolicy;
         address congressElectionApp;
         address referendumApp;
+        address referendumProposalValidator;
         address senateApp;
         address publicVetoApp;
         address decisionApp;
@@ -260,11 +264,7 @@ contract Deploy is DeploymentScriptBase {
 
         // System money is ERC20: LLM (governance/merit) plus the configured treasury spending assets (stablecoins
         // such as USDC/USDS). Native ETH is gas-only and has no treasury role, so both inputs are mandatory.
-        _llmTokenAddress = vm.envAddress("LLM_TOKEN");
-        require(_llmTokenAddress != address(0) && _llmTokenAddress.code.length != 0, "LLM_TOKEN must be a contract");
-        _usdcTokenAddress = vm.envAddress("USDC_TOKEN");
-        require(_usdcTokenAddress != address(0) && _usdcTokenAddress.code.length != 0, "USDC_TOKEN must be a contract");
-        require(_usdcTokenAddress != _llmTokenAddress, "USDC_TOKEN must differ from LLM_TOKEN");
+        _loadProductionTokens();
         _loadTreasuryAssetLimits();
 
         vm.startBroadcast(deployerPrivateKey);
@@ -337,6 +337,8 @@ contract Deploy is DeploymentScriptBase {
         _presidentRegistry = PresidentRegistry(_kernel.getModule(KernelModuleIds.PRESIDENT_REGISTRY));
         _congressElectionApp = CongressElectionApp(_kernel.getModule(KernelModuleIds.CONGRESS_ELECTION_APP));
         _referendumApp = ReferendumApp(_kernel.getModule(KernelModuleIds.REFERENDUM_APP));
+        _moduleUpgradePlanRegistry =
+            ModuleUpgradePlanRegistry(_kernel.getModule(KernelModuleIds.MODULE_UPGRADE_PLAN_REGISTRY));
         _officeExecutor = OfficeExecutor(_kernel.getModule(KernelModuleIds.OFFICE_EXECUTOR));
         _lendingPool = USDCLendingPoolApp(_kernel.getModule(KernelModuleIds.USDC_LENDING_POOL_APP));
         _decisionApp = DecisionApp(_kernel.getModule(KernelModuleIds.DECISION_APP));
@@ -398,6 +400,7 @@ contract Deploy is DeploymentScriptBase {
         _electorateRegistry =
             new ElectorateRegistry(address(_kernel), address(_identityRegistry), address(_stakeRegistry));
         _legislationRegistry = new LegislationRegistry(address(_kernel));
+        _moduleUpgradePlanRegistry = new ModuleUpgradePlanRegistry(address(_kernel));
         _referendumRegistry = new ReferendumRegistry(address(_kernel));
         _congressCandidateRegistry = new CongressCandidateRegistry(address(_kernel));
         _senateSeatRegistry = new SenateSeatRegistry(address(_kernel));
@@ -417,7 +420,23 @@ contract Deploy is DeploymentScriptBase {
         require(llmToken.totalSupply() <= EthereumMainnetParameters.LLM_MAX_SUPPLY, "LLM total supply exceeds cap");
     }
 
+    /// @dev Pins lending to native Ethereum USDC. An optional legacy environment value must match the pin.
+    function _loadProductionTokens() internal {
+        _llmTokenAddress = vm.envAddress("LLM_TOKEN");
+        require(_llmTokenAddress != address(0) && _llmTokenAddress.code.length != 0, "LLM_TOKEN must be a contract");
+        _usdcTokenAddress = EthereumMainnetParameters.USDC_TOKEN;
+        require(
+            vm.envOr("USDC_TOKEN", _usdcTokenAddress) == _usdcTokenAddress, "USDC_TOKEN must be canonical Ethereum USDC"
+        );
+        require(_usdcTokenAddress != _llmTokenAddress, "USDC_TOKEN must differ from LLM_TOKEN");
+        // Fail before the first broadcast transaction, rather than leaving a partly prepared deployment.
+        _validateLlmToken();
+        _validateUsdcToken();
+    }
+
     function _validateUsdcToken() internal view {
+        require(_usdcTokenAddress == EthereumMainnetParameters.USDC_TOKEN, "USDC_TOKEN must be canonical Ethereum USDC");
+        require(_usdcTokenAddress.code.length != 0, "USDC_TOKEN must be a contract");
         require(IERC20Metadata(_usdcTokenAddress).decimals() == 6, "USDC token must use 6 decimals");
     }
 
@@ -577,7 +596,7 @@ contract Deploy is DeploymentScriptBase {
     }
 
     function _registerModules() internal {
-        (bytes32[] memory moduleIds, address[] memory moduleAddresses) = _allocateModuleBatch(61);
+        (bytes32[] memory moduleIds, address[] memory moduleAddresses) = _allocateModuleBatch(62);
         uint256 index;
 
         // Standing identity authority: the IdentityApp becomes the sole live mutator of the identity registry.
@@ -614,6 +633,13 @@ contract Deploy is DeploymentScriptBase {
         );
         _setModuleBatchEntry(
             moduleIds, moduleAddresses, index++, KernelModuleIds.LEGISLATION_REGISTRY, address(_legislationRegistry)
+        );
+        _setModuleBatchEntry(
+            moduleIds,
+            moduleAddresses,
+            index++,
+            KernelModuleIds.MODULE_UPGRADE_PLAN_REGISTRY,
+            address(_moduleUpgradePlanRegistry)
         );
         _setModuleBatchEntry(
             moduleIds, moduleAddresses, index++, KernelModuleIds.REFERENDUM_REGISTRY, address(_referendumRegistry)
@@ -1031,6 +1057,12 @@ contract Deploy is DeploymentScriptBase {
 
     function _assertReadyForBootstrapDisable() internal view {
         require(
+            _kernel.getModule(KernelModuleIds.MODULE_UPGRADE_PLAN_REGISTRY) == address(_moduleUpgradePlanRegistry)
+                && _moduleUpgradePlanRegistry.kernel() == address(_kernel),
+            "upgrade plan registry not registered"
+        );
+        require(_referendumApp.proposalValidator().code.length != 0, "referendum proposal validator missing");
+        require(
             _kernel.getModule(KernelModuleIds.REFERENDUM_REGISTRY_AUTHORITY) == address(_referendumApp),
             "standing referendum authority not registered"
         );
@@ -1152,6 +1184,7 @@ contract Deploy is DeploymentScriptBase {
         deployment.stakeLienRegistry = address(_stakeLienRegistry);
         deployment.electorateRegistry = address(_electorateRegistry);
         deployment.legislationRegistry = address(_legislationRegistry);
+        deployment.moduleUpgradePlanRegistry = address(_moduleUpgradePlanRegistry);
         deployment.referendumRegistry = address(_referendumRegistry);
         deployment.congressCandidateRegistry = address(_congressCandidateRegistry);
         deployment.senateSeatRegistry = address(_senateSeatRegistry);
@@ -1177,6 +1210,7 @@ contract Deploy is DeploymentScriptBase {
         deployment.lendingRiskPolicy = address(_lendingRiskPolicy);
         deployment.congressElectionApp = address(_congressElectionApp);
         deployment.referendumApp = address(_referendumApp);
+        deployment.referendumProposalValidator = _referendumApp.proposalValidator();
         deployment.senateApp = address(_senateApp);
         deployment.publicVetoApp = address(_publicVetoApp);
         deployment.decisionApp = address(_decisionApp);
@@ -1225,6 +1259,10 @@ contract Deploy is DeploymentScriptBase {
         vm.serializeAddress(deploymentKey, "stakeLienRegistry", deployment.stakeLienRegistry);
         vm.serializeAddress(deploymentKey, "electorateRegistry", deployment.electorateRegistry);
         vm.serializeAddress(deploymentKey, "legislationRegistry", deployment.legislationRegistry);
+        vm.serializeAddress(deploymentKey, "moduleUpgradePlanRegistry", deployment.moduleUpgradePlanRegistry);
+        vm.serializeBytes32(
+            deploymentKey, "moduleUpgradePlanRegistryRuntimeHash", deployment.moduleUpgradePlanRegistry.codehash
+        );
         vm.serializeAddress(deploymentKey, "referendumRegistry", deployment.referendumRegistry);
         vm.serializeAddress(deploymentKey, "congressCandidateRegistry", deployment.congressCandidateRegistry);
         vm.serializeAddress(deploymentKey, "senateSeatRegistry", deployment.senateSeatRegistry);
@@ -1250,6 +1288,10 @@ contract Deploy is DeploymentScriptBase {
         vm.serializeAddress(deploymentKey, "lendingRiskPolicy", deployment.lendingRiskPolicy);
         vm.serializeAddress(deploymentKey, "congressElectionApp", deployment.congressElectionApp);
         vm.serializeAddress(deploymentKey, "referendumApp", deployment.referendumApp);
+        vm.serializeAddress(deploymentKey, "referendumProposalValidator", deployment.referendumProposalValidator);
+        vm.serializeBytes32(
+            deploymentKey, "referendumProposalValidatorRuntimeHash", deployment.referendumProposalValidator.codehash
+        );
         vm.serializeAddress(deploymentKey, "senateApp", deployment.senateApp);
         vm.serializeAddress(deploymentKey, "publicVetoApp", deployment.publicVetoApp);
         vm.serializeAddress(deploymentKey, "decisionApp", deployment.decisionApp);
@@ -1305,6 +1347,8 @@ contract Deploy is DeploymentScriptBase {
         console2.log("StakeLienRegistry:", deployment.stakeLienRegistry);
         console2.log("ElectorateRegistry:", deployment.electorateRegistry);
         console2.log("LegislationRegistry:", deployment.legislationRegistry);
+        console2.log("ModuleUpgradePlanRegistry:", deployment.moduleUpgradePlanRegistry);
+        console2.log("ReferendumProposalValidator:", deployment.referendumProposalValidator);
         console2.log("ReferendumRegistry:", deployment.referendumRegistry);
         console2.log("CongressCandidateRegistry:", deployment.congressCandidateRegistry);
         console2.log("SenateSeatRegistry:", deployment.senateSeatRegistry);
