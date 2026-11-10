@@ -9,13 +9,10 @@ this source documentation does not establish an upgrade to a public deployment.
 
 ## Layers
 
-The November development foundation adds internal decision-threshold, determination-hash, receipt-consumption and
-timed-restriction-set libraries. `MembershipRegistry` stores independent person-bound restriction orders. Both
-synthetic Sepolia profiles install it with a test writer; the production deployment script installs neither the
-membership registry nor the official `IdentityWriter`. The kernel recognises their State and Authority classes.
-Complete eligibility-policy integration and the legal decision workflows remain unfinished. Existing identity-office
-powers continue until those replacement workflows are integrated. Accepted recommendations, remaining
-concrete rule inputs and validation are recorded in [Phase A engineering progress](phase-a/ENGINEERING-PROGRESS.md).
+The optional fresh-genesis justice profile adds a typed identity writer, collective decision application,
+stable replay ledger, membership eligibility and voluntary compensation escrow. The appointed bodies sign
+exact effects after private proceedings. Legacy and synthetic profiles have separate authorities.
+[Justice procedures](phase-a/JUSTICE.md) records the charter bounds and execution rules.
 
 - `contracts/core`: canonical module registry, origin router, and explicit action timelock
 - `contracts/registries`: stable fact and accounting storage

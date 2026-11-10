@@ -253,6 +253,7 @@ contract ConstitutionKernel is IConstitutionKernel {
         if (
             moduleId == KernelModuleIds.IDENTITY_REGISTRY || moduleId == KernelModuleIds.MEMBERSHIP_REGISTRY
                 || moduleId == KernelModuleIds.MODULE_UPGRADE_PLAN_REGISTRY
+                || moduleId == KernelModuleIds.JUSTICE_DECISIONS || moduleId == KernelModuleIds.JUSTICE_COMPENSATION
                 || moduleId == KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY
                 || moduleId == KernelModuleIds.LEGISLATION_REGISTRY || moduleId == KernelModuleIds.REFERENDUM_REGISTRY
                 || moduleId == KernelModuleIds.SENATE_SEAT_REGISTRY || moduleId == KernelModuleIds.STAKE_REGISTRY
@@ -287,7 +288,7 @@ contract ConstitutionKernel is IConstitutionKernel {
                 || moduleId == KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY_AUTHORITY
                 || moduleId == KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY
                 || moduleId == KernelModuleIds.IDENTITY_WRITER || moduleId == KernelModuleIds.INITIAL_SETUP_AUTHORITY
-                || moduleId == KernelModuleIds.LAND_REGISTRY_AUTHORITY
+                || moduleId == KernelModuleIds.JUSTICE_APP || moduleId == KernelModuleIds.LAND_REGISTRY_AUTHORITY
                 || moduleId == KernelModuleIds.LEGISLATION_REGISTRY_AUTHORITY
                 || moduleId == KernelModuleIds.LEGISLATION_REPEAL_AUTHORITY
                 || moduleId == KernelModuleIds.OFFICE_REGISTRY_AUTHORITY

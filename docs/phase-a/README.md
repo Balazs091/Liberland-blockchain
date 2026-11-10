@@ -2,19 +2,15 @@
 
 Prepared 29 October 2026 against source `dd0005c15d20754c50a0495cf6d48298b795e1a4`.
 
-Status: in progress; recommendations accepted on 3 November 2026. Contract development is authorised. Implemented
-foundation components include decision primitives, reference models, Liberland Merit and the independent-restriction
-registry. The registry has no official legal writer workflow or electorate integration and is absent from the
-production deployment. The [governed Sepolia profile](../Sepolia-Governed-Deployment.md) exercises it with a synthetic
-controller and ordinary governance upgrades. Legal rule tables, genesis records and integration/release evidence
-remain outstanding. The new deployment profiles have been rehearsed on localhost. See [accepted decisions](IMPLEMENTATION-DECISIONS.md),
-[engineering milestones](ENGINEERING-PROGRESS.md), the earlier [Complexity Review](../Complexity-Review.md) and the
-[Toolchain Upgrade](../Toolchain-Upgrade.md) and current [comprehensive review](../Comprehensive-Review.md).
+The [10 November justice implementation](JUSTICE.md) records the rules, signed effects, privacy boundary and
+fresh-genesis profile selected for this round. The remaining documents in this folder capture the earlier design
+and decision history. Their outstanding questions and validation results refer to the dates and source they name.
 
 ## Review order
 
 | Deliverable | Purpose |
 | --- | --- |
+| [Justice procedures](JUSTICE.md) | Implemented decision powers, charter and case handling |
 | [Architecture](ARCHITECTURE.md) | Components, authority boundaries, alternatives, state ownership and gas constraints |
 | [Authority map](AUTHORITY-MAP.md) and [CSV](AUTHORITY-MAP.csv) | Current gates versus proposed powers, including setup and original settlement exceptions |
 | [Interfaces and proposals](INTERFACES.md) | Implemented token/restriction interfaces clearly separated from future typed workflow sketches |
@@ -42,20 +38,6 @@ decimals and the existing 70 million cap; USDC is the canonical Ethereum token w
 genesis records, allocations and backing. Their values and legal import facts remain pending; genesis does not
 automatically import demo state or parameters.
 
-## What can be reviewed now
-
-The proposed architecture preserves stable facts and the permanent governance core. It calls for specific legal
-workflows, a sole typed identity writer and atomic consumption of approved effects. The implemented restriction
-registry already stores independent orders; the official workflows and writer remain to be built. Shared internal
-libraries cover common mechanics without introducing a general case interpreter or permanent migration administrator.
-
-The complete policy dependency bundle and all permission consumers are in scope. Before integration, prove that
-membership expiry and historical snapshots remain correct. Financial provenance must cover direct liquidation
-transfers as well as vault entrypoints. Land remedies must preserve owner consent, current versions and unrelated
-dispute locks.
-
-The recommendations have been accepted. Their requirements to identify bodies, define deadlines, approve public fields and specify claim priority still need the actual tables and governing evidence. [Legal decisions](LEGAL-DECISIONS.md) separates those concrete inputs from accepted principles.
-
 ## Remaining work and proposed owners
 
 Roles below are proposed responsibilities. No individual has been appointed by these documents.
@@ -71,19 +53,5 @@ Roles below are proposed responsibilities. No individual has been appointed by t
 | Complete selected genesis plan | Operator, legal lead and engineering lead | Reconciled records, process-rights treatment, safe staged setup and manifest commitment |
 | Review privacy and operations | Privacy/service owner | Approved public fields, evidence access, service proof and keeper responsibilities |
 
-## Concrete inputs needed first
-
-1. Which complete legal text/version and effective date govern the implementation? L01.
-2. Which membership restrictions change voting permission, and do they change constitutional headcount? L02.
-3. Who appoints each body, how are conflicts/shortfalls handled, and when do votes remain valid? L03/L04.
-4. What constitutes notice, an effective order, finality and a stay? L05.
-5. Which existing records, cases and votes must continue unchanged through cutover? L09/L10.
-6. Must case subjects remain private, or only their evidence? L11.
-
-Recovery authority, exposure/compensation priority, constitutional-office protections, special roles and land regulation have separate decisions. An unrelated later-phase blocker need not prevent an approved admission design from proceeding. Each affected feature remains blocked until its own prerequisites are satisfied.
-
-## Completion and permission boundaries
-
-The documents and implemented foundation do not complete Phase A. The user has authorised development and accepted the recommendations; legal powers lacking their exact governing rules remain unavailable. A Phase A review can accept an owned unresolved feature without authorising that feature's effects. Resolve the necessary legal and S gates before the relevant production integration. Deployment/activation additionally needs audited bytecode, rehearsed genesis/import, custody and operational evidence.
-
-The earlier ten-working-day allowance is a planning estimate with dedicated engineering and timely reviewer/operator input. It does not guarantee that external legal decisions, loan run-off or confidential-architecture research finish within ten days.
+The justice profile uses the defaults recorded in [Justice procedures](JUSTICE.md). Production still needs the
+adopted charter, real appointees and genesis evidence, a rehearsal with those inputs and independent review.

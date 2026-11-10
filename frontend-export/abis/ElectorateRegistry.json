@@ -81,6 +81,19 @@
   },
   {
     "type": "function",
+    "name": "nextWelfareExpiry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "expiresAt",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "rebuild",
     "inputs": [
       {
@@ -181,6 +194,25 @@
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "syncExpired",
+    "inputs": [
+      {
+        "name": "maxCount",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "processed",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -324,6 +356,27 @@
   },
   {
     "type": "error",
+    "name": "ElectorateMembershipIncomplete",
+    "inputs": [
+      {
+        "name": "synchronizedMutations",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "sourceMutations",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ElectoratePolicyConfigurationInvalid",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ElectorateSnapshotUnavailable",
     "inputs": [
       {
@@ -366,6 +419,17 @@
   },
   {
     "type": "error",
+    "name": "ElectorateWelfareExpiryPending",
+    "inputs": [
+      {
+        "name": "expiresAt",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InvalidElectorateAddress",
     "inputs": [
       {
@@ -386,6 +450,17 @@
       },
       {
         "name": "currentBlock",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidExpiryBatchSize",
+    "inputs": [
+      {
+        "name": "maxCount",
         "type": "uint256",
         "internalType": "uint256"
       }

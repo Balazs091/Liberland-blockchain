@@ -6,10 +6,11 @@ disagrees.
 
 The later [Complexity Review](Complexity-Review.md) covers internal consolidation of ten contracts against the same
 public interfaces and storage layouts. Recheck equivalent guards, event/receipt effects and measured gas tradeoffs.
-No separate recovery ballot or additional authority is in scope for implementation under the current instruction.
+The optional justice profile uses the authorities recorded in its charter. A separate recovery ballot remains deferred.
 
 ## In scope
 
+- the justice charter and roster, signed decisions, active wallet and mandate checks, stable replay records, private proceedings, membership and welfare certification, and custody of voluntary compensation deposits;
 - every Solidity source under `contracts/`, including mocks where they expose demo/test trust assumptions;
 - production token/protocol and demo deployment scripts, `scripts/DeploymentScriptBase.sol`, and both network parameter manifests;
 - the isolated Sepolia foundation deployment, synthetic fixture library, test controller and local rehearsal;
@@ -42,13 +43,10 @@ Sepolia profile adds a permanent recovery key to production.
 
 ## Build profile
 
-The new internal decision libraries, `LiberlandMerit`, `MembershipRegistry`, their interfaces/types and
-`scripts/DeployMerit.s.sol` are within source-review scope. `MembershipRegistry` consumes `TimedRestrictionSet` but
-has no production writer or official legal decision workflow. Governed Sepolia uses a synthetic writer only. Its
-source counters do not detect clock-only expiry and must not
-certify electorate readiness. Review the new kernel State/Authority classifications, live writer replacement and
-the production canonical-USDC preflight. Primitive/model tests do not establish completed admission, disciplinary,
-financial or electorate workflows. [Engineering progress](phase-a/ENGINEERING-PROGRESS.md) records that boundary.
+The 10 November [justice profile](phase-a/JUSTICE.md) adds a production genesis option. Review both bootstrap
+stages, retirement of the legacy identity writer, exact certificate execution and roster replacement. Check
+membership and welfare changes against completed-block electorate data, and confirm that private case material
+stays outside public transactions. The synthetic Sepolia writers remain separate fixtures.
 
 - Solidity: pinned `0.8.38`
 - EVM target: pinned `osaka`

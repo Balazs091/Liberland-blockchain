@@ -3,14 +3,15 @@ pragma solidity 0.8.38;
 
 import {KernelModule} from "../base/KernelModule.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
+import {IElectorateRegistry} from "../interfaces/IElectorateRegistry.sol";
 import {IMembershipRegistry} from "../interfaces/IMembershipRegistry.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {TimedRestrictionSet} from "../libraries/TimedRestrictionSet.sol";
 import {MembershipTypes} from "../types/MembershipTypes.sol";
 
 /// @title MembershipRegistry
-/// @notice Stable person-bound storage for independently stayed, revoked and expiring restriction orders.
-/// @dev Foundation only: no lifecycle, legal decision, financial consequence or electorate callback is implied.
+/// @notice Stable person-bound membership removal and independently stayed, revoked and expiring restriction orders.
+/// @dev Membership effects do not change citizenship or authorize financial consequences.
 ///      IdentityWriter alone records authenticated legal effects; bootstrap and offices have no bypass.
 ///      Public order/subject facts need the approved disclosure policy before deployment.
 contract MembershipRegistry is IMembershipRegistry, KernelModule {
@@ -21,6 +22,10 @@ contract MembershipRegistry is IMembershipRegistry, KernelModule {
     mapping(bytes32 personId => mapping(uint8 right => TimedRestrictionSet.Set orders)) private _rightOrders;
     mapping(bytes32 personId => uint256 revision) private _personRevisions;
     uint256 private _mutationCount;
+    mapping(bytes32 personId => bool removed) private _membershipRemoved;
+
+    uint256 private constant _ELECTORATE_SYNC_GAS_LIMIT = 500_000;
+    uint256 private constant _ELECTORATE_SYNC_GAS_RESERVE = 50_000;
 
     /// @param kernelAddress Canonical kernel whose IDENTITY_WRITER is the sole write authority.
     /// @param identityRegistryAddress Stable identity registry bound to the same kernel.
@@ -38,6 +43,26 @@ contract MembershipRegistry is IMembershipRegistry, KernelModule {
     /// @inheritdoc IMembershipRegistry
     function identityRegistry() external view returns (address identityRegistryAddress) {
         return address(_identityRegistry);
+    }
+
+    /// @inheritdoc IMembershipRegistry
+    function membershipRemoved(bytes32 personId) external view returns (bool removed) {
+        return _membershipRemoved[personId];
+    }
+
+    /// @inheritdoc IMembershipRegistry
+    function setMembershipRemoved(bytes32 personId, bool removed, uint256 expectedRevision, bytes32 receiptId)
+        external
+    {
+        _requireWriter();
+        if (!_identityRegistry.identityExists(personId)) revert UnknownPerson(personId);
+        _requireReceipt(receiptId);
+        uint256 revision = _personRevisions[personId];
+        if (revision != expectedRevision) revert MembershipRevisionMismatch(expectedRevision, revision);
+        if (_membershipRemoved[personId] == removed) revert MembershipRemovalUnchanged(personId, removed);
+        _membershipRemoved[personId] = removed;
+        _advanceRevision(personId);
+        emit MembershipRemovalUpdated(personId, removed, receiptId, _personRevisions[personId]);
     }
 
     /// @inheritdoc IMembershipRegistry
@@ -194,5 +219,17 @@ contract MembershipRegistry is IMembershipRegistry, KernelModule {
         ++_personRevisions[personId];
         ++_mutationCount;
         emit MembershipSourceRevisionAdvanced(personId, _personRevisions[personId], _mutationCount);
+        address electorate;
+        try _kernel.getModule(KernelModuleIds.ELECTORATE_REGISTRY) returns (address registered) {
+            electorate = registered;
+        } catch {
+            return;
+        }
+        uint256 requiredGas = _ELECTORATE_SYNC_GAS_LIMIT + _ELECTORATE_SYNC_GAS_RESERVE;
+        if (gasleft() < requiredGas) revert InsufficientElectorateSyncGas(gasleft(), requiredGas);
+        // Offer the entire callback budget. A genuine failure remains visible through source revision mismatch.
+        (bool synchronized,) =
+            electorate.call{gas: _ELECTORATE_SYNC_GAS_LIMIT}(abi.encodeCall(IElectorateRegistry.syncPerson, (personId)));
+        if (!synchronized) emit ElectorateSynchronizationDeferred(personId, electorate);
     }
 }

@@ -273,7 +273,7 @@ contract CabinetApp is ICabinetApp {
         if (_executiveRegistry.isPrimeMinisterInTerm()) {
             return false;
         }
-        if (!_currentCitizenEligibilityPolicy().isCitizenInGoodStanding(candidate)) {
+        if (!_isEligibleForAppointment(candidate)) {
             return false;
         }
         if (_isSittingMinister(candidate)) {
@@ -310,7 +310,7 @@ contract CabinetApp is ICabinetApp {
     /// @inheritdoc ICabinetApp
     function voteForPrimeMinister(address candidate) external {
         _requireActiveCongressMember(msg.sender);
-        if (!_currentCitizenEligibilityPolicy().isCitizenInGoodStanding(candidate)) {
+        if (!_isEligibleForAppointment(candidate)) {
             revert CandidateNotInGoodStanding(candidate);
         }
 
@@ -337,7 +337,7 @@ contract CabinetApp is ICabinetApp {
         if (_executiveRegistry.isPrimeMinisterInTerm()) {
             revert PrimeMinisterAlreadyInTerm(_executiveRegistry.primeMinister());
         }
-        if (!_currentCitizenEligibilityPolicy().isCitizenInGoodStanding(candidate)) {
+        if (!_isEligibleForAppointment(candidate)) {
             revert CandidateNotInGoodStanding(candidate);
         }
         // Enforce the same person-bound incompatibility in both appointment directions, including migration.
@@ -438,7 +438,7 @@ contract CabinetApp is ICabinetApp {
         if (_executiveRegistry.isMinisterInTerm(ministry)) {
             revert MinisterSlotOccupied(ministry, _executiveRegistry.getMinister(ministry).minister);
         }
-        if (!_currentCitizenEligibilityPolicy().isCitizenInGoodStanding(minister)) {
+        if (!_isEligibleForAppointment(minister)) {
             revert CandidateNotInGoodStanding(minister);
         }
         if (_identityRegistry.resolveWalletToPersonId(minister) == _executiveRegistry.getPrimeMinister().personId) {
@@ -674,6 +674,15 @@ contract CabinetApp is ICabinetApp {
 
     function _occupiedSeatCount() private view returns (uint256 occupiedSeats) {
         return _congressCandidateRegistry.getCurrentOfficeTerm().occupiedSeatCount;
+    }
+
+    function _isEligibleForAppointment(address candidate) private view returns (bool eligible) {
+        ICitizenEligibilityPolicy policy = _currentCitizenEligibilityPolicy();
+        try policy.isEligibleForAppointment(candidate) returns (bool allowed) {
+            return allowed;
+        } catch {
+            return policy.isCitizenInGoodStanding(candidate);
+        }
     }
 
     function _currentCitizenEligibilityPolicy() private view returns (ICitizenEligibilityPolicy policy) {

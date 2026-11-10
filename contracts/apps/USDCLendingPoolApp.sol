@@ -231,8 +231,7 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
         address loanBook = _stakeLienRegistry.loanBookOf(personId);
         if (loanBook != address(0) && loanBook != address(this)) return 0;
         address wallet = _identityRegistry.activeWalletOf(personId);
-        if (!ICitizenEligibilityPolicy(_kernel.getModule(KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY))
-                .isCitizenInGoodStanding(wallet)) {
+        if (!_isEligibleForCredit(wallet)) {
             return 0;
         }
 
@@ -336,8 +335,7 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
 
         bytes32 personId = _requireActivePerson(msg.sender);
         _requireAvailableLoanBook(personId);
-        if (!ICitizenEligibilityPolicy(_kernel.getModule(KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY))
-                .isCitizenInGoodStanding(msg.sender)) {
+        if (!_isEligibleForCredit(msg.sender)) {
             revert BorrowerNotEligible(personId);
         }
         StakeTypes.StakeRecord memory stakeRecord = _stakeRegistry.getStakeRecord(personId);
@@ -759,6 +757,17 @@ contract USDCLendingPoolApp is ERC20, ReentrancyGuard, IUSDCLendingPoolApp {
     function _requireSupportedBorrowRate(uint256 ratePerSecondRay) private pure {
         if (ratePerSecondRay > InterestRateBounds.MAX_RATE_PER_SECOND_RAY) {
             revert UnsupportedBorrowRate(ratePerSecondRay);
+        }
+    }
+
+    function _isEligibleForCredit(address wallet) private view returns (bool eligible) {
+        ICitizenEligibilityPolicy policy =
+            ICitizenEligibilityPolicy(_kernel.getModule(KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY));
+        // Older policy implementations retain their prior credit admission rule.
+        try policy.isEligibleForCredit(wallet) returns (bool allowed) {
+            return allowed;
+        } catch {
+            return policy.isCitizenInGoodStanding(wallet);
         }
     }
 

@@ -6,6 +6,9 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import {GovernanceTypes} from "../../contracts/types/GovernanceTypes.sol";
 import {ICivicAppealReview} from "../../contracts/interfaces/ICivicAppealReview.sol";
+import {ICitizenEligibilityPolicy} from "../../contracts/interfaces/ICitizenEligibilityPolicy.sol";
+import {IJusticeApp} from "../../contracts/interfaces/IJusticeApp.sol";
+import {IJusticeIdentityWriter} from "../../contracts/interfaces/IJusticeIdentityWriter.sol";
 import {Deploy} from "../../scripts/Deploy.s.sol";
 import {ITreasurySpendingPolicy} from "../../contracts/interfaces/ITreasurySpendingPolicy.sol";
 import {LLMToken} from "../../contracts/mocks/LLMToken.sol";
@@ -16,6 +19,7 @@ import {IConstitutionKernel} from "../../contracts/interfaces/IConstitutionKerne
 import {KernelModuleIds} from "../../contracts/libraries/KernelModuleIds.sol";
 import {IdentityTypes} from "../../contracts/types/IdentityTypes.sol";
 import {ElectionTypes} from "../../contracts/types/ElectionTypes.sol";
+import {JusticeTypes} from "../../contracts/types/JusticeTypes.sol";
 import {OfficeTypes} from "../../contracts/types/OfficeTypes.sol";
 import {ModuleUpgradePlanRegistry} from "../../contracts/registries/ModuleUpgradePlanRegistry.sol";
 import {ReferendumApp} from "../../contracts/apps/ReferendumApp.sol";
@@ -47,6 +51,21 @@ contract DeployGenesisHarness is Deploy {
     }
 
     function deployForTest() external {
+        _prepareForTest();
+        _completeForTest();
+    }
+
+    function prepareJusticeForTest() external {
+        _loadJusticeSettings();
+        _prepareForTest();
+    }
+
+    function completeJusticeForTest() external {
+        _loadJusticeSettings();
+        _completeForTest();
+    }
+
+    function _prepareForTest() private {
         address deployer = address(this);
 
         _financeOfficeAdmin = address(0xF1A0);
@@ -79,12 +98,18 @@ contract DeployGenesisHarness is Deploy {
         _configureOriginAuthorities();
         _congressAuthorityBeforeGenesis = _kernel.getModule(KernelModuleIds.CONGRESS_CANDIDATE_REGISTRY_AUTHORITY);
         _seedGenesisState();
+        if (_justiceEnabled) _assertJusticeGenesis();
+    }
+
+    function _completeForTest() private {
         // Production completion is a separate invocation on a confirmed later block.
         vm.roll(block.number + 1);
         _loadGenesisCompletionState(address(_kernel));
+        if (_justiceEnabled) _assertJusticeGenesis();
         _seedGenesisCongressTerm(_readSeededCitizens());
         _activateStandingCongressAuthority();
         _activateStandingReferendumAuthority();
+        if (_justiceEnabled) _activateStandingJusticeAuthority();
         _assertReadyForBootstrapDisable();
         _sealAndDisableBootstrap();
     }
@@ -328,6 +353,7 @@ contract DeployGenesisTest is Test {
             harness.productionStandingAuthorities();
         assertEq(identityAuthority, identityApp);
         assertEq(congressAuthority, congressApp);
+        assertFalse(harness.snapshotForTest().justice.enabled);
 
         (address decisionApp, address lendingPool, address ministryTreasury) = harness.productionLaunchModules();
         assertTrue(decisionApp.code.length != 0);
@@ -340,6 +366,8 @@ contract DeployGenesisTest is Test {
 
         _assertProductionLendingParameters(harness);
         _assertProductionUpgradeTopology(harness);
+        // Both profiles share process-global environment keys, so rehearse them sequentially in this test.
+        _assertJusticeGenesisProfile();
     }
 
     function _assertProductionUpgradeTopology(DeployGenesisHarness harness) private {
@@ -368,6 +396,89 @@ contract DeployGenesisTest is Test {
         bytes32 planId = plans.publishPlan(updates, keccak256("synthetic production upgrade review evidence"));
         assertTrue(plans.planExists(planId));
         assertEq(kernel.getModule(KernelModuleIds.MODULE_UPGRADE_PLAN_REGISTRY), address(plans));
+    }
+
+    function _assertJusticeGenesisProfile() private {
+        _setEnv("JUSTICE_ENABLED", "true");
+        _setEnv("GENESIS_CITIZEN_COUNT", "9");
+        _setCitizenEnv(7, bytes32(uint256(8)), address(0x8888), 8_000 * 1e18, keccak256("genesis-justice-eight"));
+        _setCitizenEnv(8, bytes32(uint256(9)), address(0x9999), 8_000 * 1e18, keccak256("genesis-justice-nine"));
+
+        bytes32 rulesHash = keccak256("synthetic justice charter");
+        uint256 termEnd = block.timestamp + 120 days;
+        _setEnv("JUSTICE_RULES_HASH", vm.toString(rulesHash));
+        _setEnv("JUSTICE_TERM_END_TIMESTAMP", vm.toString(termEnd));
+        _setEnv("JUSTICE_MAX_RESTRICTION_SECONDS", vm.toString(uint256(90 days)));
+        _setEnv("JUSTICE_ALLOWED_RIGHTS_MASK", "31");
+        _setEnv("JUSTICE_ADMISSION_ROSTER", _roster(2, 3, 4));
+        _setEnv("JUSTICE_ANNULMENT_ROSTER", _roster(1, 5, 6));
+        _setEnv("JUSTICE_ANNULMENT_REVIEW_ROSTER", _roster(7, 8, 9));
+        _setEnv("JUSTICE_COUNCIL_ROSTER", _roster(1, 2, 3));
+        _setEnv("JUSTICE_PANEL_ROSTER", _roster(4, 5, 6));
+
+        DeployGenesisHarness harness = new DeployGenesisHarness();
+        harness.prepareJusticeForTest();
+        Deploy.Deployment memory prepared = harness.snapshotForTest();
+        Deploy.JusticeDeployment memory justice = prepared.justice;
+        IConstitutionKernel kernel = IConstitutionKernel(prepared.kernel);
+        assertTrue(justice.enabled);
+        assertEq(justice.charter.rulesHash, rulesHash);
+        assertEq(justice.charter.termEndsAt, termEnd);
+        assertNotEq(justice.rostersHash, bytes32(0));
+        assertEq(prepared.identityApp, address(0));
+        assertEq(prepared.civicAppealReview, address(0));
+        assertEq(kernel.getModule(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY), prepared.initialSetupAuthority);
+        assertFalse(IJusticeApp(justice.app).isCurrent());
+
+        _setEnv("JUSTICE_ENABLED", "false");
+        vm.expectRevert("prepared justice profile mismatch");
+        harness.completeJusticeForTest();
+        _setEnv("JUSTICE_ENABLED", "true");
+        _setEnv("JUSTICE_PANEL_ROSTER", _roster(4, 5, 7));
+        vm.expectRevert("justice roster mismatch");
+        harness.completeJusticeForTest();
+        _setEnv("JUSTICE_PANEL_ROSTER", _roster(4, 5, 6));
+        _setEnv("JUSTICE_TERM_END_TIMESTAMP", vm.toString(termEnd + 1 days));
+        vm.expectRevert("justice charter mismatch or expired");
+        harness.completeJusticeForTest();
+        _setEnv("JUSTICE_TERM_END_TIMESTAMP", vm.toString(termEnd));
+
+        harness.completeJusticeForTest();
+        _setEnv("JUSTICE_ENABLED", "false");
+        _setEnv("GENESIS_CITIZEN_COUNT", "7");
+        assertTrue(IJusticeApp(justice.app).isCurrent());
+        assertEq(kernel.getModule(KernelModuleIds.JUSTICE_APP), justice.app);
+        assertEq(kernel.getModule(KernelModuleIds.IDENTITY_WRITER), justice.app);
+        assertEq(kernel.getModule(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY), justice.identityWriter);
+        assertEq(kernel.getModule(KernelModuleIds.MEMBERSHIP_REGISTRY), justice.membershipRegistry);
+        assertEq(kernel.getModule(KernelModuleIds.JUSTICE_DECISIONS), justice.decisions);
+        assertEq(kernel.getModule(KernelModuleIds.JUSTICE_COMPENSATION), justice.compensation);
+        assertEq(
+            ICitizenEligibilityPolicy(prepared.citizenEligibilityPolicy).membershipRegistry(),
+            justice.membershipRegistry
+        );
+        assertEq(harness.totalIdentityCount(), 9);
+        assertEq(harness.currentCongressOccupiedSeatCount(), 7);
+        assertTrue(harness.setupAuthoritySealed());
+        assertEq(harness.kernelBootstrapAuthority(), address(0));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IConstitutionKernel.ModuleNotRegistered.selector, KernelModuleIds.CIVIC_APPEAL_AUTHORITY
+            )
+        );
+        kernel.getModule(KernelModuleIds.CIVIC_APPEAL_AUTHORITY);
+
+        vm.prank(WALLET_SEVEN);
+        IJusticeIdentityWriter(justice.identityWriter).renounceCitizenship();
+        assertEq(
+            uint256(harness.identityRecord(PERSON_SEVEN_ID).citizenshipStatus),
+            uint256(IdentityTypes.CitizenshipStatus.None)
+        );
+        assertEq(harness.activeStakeOf(PERSON_SEVEN_ID), 10_000 * 1e18);
+    }
+
+    function _roster(uint256 a, uint256 b, uint256 c) private pure returns (string memory) {
+        return string.concat(vm.toString(bytes32(a)), ",", vm.toString(bytes32(b)), ",", vm.toString(bytes32(c)));
     }
 
     function _assertProductionLendingParameters(DeployGenesisHarness harness) private view {

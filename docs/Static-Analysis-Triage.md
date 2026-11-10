@@ -3,7 +3,27 @@
 Slither output and implementation context for the submitted source. Detector severity labels are not confirmed
 vulnerability ratings or an independent security verdict. Auditors should reproduce the scan and test each assumption.
 
-## Current Slither 0.11.6 baseline — 5 November 2026
+## Justice profile baseline, 10 November 2026
+
+Slither 0.11.6 reports 616 unsuppressed instances and 611 distinct fingerprints. The breakdown is 6 High,
+76 Medium, 352 Low and 182 Informational. All six High fingerprints match the 5 November baseline.
+The comparison contains 178 added or changed instances and 26 removed or changed instances.
+
+| Change | Review |
+| --- | --- |
+| 5 Medium uninitialized locals | The sorted signer check starts at the Solidity zero default. The other four values are assigned by a successful typed read or by its fallback. Failure branches that do not assign return immediately. |
+| 2 Medium unused returns | The electorate needs the checkpoint write. Membership relief deliberately reads citizenship alone from the civic summary. |
+| 39 Low calls inside loops | Justice signer lists are capped by their 3–15 person rosters and the protected ministry list has four slots. Electorate welfare processing caps each call at 32 entries. Rebuilds accept smaller caller-selected batches. |
+| 14 Low event-order reports | Decision consumption and source writes precede downstream effects. Failed effects revert atomically. The canonical electorate callback reads the updated sources and has a fixed gas budget. ERC-1271 signature checks are static calls. |
+| 15 Low timestamp reports | Notice, term, decision, voluntary migration and welfare deadlines use explicit boundaries. Compensation awards require the time before expiry and refunds start at expiry. |
+| 40 Informational assembly reports | The added paths are in OpenZeppelin Arrays and SlotDerivation, reached through Heap. The heap bounds its array accesses. First-party assembly is unchanged. |
+| 59 Informational costly loops | The electorate writes per-person checkpoints and aggregate counters during welfare processing and rebuilds. |
+| 4 other Informational reports | Justice identity action branching, the bounded membership callback, and changed pragma/compiler inventory descriptions. The compiler stays pinned to 0.8.38. |
+
+The detector delta was reviewed against the source and focused tests. The gate verifies full fingerprint
+multiplicity. [Justice procedures](phase-a/JUSTICE.md) records the operator and private-evidence boundaries.
+
+## Slither 0.11.6 baseline, 5 November 2026
 
 The [comprehensive review](Comprehensive-Review.md) repeats the unsuppressed scan on the final source. Counts remain
 464 results (6 High, 70 Medium, 292 Low, 96 Informational), with 459 distinct normalized identities. Against the

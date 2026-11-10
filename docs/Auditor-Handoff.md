@@ -1,7 +1,8 @@
 # Auditor handoff
 
-Audit the implemented contracts and deployment paths against the exact submitted source revision. The proposed
-Phase A legal workflows need a separate scope; the current foundations and synthetic staging do not complete them.
+Audit the implemented contracts and deployment paths against the exact submitted source revision. The
+Phase A justice profile adds a separate charter, roster, signed decision and compensation scope.
+See [Justice procedures](phase-a/JUSTICE.md) for the current implementation and private case workflow.
 [Comprehensive Review](Comprehensive-Review.md) records the 5 November candidate and verification;
 [Release Readiness](Release-Readiness.md) lists the retained controls and launch requirements.
 
@@ -20,7 +21,7 @@ Use `SOURCE-SHA256.txt` for source/dependency contents, `PACKAGE-SHA256.txt` for
 checksum for the outer archive. Verify those files before reproducing the checks. The source archive excludes Git
 metadata, local settings, production keys, real genesis personal data, credential caches and generated build output.
 
-The current export manifest contains **58 frontend ABIs**. The source uses Solidity 0.8.38 and the dependencies
+The export manifest contains **63 frontend ABIs**, including the 10 November justice profile. The source uses Solidity 0.8.38 and the dependencies
 recorded in [Toolchain Upgrade](Toolchain-Upgrade.md), following the internal changes in
 [Complexity Review](Complexity-Review.md). Earlier audit archives and public Sepolia records refer to different
 source and toolchain revisions.

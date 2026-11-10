@@ -1,0 +1,235 @@
+{"abi":[
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "kernelAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "admittedBy",
+    "inputs": [
+      {
+        "name": "subject",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "member",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "signed",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "advanceRecovery",
+    "inputs": [
+      {
+        "name": "subject",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "annulmentOf",
+    "inputs": [
+      {
+        "name": "subject",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "decisionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "clearAnnulment",
+    "inputs": [
+      {
+        "name": "subject",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "decisionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "consume",
+    "inputs": [
+      {
+        "name": "decisionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "kernel",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "kernelAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "recordAdmission",
+    "inputs": [
+      {
+        "name": "subject",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "members",
+        "type": "bytes32[]",
+        "internalType": "bytes32[]"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "recordAnnulment",
+    "inputs": [
+      {
+        "name": "subject",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "decisionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "recoveryRevisionOf",
+    "inputs": [
+      {
+        "name": "subject",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "revision",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "used",
+    "inputs": [
+      {
+        "name": "decisionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "consumed",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "error",
+    "name": "AnnulmentMismatch",
+    "inputs": [
+      {
+        "name": "expected",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "actual",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "DecisionAlreadyUsed",
+    "inputs": [
+      {
+        "name": "decisionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidModuleAddress",
+    "inputs": [
+      {
+        "name": "moduleId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "moduleAddress",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnauthorizedJusticeApp",
+    "inputs": []
+  }
+]}

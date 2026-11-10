@@ -20,6 +20,10 @@ interface IElectorateRegistry is IKernelModule {
     error InvalidElectorateSnapshotBlock(uint48 blockNumber, uint256 currentBlock);
     error UnknownElectoratePerson(bytes32 personId);
     error UnauthorizedElectorateInvalidation(address caller);
+    error ElectorateMembershipIncomplete(uint256 synchronizedMutations, uint256 sourceMutations);
+    error ElectoratePolicyConfigurationInvalid();
+    error ElectorateWelfareExpiryPending(uint64 expiresAt);
+    error InvalidExpiryBatchSize(uint256 maxCount);
 
     event ElectoratePersonSynchronized(
         bytes32 indexed personId, bool eligible, uint256 votingPower, uint64 indexed epoch, uint64 timestamp
@@ -35,15 +39,16 @@ interface IElectorateRegistry is IKernelModule {
     /// @notice Returns the immutable stake registry used as an electorate fact source.
     function stakeRegistry() external view returns (address registryAddress);
 
-    /// @notice Returns whether every known identity has been synchronized in the current epoch.
+    /// @notice Returns whether all identities, source revisions and elapsed welfare periods are synchronized.
     function isReady() external view returns (bool ready);
 
     /// @notice Returns a complete O(1) constitutional electorate snapshot or reverts while rebuilding.
     function snapshot() external view returns (uint256 citizenCount, uint256 votingPower);
 
-    /// @notice Returns a complete historical electorate snapshot.
-    /// @dev Intended for a process that already pinned a block. Use `snapshotAtCurrentEpoch` when creating a new
-    ///      process because a failed best-effort source callback cannot retroactively mark its mutation block.
+    /// @notice Returns stored history for a block already certified when a process was created.
+    /// @dev This is not a certificate for an arbitrary past block. Missed source callbacks and elapsed welfare
+    ///      periods cannot retroactively mark an uncheckpointed interval. New processes must use
+    ///      `snapshotAtCurrentEpoch`; existing processes retain the snapshot that passed that gate at creation.
     /// @param blockNumber The block-number checkpoint to query.
     /// @return citizenCount The eligible civic-roll headcount at the checkpoint.
     /// @return votingPower The eligible active stake at the checkpoint.
@@ -59,9 +64,10 @@ interface IElectorateRegistry is IKernelModule {
         view
         returns (uint256 citizenCount, uint256 votingPower);
 
-    /// @notice Returns whether a person belonged to the complete civic roll at a historical block.
+    /// @notice Returns stored person eligibility at a previously certified process snapshot.
     /// @dev Returns false for future blocks and blocks marked incomplete by this registry. New processes must first
-    ///      pass `snapshotAtCurrentEpoch`, which also checks live source-revision synchronization.
+    ///      pass `snapshotAtCurrentEpoch`, which checks live source revisions and unprocessed welfare expiry.
+    ///      Arbitrary unpinned past blocks are diagnostic reads, not certified electorate membership.
     /// @param personId The canonical person identifier.
     /// @param blockNumber The block-number checkpoint to query.
     /// @return eligible Whether the person belonged to the snapshotted electorate.
@@ -69,6 +75,13 @@ interface IElectorateRegistry is IKernelModule {
 
     /// @notice Re-evaluates one identity against the current civic-roll policy.
     function syncPerson(bytes32 personId) external;
+
+    /// @notice Processes at most 32 elapsed welfare periods; anyone may keep the production roll current.
+    /// @dev New processes remain blocked until all due entries are processed and a completed block is available.
+    function syncExpired(uint256 maxCount) external returns (uint256 processed);
+
+    /// @notice Returns the earliest scheduled welfare expiry, or zero when none remain.
+    function nextWelfareExpiry() external view returns (uint64 expiresAt);
 
     /// @notice Synchronizes a bounded identity-index range for a policy-epoch rebuild.
     function rebuild(uint256 startIndex, uint256 maxCount) external returns (uint256 nextIndex);

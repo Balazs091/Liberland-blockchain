@@ -22,6 +22,32 @@
   },
   {
     "type": "function",
+    "name": "electorateConfigurationValid",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "valid",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "excludesWelfareFromCivicRoll",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "excluded",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "identityRegistry",
     "inputs": [],
     "outputs": [
@@ -67,6 +93,57 @@
         "name": "eligible",
         "type": "bool",
         "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isEligibleForAppointment",
+    "inputs": [
+      {
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "eligible",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "isEligibleForCredit",
+    "inputs": [
+      {
+        "name": "wallet",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "eligible",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "membershipRegistry",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "registryAddress",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "stateMutability": "view"

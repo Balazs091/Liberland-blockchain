@@ -71,7 +71,13 @@ contract CandidateEligibilityPolicy is ICandidateEligibilityPolicy {
 
     /// @inheritdoc ICandidateEligibilityPolicy
     function isEligibleCandidate(address wallet) external view returns (bool eligible) {
-        if (!_citizenEligibilityPolicy.isCitizenInGoodStanding(wallet)) {
+        bool appointmentEligible;
+        try _citizenEligibilityPolicy.isEligibleForAppointment(wallet) returns (bool allowed) {
+            appointmentEligible = allowed;
+        } catch {
+            appointmentEligible = _citizenEligibilityPolicy.isCitizenInGoodStanding(wallet);
+        }
+        if (!appointmentEligible) {
             return false;
         }
 

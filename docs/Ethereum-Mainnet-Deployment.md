@@ -1,22 +1,30 @@
 # Ethereum Mainnet Deployment
 
 **Current governance and release requirements:** see `Governance.md`. Require four nonzero,
-pairwise-distinct office admins (and independently reviewed disjoint controlling signer sets). Appoint an
-independently controlled Identity Office clerk using the normal authorized flow for two-officer recovery/civic
-notices. Include `CongressCandidateRegistry.rankingStore()` and its immutable writer boundary in bytecode review.
+pairwise-distinct office admins (and independently reviewed disjoint controlling signer sets). For the legacy profile, appoint an independently controlled Identity Office clerk for two-officer recovery
+and civic notices. Include `CongressCandidateRegistry.rankingStore()` and its immutable writer boundary in bytecode review.
 Existing deployments/ABIs are not updated by this source change; a fresh state/process migration review is mandatory.
 
 Use `scripts/Deploy.s.sol` for the production Ethereum mainnet deployment. The script is guarded to chain ID `1` and reads its immutable deployment constants from `scripts/parameters/EthereumMainnetParameters.sol`.
 
 The Sepolia demo is a separate deployment path documented in `docs/Sepolia-Demo-Deployment.md`; it must not be used as a source of production parameters.
 
-## Civic review and officer readiness
+## Justice genesis option
+
+Set `JUSTICE_ENABLED=true` for the collective justice profile. Provide the adopted charter and the five
+rosters of genesis person IDs using the justice variables in the environment example. Use the same charter
+and roster inputs for preparation and completion. Verify the identity writer, justice app, membership,
+decision and compensation addresses in the manifest. The legacy civic reviewers apply to the legacy
+profile. The case app accepts signed decisions after bootstrap retires.
+[Justice procedures](phase-a/JUSTICE.md) describes the powers and operating requirements.
+
+## Legacy civic review and officer readiness
 
 The distinct-office-admin requirement is a production genesis preflight. The registry permits shared admins and
 does not enforce continuing cross-office separation after deployment; maintain independent controllers through
 appointment policy and monitoring. Two-officer approvals and civic-reviewer exclusions remain enforced.
 
-Set `CIVIC_REVIEWER_0` through `CIVIC_REVIEWER_4` before running this script. Both networks require five nonzero,
+Set `CIVIC_REVIEWER_0` through `CIVIC_REVIEWER_4` for legacy mainnet and Sepolia demo runs. These profiles require five nonzero,
 pairwise-distinct public addresses, each different from the deployer and all four office admins. No reviewer private
 key is needed for deployment. Verify disjoint real controllers, conflicts of interest, signing capability, notice
 publication and evidence retention off-chain; different addresses alone are not sufficient independence.

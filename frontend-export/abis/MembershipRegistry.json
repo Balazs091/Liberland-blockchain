@@ -80,6 +80,25 @@
   },
   {
     "type": "function",
+    "name": "membershipRemoved",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "removed",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "membershipRevisionOf",
     "inputs": [
       {
@@ -307,6 +326,34 @@
   },
   {
     "type": "function",
+    "name": "setMembershipRemoved",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "removed",
+        "type": "bool",
+        "internalType": "bool"
+      },
+      {
+        "name": "expectedRevision",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "receiptId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "stayOrder",
     "inputs": [
       {
@@ -332,6 +379,56 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "ElectorateSynchronizationDeferred",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "electorateRegistry",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "MembershipRemovalUpdated",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "removed",
+        "type": "bool",
+        "indexed": false,
+        "internalType": "bool"
+      },
+      {
+        "name": "receiptId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "personRevision",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",
@@ -462,6 +559,22 @@
   },
   {
     "type": "error",
+    "name": "InsufficientElectorateSyncGas",
+    "inputs": [
+      {
+        "name": "available",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "required",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
     "name": "InvalidExpiry",
     "inputs": [
       {
@@ -558,6 +671,38 @@
         "name": "mask",
         "type": "uint16",
         "internalType": "uint16"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "MembershipRemovalUnchanged",
+    "inputs": [
+      {
+        "name": "personId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "removed",
+        "type": "bool",
+        "internalType": "bool"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "MembershipRevisionMismatch",
+    "inputs": [
+      {
+        "name": "expectedRevision",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "actualRevision",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ]
   },

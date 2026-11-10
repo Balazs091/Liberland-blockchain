@@ -6,8 +6,8 @@ import {MembershipTypes} from "../types/MembershipTypes.sol";
 
 /// @title IMembershipRegistry
 /// @notice Person-bound independent restriction facts, written solely by the kernel's typed IdentityWriter.
-/// @dev This foundation does not activate membership, change citizenship, authenticate legal receipts, or certify
-///      electorate snapshots. The writer must authenticate the exact legal effect and consume its receipt.
+/// @dev Removal is separate from citizenship. The writer authenticates the exact legal effect and consumes its
+///      receipt. Temporary restriction expiry does not change the constitutional denominator.
 interface IMembershipRegistry is IKernelModule {
     error InvalidIdentityRegistry(address identityRegistry);
     error IdentityRegistryKernelMismatch(address expectedKernel, address actualKernel);
@@ -22,6 +22,9 @@ interface IMembershipRegistry is IKernelModule {
     error OrderRevisionMismatch(uint256 expectedRevision, uint256 actualRevision);
     error InvalidOrderTransition(MembershipTypes.OrderStatus currentStatus);
     error OrderExpired(uint64 expiresAt);
+    error MembershipRevisionMismatch(uint256 expectedRevision, uint256 actualRevision);
+    error MembershipRemovalUnchanged(bytes32 personId, bool removed);
+    error InsufficientElectorateSyncGas(uint256 available, uint256 required);
 
     event RestrictionRecorded(
         bytes32 indexed personId,
@@ -42,9 +45,20 @@ interface IMembershipRegistry is IKernelModule {
     event MembershipSourceRevisionAdvanced(
         bytes32 indexed personId, uint256 personRevision, uint256 totalMutationCount
     );
+    event MembershipRemovalUpdated(
+        bytes32 indexed personId, bool removed, bytes32 indexed receiptId, uint256 personRevision
+    );
+    event ElectorateSynchronizationDeferred(bytes32 indexed personId, address indexed electorateRegistry);
 
     /// @notice Returns the immutable identity registry that defines known person identifiers.
     function identityRegistry() external view returns (address identityRegistryAddress);
+
+    /// @notice Returns a recorded full removal; false alone never proves membership or citizenship.
+    function membershipRemoved(bytes32 personId) external view returns (bool removed);
+
+    /// @notice Records or lifts full removal, bound to the current person revision and authenticated receipt.
+    /// @dev Only the current IDENTITY_WRITER. Does not alter citizenship, custody or independent restrictions.
+    function setMembershipRemoved(bytes32 personId, bool removed, uint256 expectedRevision, bytes32 receiptId) external;
 
     /// @notice Returns an order's immutable scope/provenance and current procedural state; unset means absent.
     function orderOf(bytes32 personId, bytes32 orderId)
@@ -60,13 +74,12 @@ interface IMembershipRegistry is IKernelModule {
     /// @dev Does not answer whether the person has that right under citizenship/membership/office policy.
     function isRestrictedNow(bytes32 personId, MembershipTypes.Right right) external view returns (bool restricted);
 
-    /// @notice Returns the number of recorded restriction mutations for one person.
+    /// @notice Returns the number of recorded lifecycle and restriction mutations for one person.
     /// @dev The passage of time alone does not increment this revision.
     function membershipRevisionOf(bytes32 personId) external view returns (uint256 revision);
 
-    /// @notice Returns the aggregate number of recorded restriction mutations.
-    /// @dev This counter alone cannot certify time-dependent eligibility; finite expiries require separate
-    ///      certification/scheduling in a future electorate integration.
+    /// @notice Returns the aggregate number of recorded lifecycle and restriction mutations.
+    /// @dev Finite restrictions affect live privileges, not denominator membership. Time alone never increments it.
     function electorateMutationCount() external view returns (uint256 count);
 
     /// @notice Records one already-effective, not-yet-expired order with immutable scope and provenance.

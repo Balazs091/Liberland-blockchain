@@ -14,6 +14,8 @@ import {HeadOfStateApp} from "../contracts/apps/HeadOfStateApp.sol";
 import {IdentityApp} from "../contracts/apps/IdentityApp.sol";
 import {CivicAppealReview} from "../contracts/apps/CivicAppealReview.sol";
 import {InitialSetupAuthority} from "../contracts/apps/InitialSetupAuthority.sol";
+import {JusticeApp} from "../contracts/apps/JusticeApp.sol";
+import {JusticeIdentityWriter} from "../contracts/apps/JusticeIdentityWriter.sol";
 import {LandRegistryApp} from "../contracts/apps/LandRegistryApp.sol";
 import {LLMStakingVault} from "../contracts/apps/LLMStakingVault.sol";
 import {MinistryTreasury} from "../contracts/apps/MinistryTreasury.sol";
@@ -32,6 +34,7 @@ import {ILLMToken} from "../contracts/interfaces/ILLMToken.sol";
 import {KernelModuleIds} from "../contracts/libraries/KernelModuleIds.sol";
 import {CandidateEligibilityPolicy} from "../contracts/policies/CandidateEligibilityPolicy.sol";
 import {CitizenEligibilityPolicy} from "../contracts/policies/CitizenEligibilityPolicy.sol";
+import {JusticeCitizenEligibilityPolicy} from "../contracts/policies/JusticeCitizenEligibilityPolicy.sol";
 import {CongressElectionPolicy} from "../contracts/policies/CongressElectionPolicy.sol";
 import {FixedLlmUsdcPriceOraclePolicy} from "../contracts/policies/FixedLlmUsdcPriceOraclePolicy.sol";
 import {KinkedInterestRatePolicy} from "../contracts/policies/KinkedInterestRatePolicy.sol";
@@ -49,8 +52,11 @@ import {CompanyRegistry} from "../contracts/registries/CompanyRegistry.sol";
 import {ExecutiveRegistry} from "../contracts/registries/ExecutiveRegistry.sol";
 import {ElectorateRegistry} from "../contracts/registries/ElectorateRegistry.sol";
 import {IdentityRegistry} from "../contracts/registries/IdentityRegistry.sol";
+import {JusticeCompensation} from "../contracts/registries/JusticeCompensation.sol";
+import {JusticeDecisions} from "../contracts/registries/JusticeDecisions.sol";
 import {LandRegistry} from "../contracts/registries/LandRegistry.sol";
 import {LegislationRegistry} from "../contracts/registries/LegislationRegistry.sol";
+import {MembershipRegistry} from "../contracts/registries/MembershipRegistry.sol";
 import {ModuleUpgradePlanRegistry} from "../contracts/registries/ModuleUpgradePlanRegistry.sol";
 import {OfficeRegistry} from "../contracts/registries/OfficeRegistry.sol";
 import {PresidentRegistry} from "../contracts/registries/PresidentRegistry.sol";
@@ -60,6 +66,8 @@ import {StakeRegistry} from "../contracts/registries/StakeRegistry.sol";
 import {StakeLienRegistry} from "../contracts/registries/StakeLienRegistry.sol";
 import {GovernanceTypes} from "../contracts/types/GovernanceTypes.sol";
 import {IdentityTypes} from "../contracts/types/IdentityTypes.sol";
+import {JusticeTypes} from "../contracts/types/JusticeTypes.sol";
+import {MembershipTypes} from "../contracts/types/MembershipTypes.sol";
 import {OfficeTypes} from "../contracts/types/OfficeTypes.sol";
 import {EthereumMainnetParameters} from "./parameters/EthereumMainnetParameters.sol";
 import {DeploymentScriptBase} from "./DeploymentScriptBase.sol";
@@ -146,6 +154,11 @@ contract Deploy is DeploymentScriptBase {
     CabinetApp internal _cabinetApp;
     IdentityApp internal _identityApp;
     CivicAppealReview internal _civicAppealReview;
+    JusticeApp internal _justiceApp;
+    JusticeIdentityWriter internal _justiceIdentityWriter;
+    MembershipRegistry internal _membershipRegistry;
+    JusticeDecisions internal _justiceDecisions;
+    JusticeCompensation internal _justiceCompensation;
     LandRegistryApp internal _landRegistryApp;
     CompanyRegistryApp internal _companyRegistryApp;
     PayoutQueue internal _payoutQueue;
@@ -165,11 +178,25 @@ contract Deploy is DeploymentScriptBase {
     uint32 internal _genesisCongressSeatCount;
     uint256 internal _genesisCongressContinuityCycleId;
     uint64 internal _genesisCongressContinuityEnd;
+    bool internal _justiceEnabled;
+    JusticeTypes.Charter internal _justiceCharter;
+    bytes32[][5] internal _justiceRosters;
 
     struct GenesisCitizen {
         bytes32 personId;
         address wallet;
         uint256 activeStake;
+    }
+
+    struct JusticeDeployment {
+        bool enabled;
+        address app;
+        address identityWriter;
+        address membershipRegistry;
+        address decisions;
+        address compensation;
+        JusticeTypes.Charter charter;
+        bytes32 rostersHash;
     }
 
     struct Deployment {
@@ -241,6 +268,7 @@ contract Deploy is DeploymentScriptBase {
         address identityOfficeAdmin;
         address landOfficeAdmin;
         address companyRegistryOfficeAdmin;
+        JusticeDeployment justice;
     }
 
     function run() external returns (Deployment memory deployment) {
@@ -254,7 +282,8 @@ contract Deploy is DeploymentScriptBase {
         _identityOfficeAdmin = vm.envAddress("IDENTITY_ADMIN");
         _landOfficeAdmin = vm.envAddress("LAND_ADMIN");
         _companyRegistryOfficeAdmin = vm.envAddress("COMPANY_REGISTRY_ADMIN");
-        _readCivicReviewers();
+        _loadJusticeSettings();
+        if (!_justiceEnabled) _readCivicReviewers();
         require(
             _financeOfficeAdmin != deployer && _identityOfficeAdmin != deployer && _landOfficeAdmin != deployer
                 && _companyRegistryOfficeAdmin != deployer,
@@ -274,6 +303,7 @@ contract Deploy is DeploymentScriptBase {
         _registerModules();
         _configureOriginAuthorities();
         _seedGenesisState();
+        if (_justiceEnabled) _assertJusticeGenesis();
         vm.stopBroadcast();
 
         deployment = _snapshot(deployer);
@@ -289,17 +319,20 @@ contract Deploy is DeploymentScriptBase {
         require(block.chainid == EthereumMainnetParameters.CHAIN_ID, "production deployment requires Ethereum mainnet");
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
+        _loadJusticeSettings();
         _loadGenesisCompletionState(kernelAddress);
         require(
             _kernel.bootstrapAuthority() == deployer && _initialSetupAuthority.owner() == deployer,
             "wrong genesis operator"
         );
         require(!_initialSetupAuthority.isSealed(), "genesis already sealed");
+        if (_justiceEnabled) _assertJusticeGenesis();
         GenesisCitizen[] memory citizens = _readSeededCitizens();
         vm.startBroadcast(deployerPrivateKey);
         _seedGenesisCongressTerm(citizens);
         _activateStandingCongressAuthority();
         _activateStandingReferendumAuthority();
+        if (_justiceEnabled) _activateStandingJusticeAuthority();
         _assertReadyForBootstrapDisable();
         _sealAndDisableBootstrap();
         vm.stopBroadcast();
@@ -309,6 +342,7 @@ contract Deploy is DeploymentScriptBase {
         vm.serializeUint(key, "genesisCongressSeatCount", _genesisCongressSeatCount);
         vm.serializeUint(key, "genesisCongressContinuityCycleId", _genesisCongressContinuityCycleId);
         vm.serializeUint(key, "genesisCongressContinuityEnd", _genesisCongressContinuityEnd);
+        _writeJusticeManifest(key, _snapshotJustice());
         string memory json = vm.serializeBool(key, "genesisComplete", true);
         vm.createDir(string.concat(vm.projectRoot(), "/deployments"), true);
         vm.writeJson(json, string.concat(vm.projectRoot(), "/deployments/ethereum-mainnet-activation.json"));
@@ -345,6 +379,57 @@ contract Deploy is DeploymentScriptBase {
         _genesisCitizenCount = _identityRegistry.totalIdentityCount();
         _genesisSenateSeatCount = _senateSeatRegistry.occupiedSeatCount();
         require(_genesisCitizenCount == vm.envUint("GENESIS_CITIZEN_COUNT"), "genesis roll count changed");
+
+        address preparedJustice = _moduleAddressOrZero(KernelModuleIds.JUSTICE_APP);
+        require((preparedJustice != address(0)) == _justiceEnabled, "prepared justice profile mismatch");
+        if (_justiceEnabled) {
+            _justiceApp = JusticeApp(preparedJustice);
+            _justiceIdentityWriter = JusticeIdentityWriter(_justiceApp.identityWriter());
+            _membershipRegistry = MembershipRegistry(_kernel.getModule(KernelModuleIds.MEMBERSHIP_REGISTRY));
+            _justiceDecisions = JusticeDecisions(_kernel.getModule(KernelModuleIds.JUSTICE_DECISIONS));
+            _justiceCompensation = JusticeCompensation(_kernel.getModule(KernelModuleIds.JUSTICE_COMPENSATION));
+            _stakingVault = LLMStakingVault(_kernel.getModule(KernelModuleIds.LLM_STAKING_VAULT));
+            _citizenEligibilityPolicy =
+                CitizenEligibilityPolicy(_kernel.getModule(KernelModuleIds.CITIZEN_ELIGIBILITY_POLICY));
+        }
+    }
+
+    function _loadJusticeSettings() internal {
+        _justiceEnabled = vm.envOr("JUSTICE_ENABLED", false);
+        if (!_justiceEnabled) return;
+
+        uint256 termEndsAt = vm.envUint("JUSTICE_TERM_END_TIMESTAMP");
+        uint256 maxRestrictionDuration = vm.envUint("JUSTICE_MAX_RESTRICTION_SECONDS");
+        uint256 allowedRights = vm.envUint("JUSTICE_ALLOWED_RIGHTS_MASK");
+        require(termEndsAt <= type(uint64).max, "justice term overflow");
+        require(maxRestrictionDuration <= type(uint32).max, "justice restriction duration overflow");
+        require(allowedRights <= type(uint16).max, "justice rights mask overflow");
+        _justiceCharter = JusticeTypes.Charter({
+            rulesHash: vm.envBytes32("JUSTICE_RULES_HASH"),
+            termEndsAt: uint64(termEndsAt),
+            maxRestrictionDuration: uint32(maxRestrictionDuration),
+            allowedRights: uint16(allowedRights)
+        });
+
+        _justiceRosters[uint8(JusticeTypes.Body.Admission)] = vm.envBytes32("JUSTICE_ADMISSION_ROSTER", ",");
+        _justiceRosters[uint8(JusticeTypes.Body.Annulment)] = vm.envBytes32("JUSTICE_ANNULMENT_ROSTER", ",");
+        _justiceRosters[uint8(JusticeTypes.Body.AnnulmentReview)] =
+            vm.envBytes32("JUSTICE_ANNULMENT_REVIEW_ROSTER", ",");
+        _justiceRosters[uint8(JusticeTypes.Body.Council)] = vm.envBytes32("JUSTICE_COUNCIL_ROSTER", ",");
+        _justiceRosters[uint8(JusticeTypes.Body.Panel)] = vm.envBytes32("JUSTICE_PANEL_ROSTER", ",");
+        for (uint8 i; i < _justiceRosters.length; ++i) {
+            require(
+                _justiceRosters[i].length >= 3 && _justiceRosters[i].length <= 15, "justice roster size out of range"
+            );
+        }
+    }
+
+    function _moduleAddressOrZero(bytes32 moduleId) private view returns (address) {
+        try _kernel.getModule(moduleId) returns (address moduleAddress) {
+            return moduleAddress;
+        } catch {
+            return address(0);
+        }
     }
 
     function _readSeededCitizens() internal view returns (GenesisCitizen[] memory citizens) {
@@ -441,16 +526,23 @@ contract Deploy is DeploymentScriptBase {
     }
 
     function _deployPoliciesAndApps(address deployer) internal {
-        _validateCivicReviewers(
-            deployer, [_financeOfficeAdmin, _identityOfficeAdmin, _landOfficeAdmin, _companyRegistryOfficeAdmin]
-        );
+        if (!_justiceEnabled) {
+            _validateCivicReviewers(
+                deployer, [_financeOfficeAdmin, _identityOfficeAdmin, _landOfficeAdmin, _companyRegistryOfficeAdmin]
+            );
+        }
         _validateLlmToken();
         _validateUsdcToken();
         _stakingVault = new LLMStakingVault(
             address(_kernel), address(_identityRegistry), address(_stakeRegistry), _llmTokenAddress
         );
-        _citizenEligibilityPolicy =
-            new CitizenEligibilityPolicy(address(_identityRegistry), address(_stakeRegistry), MINIMUM_CITIZEN_STAKE);
+        if (_justiceEnabled) {
+            _deployJustice();
+        } else {
+            _citizenEligibilityPolicy = new CitizenEligibilityPolicy(
+                address(_identityRegistry), address(_stakeRegistry), MINIMUM_CITIZEN_STAKE
+            );
+        }
         _unstakingPolicy = new UnstakingPolicy(address(_stakeRegistry), WELFARE_PERIOD, ANNUAL_UNSTAKE_RATE_BPS);
         _votingPowerPolicy = new VotingPowerPolicy(
             address(_identityRegistry),
@@ -536,10 +628,12 @@ contract Deploy is DeploymentScriptBase {
         _landPartyPolicy =
             new LandPartyPolicy(address(_identityRegistry), address(_companyRegistry), address(_officeRegistry));
         _treasurySpendingPolicy = new TreasurySpendingPolicy(FINANCE_OFFICE_ID, _llmTokenAddress, _treasuryAssetLimits);
-        _identityApp = new IdentityApp(
-            address(_identityRegistry), address(_officeRegistry), IDENTITY_OFFICE_ID, IDENTITY_MIGRATION_DELAY
-        );
-        _civicAppealReview = new CivicAppealReview(address(_identityApp), _civicReviewers);
+        if (!_justiceEnabled) {
+            _identityApp = new IdentityApp(
+                address(_identityRegistry), address(_officeRegistry), IDENTITY_OFFICE_ID, IDENTITY_MIGRATION_DELAY
+            );
+            _civicAppealReview = new CivicAppealReview(address(_identityApp), _civicReviewers);
+        }
         _landRegistryApp = new LandRegistryApp(
             address(_landRegistry),
             address(_officeRegistry),
@@ -595,15 +689,38 @@ contract Deploy is DeploymentScriptBase {
         _ministryTreasury = new MinistryTreasury(address(_kernel));
     }
 
+    function _deployJustice() internal {
+        _membershipRegistry = new MembershipRegistry(address(_kernel), address(_identityRegistry));
+        _justiceIdentityWriter = new JusticeIdentityWriter(address(_identityRegistry));
+        _justiceDecisions = new JusticeDecisions(address(_kernel));
+        _justiceCompensation = new JusticeCompensation(address(_kernel), _llmTokenAddress, address(_identityRegistry));
+        _justiceApp = new JusticeApp(
+            address(_kernel),
+            address(_identityRegistry),
+            address(_membershipRegistry),
+            address(_justiceDecisions),
+            address(_justiceIdentityWriter),
+            address(_justiceCompensation),
+            _justiceCharter,
+            _justiceRosters
+        );
+        _citizenEligibilityPolicy = new JusticeCitizenEligibilityPolicy(
+            address(_identityRegistry), address(_stakeRegistry), MINIMUM_CITIZEN_STAKE, address(_membershipRegistry)
+        );
+    }
+
     function _registerModules() internal {
-        (bytes32[] memory moduleIds, address[] memory moduleAddresses) = _allocateModuleBatch(62);
+        (bytes32[] memory moduleIds, address[] memory moduleAddresses) = _allocateModuleBatch(_justiceEnabled ? 66 : 62);
         uint256 index;
 
-        // Standing identity authority: the IdentityApp becomes the sole live mutator of the identity registry.
-        // Genesis identity seeding still runs through the InitialSetupAuthority, which the identity registry
-        // accepts via its INITIAL_SETUP_AUTHORITY fallback until that authority is sealed below.
+        // Justice genesis parks the writer during preparation, then installs the exact writer pinned by the app.
+        // Legacy genesis keeps IdentityApp as primary writer and seeds through the active setup fallback.
         _setModuleBatchEntry(
-            moduleIds, moduleAddresses, index++, KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, address(_identityApp)
+            moduleIds,
+            moduleAddresses,
+            index++,
+            KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY,
+            _justiceEnabled ? address(_initialSetupAuthority) : address(_identityApp)
         );
         _setModuleBatchEntry(
             moduleIds,
@@ -854,9 +971,25 @@ contract Deploy is DeploymentScriptBase {
             address(_decisionApp)
         );
 
-        _setModuleBatchEntry(
-            moduleIds, moduleAddresses, index++, KernelModuleIds.CIVIC_APPEAL_AUTHORITY, address(_civicAppealReview)
-        );
+        if (_justiceEnabled) {
+            _setModuleBatchEntry(moduleIds, moduleAddresses, index++, KernelModuleIds.JUSTICE_APP, address(_justiceApp));
+            _setModuleBatchEntry(
+                moduleIds, moduleAddresses, index++, KernelModuleIds.IDENTITY_WRITER, address(_justiceApp)
+            );
+            _setModuleBatchEntry(
+                moduleIds, moduleAddresses, index++, KernelModuleIds.MEMBERSHIP_REGISTRY, address(_membershipRegistry)
+            );
+            _setModuleBatchEntry(
+                moduleIds, moduleAddresses, index++, KernelModuleIds.JUSTICE_DECISIONS, address(_justiceDecisions)
+            );
+            _setModuleBatchEntry(
+                moduleIds, moduleAddresses, index++, KernelModuleIds.JUSTICE_COMPENSATION, address(_justiceCompensation)
+            );
+        } else {
+            _setModuleBatchEntry(
+                moduleIds, moduleAddresses, index++, KernelModuleIds.CIVIC_APPEAL_AUTHORITY, address(_civicAppealReview)
+            );
+        }
 
         _validateModuleBatch(moduleIds, moduleAddresses);
         _kernel.bootstrapSetModules(moduleIds, moduleAddresses);
@@ -886,6 +1019,64 @@ contract Deploy is DeploymentScriptBase {
             "unexpected genesis referendum authority"
         );
         _kernel.bootstrapSetModule(KernelModuleIds.REFERENDUM_REGISTRY_AUTHORITY, address(_referendumApp));
+    }
+
+    function _activateStandingJusticeAuthority() internal {
+        require(
+            _kernel.getModule(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY) == address(_initialSetupAuthority),
+            "justice identity authority not parked"
+        );
+        _kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, address(_justiceIdentityWriter));
+    }
+
+    function _assertJusticeGenesis() internal view {
+        require(
+            _moduleAddressOrZero(KernelModuleIds.CIVIC_APPEAL_AUTHORITY) == address(0),
+            "legacy civic authority installed"
+        );
+        require(
+            _justiceCharter.termEndsAt > block.timestamp
+                && keccak256(abi.encode(_justiceApp.charter())) == keccak256(abi.encode(_justiceCharter)),
+            "justice charter mismatch or expired"
+        );
+        require(
+            _citizenEligibilityPolicy.membershipRegistry() == address(_membershipRegistry),
+            "justice citizenship policy mismatch"
+        );
+        require(_justiceCompensation.token() == _stakingVault.token(), "justice compensation token mismatch");
+
+        (, bool presidentInAdmission) =
+            _justiceApp.bodyMembership(JusticeTypes.Body.Admission, _presidentRegistry.currentPresidentPersonId());
+        require(!presidentInAdmission, "genesis president in admission roster");
+        for (uint8 i; i < _justiceRosters.length; ++i) {
+            bytes32[] storage expected = _justiceRosters[i];
+            for (uint256 j; j < expected.length; ++j) {
+                bytes32 personId = expected[j];
+                (uint256 size, bool isMember) = _justiceApp.bodyMembership(JusticeTypes.Body(i), personId);
+                require(size == expected.length && isMember, "justice roster mismatch");
+                for (uint256 previous; previous < j; ++previous) {
+                    require(personId != expected[previous], "duplicate expected justice member");
+                }
+                _assertJusticeMemberEligible(personId);
+            }
+        }
+    }
+
+    function _assertJusticeMemberEligible(bytes32 personId) private view {
+        (
+            IdentityTypes.VerificationStatus verification,
+            IdentityTypes.CitizenshipStatus citizenship,
+            IdentityTypes.AgeClass age,
+            bool finalSuspension
+        ) = _identityRegistry.getCitizenshipSummary(personId);
+        require(
+            verification == IdentityTypes.VerificationStatus.Verified
+                && citizenship == IdentityTypes.CitizenshipStatus.Citizen && age == IdentityTypes.AgeClass.Adult
+                && !finalSuspension && _identityRegistry.activeWalletOf(personId) != address(0)
+                && !_membershipRegistry.membershipRemoved(personId)
+                && !_membershipRegistry.isRestrictedNow(personId, MembershipTypes.Right.Appointive),
+            "justice member not an eligible genesis citizen"
+        );
     }
 
     function _seedGenesisState() internal {
@@ -1093,6 +1284,10 @@ contract Deploy is DeploymentScriptBase {
             _genesisCitizenCount, _genesisSenateSeatCount, _genesisCongressSeatCount, requiredOfficeIds
         );
         require(_presidentRegistry.currentPresident() != address(0), "genesis president not set");
+        if (_justiceEnabled) {
+            _assertJusticeGenesis();
+            require(_justiceApp.isCurrent(), "justice module topology mismatch");
+        }
     }
 
     function _timelockDelayConfig() internal pure returns (GovernanceTypes.TimelockDelayConfig memory config) {
@@ -1239,6 +1434,34 @@ contract Deploy is DeploymentScriptBase {
         deployment.identityOfficeAdmin = _identityOfficeAdmin;
         deployment.landOfficeAdmin = _landOfficeAdmin;
         deployment.companyRegistryOfficeAdmin = _companyRegistryOfficeAdmin;
+        deployment.justice = _snapshotJustice();
+    }
+
+    function _snapshotJustice() private view returns (JusticeDeployment memory deployment) {
+        if (!_justiceEnabled) return deployment;
+        deployment.enabled = true;
+        deployment.app = address(_justiceApp);
+        deployment.identityWriter = address(_justiceIdentityWriter);
+        deployment.membershipRegistry = address(_membershipRegistry);
+        deployment.decisions = address(_justiceDecisions);
+        deployment.compensation = address(_justiceCompensation);
+        deployment.charter = _justiceCharter;
+        deployment.rostersHash = keccak256(abi.encode(_justiceRosters));
+    }
+
+    function _writeJusticeManifest(string memory key, JusticeDeployment memory deployment) private {
+        vm.serializeBool(key, "justiceEnabled", deployment.enabled);
+        if (!deployment.enabled) return;
+        vm.serializeAddress(key, "justiceApp", deployment.app);
+        vm.serializeAddress(key, "justiceIdentityWriter", deployment.identityWriter);
+        vm.serializeAddress(key, "membershipRegistry", deployment.membershipRegistry);
+        vm.serializeAddress(key, "justiceDecisions", deployment.decisions);
+        vm.serializeAddress(key, "justiceCompensation", deployment.compensation);
+        vm.serializeBytes32(key, "justiceRulesHash", deployment.charter.rulesHash);
+        vm.serializeUint(key, "justiceTermEndTimestamp", deployment.charter.termEndsAt);
+        vm.serializeUint(key, "justiceMaxRestrictionSeconds", deployment.charter.maxRestrictionDuration);
+        vm.serializeUint(key, "justiceAllowedRightsMask", deployment.charter.allowedRights);
+        vm.serializeBytes32(key, "justiceRostersHash", deployment.rostersHash);
     }
 
     function _writeDeploymentJson(Deployment memory deployment) internal {
@@ -1299,10 +1522,12 @@ contract Deploy is DeploymentScriptBase {
         vm.serializeAddress(deploymentKey, "cabinetApp", deployment.cabinetApp);
         vm.serializeAddress(deploymentKey, "identityApp", deployment.identityApp);
         vm.serializeAddress(deploymentKey, "civicAppealReview", deployment.civicAppealReview);
-        for (uint256 i; i < 5; ++i) {
-            vm.serializeAddress(
-                deploymentKey, string.concat("civicReviewer", vm.toString(i)), _civicAppealReview.reviewerAt(i)
-            );
+        if (!deployment.justice.enabled) {
+            for (uint256 i; i < 5; ++i) {
+                vm.serializeAddress(
+                    deploymentKey, string.concat("civicReviewer", vm.toString(i)), _civicAppealReview.reviewerAt(i)
+                );
+            }
         }
         vm.serializeAddress(deploymentKey, "landRegistryApp", deployment.landRegistryApp);
         vm.serializeAddress(deploymentKey, "companyRegistryApp", deployment.companyRegistryApp);
@@ -1324,6 +1549,7 @@ contract Deploy is DeploymentScriptBase {
         vm.serializeAddress(deploymentKey, "financeOfficeAdmin", deployment.financeOfficeAdmin);
         vm.serializeAddress(deploymentKey, "identityOfficeAdmin", deployment.identityOfficeAdmin);
         vm.serializeAddress(deploymentKey, "landOfficeAdmin", deployment.landOfficeAdmin);
+        _writeJusticeManifest(deploymentKey, deployment.justice);
         string memory json =
             vm.serializeAddress(deploymentKey, "companyRegistryOfficeAdmin", deployment.companyRegistryOfficeAdmin);
 
@@ -1373,6 +1599,13 @@ contract Deploy is DeploymentScriptBase {
         console2.log("CabinetApp:", deployment.cabinetApp);
         console2.log("IdentityApp:", deployment.identityApp);
         console2.log("CivicAppealReview:", deployment.civicAppealReview);
+        if (deployment.justice.enabled) {
+            console2.log("JusticeApp:", deployment.justice.app);
+            console2.log("JusticeIdentityWriter:", deployment.justice.identityWriter);
+            console2.log("MembershipRegistry:", deployment.justice.membershipRegistry);
+            console2.log("JusticeDecisions:", deployment.justice.decisions);
+            console2.log("JusticeCompensation:", deployment.justice.compensation);
+        }
         console2.log("LandRegistryApp:", deployment.landRegistryApp);
         console2.log("CompanyRegistryApp:", deployment.companyRegistryApp);
         console2.log("OfficeExecutor:", deployment.officeExecutor);

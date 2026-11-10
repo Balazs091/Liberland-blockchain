@@ -12,8 +12,8 @@ contract CitizenEligibilityPolicy is ICitizenEligibilityPolicy {
     error InvalidMinimumCitizenStake(uint256 minimumStake);
     error InvalidRegistry(address registryAddress);
 
-    IIdentityRegistry private immutable _identityRegistry;
-    IStakeRegistry private immutable _stakeRegistry;
+    IIdentityRegistry internal immutable _identityRegistry;
+    IStakeRegistry internal immutable _stakeRegistry;
     uint256 private immutable _minimumCitizenStake;
 
     /// @param identityRegistryAddress The identity registry address.
@@ -51,7 +51,26 @@ contract CitizenEligibilityPolicy is ICitizenEligibilityPolicy {
     }
 
     /// @inheritdoc ICitizenEligibilityPolicy
-    function isCitizenOnCivicRoll(bytes32 personId) public view returns (bool eligible) {
+    function membershipRegistry() public view virtual returns (address registryAddress) {
+        return address(0);
+    }
+
+    /// @inheritdoc ICitizenEligibilityPolicy
+    function excludesWelfareFromCivicRoll() public view virtual returns (bool excluded) {
+        return false;
+    }
+
+    /// @inheritdoc ICitizenEligibilityPolicy
+    function electorateConfigurationValid() public view virtual returns (bool valid) {
+        return true;
+    }
+
+    /// @inheritdoc ICitizenEligibilityPolicy
+    function isCitizenOnCivicRoll(bytes32 personId) public view virtual returns (bool eligible) {
+        return _hasCivicQualifications(personId);
+    }
+
+    function _hasCivicQualifications(bytes32 personId) internal view returns (bool eligible) {
         if (personId == bytes32(0) || _identityRegistry.activeWalletCountOf(personId) == 0) {
             return false;
         }
@@ -70,7 +89,7 @@ contract CitizenEligibilityPolicy is ICitizenEligibilityPolicy {
     }
 
     /// @inheritdoc ICitizenEligibilityPolicy
-    function isCitizenInGoodStanding(address wallet) external view returns (bool eligible) {
+    function isCitizenInGoodStanding(address wallet) public view virtual returns (bool eligible) {
         if (wallet == address(0)) {
             return false;
         }
@@ -85,5 +104,17 @@ contract CitizenEligibilityPolicy is ICitizenEligibilityPolicy {
         }
 
         return !_stakeRegistry.isInWelfare(walletLink.personId);
+    }
+
+    /// @inheritdoc ICitizenEligibilityPolicy
+    function isEligibleForCredit(address wallet) external view returns (bool eligible) {
+        IdentityTypes.WalletLink memory link = _identityRegistry.getWalletLink(wallet);
+        return wallet != address(0) && link.status == IdentityTypes.WalletLinkStatus.Active
+            && _hasCivicQualifications(link.personId) && !_stakeRegistry.isInWelfare(link.personId);
+    }
+
+    /// @inheritdoc ICitizenEligibilityPolicy
+    function isEligibleForAppointment(address wallet) public view virtual returns (bool eligible) {
+        return isCitizenInGoodStanding(wallet);
     }
 }

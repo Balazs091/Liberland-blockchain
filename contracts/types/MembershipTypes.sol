@@ -2,7 +2,7 @@
 pragma solidity 0.8.38;
 
 /// @title MembershipTypes
-/// @notice Restriction facts kept separately from citizenship and the membership lifecycle.
+/// @notice Independent restriction facts; full membership removal is a separate registry lifecycle flag.
 library MembershipTypes {
     /// @dev Bit positions follow the five privileges in the implementation brief. A policy must define their
     ///      specific consumers; a restriction never implicitly grants a financial or property power.

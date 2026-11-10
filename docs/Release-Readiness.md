@@ -44,10 +44,10 @@ vulnerability counts. The raw reports, source hashes, before/after comparisons a
 the submitted target. [Complexity Review](Complexity-Review.md) records the measurements and limits;
 [Static Analysis Notes](Static-Analysis-Triage.md) records detector triage.
 
-Phase A's token/restriction foundations and governed staging are implemented. Collective admission, discipline,
-annulment, the official writer and complete membership-policy integration remain separate work with concrete legal
-inputs outstanding. See [Phase A status](phase-a/README.md), [Recovery Plan](Recovery-Plan.md) and
-[Recovery Decisions](Recovery-Decisions.md).
+The 10 November [justice profile](phase-a/JUSTICE.md) adds signed collective procedures, membership and welfare
+eligibility, and voluntary compensation. The preceding evidence describes the earlier source. The public
+activation process requires the actual charter, rosters and genesis inputs. See [Recovery Plan](Recovery-Plan.md)
+and [Recovery Decisions](Recovery-Decisions.md) for the distinct governance recovery scope.
 
 ## Submission contents and scope
 

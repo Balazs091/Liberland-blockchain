@@ -22,6 +22,11 @@ IdentityApp
 IdentityRegistry
 InitialSetupAuthority
 KinkedInterestRatePolicy
+JusticeApp
+JusticeCitizenEligibilityPolicy
+JusticeCompensation
+JusticeDecisions
+JusticeIdentityWriter
 LandPartyPolicy
 LandRegistry
 LandRegistryApp

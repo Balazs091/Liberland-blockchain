@@ -7,6 +7,9 @@ library KernelModuleIds {
     bytes32 internal constant GOVERNANCE_ROUTER = keccak256("core.governance-router");
     bytes32 internal constant ACTION_TIMELOCK = keccak256("core.action-timelock");
     bytes32 internal constant IDENTITY_REGISTRY = keccak256("registry.identity");
+    bytes32 internal constant JUSTICE_APP = keccak256("app.justice");
+    bytes32 internal constant JUSTICE_DECISIONS = keccak256("registry.justice-decisions");
+    bytes32 internal constant JUSTICE_COMPENSATION = keccak256("registry.justice-compensation");
     bytes32 internal constant MEMBERSHIP_REGISTRY = keccak256("registry.membership");
     bytes32 internal constant MODULE_UPGRADE_PLAN_REGISTRY = keccak256("registry.module-upgrade-plan");
     bytes32 internal constant CONGRESS_CANDIDATE_REGISTRY = keccak256("registry.congress-candidate");

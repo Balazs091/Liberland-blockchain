@@ -25,6 +25,7 @@ The [Phase A package](docs/phase-a/README.md) distinguishes implemented foundati
 | Treasury and decisions | Budget envelopes, office approvals, queued payouts and bounded Congress/ministry decisions with source consent |
 | Lending | Stake-backed USDC loans, indexed debt, retained stake floors, interest/reserves, liquidation and retired-book settlement |
 | Land and companies | Versioned land records, stable legal parties, dual-consent transfers, atomic parcel operations, company directors, filings and share ledgers |
+| Justice profile | Signed collective admission, annulment, discipline, wallet recovery, membership voting rules and funded compensation |
 | Assets and new foundations | Fixed-supply `LiberlandMerit` with a 70-million cap and 18 decimals; independent membership-restriction records; immutable module-upgrade plans |
 
 Registries hold canonical records; replaceable policies evaluate them; applications coordinate workflows. The
@@ -35,8 +36,8 @@ Related existing modules can change through one indivisible upgrade plan. A poin
 assets or unfinished proceedings. Governance dependency failures and Senate/review deadlocks remain documented
 limits. See [Architecture](docs/Architecture.md) and [Upgrade and Liveness](docs/Upgrade-And-Liveness.md).
 
-Membership restrictions are not yet integrated into every eligibility policy. Collective admission, discipline and
-annulment procedures still need their approved rules and implementation; the staging controller uses synthetic data.
+The optional fresh-genesis justice profile binds signed collective decisions to specific effects. Its public charter,
+private case handling and voting rules are described in [Justice procedures](docs/phase-a/JUSTICE.md).
 
 ## Build and test
 

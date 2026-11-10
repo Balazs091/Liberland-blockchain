@@ -13,12 +13,12 @@ import tempfile
 from pathlib import Path
 
 
-# Current manual triage and verification: docs/Release-Readiness.md.
+# Current manual triage: docs/Static-Analysis-Triage.md.
 EXPECTED_COUNTS = {
     "High": 6,
-    "Medium": 70,
-    "Low": 292,
-    "Informational": 96,
+    "Medium": 76,
+    "Low": 352,
+    "Informational": 182,
     "Optimization": 0,
 }
 
