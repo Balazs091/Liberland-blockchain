@@ -1,7 +1,6 @@
 # Production assets
 
-Updated 3 November 2026. Ethereum mainnet, chain ID 1, is the user-confirmed production target. No production
-token or protocol deployment has been performed by this implementation work.
+The production target is Ethereum mainnet, chain ID 1.
 
 ## Liberland Merit
 
@@ -12,8 +11,7 @@ staking, voting and lending units; changing denomination would require coordinat
 The existing cap is 70 million whole LLM. Construction requires an explicit nonzero recipient and a positive supply
 at or below that cap. All supply is created once, in the constructor. There is no subsequent issuance, burn entrypoint,
 owner, proxy, blacklist, pause, transfer fee or transfer hook. An amount below the cap makes the remainder permanently
-unmintable. The user will supply the actual amount, allocation custodian, distribution and stake backing before
-deployment; this implementation does not allocate the supply or silently appoint the deployer as custodian.
+unmintable. Before deployment, supply the amount, allocation custodian, distribution and stake backing.
 
 The token carries no vote delegation/checkpoints. Existing protocol voting continues to use person-bound canonical
 active stake and snapshots. A liquid token balance is not automatically political eligibility. Wallet recovery changes
@@ -44,12 +42,11 @@ An issuer refusal must revert value/accounting atomically; no alternative token 
 
 ## Local fixtures and release checks
 
-Tests and the disposable local rehearsal use a clearly labelled USDC test double at the canonical address. They do
-not establish real-USDC runtime parity, live controller state or mainnet transaction success. The rehearsal now uses
-the actual fixed-supply LLM contract, funds the seven synthetic genesis people, completes the separate activation
-stage and verifies bootstrap retirement. Sepolia continues to use its separate public-mint demo assets.
+The localhost fixture uses the fixed-supply LLM contract and installs a USDC test double at the canonical address.
+Use real token bytecode and inspect the live proxy and controller state on the release fork. The original Sepolia
+demo uses separate public-mint assets.
 
 The compiler target remains Osaka. Ethereum's official roadmap records
 [Fusaka/Osaka activation on 3 December 2025](https://ethereum.org/roadmap/fusaka/); this is compatible with the selected
 mainnet target. Final release verification must still use the actual reviewed build, exact assets, approved genesis
-records, funding and a pinned mainnet fork. No release approval is inferred from local tests.
+records, funding and a pinned mainnet fork.

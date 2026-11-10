@@ -4,13 +4,13 @@ Status: **Recommendations accepted; implementation authorised; production deploy
 
 ## User decision
 
-The user accepted all recommendations in [the decision-maker questions](DECISION-MAKER-QUESTIONS.md) and instructed engineering to continue implementation. The user also confirmed:
+The 3 November decision accepted the recommendations and authorised contract development. It also confirmed the following. [Decision-maker questions](DECISION-MAKER-QUESTIONS.md)
 
 - **O01:** Ethereum mainnet, chain ID `1`, is the production network.
 - **O02:** Liberland Merit has not been deployed on Ethereum. This project will implement it and choose its decimal precision. The spending/lending asset is canonical Ethereum L1 USDC.
 - **O03:** The user will supply all genesis inputs. The records, allocations, appointments and supporting evidence have not yet been supplied.
 
-The acceptance applies to the recommendations presented on 2 November. It is not limited to another round of design work: contract development is authorised. No further approval of those engineering principles is requested here. The original guide and presentation remain proposal sources; acceptance does not supply a missing statutory text, exact voting table or factual genesis record.
+The original guide and presentation remain proposal sources. Production requires the controlling texts, exact voting rules and official genesis records.
 
 ## Adopted implementation direction
 
@@ -42,8 +42,8 @@ Use Ethereum's canonical USDC at `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`, w
 
 Some accepted recommendations expressly require a precise table, named authority or supporting text rather than selecting a value. In particular, the prior recommendations did not choose whether restrictions change constitutional headcount, the recovery second body, exact quorum/notice rules, public case fields, exposure allocation/rounding or claim priority. Acceptance therefore authorises their conservative engineering boundaries but does not choose an unstated rule.
 
-[The legal register](LEGAL-DECISIONS.md) records accepted principles and the remaining inputs under the existing L01–L14 IDs. [The forwardable input list](DECISION-MAKER-QUESTIONS.md) asks only for those concrete details. Engineering continues on components independent of them. A dependent legal effect will not be activated by guessing a value.
+The legal register records the outstanding L01–L14 inputs as of 3 November. Use the Justice procedures for the later implementation choices. [Legal register](LEGAL-DECISIONS.md), [Justice procedures](JUSTICE.md)
 
 ## Verification boundaries
 
-The implementation work and local tests are recorded separately in [engineering progress](ENGINEERING-PROGRESS.md). This decision record is not a test result or production readiness certificate. No public-network deployment or production activation is authorised by this record; synthetic local tests are separate. The earlier demo probe remains an observation at the recorded **29 October 2026 Sepolia block**; it is not a new mainnet or demo verification.
+Production release requires independent verification and separate authorisation. The demo observations apply to the recorded 29 October Sepolia block. [Release readiness](../Release-Readiness.md), [Sepolia demo snapshot](DEMO-VERIFICATION.md)

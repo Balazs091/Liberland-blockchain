@@ -1,8 +1,12 @@
 # Phase A authority map
 
-Status: **IN PROGRESS; recommendations accepted and implementation authorised. No production/public-network deployment approval.** Prepared 29 October, updated 3 November 2026. The original source baseline remains `dd0005c15d20754c50a0495cf6d48298b795e1a4`; the F rows identify new local foundation code. This update does not claim a fresh remote-main comparison.
+The 3 November 2026 map uses source `dd0005c15d20754c50a0495cf6d48298b795e1a4`. The F rows identify
+foundation code added at that stage. The later Justice profile has its own authority and activation rules.
+[Justice procedures](JUSTICE.md)
 
-This maps source permissions and production-script intent. It does **not** certify current deployed addresses, role holders, sealed state, runtime hashes or any live-network authority. Those require the deployment inventory. The attached guide remains a proposal source. The user accepted all recommendations and authorised contract changes on 3 November; the exact unprovided legal rules/evidence are separated in [LEGAL-DECISIONS.md](LEGAL-DECISIONS.md). Local synthetic deployment rehearsal is recorded in [Engineering progress](ENGINEERING-PROGRESS.md), not treated as public-network authority.
+The map describes source permissions and script wiring. Confirm deployed addresses, role holders, sealed state and
+runtime hashes against the deployment inventory. Confirm legal authority against the controlling texts.
+[Deployment inventory](DEPLOYMENT-INVENTORY.csv), [legal register](LEGAL-DECISIONS.md)
 
 The [CSV](AUTHORITY-MAP.csv) contains the same row IDs with separate method, caller, setup/retained-authority, proposed-change, blocker and source fields. `EXISTING_SOURCE` is an original checked code path; `EXISTING_DEPENDENCY` is a read/policy edge; `PROPOSED_NOT_IMPLEMENTED` is a future workflow design; `IMPLEMENTED_FOUNDATION` identifies new local code and its actual gate. Defined IDs are distinguished from installed modules. An identifier or source method does not establish a deployment.
 
@@ -57,7 +61,8 @@ Each source link is a review anchor, not a claim that its line alone proves the 
 
 ## Implemented foundation authority paths
 
-These source paths exist in the new local code; they are not public-network deployments or a replacement of existing identity authority. In particular, C04's IdentityApp/admin paths remain in the current production script. The future IdentityWriter and legal case issuers are not implemented by this slice.
+The 3 November foundation preserves the legacy IdentityApp/admin paths in C04. The later Justice profile changes
+the standing writer at genesis completion. [Justice procedures](JUSTICE.md#fresh-genesis-and-review)
 
 | ID | Implemented resource | Exact caller/binding | Limits and remaining integration | Evidence |
 |---|---|---|---|---|
@@ -138,6 +143,6 @@ A proposed receipt binds issuer/domain, subject/matter, stage/revision, legal ve
 2. Supply exact rules/evidence relevant to each effect and complete the capability-consumer matrix under the accepted L01–L14 recommendations. A political restriction cannot silently become a financial/property restriction.
 3. Specify and review the remaining workflow interfaces, receipt consumers and activation/migration readiness conditions as each slice is implemented. Registration alone never changes a stable registry's caller gate.
 4. Demonstrate negative cases for office admin + own clerk, unassigned bodies, unknown identities, mandate expiry, substituted effects, replay, stays, old issuers and every separately executable cutover step.
-5. Complete integrated bounded gas/storage and completed-block snapshot proofs. Scoped foundation tests, measured primitive tradeoffs and local rehearsal now exist in [Engineering progress](ENGINEERING-PROGRESS.md); they do not prove all workflows or approve production activation.
+5. Verify bounded gas and storage for integrated workflows and prove completed-block snapshot consistency. [Foundation tests and measurements](ENGINEERING-PROGRESS.md)
 
 Related baseline: [Architecture](../Architecture.md), [Audit scope](../Audit-Scope.md), [Upgrade and liveness](../Upgrade-And-Liveness.md), [Constitution alignment](../Constitution-Alignment.md).

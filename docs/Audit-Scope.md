@@ -1,12 +1,7 @@
 # External Audit Scope
 
-This document defines the review surface for an external security, economic, deployment, and constitution-fidelity
-audit. It does not assert mainnet approval. Solidity and deployed bytecode are authoritative when documentation
-disagrees.
-
-The later [Complexity Review](Complexity-Review.md) covers internal consolidation of ten contracts against the same
-public interfaces and storage layouts. Recheck equivalent guards, event/receipt effects and measured gas tradeoffs.
-The optional justice profile uses the authorities recorded in its charter. A separate recovery ballot remains deferred.
+Review the submitted Solidity, deployment paths, economic assumptions and constitutional requirements. Verify
+the deployed bytecode separately for each deployment in scope. A separate recovery ballot remains deferred.
 
 ## In scope
 
@@ -21,7 +16,7 @@ The optional justice profile uses the authorities recorded in its charter. A sep
 - external LLM/USDC assumptions, stake and treasury custody, lending economics, and contribution-reward funding;
 - cross-module authorization, replacement/migration paths, denial-of-service bounds, and accounting invariants;
 - land-party resolution, EIP-712/EIP-1271 title consent, cadastral version lineage, and atomic parcel operations;
-- all Foundry tests as evidence, not as a substitute for independent review; and
+- the Foundry tests, including invariants and regression fixtures; and
 - the pinned constitutional source and deliberate differences recorded in `docs/Constitution-Alignment.md`.
 
 The production target is Ethereum mainnet (chain ID 1). Sepolia (chain ID 11155111) is an accelerated demonstration
@@ -34,21 +29,18 @@ retired bootstrap and manifest/read-back checks. It has no governance, custody, 
 test operator transactions simulate effects rather than authenticate real findings. Existing mainnet and old demo
 deployment paths are not extended with this authority.
 
-The [governed Sepolia runbook](Sepolia-Governed-Deployment.md) defines a new full synthetic deployment with voting,
-the normal delayed upgrade route and a replaceable Congress-controlled membership test controller. It does not
-retrofit the old isolated deployment. Its fixed four-subject controller records test effects, without implementing
-the proposed legal admission, discipline or appeal process. Mock USDC and accelerated timings remain test-only.
-Review the controller's current identity/writer/Congress checks and complete sealed-bootstrap manifest. Neither
-Sepolia profile adds a permanent recovery key to production.
+Governed Sepolia is a separate synthetic deployment with voting, delayed upgrades and a replaceable
+Congress-controlled membership test controller. That controller records test effects for four fixed subjects.
+Review its identity, writer and Congress checks and the sealed-bootstrap manifest. See the
+[governed Sepolia runbook](Sepolia-Governed-Deployment.md).
 
 ## Build profile
 
-The 10 November [justice profile](phase-a/JUSTICE.md) adds a production genesis option. Review both bootstrap
-stages, retirement of the legacy identity writer, exact certificate execution and roster replacement. Check
-membership and welfare changes against completed-block electorate data, and confirm that private case material
-stays outside public transactions. The synthetic Sepolia writers remain separate fixtures.
-Use the [tracked Justice genesis fixture](phase-a/JUSTICE.md#reproduce-the-source-level-genesis-fixture) to
-repeat the two-stage integration with synthetic inputs. Record production-state rehearsal evidence separately.
+For the optional justice profile, review both genesis stages, the switch from the setup writer to the standing
+identity writer, exact certificate execution and roster replacement. Check membership and welfare changes against
+completed-block electorate data. Check that the case workflow keeps private material outside public transactions.
+Run the [Justice genesis fixture](phase-a/JUSTICE.md#reproduce-the-source-level-genesis-fixture) with synthetic
+inputs and record production-state rehearsal evidence separately.
 
 - Solidity: pinned `0.8.38`
 - EVM target: pinned `osaka`
@@ -64,21 +56,19 @@ fork rehearsal. Generated `out/`, `cache/`, `broadcast/`, and live `deployments/
 
 ## Verification evidence
 
-The current verification, known limitations and release status are in [Release Readiness](Release-Readiness.md).
-Auditors must compare its evidence with the exact submitted source commit and independently reproduce the checks.
-The [governance rules](Governance.md) include the immutable ranking store, resumable election counts, consent-bound
-identity procedures, typed public repeal and office-scoped admin appointments. Include these state machines in independent
-review. The owner-approved civic appeal, Finance approval and direct-majority Senate rules are implemented;
-independent security and constitutional/legal validation remain required.
+Reproduce the checks at the submitted commit. Review the immutable ranking store, resumable election counts,
+consent-bound identity procedures, typed public repeal and office-scoped admin appointments. Verify the civic
+appeal, Finance approval and direct-majority Senate rules against the code and controlling legal text.
+See [Release Readiness](Release-Readiness.md) and [Governance](Governance.md).
 
 Production setup is two-stage with confirmed-block activation. Candidate URI storage is bounded at 2,048 bytes,
 reassigned addresses cannot overwrite another person's live ballot slot, and source mutations cannot underfund
 the required electorate callback budget. Verify these boundaries independently against the implementation.
 
 Also verify constructor duration limits, widened deadline arithmetic, metadata-independent eligibility reads,
-Senate caller/origin binding, pending-company filing isolation, already-canceled payout reconciliation and lending
-rate/scale rejection plus zero-debt index reset. New regression coverage includes malicious typed execution targets
-and batch rollback. These controls do not change the retained voting thresholds or create a budget-revocation power.
+Senate caller/origin binding, pending-company filing isolation, already-canceled payout reconciliation, and lending
+rate/scale rejection and zero-debt index reset. Exercise typed execution against malicious targets and verify
+that batch failure rolls back every action in the transaction.
 
 Slither is intentionally unsuppressed. Detector interpretation requires checking the following implementation context:
 
@@ -99,6 +89,7 @@ failure-path coverage and challenge the assumptions.
 | Component | Ethereum mainnet | Sepolia demo | Audit scope |
 | --- | --- | --- | --- |
 | Core governance, identity/stake, elections, referenda, Senate/public veto | Yes | Yes | In scope |
+| Collective justice and standing identity writer | Optional genesis profile | No | In scope |
 | Treasury vault, budgets, offices, land/company registries | Yes | Yes | In scope |
 | `DecisionApp` | Yes | Yes | In scope |
 | `MinistryTreasury` | Yes | Yes | In scope |
@@ -233,10 +224,10 @@ runs 256 sequences at depth 256.
 
 ## Known omissions and accepted boundaries
 
-The purpose-limited civic appeal committee is not a general court. The repository does not implement a full Judiciary branch or constitutional Agents. Foreign Affairs, Interior, and
-Justice have political minister records but no v1 operational offices/domain apps. Other draft-to-code differences,
-including equal-base voting, Public Veto official removal, Senate scope, treaty classification, and Vice-President
-succession, are classified in `docs/Constitution-Alignment.md`.
+The civic appeal committee rules on the legacy civic appeal procedure. The repository omits a full Judiciary branch,
+constitutional Agents and standalone apps for the Foreign Affairs, Interior and Justice ministries. The optional
+justice profile checks the Interior minister's mandate for admissions. See [Constitution Alignment](Constitution-Alignment.md)
+for equal-base voting, Public Veto official removal, Senate scope, treaty classification and Vice-President succession.
 
 The land contracts intentionally omit on-chain geometry validation, document storage, co-ownership shares,
 transaction fees, insurance/compensation, and judicial enforcement. `docs/Land-Cadastre.md` describes how reviewed
@@ -252,7 +243,7 @@ The fixed launch oracle is an explicit economic assumption requiring review. The
 
 ## Required handoff refresh
 
-Before the offline external-audit package is treated as current:
+Before submitting an offline audit package:
 
 - verify `docs/constitutional-sources/2024-09-24 Constitution.pdf` against the exact SHA-256 recorded in
   `docs/Constitution-Alignment.md`;
@@ -261,7 +252,7 @@ Before the offline external-audit package is treated as current:
 - regenerate the entire `frontend-export/abis/` directory from the same commit rather than merging individual files; and
 - freeze the source and pinned dependencies, include verification evidence and a checksummed source archive.
 
-Before a new public demo/frontend handoff (separate from the offline audit package):
+Before a separate public demo and frontend handoff:
 
 - make a fresh Sepolia deployment, replace the ignored live manifest, and confirm
   `identityApp == demoCitizenGateway`; and

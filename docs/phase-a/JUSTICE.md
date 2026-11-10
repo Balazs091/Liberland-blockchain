@@ -1,13 +1,10 @@
 # Justice procedures and limits
 
-The 10 November 2026 instructions select simple majority, the Council and Panel for exceptional wallet recovery,
-execution by any caller as soon as an approved effect may take effect, confidential proceedings, and exclusion
-of people whose membership has ended from the voting roll. Welfare following unpooling also excludes a person
-from the roll until the welfare period ends. Fresh genesis starts with an empty case history. Land adjudication
-belongs to a separate release.
-
-These rules are implementation defaults for the justice profile. The adopted charter, named appointees and
-genesis records are production inputs.
+Under the 10 November 2026 decisions, each appointed body uses a simple majority. The Council and Panel
+approve exceptional wallet recovery. Case files stay private. Any caller can execute a final decision once
+it takes effect, using the approved public ruling. Membership removal and active welfare following unpooling
+exclude a person from the voting roll. Fresh genesis starts with an empty case history. Land adjudication
+belongs to a separate release. Production requires an adopted charter, named appointees and official genesis records.
 
 ## Who may decide
 
@@ -63,9 +60,10 @@ in `JusticeTypes.Decision`, with `action` encoded as `uint8`. Compute `effectHas
 of the UTF-8 URI. Use unpredictable unique decision IDs and sort each body's signatures by ascending person
 ID. Read `stateRevision` using `decisionStateRevision`. For recovery it changes only when an exceptional
 recovery succeeds. The decision replaces the named person's current active link, so the holder of the
-compromised key cannot defeat recovery by moving that link first. Other decisions use the identity revision. Use the order or membership revision where
-specified for membership effects. Admission also binds the presidency sequence and the ABI hash of the
-current Interior Minister record. A recipient signs the separate destination digest.
+compromised key cannot defeat recovery by moving that link first. Use the identity revision for other identity
+decisions and the specified order or membership revision for membership effects. Admission also binds the
+presidency sequence and the ABI hash of the current Interior Minister record. A recipient signs the separate
+destination digest.
 
 Any relayer can execute the final signed decision once its notice window has elapsed. All checks, replay
 recording and the effect run in the same transaction. Reverted effects leave the decision available for
@@ -82,7 +80,7 @@ For admission, also read the current presidency nonce and Interior Minister reco
 The `effect` object must use the fields of `IdentityEffect`, `MembershipEffect` or `FinancialEffect` from
 [JusticeTypes](../../contracts/types/JusticeTypes.sol), according to the action.
 
-Prepare locally using Python 3 and the repository's Foundry `cast`:
+Prepare the unsigned packet with Python 3 and Foundry `cast`.
 
 ```sh
 python3 scripts/prepare-justice-decision.py public-decision.json > unsigned-decision.json
@@ -90,13 +88,12 @@ python3 scripts/prepare-justice-decision.py public-decision.json > unsigned-deci
 
 The helper computes the effect, reason and decision hashes and outputs `authorityTypedData`, plus
 `destinationTypedData` when the action requires wallet consent. It rejects unknown fields and ruling URLs
-with credentials, queries or fragments. It makes no RPC calls, reads no signing keys and neither signs nor
-submits anything. The helper checks the encoding; it cannot check whether the ruling is redacted, the
-record commitment is salted, the signers are authorised or the decision is executable. Keep private files,
-salt, evidence, credentials and private notes out of its input and output.
+with credentials, queries or fragments. It runs offline and produces unsigned output. Check redaction, salting,
+signer authority and executability separately. Keep private files, salt, evidence, credentials and private notes
+out of its input and output.
 
 After disclosure is authorised, check the chain and address against the verified deployment, confirm
-`isCurrent()`, and compare the local digest against the contract on a trusted node:
+`isCurrent()`, and compare the local digest against the contract on a trusted node.
 
 ```sh
 cast call "$JUSTICE_ADDRESS" \
@@ -114,13 +111,11 @@ packet private until the approved submission point and simulate the complete cal
 
 The justice policy excludes membership removal, insufficient pooled stake and active welfare from
 constitutional headcount and voting weight. Temporary political restrictions affect live participation.
-The existing electorate records completed-block snapshots. Existing ballots keep the eligibility snapshot they originally selected. A new ballot requires a certified
-current-epoch snapshot. Arbitrary historical reads during an unprocessed expiry gap are diagnostic.
-Process due welfare expiries with bounded
-`syncExpired` calls, then let a block complete before relying on the new snapshot. An uncertified headcount
-blocks new snapshots. Congress candidacy and Cabinet appointments also check appointment eligibility. Other restriction bits
-remain explicit facts for their respective institutions. Lending keeps its separate identity, stake and
-welfare checks.
+The electorate records completed-block snapshots. Existing ballots keep their original eligibility snapshot.
+A new ballot requires a certified current-epoch snapshot. Treat historical reads during an unprocessed expiry
+gap as diagnostic. Process due welfare expiries with bounded `syncExpired` calls, then let a block complete
+before relying on a new snapshot. Congress candidacy and Cabinet appointments also check appointment
+eligibility. Other institutions read their own restriction bits. Lending keeps its separate identity, stake and welfare checks.
 
 Compensation runs in a separate LLM escrow. A person deposits a fixed lot with a terms hash and expiry.
 An award identifies one lot and an earlier completed-block cutoff. Later deposits are separate lots.
@@ -137,7 +132,7 @@ standing authority at completion, and the case app requires bootstrap retirement
 available once the normal Cabinet process fills the Interior Ministry.
 
 Verify the complete genesis, canonical module bindings, private case operations and control of appointed
-wallets before public activation. The 5 November audit and CI results describe the earlier source.
+wallets before public activation.
 
 ### Reproduce the source-level genesis fixture
 
@@ -151,19 +146,5 @@ forge test --match-path test/scripts/DeployGenesis.t.sol \
 The test runs both stages for the Justice profile with nine synthetic citizens, five rosters and mock assets.
 It rejects changed stage-one inputs at completion and checks the parked setup authority, final module
 bindings, electorate initialization, retirement of bootstrap and the typed renunciation path. It invokes
-the deployment helpers in Forge without RPC or transaction broadcasts. This exercise covers source-level
-integration. The transaction receipts and gas figures below are from a separate localhost rehearsal.
-
-## Historical verification of the initial Justice release
-
-These 10 November 2026 results apply to commit `00da5bc`. Use revision-specific evidence for later changes.
-
-The optimized suite passed 892 Foundry results across 73 suites, including the grouped invariant campaigns.
-The coverage run passed 891 results with the established instrumentation exclusion for the 1,000-candidate
-stress test. JusticeApp reached 94.47% line and 60.78% branch coverage. All 63 ABI exports matched compilation.
-The reviewed Slither gate passed with the full [detector inventory](../Static-Analysis-Triage.md).
-
-JusticeApp runtime size was 17,418 bytes. The final fresh genesis rehearsal used nine synthetic citizens on
-localhost. All 93 transactions and 56 read-back checks passed. The largest transaction used 6,926,942 gas.
-The rehearsal verified the parked writer, completion, charter, rosters, electorate readiness and bootstrap
-retirement.
+the deployment helpers in Forge without RPC or transaction broadcasts. The release checklist covers the
+separate transaction rehearsal and production inputs. [Release readiness](../Release-Readiness.md)

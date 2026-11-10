@@ -1,26 +1,27 @@
 # Phase A acceptance and implementation gates
 
-Status: IN PROGRESS, updated 3 November 2026. The user has authorised development and accepted all recommendations. Exact rule tables, governing evidence and genesis records remain partly pending. The foundation, token and restriction registry have scoped passing tests; the workflow vectors below are not all implemented or passing end-to-end. Original baseline source remains `dd0005c15d20754c50a0495cf6d48298b795e1a4`. See [Engineering progress](ENGINEERING-PROGRESS.md). No production/public-network deployment or activation is claimed.
+These 3 November 2026 acceptance criteria use baseline `dd0005c15d20754c50a0495cf6d48298b795e1a4`.
+The architecture recommendations were accepted for development. Apply the relevant criteria to each release
+and review later Justice decisions against these earlier scenarios. [Justice procedures](JUSTICE.md)
 
 ## Deliverable status
 
-| Work | Current evidence | Remaining gate |
+| Work | 3 November scope | Release requirement |
 | --- | --- | --- |
-| Source baseline | Original October29 source/hash retained; local November implementation separately identified | Review final release diff and reproducible build |
+| Source baseline | October baseline and November foundation source | Review final release diff and reproducible build |
 | Architecture | Recommendations accepted; limited foundation implemented | Exact legal inputs and S01–S07 integration closure for affected slices |
 | Authority map | Original source, new foundation gates and future workflows separated | Verify actual release deployment and independent controller arrangements |
 | Interfaces | Actual token/restriction APIs and internal primitives; future typed workflow sketches | Exact legal parameters, writer and consumer integration |
-| Genesis / conditional migration | Mainnet fresh-genesis branch selected; template/schema; local synthetic rehearsal passed | Actual genesis records/mapping/root; new workflow setup and full release rehearsal |
+| Genesis / conditional migration | Fresh mainnet genesis, manifest template and synthetic fixture | Actual genesis records, mapping, manifest commitment, workflow setup and full release rehearsal |
 | Legal rules | All recommendations accepted; remaining concrete inputs listed by L ID | Full governing texts, exact tables and authority/effective-date evidence |
 | Gas/algorithm proof | Reference models, restriction-registry tests and isolated cold-state primitive benchmarks | Legal allocation/mapping choices, integrated bounded progress and growth evidence |
 
-## Verified scope on 3 November
+## Foundation scope on 3 November
 
-The full Foundry regression suite passes **688 tests across 55 suites**, seed `0x1103`; the reference suite passes **34 Python tests**. Against the 652-test November2 baseline, the new coverage is 11 token tests, 20 restriction-registry tests, two token deployment-script tests, one foundation module-class test and two additional USDC validation tests. These checks verify the named engineering slice, not all legal procedures in the vector table.
-
-A local synthetic genesis rehearsal passed using the real fixed-supply Liberland Merit implementation and a **mock USDC installed at the canonical address on the local node**. It seeded seven synthetic citizens, completed 76 preparation transactions, seven completion transactions and one token deployment transaction, and retired bootstrap authority. This is a local rehearsal of the current deployment path, not interaction with real USDC, an import of the user's official genesis records, installation of the new restriction workflow, or a public-network/mainnet deployment. Detailed evidence and limitations are in [Engineering progress](ENGINEERING-PROGRESS.md).
-
-The new restriction registry remains outside production-script installation. There is no official IdentityWriter, case issuer, membership lifecycle, consumer policy integration or time-aware electorate certification for it yet. Existing IdentityApp/admin authority remains unchanged. No new financial, recovery or land legal workflow is implemented by this slice. Static-analysis results are reported separately in engineering progress when complete.
+The foundation covered fixed supply, independent restrictions, module classification and USDC configuration.
+The legacy localhost fixture uses seven synthetic citizens and a mock USDC at the canonical address. It exercises
+preparation, completion and bootstrap retirement. The restriction registry was separate at that stage. The Justice
+profile adds the standing writer, case decisions and electorate integration. [Engineering progress](ENGINEERING-PROGRESS.md)
 
 ## Worked specification vectors
 
@@ -65,7 +66,8 @@ The new restriction registry remains outside production-script installation. The
 
 ## Algorithm and gas evidence
 
-For S01–S07 provide readable reference models, independent expected outcomes, adversarial boundary vectors and complexity bounds. Models, internal Solidity primitives, the production token and independent-restriction registry now exist under the user's development authorisation. A scenario that simply repeats the implementation's output is not sufficient evidence; isolated passing tests do not close an integration gate.
+For S01–S07, provide reference models, independently derived outcomes, adversarial boundary vectors and complexity bounds.
+Verify each required integration as well as its isolated components.
 
 Future implementation benchmarks must cover cold persisted state and maximum supported sizes: three-person case; Congress fallback; 100 Senate seats with distinct and duplicate people; exhausted rota; many historical orders; five-right insertion/stay/removal; expiry backlog; underfunded/failing 500,000-gas source callback; receipt consumption with failed downstream write; maximum parcel set; many claim cutoffs and migration leaves.
 
@@ -75,6 +77,8 @@ Test bounded progress independently of successful completion. Record non-vacuity
 
 Each feature's review record must identify exact source/doc hashes, resolved L/S items, approved interface/effect schema, required operational services and independent reviewers. Proposed roles must be assigned to actual people by the project; this package does not appoint them.
 
-Contract implementation is already authorised and the recommendations are accepted. Each dependent integration still needs the exact rules/evidence it consumes; an unrelated later-phase input need not stop an independent slice. For example, land remedy details may remain pending while admission engineering proceeds. Accepting an explicitly incomplete feature does not activate its effects or fill in its missing legal rule.
+Each integration needs the exact rules and evidence it consumes. Admission can proceed separately from unresolved land remedies.
 
-Activation additionally requires audited deployed bytecode/constructor arguments, reviewed token/proxy assumptions, confirmed authority retirement, correct custody, valid snapshot certification, rehearsed migration, operational notice/evidence/keepers and the final human release decision. Passing current tests alone is not activation approval.
+Before activation, verify audited bytecode and constructor arguments, token and proxy controllers, authority retirement,
+custody, snapshot certification, the applicable genesis or migration rehearsal, and the people responsible for notices,
+records and keeper calls. Obtain release approval from the competent authority.

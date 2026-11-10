@@ -4,16 +4,11 @@ Solidity contracts for Liberland governance, identity, staking, treasury, lendin
 on Ethereum. Governance executes typed actions after the required votes and delays. Officers carry out their
 assigned identity, treasury and registration duties through separate permission checks.
 
-## Status
+## External audit
 
-The source is ready for implementation review. Mainnet launch still requires an independent audit, approved legal
-procedures, verified genesis and asset inputs, and operational sign-off. A separate recovery ballot is deferred.
-
-The [comprehensive review](docs/Comprehensive-Review.md) records the 5 November code review and publication checks.
-[Toolchain Upgrade](docs/Toolchain-Upgrade.md) records the compiler and dependency update verified on 3 November.
-[Complexity Review](docs/Complexity-Review.md) records the earlier internal cleanup and its measurements.
-[Release Readiness](docs/Release-Readiness.md) records the audit handoff requirements and known limits.
-The [Phase A package](docs/phase-a/README.md) distinguishes implemented foundations from proposed legal workflows.
+Use [Auditor Handoff](docs/Auditor-Handoff.md) to identify and reproduce the submitted revision. [Audit Scope](docs/Audit-Scope.md)
+covers contracts, governance, upgrades and deployment. Mainnet launch requires an independent audit, approved legal
+procedures, verified genesis and asset inputs, and operational sign-off.
 
 ## Implemented contracts
 
@@ -24,12 +19,12 @@ The [Phase A package](docs/phase-a/README.md) distinguishes implemented foundati
 | Identity and stake | Consent-based onboarding and wallet migration, two-officer lost-key recovery, civic notices/appeals, one active wallet, backed LLM stake and historical electorate snapshots |
 | Treasury and decisions | Budget envelopes, office approvals, queued payouts and bounded Congress/ministry decisions with source consent |
 | Lending | Stake-backed USDC loans, indexed debt, retained stake floors, interest/reserves, liquidation and retired-book settlement |
-| Land and companies | Versioned land records, stable legal parties, dual-consent transfers, atomic parcel operations, company directors, filings and share ledgers |
+| Land and companies | Versioned land records, dual-consent transfers, two-official dispute actions, company directors, filings and share ledgers |
 | Justice profile | Signed collective admission, annulment, discipline, wallet recovery, membership voting rules and funded compensation |
-| Assets and new foundations | Fixed-supply `LiberlandMerit` with a 70-million cap and 18 decimals; independent membership-restriction records; immutable module-upgrade plans |
+| Assets and protocol records | Fixed-supply `LiberlandMerit` with a 70-million cap and 18 decimals, membership restrictions and immutable module-upgrade plans |
 
-Registries hold canonical records; replaceable policies evaluate them; applications coordinate workflows. The
-kernel, router and timelock form the permanent execution core. Elections and referenda retain their pinned policies
+Registries hold records. Replaceable policies evaluate them, and apps carry out the workflows. The kernel, router
+and timelock form the permanent execution core. Elections and referenda retain their pinned policies
 and completed-block snapshots. Elected authority follows a person's active wallet.
 
 Related existing modules can change through one indivisible upgrade plan. A pointer change does not move records,
@@ -61,9 +56,8 @@ python3 scripts/check-docs.py --check-abis
 python3 scripts/check-slither-baseline.py
 ```
 
-The hygiene check reports locations and categories without printing credential values. Its pattern scan does not
-cover every possible secret format. Slither runs without suppressions; changed counts or finding identities require
-manual review before updating the baseline.
+The hygiene check reports locations and categories of known credential patterns. Slither runs without suppressions.
+Review changes to its findings before updating the baseline.
 
 For coverage and the deeper stateful campaigns:
 
@@ -75,11 +69,9 @@ done
 ```
 
 The 1,000-candidate stress test remains in the complete optimized suite. Coverage uses the 100-candidate fixture
-because instrumentation exceeds the larger fixture's test gas budget. Coverage warnings and branch gaps are recorded
-with the results. Foundry groups each contract's invariant predicates into one campaign. The audit profile runs
-three seeds, each at 256 runs × 256 calls across eight test contracts; all 24 predicates must pass in every seed.
-This retains the earlier number of handler calls across three seeds. Compare predicate coverage and handler calls
-when comparing results from different Foundry versions.
+because instrumentation exceeds the larger fixture's test gas budget. Foundry groups each contract's invariant
+predicates into one campaign. Each audit seed runs 256 sequences of 256 calls across eight test contracts and
+checks all 24 predicates.
 
 For a frozen, clean Git commit, run `bash scripts/audit-freeze-check.sh`. It checks source/history hygiene, pinned
 dependencies, build/test/coverage/static results, ABI parity and working-tree cleanliness before and after the run.
@@ -103,8 +95,8 @@ Scripts write generated manifests under `deployments/`. A simulation can also wr
 receipts and runtime/source checks before handing addresses to a frontend. Generated manifests are ignored by Git;
 tracked examples describe the configuration shape.
 
-The recorded public Sepolia deployment runs an earlier revision. Source edits do not change its bytecode.
-[Deployment records](docs/Sepolia-Demo-Deployment.md#recorded-public-deployment) identify that historical revision.
+The [public Sepolia deployment record](docs/Sepolia-Demo-Deployment.md#recorded-public-deployment) identifies the
+revision running at the recorded addresses.
 
 ## Repository and review guides
 

@@ -1,8 +1,10 @@
 # Governed Sepolia staging
 
-This is the next test deployment profile. It installs the complete existing demo protocol together with the actual fixed-supply `LiberlandMerit`, the new `MembershipRegistry`, and a replaceable **synthetic** membership controller. It is guarded to Sepolia, chain ID `11155111`. Nothing in this runbook authorizes a public deployment or a mainnet deployment.
+This profile installs the demo protocol, fixed-supply `LiberlandMerit`, `MembershipRegistry` and a replaceable
+synthetic membership controller on Sepolia, chain ID `11155111`.
 
-The older `DeploySepoliaFoundation` profile is a small isolated token/registry experiment. Its deliberately retired bootstrap and operator-bound fixture driver do not make it a governance upgrade rehearsal. Do not try to convert an existing isolated foundation deployment by reopening bootstrap. Use a fresh governed staging deployment.
+The isolated `DeploySepoliaFoundation` profile retires bootstrap and has no governance path. Use a fresh
+deployment for governed staging.
 
 ## What this profile contains
 

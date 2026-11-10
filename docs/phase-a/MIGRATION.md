@@ -1,6 +1,8 @@
 # Phase A genesis and conditional migration plan
 
-Status: IN PROGRESS; fresh mainnet genesis selected and implementation recommendations accepted. Updated 3 November 2026. Baseline source: `dd0005c15d20754c50a0495cf6d48298b795e1a4`. Contract development is authorised; no migration transaction or deployment is authorised. The [deployment inventory](DEPLOYMENT-INVENTORY.csv), actual L09/L10 inputs and release verification constrain activation.
+The 3 November 2026 plan selects fresh mainnet genesis. It uses baseline
+`dd0005c15d20754c50a0495cf6d48298b795e1a4`. Activation requires a verified deployment inventory, L09/L10 inputs
+and separate release approval. [Deployment inventory](DEPLOYMENT-INVENTORY.csv), [Justice genesis](JUSTICE.md#fresh-genesis-and-review)
 
 ## Preconditions and branch selection
 
@@ -11,7 +13,10 @@ Status: IN PROGRESS; fresh mainnet genesis selected and implementation recommend
 | L | Live state or assets exist | Release-specific governance, state/process/custody migration and rehearsal |
 | U | Deployment facts unavailable or inconsistent | Remain in inventory/design; do not select G by assumption |
 
-The user selected fresh production deployment on 29 October 2026: planning branch G. Verify the existing demo separately; do not migrate its state or adopt its configuration as production inputs by default. This selects the work scope, not a live-state certification. Ethereum mainnet chain ID 1 is confirmed. The project implements Liberland Merit (18 decimals, existing 70 million cap); canonical Ethereum L1 USDC (6 decimals) is selected and enforced by production deployment validation. Source records, actual LLM genesis supply/recipient and the exact genesis manifest remain pending. The user is the supplier for all genesis inputs; no allocations or appointments are inferred. The documented historical Sepolia deployment is older than current source. An ignored local file named sepolia with chainId 31337 is a local artifact.
+The 29 October decision selected branch G on Ethereum mainnet, chain ID 1. Verify the demo separately and use
+official production records and parameters for genesis. Liberland Merit uses 18 decimals and a 70 million cap.
+Production validation requires canonical Ethereum L1 USDC with 6 decimals. The genesis input owner supplies the
+official records, fixed LLM supply and recipient, appointments and manifest. [Implementation decisions](IMPLEMENTATION-DECISIONS.md#user-decision)
 
 For each actual network record chain ID, finalized inventory block/hash, kernel/core addresses, runtime/constructor identity, every authority and immutable dependency, tokens/proxies, source revision and confirmation evidence. Record setup/kernel/router bootstrap state independently. Verify operational controllers and signer availability; different addresses do not prove different people.
 
@@ -108,4 +113,4 @@ After new user mutations, swapping pointers back is not a rollback. Produce a ne
 
 Rehearse from the inventory block on the correct chain/fork with realistic values and active processes. Include adversarial transaction order, interruption, repeated leaves, hostile old requests, expired approvals, late expiry processing, non-signing recipients and token failures. Record gas, bytecode, output state hashes, all pointer states, custody totals and permissions before/during/after.
 
-No current live manifest/root/proof or migration rehearsal is supplied by this draft. [Acceptance](ACCEPTANCE.md) and the [Phase A status](README.md) retain these as explicit remaining work.
+Before any live migration, review the actual manifest, root, proofs and rehearsal evidence. [Acceptance](ACCEPTANCE.md)

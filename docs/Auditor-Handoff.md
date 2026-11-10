@@ -6,9 +6,8 @@ the company and land registry changes in scope. See [Justice procedures](phase-a
 
 ## Identify the target
 
-For a Git submission, record the complete commit and tree, toolchain and recursive submodule revisions. Include all
-new contracts, tests and scripts before creating that commit. A tracked-only archive of an earlier commit can omit
-untracked implementation files.
+For a Git submission, include all contracts, tests and scripts in the submitted commit. Record the full commit
+and tree hashes, toolchain versions and recursive submodule revisions.
 
 For a source archive, identify the immutable artifact by its SHA-256 and complete source inventory. Its
 `PROVENANCE.json` must distinguish a published commit from a working-tree snapshot based on an older commit.
@@ -32,9 +31,8 @@ Sepolia deployment each carry their own revision-specific evidence. See [Release
 | `PROVENANCE.json` | Target identity, source-inventory digest, tool/dependency versions, evidence revisions and publication status |
 | Checksum files | Source/dependency, package and archive integrity checks |
 
-Supply every file claimed by the package notes. Local workspace paths in historical reports are context; the
-submission needs the corresponding portable evidence files. The package-level README explains its relative paths.
-A complete Git checkout instead uses pinned submodules and generates fresh evidence with the freeze script.
+Include the evidence files listed in the package README. For a Git submission, use the pinned submodules and
+generate fresh evidence with the freeze script.
 
 Historical public Sepolia records may be supplied separately and labelled with their deployed revision. The
 8 September deployment's explorer results do not verify current bytecode. Local synthetic deployment receipts also
@@ -44,11 +42,9 @@ do not establish public deployment or authenticate real production controllers.
 
 1. [Audit Scope](Audit-Scope.md), [Architecture](Architecture.md), [Governance](Governance.md) and
    [Upgrade and Liveness](Upgrade-And-Liveness.md).
-2. [Release Readiness](Release-Readiness.md) for submission checks and launch limits. Earlier results are in
-   [Comprehensive Review](Comprehensive-Review.md), [Toolchain Upgrade](Toolchain-Upgrade.md) and
-   [Complexity Review](Complexity-Review.md).
-3. [Phase A status](phase-a/README.md), [engineering progress](phase-a/ENGINEERING-PROGRESS.md) and
-   [legal decisions](phase-a/LEGAL-DECISIONS.md) for implemented/proposed boundaries.
+2. [Release Readiness](Release-Readiness.md) for submission checks and launch limits.
+3. [Justice procedures](phase-a/JUSTICE.md) and [legal decisions](phase-a/LEGAL-DECISIONS.md) for the powers,
+   authorization checks and procedures the contracts leave to operators.
 4. [Static Analysis Notes](Static-Analysis-Triage.md), with the full unsuppressed report in the evidence.
 5. [Constitution Alignment](Constitution-Alignment.md), the pinned PDF, applicable deployment guides and
    [Frontend Checklist](../frontend-export/INTEGRATION-CHECKLIST.md).
@@ -85,8 +81,8 @@ Each registry rejects writes to an obsolete ledger. Final dissolution and last-d
 canonical land ledger and its writer disagree.
 Rebind the registry, policy, app and writer pointers as a coordinated cutover after record reconciliation. Review
 transfer nonces and collect fresh app-bound signatures and dispute approvals after cutover. The dispute app requires
-the block time to advance beyond module activation and binds each approval to the current module and clerk authority. See
-[Land Cadastre](Land-Cadastre.md).
+the block time to advance beyond module activation and binds each approval to the current module and clerk
+authority. See [Land Cadastre](Land-Cadastre.md).
 
 ## Reproduce the checks
 
@@ -144,10 +140,8 @@ Slither runs without suppressions. Baseline counts and normalized finding identi
 changed report before changing the baseline. Coverage excludes only the 1,000-candidate instrumentation fixture;
 the optimized suite includes it and coverage runs the 100-candidate path. Raw anchor warnings and branch gaps stay
 with the results. Foundry groups each contract's invariant predicates into one campaign. The audit profile uses
-three seeds, each with 256 runs × 256 calls across eight test contracts. All 24 predicates must pass per seed,
-including a single-predicate result that has no grouped `invariant_count` field. This retains the earlier aggregate
-handler-call budget while adding seed diversity; old and new framework test totals are not directly comparable.
-Run further seeds and adversarial cases as part of the independent audit.
+three seeds, each with 256 runs × 256 calls across eight test contracts. All 24 predicates must pass per seed.
+Count the single-predicate result even though it has no grouped `invariant_count` field.
 
 Run the synthetic genesis and upgrade checks from the submitted source.
 

@@ -140,8 +140,6 @@ See [Governance](Governance.md) before representing budget cancellation powers t
 
 ## Dry run and broadcast
 
-Compile and test first:
-
 Use the pinned Solidity 0.8.38/Osaka build profile in `foundry.toml`; changing compiler or target settings requires
 fresh bytecode, size and verification evidence.
 
@@ -150,15 +148,13 @@ forge build
 forge test -vvv
 ```
 
-Before an audit handoff or production broadcast, also refresh the revision-specific coverage, Slither, runtime-size,
-and deployment-integration evidence in `docs/Release-Readiness.md`. Do not copy historical counts or size values
-from another commit.
+Use the same source revision for coverage, Slither, runtime size and deployment checks. See
+[Release Readiness](Release-Readiness.md).
 
 `JUSTICE_ENABLED=false bash scripts/rehearse-local-genesis.sh` exercises the legacy civic review profile on
 localhost with synthetic identities and mock assets. For the Justice profile, the [tracked Forge integration
 test](phase-a/JUSTICE.md#reproduce-the-source-level-genesis-fixture) exercises both stages with synthetic inputs.
-Record the revision-specific results in [Release Readiness](Release-Readiness.md). Obtain separate evidence for
-the mainnet fork rehearsal, token addresses, official genesis inputs and authorization to broadcast.
+Verify token addresses and official genesis inputs on a mainnet fork. Obtain authorization before broadcasting.
 
 Simulate without broadcasting:
 
@@ -203,10 +199,9 @@ seven occupied seats, the continuity snapshot, setup sealing and all bootstrap-a
 Archive both stages' transaction bundles. For a partially broadcast stage use its reviewed Foundry `--resume`
 bundle; do not blindly rerun the non-idempotent preparation or reseed an existing continuity cycle.
 
-Use the shown gas-estimate margin and sequential broadcast. Source mutations now reserve a full electorate callback
-budget. Foundry's same-block script simulation can underestimate checkpoint allocation across real separate blocks;
-the default 130% margin failed a real localhost broadcast of `configureCitizen`, while the 200% rehearsal passed.
-Independently check each prepared transaction against the target chain's gas cap; an estimate is not a guarantee.
+Use the shown gas-estimate margin and sequential broadcast. Source mutations reserve gas for the electorate
+callback. A same-block simulation can underestimate checkpoint allocation when transactions land in separate
+blocks. Check each prepared transaction against the target chain's gas cap.
 
 ## Deployment scope
 

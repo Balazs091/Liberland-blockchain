@@ -1,25 +1,24 @@
 # Current Documentation
 
-This documentation describes the current protocol, its verification evidence and requirements for external review.
-The pinned constitutional PDF remains an active design input.
+Protocol rules, deployment guides and external audit scope. See the pinned constitutional PDF for the design source.
 
 | Document | Purpose |
 | --- | --- |
-| [Comprehensive Review](Comprehensive-Review.md) | 5 November internal audit, publication checks and remaining findings |
+| [Comprehensive Review](Comprehensive-Review.md) | Governance safeguards and remaining risks |
 | [Architecture](Architecture.md) | Components, authority boundaries, custody and module evolution |
 | [Governance](Governance.md) | Current identity, appeal, public repeal, election and office rules |
 | [Upgrade and Liveness](Upgrade-And-Liveness.md) | Replaceability, dependency closure, supported custody/loan retirement and recovery limits |
 | [Protocol Parameters](Protocol-Parameters.md) | Production/demo values and units |
-| [Predeployment Review](Predeployment-Review.md) | User journeys, five corrected defects, upgrade evidence and retained lock risks |
-| [Governance and Recovery Review](Governance-Recovery-Review.md) | Later source checks for indivisible upgrade plans, governed staging and bounded financial exits |
-| [Recovery Plan](Recovery-Plan.md) | Before-upgrade inventory, rehearsed rollback, incident routes and reconciliation |
-| [Complexity Review](Complexity-Review.md) | Minimal internal cleanup, retained safeguards and measured size/gas tradeoffs |
+| [Predeployment Review](Predeployment-Review.md) | User journeys, upgrade checks and lock risks |
+| [Governance and Recovery Review](Governance-Recovery-Review.md) | Upgrade plans, governed staging and financial exits |
+| [Recovery Plan](Recovery-Plan.md) | Upgrade inventory, rollback, incident routes and reconciliation |
+| [Complexity Review](Complexity-Review.md) | Contract changes and safeguards to preserve |
 | [Recovery Decisions](Recovery-Decisions.md) | Forwardable unresolved authority and economic choices, with options and recommendations |
-| [Release Readiness](Release-Readiness.md) | Current controls, verification evidence and launch requirements |
-| [Toolchain Upgrade](Toolchain-Upgrade.md) | Solidity 0.8.38 compiler and dependency update verified on 3 November |
+| [Release Readiness](Release-Readiness.md) | Protocol limits and launch requirements |
+| [Toolchain Upgrade](Toolchain-Upgrade.md) | Solidity 0.8.38 and pinned dependencies |
 | [Earlier Compiler Upgrade](Compiler-Upgrade.md) | Historical Solidity 0.8.37 comparison and deployment separation |
 | [Auditor Handoff](Auditor-Handoff.md) | Exact target, trust boundaries and reproduction |
-| [Publication and Audit](Publication-And-Audit.md) | Source completeness, README cleanup, hygiene checks and the submission target |
+| [Publication and Audit](Publication-And-Audit.md) | Source provenance and submission requirements |
 | [Static Triage](Static-Analysis-Triage.md) | Unsuppressed detector context and review questions |
 | [External Audit Scope](Audit-Scope.md) | Independent review surface and limitations |
 | [Constitution Alignment](Constitution-Alignment.md) | Current differences from the pinned draft |
@@ -36,8 +35,7 @@ The pinned constitutional PDF remains an active design input.
 | [Frontend Howto](../frontend-export/FRONTEND-HOWTO.md) | Contract calls and screen behavior |
 
 Confirm documented behavior against Solidity and verified deployed bytecode. Source changes do not upgrade deployments.
-Run `python3 scripts/check-docs.py --check-abis` from the repository root to check local links, referenced contract
-functions and generated ABI parity; it does not prove that every prose statement matches protocol behavior.
+Run `python3 scripts/check-docs.py --check-abis` from the repository root to check links, contract references and ABI parity.
 
 ## Phase A design and implementation
 

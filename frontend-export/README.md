@@ -1,10 +1,7 @@
 # Frontend Export
 
-This folder contains frontend ABIs, configuration examples and integration instructions.
-
-The API guidance describes the current source. Before connecting a live client, confirm its deployed revision and
-use the matching ABIs. Source or export changes do not upgrade deployed contracts. See
-[deployment provenance](../docs/Sepolia-Demo-Deployment.md).
+Use the ABIs and configuration examples here to connect a frontend. Confirm the deployed revision and use the
+matching ABIs. The [deployment record](../docs/Sepolia-Demo-Deployment.md) identifies the historical Sepolia build.
 
 ## Contents
 
@@ -45,7 +42,7 @@ integration.
 - `sepolia-demo.example.json` is only a schema example; it is not a live deployment config
 - The demo deployment adds seeded offices, a finance budget, referenda, a Congress election cycle, Senate seats, public veto state, a live `DemoCitizenGateway`, and a demo `LLM` merit token
 - `LLMToken.decimals()` is `18` and `cap()` is `70_000_000e18`; multiply user-entered whole LLM by `1e18` for on-chain calls and divide on-chain base-unit balances by `1e18` for display
-- The demo uses the production-like 30-day unstake welfare period and a fast 72-hour Congress election cycle
+- The demo uses a 30-day unstake welfare period and a 72-hour Congress election cycle
 - The seeded demo election and all later demo elections end at `17:00 UTC`; production uses the same fixed endpoint with a 90 day recurring duration
 - Late next-cycle creation advances the next full cycle to the next `17:00 UTC` boundary, so refresh or preview timestamps instead of deriving them from transaction time
 - Congress counting may need repeated transactions. `finalizeElection(uint256)` defaults to 32;
@@ -187,8 +184,8 @@ For most frontend work, prefer these as entrypoints:
 - [CompanyRegistryApp.json](abis/CompanyRegistryApp.json)
 - [USDCLendingPoolApp.json](abis/USDCLendingPoolApp.json)
 
-Use registry and policy ABIs for detailed reads where needed. Do not assume the checked-in ABI directory matches an
-unverified local change: run the export script from the exact source revision used by the manifest.
+Use registry and policy ABIs for detailed reads. Run the export script from the source revision in the deployment
+manifest.
 
 The full protocol manifests expose `DecisionApp`, `MinistryTreasury`, the lending pool, lien registry, lending
 policies and `LandPartyPolicy`. The isolated foundation manifest covers its five test contracts only.

@@ -1,8 +1,12 @@
 # Phase A implemented interfaces and workflow proposals
 
-Status: **IN PROGRESS; implemented foundation separated from future workflow sketches**. Baseline: `dd0005c15d20754c50a0495cf6d48298b795e1a4`; updated 3 November 2026. The user accepted the recommendations and authorised contract development. The production token and independent-restriction registry now have source interfaces; official legal workflows below remain proposals. No deployment or production activation is claimed. [Engineering progress](ENGINEERING-PROGRESS.md) records validation and limits.
+These 3 November 2026 interfaces use baseline `dd0005c15d20754c50a0495cf6d48298b795e1a4`. The token and
+restriction registry sections describe foundation source. The workflow sketches record proposals from that stage.
+[Justice procedures](JUSTICE.md) describe the later signed-decision interface.
 
-These sketches follow [Architecture](../Architecture.md) and [Audit Scope](../Audit-Scope.md). The detailed rationale is the October 29 implementation analysis identified by hash in [Provenance](PROVENANCE.json). The [rights-consumer inventory](RIGHTS-CONSUMERS.csv) identifies the existing consumers that must be considered together. `L01`–`L14` refer to accepted principles with specific details/evidence still pending in the legal register. A dependency reference does not choose an unprovided rule or establish statutory authority.
+Review the consumers together before changing a shared policy. `L01`–`L14` identify the rules and evidence each
+proposal needs. [Rights-consumer inventory](RIGHTS-CONSUMERS.csv), [legal register](LEGAL-DECISIONS.md),
+[design provenance](PROVENANCE.json)
 
 ## Implemented external foundation interfaces
 

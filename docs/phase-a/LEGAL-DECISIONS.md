@@ -1,16 +1,16 @@
 # Legal and governance implementation register
 
-Updated **3 November 2026**. Status: **All recommendations accepted by the user; exact rule details and legal evidence remain partly outstanding.** Baseline source: `dd0005c15d20754c50a0495cf6d48298b795e1a4` and the supplied 19 October guide/presentation.
-
-The user has authorised contract implementation and accepted the recommendations presented on 2 November. This register records that decision without requesting approval of those principles again. The acceptance and production asset choices are documented in [the implementation decision record](IMPLEMENTATION-DECISIONS.md).
-
-A recommendation to define a table, identify a body or obtain a full text does not itself provide that table, body or text. The remaining entries below concern those missing concrete inputs. The guide's cited Rev. 3.2 and article numbers remain unverified until the complete controlling text and commencement records are supplied. No production deployment is authorised or claimed.
+The 3 November 2026 decision accepted the engineering recommendations and authorised contract development.
+This register uses source `dd0005c15d20754c50a0495cf6d48298b795e1a4` and the 19 October guide and presentation.
+The guide's Rev. 3.2 and article references still require the complete controlling text and commencement records.
+The 10 November Justice profile records the later implementation choices. [Implementation decision record](IMPLEMENTATION-DECISIONS.md),
+[Justice procedures](JUSTICE.md)
 
 ## Status and recording rules
 
-- **ACCEPTED / INPUTS PENDING** means the user accepted the recommendation, while the specific details identified below have not been supplied. It is not rejection of the accepted design or a demand for its reapproval.
+- **ACCEPTED / INPUTS PENDING** means the recommendation is accepted and the named details are outstanding.
 - Contract work may proceed within the accepted boundaries. A dependent legal effect needs its specified rules and authority before activation; no generic administrator or arbitrary executor may fill a gap.
-- The project acceptance is evidenced by the user's 3 November instruction in this chat. The competent statutory approving authorities, full legal texts, their versions and effective dates have not been separately authenticated by engineering.
+- Confirm the statutory approving authorities, full legal texts, versions and effective dates before activation.
 - The roles below are proposed coordinators, not appointments. O03 assigns the user responsibility for supplying genesis inputs; actual records, approvers, independent checkers and dates remain to be provided.
 - Record later answers by ID, exact scope and exceptions, supporting text/version, effective date and actual approving authority. Record a partial answer as partial rather than resetting an accepted principle to OPEN.
 
@@ -164,7 +164,7 @@ A recommendation to define a table, identify a body or obtain a full text does n
 | O02 | **RESOLVED direction:** implement Liberland Merit; canonical Ethereum L1 USDC. Engineering selects 18 decimals and retains existing 70 million LLM cap | Actual LLM fixed genesis supply and recipient/allocation; token release verification. Canonical USDC is `0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48`, 6 decimals ([Circle](https://developers.circle.com/stablecoins/usdc-contract-addresses)) |
 | O03 | **OWNER RECORDED:** the user will supply all genesis inputs | Actual official records, asset allocations/backing, appointments, approvals, independent checker and delivery date |
 
-The short [remaining-input list](DECISION-MAKER-QUESTIONS.md) is ready to forward. It asks for missing facts and rule choices, not renewed approval of the accepted recommendations.
+The 3 November questions collect the remaining facts and rule choices at that date. [Decision-maker questions](DECISION-MAKER-QUESTIONS.md)
 
 ## Later decision record format
 

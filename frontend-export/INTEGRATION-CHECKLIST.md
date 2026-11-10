@@ -1,19 +1,21 @@
 # Current Frontend Integration Checklist
 
-Use this checklist with [FRONTEND-HOWTO.md](FRONTEND-HOWTO.md). It describes the current interfaces only; it is not
-a migration history or evidence that any deployed address uses this source.
+Use the [frontend guide](FRONTEND-HOWTO.md) for call sequences. Check deployed addresses and runtime code before
+enabling writes.
 
 ## Configuration and authority
 
 - Validate the wallet chain against manifest `chainId`: mainnet 1 or Sepolia 11155111. Example JSON files are schemas,
   not deployments. Production requires `genesisComplete == true` and on-chain bootstrap retirement.
-- Verify `civicAppealReview`, its five reviewer addresses and its exact IdentityApp binding against the kernel;
-  an appealed case uses its pinned committee even after a module replacement.
+- For the legacy identity profile, verify `civicAppealReview`, its five reviewer addresses and its IdentityApp
+  binding against the kernel. An appealed case keeps its pinned committee after replacement.
+- When `justiceEnabled` is true, verify the current Justice app and identity writer before enabling writes. Follow
+  the [Justice operator handoff](../docs/phase-a/JUSTICE.md#operator-handoff) for signed decisions.
 - Match every ABI to the deployed bytecode/source. Read module classes and live addresses from the kernel; every
   policy, authority, state or extension replacement needs the constitutional threshold, including election policies.
 - Keep a process's pinned policy and completed-block snapshot. Do not replace them with the latest policy when
   displaying a live vote. Senate negative-control processes intentionally use their current policy.
-- Use the new single-action typed module bundle for paired existing app/authority changes, with a reviewed migration.
+- Use one typed module bundle for paired app and authority changes after reviewing the migration.
   Append-only enum values are referendum class `ModuleBundle = 7` and action type `ModuleBundleUpdate = 13`.
   Publish an immutable `ModuleUpgradePlanRegistry` plan, then call the citizen/Congress bundle proposal method with
   its exact registry and plan ID. Show all expected incumbents, successors, runtime hashes and evidence commitment;
@@ -26,14 +28,14 @@ a migration history or evidence that any deployed address uses this source.
 
 ## Identity, stake and authority continuity
 
-- Production onboarding uses `registerIdentity`, `linkWallet`, destination `acceptInitialWallet`, then an eligible
-  citizenship grant. Metadata correction is separate from delayed civic changes.
-- Migration requires the exact `walletMigrationId`, destination acceptance, officer approval and a two-day delay.
+- Legacy onboarding uses `registerIdentity`, `linkWallet`, destination `acceptInitialWallet`, then an eligible
+  citizenship grant. The Justice profile uses signed identity decisions and a separate voluntary wallet migration.
+- Legacy wallet migration requires the exact `walletMigrationId`, destination acceptance, officer approval and a two-day delay.
   Exceptional recovery needs evidence, a distinct second officer and seven days. Show cancellation and notice state.
-- Civic notices allow one `appealCivicChange` before the seven-day deadline. Display the pinned committee, evidence,
+- Legacy civic notices allow one `appealCivicChange` before the seven-day deadline. Display the pinned committee, evidence,
   reviewer votes, 30-day ruling deadline and dismissal-on-timeout. Upholding retains the original notice and adds
   two days after the ruling. Use [Governance](../docs/Governance.md); the subject cannot cancel their own case.
-- Renunciation retires initial citizenship granting. Reinstatement needs the civic process. Show appointment-bound
+- In the legacy profile, renunciation retires initial citizenship granting. Reinstatement needs the civic process. Show appointment-bound
   approvals as stale after revocation/regrant or office reactivation; never silently reuse them.
 - Resolve elected/executive signers through `IdentityRegistry.activeWalletOf(personId)`, not historical record wallets.
   Executive/Congress support receipts may require recasting after migration; reassigned wallets inherit no support.
@@ -67,6 +69,8 @@ a migration history or evidence that any deployed address uses this source.
 - Congress decisions use their stored `supportRequired` and same-cycle lock, not today's new-decision threshold.
   PM removal uses the historical appointment tally. Show unavailable removal when vacancies leave too few members;
   eligible runner-up succession is conditional, not a guarantee. PM and President are distinct offices.
+- Use loss of citizenship for `recallMember`. Low stake and unstaking affect candidacy and voting eligibility
+  under their respective rules. A sitting member keeps their seat.
 - Handle `InvalidAdoptionSchedule` / `InvalidActionSchedule` by correcting timestamp inputs, not increasing gas.
 
 ## Treasury, lending and registries
@@ -97,7 +101,11 @@ a migration history or evidence that any deployed address uses this source.
   `EmptyBookIndexReset` returns the index to RAY only at zero scaled debt without changing cash, shares or reserves.
 - Land transfers bind both title and parcel version hashes, parties, nonce, deadline, chain and app. Follow the
   exact [cadastre signing schema](../docs/Land-Cadastre.md), with current EOA/EIP-1271 signers and registrar execution.
-- Company child-state writes require Active/ComplianceWarning status. Office role reads must reflect term expiry,
+- Land dispute acceptance and resolution require an exact approval from a verified clerk and finalization by a
+  verified registrar with a different person ID. Refresh the case state before requesting approval.
+- Director and share changes require `Active` or `ComplianceWarning`. Approved companies can record compliance
+  filings while `Suspended` or `Dissolving`. Check the active title count before removing the last director or
+  finalizing dissolution. Office role reads must reflect term expiry,
   per-office clerk epochs and current signer authority. One wallet may administer several offices; display every
   appointment separately and never count shared control as a second approving officer.
 

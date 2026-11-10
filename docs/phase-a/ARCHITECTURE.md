@@ -1,6 +1,8 @@
 # Phase A architecture and implementation boundaries
 
-Status: IN PROGRESS; engineering recommendations accepted on 3 November 2026. Baseline: `dd0005c15d20754c50a0495cf6d48298b795e1a4`. Prepared 29 October, updated 3 November 2026. Contract implementation is authorised. Most workflows below remain future responsibilities; implemented foundation code is identified separately and no deployment is claimed.
+The 3 November 2026 decision accepted the architecture direction below for development. The design uses
+baseline `dd0005c15d20754c50a0495cf6d48298b795e1a4`. See the 10 November implementation for the current
+Justice workflow. [Justice procedures](JUSTICE.md)
 
 ## Design decisions
 
@@ -17,7 +19,7 @@ Status: IN PROGRESS; engineering recommendations accepted on 3 November 2026. Ba
 | A09 | Separate land adjudication from one authoritative land writer | L12 and supported registry remedies define scope |
 | A10 | Require a release-specific, constrained migration rather than an enduring migrator | L09, L10 and verified live inventory are prerequisites |
 
-A01–A10 are the accepted architecture direction. Exact legal rules/evidence remain as recorded in [Legal decisions](LEGAL-DECISIONS.md); acceptance of a recommendation to define a rule table does not fill its unspecified values. See [the decision record](IMPLEMENTATION-DECISIONS.md).
+The legal register identifies the rules and evidence each design choice needs. [Legal decisions](LEGAL-DECISIONS.md)
 
 ## Implemented foundation and production assets
 
@@ -177,4 +179,4 @@ The October 29 analysis remains the prior baseline. New library/registry impleme
 | S06 | Supported land remedy catalog | Each approved remedy maps to a legal registry operation without unlocking unrelated disputes after L12 |
 | S07 | Partial governance cutover | Every permitted independent execution order is safe; unsupported states explicitly stop affected operations |
 
-These are remaining design and integration obligations. The user authorised development and accepted recommendations; [Engineering progress](ENGINEERING-PROGRESS.md) records implemented primitives, token, restriction registry and reference models. Their scoped passing tests do not close these gates. [Acceptance scenarios](ACCEPTANCE.md) define the remaining evidence for affected workflows.
+Apply each gate to the affected workflow, including its integration with the token, restriction registry and decision primitives. [Acceptance scenarios](ACCEPTANCE.md), [foundation contracts and models](ENGINEERING-PROGRESS.md)

@@ -1,6 +1,7 @@
 # Remaining implementation inputs for decision makers
 
-Updated **3 November 2026**. All previous recommendations have been accepted. Engineering is continuing; this list asks only for details the recommendations themselves did not specify.
+These questions record the remaining inputs on 3 November 2026, after the engineering recommendations were accepted.
+Check the 10 November Justice decisions before using this list for a new review. [Justice procedures](JUSTICE.md)
 
 **Already settled:** Fresh production deployment on Ethereum mainnet, chain ID 1; project-built Liberland Merit with 18 decimals and the existing 70 million cap; canonical Ethereum USDC; the user supplies all genesis inputs. The implemented LLM contract has a fixed constructor-funded supply and no later mint authority. Its actual supply and recipient are genesis inputs.
 
@@ -26,4 +27,5 @@ Updated **3 November 2026**. All previous recommendations have been accepted. En
 12. **L09/L10/O03 — Official starting records:** People and lawful status, source evidence and ambiguous-record review categories, stake balances/classifications and backing, offices/body appointments, and any unfinished official proceedings production must recognise. State explicitly when a category has none. Demo data is not imported by default. Name the approving authority and independent checker.
 13. **O02/O03 — Token distribution:** Actual fixed LLM genesis supply (not exceeding 70 million), recipient or allocation plan, institutional reserves and stake-backing funding. Any amount below the cap leaves the remainder permanently unmintable under the proposed fixed-supply contract. Confirm any desired staged-issuance requirement before token deployment.
 
-For each response, include the ID, exact answer and exceptions, supporting text or decision/version, approving authority and effective date. Attach the actual genesis data when available; no private keys or secret credentials are requested. Engineering does not need another approval of the accepted principles to continue.
+For each response, include the ID, exact answer and exceptions, supporting text and version, approving authority and
+effective date. Include the official genesis data when available. Keep private keys and credentials separate.

@@ -1,6 +1,8 @@
 # Financial and land design for Phase A
 
-Status: **design specification; no production change authorised by this file**. Baseline: `dd0005c`, reviewed 29 October 2026. All code links refer to that source. Phase D feasibility remains **OPEN**. That does not prevent completing Phase B design or other independent Phase A work. Legal decisions are tracked under L01–L14 in the legal register; this file does not establish that the guide's cited law is enacted.
+This 29 October 2026 design uses baseline `dd0005c`. Feasibility of the Phase D stake-provenance design remains open.
+Independent admission and membership work can proceed. The 10 November Justice profile uses voluntary compensation escrow.
+[Legal register](LEGAL-DECISIONS.md), [Justice procedures](JUSTICE.md#voting-stake-and-custody)
 
 ## Architectural decision
 
@@ -104,7 +106,9 @@ Resolving a case may itself change the parcel version. The execution specificati
 
 L12 must define jurisdiction, lawful remedies, standing, service, duplicate filings, screening, urgent/automatic locks, release, appeal/stays and regulation commencement. L05 defines valid service/finality; L11 defines public facts and evidence access; L13 defines court interfaces where needed. Existing public title/parcel links cannot be made confidential merely by encrypting case documents.
 
-Registrar records procedural facts; separately appointed land bodies adjudicate. Reuse procedure libraries, not membership authorities or a configurable generic engine. Owner consent or an exact lawful determination is needed for every substantive operation, including boundaries and encumbrances—not only disputes and sale transfers.
+The registrar records procedural facts. Separately appointed land bodies adjudicate. Share internal procedure libraries
+across separate authorities. Substantive changes, including boundaries, encumbrances, dispute remedies and transfers,
+require owner consent or an exact lawful determination.
 
 ## Required evidence before implementation approval
 
@@ -116,4 +120,4 @@ Registrar records procedural facts; separately appointed land bodies adjudicate.
 - Gas benchmarks at worst permitted cohort/claim/parcel/signature counts; no unmeasured gas-saving claims.
 - Tests for later-deposit substitution; double reservation/pledge; concurrent claims; retired settlement; partial handoff; backing shortfall; stale land versions; several disputes; conflicting encumbrances; wrong-purpose decisions; old-admin paths and complete rollback.
 
-See [deployment inventory](DEPLOYMENT-INVENTORY.csv) for evidence still required from operators. No live production address or state is certified here.
+Verify deployed addresses and state against the operator evidence. [Deployment inventory](DEPLOYMENT-INVENTORY.csv)

@@ -1,28 +1,7 @@
 # Sepolia token and membership test deployment
 
-Prepared 3 November 2026. This is a separate test environment for the new Liberland Merit token and independent
-membership restrictions. Preparation and local rehearsal do not deploy anything to public Sepolia. The commands
-below distinguish simulation from a later explicit broadcast.
-
-## Verified preparation
-
-The prepared source passed **716 contract tests across 57 suites** with seed `0x1103`, **34 reference-model tests**
-and **11 tooling tests**. Formatting, contract-size and shell-syntax checks passed. All **55 exported ABIs** match
-the current source.
-
-The disposable local rehearsal used chain ID `11155111`. All **11 deployment transactions** succeeded, using
-7,901,671 gas in total; the largest used 1,635,398 gas. Seven subsequent restriction transactions exercised overlap,
-staying, resumption, revocation, expiry and indefinite restrictions. All five manifest runtime hashes matched the
-code actually mined on that local chain. These figures are local measurements, not a public-network fee estimate.
-
-The unsuppressed Slither scan reports 445 findings: 6 High, 69 Medium, 275 Low and 95 Informational detector labels.
-The reviewed change is eight Low reports concerning bounded synthetic seeding and events after registry calls,
-plus the pragma inventory. A matching analysis baseline is a change check, not an independent security verdict;
-see [Static triage](Static-Analysis-Triage.md).
-
-The remaining deployment inputs are a funded, dedicated Sepolia operator and a working Sepolia RPC configured
-locally. Their current availability/funding has not been established by these checks. No live Sepolia simulation,
-public broadcast or explorer verification has been performed as part of preparation.
+This profile isolates Liberland Merit and membership restrictions. A public deployment requires a funded,
+dedicated Sepolia operator and a Sepolia RPC endpoint.
 
 ## What this deployment contains
 
@@ -95,11 +74,8 @@ python3 -m unittest discover -s test/reference -p 'test_*.py' -v
 bash scripts/rehearse-sepolia-foundation.sh
 ```
 
-The rehearsal uses a disposable localhost Anvil chain with Sepolia's chain ID and synthetic fixtures. It does not
-connect to public Sepolia or spend the configured public operator's ETH. It checks deployment bindings, allocation,
-setup retirement, and post-deployment restriction scenarios, including independent orders and expiry. Its local
-transactions are test evidence, not public deployment receipts. Current verified results are recorded in
-[engineering progress](phase-a/ENGINEERING-PROGRESS.md).
+The rehearsal runs on localhost Anvil with Sepolia's chain ID and synthetic accounts. Check module bindings,
+allocation, setup retirement, independent orders and expiry before broadcasting to public Sepolia.
 
 ## Simulate against Sepolia
 

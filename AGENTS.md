@@ -1,14 +1,9 @@
-# Liberland EVM - AGENTS.md
+# Liberland EVM contributor guide
 
 ## Mission
 Build and maintain the Liberland EVM smart contract system as an auditable, constitution-aligned protocol.
 
-This repository is a constitution-aligned governance system, not a generic DAO.
-
 ## Toolchain
-- OS: Ubuntu 25.10
-- Editor: VS Code
-- Coding agent: official Codex extension
 - Primary framework: Foundry 1.9.0
 - Local node: Anvil 1.9.0
 - Compiler: Solidity 0.8.38
@@ -40,7 +35,7 @@ This repository is a constitution-aligned governance system, not a generic DAO.
 11. Do not add emergency backdoors.
 12. Do not allow referenda to execute arbitrary unrestricted calldata.
 13. If the constitution or politics are unclear, choose the more conservative interpretation and leave a `TODO-CONSTITUTIONAL-REVIEW` comment.
-14. Keep recovery small and auditable: prefer existing governed repair, bounded typed changes, stable ledgers and rehearsed operational procedures. A separate recovery ballot is deferred and requires a new explicit user instruction.
+14. Keep recovery small and auditable. Use existing governed repair, bounded typed changes, stable ledgers and rehearsed operational procedures. A separate recovery ballot requires explicit approval.
 15. Consolidate genuinely identical internal logic, while preserving independent checks at authorization, queue, execution and custody boundaries. Measure bytecode and gas tradeoffs; avoid general-purpose recovery or migration frameworks.
 
 ## Delivery standard for each task

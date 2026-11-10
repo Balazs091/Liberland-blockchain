@@ -1,19 +1,13 @@
 # Upgrade and stuck-state recovery plan
 
-Prepared 3 November 2026. This plan separates ordinary governed repair from powers that still need a legal and
-governance decision. It introduces no administrator, unrestricted executor, asset sweep or automatic veto override.
-The [accepted implementation direction](phase-a/IMPLEMENTATION-DECISIONS.md) remains in force.
-
-The current simplification direction keeps recovery bounded and auditable. A separate recovery ballot is deferred
-by user instruction. Use the existing governed paths below; [Complexity Review](Complexity-Review.md) records the
-internal cleanup without new recovery authority.
+Use the existing governance path to replace failed modules and reconcile records. A separate recovery ballot
+requires approval. See the [implementation decisions](phase-a/IMPLEMENTATION-DECISIONS.md).
 
 ## Recovery scope
 
-The current source includes a governance-capable Sepolia environment and safer coordinated module changes.
-[Governance and Recovery Review](Governance-Recovery-Review.md) records real proposals, votes, delays, execution
-and rollback on disposable local chains. Public deployment still needs its own observed receipts and read-backs. The earlier isolated five-contract fixture remains a component test; it cannot gain
-governance after its bootstrap has been retired.
+The [governed Sepolia profile](Sepolia-Governed-Deployment.md) supports module proposals, voting, delayed execution
+and rollback. Verify receipts and read back module addresses on the target network. The isolated five-contract
+profile retires bootstrap after setup and has no governance path.
 
 The governed staging profile uses the full governance setup and actual fixed-supply LiberlandMerit. Current
 Congress members exercise the explicitly synthetic restriction controller. Controller replacement keeps the same
@@ -21,10 +15,9 @@ MembershipRegistry and its orders; it does not reseed identities or grant a perm
 testers must supply their own controlled test addresses before public deployment; synthetic local actors are not
 evidence of independent production control.
 
-The ordinary repair path is: approve exact compatible replacement code through the existing authorised governance
-route, wait through the queue, execute the approved transition, reconcile state and custody, and verify the result.
-Neither an operator nor an incident declaration receives new authority. An exact rollback already approved under
-working rules may help; it is not a universal substitute for a functioning governance system.
+Approve exact compatible replacement code through governance, wait through the queue, execute the transition,
+and reconcile state and custody. A preapproved rollback can work if its execution path and dependencies remain
+available.
 
 The kernel, router and timelock remain the permanent execution trust root. No contract can force an external token
 issuer to release frozen assets or create liquidity already lent to borrowers. [Recovery decisions](Recovery-Decisions.md)
