@@ -41,11 +41,25 @@ For production, use `deployments/ethereum-mainnet.json`; its schema is shown in 
 
 ### Network-specific onboarding
 
-The audit/client build has no public on-chain citizenship application transaction. The application and evidence
-submission stay off-chain. The connected citizen wallet may display an application-status/pending-office-review
-screen, but it must not manufacture a local `personId` or submit `registerSelf`.
+Citizenship applications and evidence stay off-chain in both profiles. Resolve the verified deployment profile
+before exposing write actions. The frontend must not manufacture a local `personId` or submit `registerSelf`.
 
-On both the production deployment and the Sepolia audit UI, the Identity Office admin performs the on-chain writes:
+#### Justice-enabled production
+
+When the verified deployment has `justiceEnabled: true`, use the current `justiceApp` and
+`justiceIdentityWriter`, not the office-mediated calls below. Check the kernel's Justice module and
+`JusticeApp.isCurrent()` before enabling writes; a mismatch disables the actions and must not fall back to
+an office workflow. [Justice procedures and operator handoff](../docs/phase-a/JUSTICE.md#operator-handoff)
+describe the exact unsigned packet and public disclosure point. Signed identity decisions use
+`JusticeApp.executeIdentity`; restrictions and financial awards use their corresponding typed entry points.
+Voluntary wallet migration instead uses `JusticeIdentityWriter.requestWalletMigration(newWallet, expiresAt)`
+from the old active wallet and `acceptWalletMigration(personId, requestId)` from the destination. The case
+file, evidence, deliberation and pre-disclosure signing packet do not belong in the public UI.
+
+#### Office-mediated deployments
+
+For the Sepolia audit UI and deployments using the legacy profile, the Identity Office admin performs the
+on-chain writes:
 
 1. Resolve `identityOfficeId()` from `IdentityApp`, then read the current admin from
    `officeRegistry.getOfficeRecord(identityOfficeId)`; do not hardcode the admin wallet.
@@ -317,8 +331,13 @@ Important:
   - use the explicit overloaded signature when the client library requires disambiguation
 - resign an active Congress seat:
   - `congressElectionApp.resignSeat()`
+- fill the seat of a member who has lost citizenship:
+  - `congressElectionApp.recallMember(memberWallet)`
 - recover a seat whose person has no active wallet:
   - `congressElectionApp.recallUnrepresentedSeat(seatIndex)`
+
+`recallMember` uses the member's current citizenship status. Low stake, unstaking welfare and citizenship
+suspension preserve the seat. Apply candidacy checks separately when displaying eligibility for the next term.
 
 `recallUnrepresentedSeat` is permissionless but not discretionary. Show it only when the occupied seat has a nonzero
 `holderPersonId` and `identityRegistry.activeWalletOf(holderPersonId) == address(0)`. The call reverts with
@@ -640,23 +659,27 @@ the budget or reversing completed payments.
 - use the registries for read pages and event indexing
 - land titles use `PartyRef(namespace,id)`, not wallet holders; show the stable party and resolve current signers from
   `LandPartyPolicy`
-- clerks can call only `submitParcelDraft` and `updateParcelDraft`; registrar/admin controls all live record changes
+- clerks prepare parcel drafts and approve exact dispute actions. The registrar finalizes live record changes
 - title transfer is a registrar-submitted dual-consent EIP-712 flow. Fetch the current title version, the current parcel version
   (`expectedParcelVersionHash`), and the nonce. Build an anchor whose lineage is the title version, call `hashTitleTransferAuthorization`, collect both signatures, and
   submit them before the deadline. A parcel revision requires new consent from both parties
 - refresh authorization immediately before submission because a person-wallet migration, company-director change,
   or office-administrator change invalidates the previous signer authority
-- block/warn before removing a company's final director or finalizing dissolution while it still owns land; the
-  current policy deliberately does not invent a receiver for a terminal signer-less company
+- read `landRegistry.activeCompanyTitleCount(companyId)` before attempting to remove a company's last director or
+  finalize dissolution. The Company Registry rejects either change while the count is nonzero
 - index `ParcelVersionRecorded` and `TitleVersionRecorded`; resolve their content/source hashes through the
   canonical off-chain schema. Do not treat an arbitrary JSON encoding or URI as the hashed legal record
 - subdivision/merge accept at most `MAX_PARCELS_PER_OPERATION()` parcels and are atomic; boundary adjustment updates
   exactly two parcels atomically
-- filed disputes do not lock a parcel until accepted; accepted disputes and active encumbrances block transfers and
-  structural operations
+- filed disputes do not lock a parcel until accepted. For acceptance, dismissal or resolution, prepare the exact
+  action with `hashDisputeAction` and read `disputeStateHash`. A Land Office clerk sends `approveDisputeAction` with
+  those hashes and an expiry. The registrar reads `getDisputeApproval(disputeId, clerk)` and calls `acceptDispute` or
+  `resolveDispute` with the exact data and that clerk's address. Both officers must use current active wallets of
+  distinct verified identities. A clerk can withdraw their own approval. Refresh the state hash if execution reports
+  a stale approval. Accepted disputes and active encumbrances block transfers and structural operations
 - rejected company applications release their name / registration-number reservation, so a corrected application can reuse the identifiers
-- pending, suspended, dissolving, dissolved, and rejected companies cannot mutate directors, share classes, shares,
-  or filings; these child-state writes are limited to `Active` and `ComplianceWarning`
+- director and share changes require `Active` or `ComplianceWarning`. Approved companies can also record compliance
+  filings during `Suspended` or `Dissolving`
 - leasehold land titles must have a future `leaseExpiresAt`, and expired leaseholds cannot be transferred,
   subdivided, or merged
 - index the `transactionId` emitted by `EncumbranceRegistered` as the external dossier provenance for that fact

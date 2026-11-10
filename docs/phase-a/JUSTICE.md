@@ -73,6 +73,43 @@ retry until its deadline. Sign only after legal finality. A signed final certifi
 The bodies decide objections and stays before issuing that certificate. Executed temporary orders have
 separate stay and relief effects. The stable ledger preserves decision IDs across app replacements.
 
+### Operator handoff
+
+Use the [synthetic packet example](../../frontend-export/justice-decision.example.json) for the field layout.
+Replace every example value with the reviewed public inputs; never sign or submit the example. Take the
+chain ID and Justice address from the verified deployment and read `decisionStateRevision(action, personId)`.
+For admission, also read the current presidency nonce and Interior Minister record as described above.
+The `effect` object must use the fields of `IdentityEffect`, `MembershipEffect` or `FinancialEffect` from
+[JusticeTypes](../../contracts/types/JusticeTypes.sol), according to the action.
+
+Prepare locally using Python 3 and the repository's Foundry `cast`:
+
+```sh
+python3 scripts/prepare-justice-decision.py public-decision.json > unsigned-decision.json
+```
+
+The helper computes the effect, reason and decision hashes and outputs `authorityTypedData`, plus
+`destinationTypedData` when the action requires wallet consent. It rejects unknown fields and ruling URLs
+with credentials, queries or fragments. It makes no RPC calls, reads no signing keys and neither signs nor
+submits anything. The helper checks the encoding; it cannot check whether the ruling is redacted, the
+record commitment is salted, the signers are authorised or the decision is executable. Keep private files,
+salt, evidence, credentials and private notes out of its input and output.
+
+After disclosure is authorised, check the chain and address against the verified deployment, confirm
+`isCurrent()`, and compare the local digest against the contract on a trusted node:
+
+```sh
+cast call "$JUSTICE_ADDRESS" \
+  'decisionDigest((uint8,bytes32,bytes32,bytes32,bytes32,bytes32,uint64,uint64,uint256))(bytes32)' \
+  "$(jq -r '.decisionTuple' unsigned-decision.json)" --rpc-url "$TRUSTED_RPC_URL"
+jq -r '.decisionDigest' unsigned-decision.json
+```
+
+When destination consent is required, compare `destinationConsentDigest` with the same tuple and return
+type. An RPC call reveals its arguments to the provider. Only collect signatures over the exact reviewed
+typed data; do not change the effect, ruling URI, revision or destination after signing. Keep the signed
+packet private until the approved submission point and simulate the complete call only on a trusted node.
+
 ## Voting, stake and custody
 
 The justice policy excludes membership removal, insufficient pooled stake and active welfare from
@@ -102,14 +139,31 @@ available once the normal Cabinet process fills the Interior Ministry.
 Verify the complete genesis, canonical module bindings, private case operations and control of appointed
 wallets before public activation. The 5 November audit and CI results describe the earlier source.
 
-## Verification on 10 November 2026
+### Reproduce the source-level genesis fixture
+
+From the repository root, run the tracked [Forge integration test](../../test/scripts/DeployGenesis.t.sol).
+
+```bash
+forge test --match-path test/scripts/DeployGenesis.t.sol \
+  --match-test test_DeploySeedsDeterministicGenesisBeforeSeal -vv
+```
+
+The test runs both stages for the Justice profile with nine synthetic citizens, five rosters and mock assets.
+It rejects changed stage-one inputs at completion and checks the parked setup authority, final module
+bindings, electorate initialization, retirement of bootstrap and the typed renunciation path. It invokes
+the deployment helpers in Forge without RPC or transaction broadcasts. This exercise covers source-level
+integration. The transaction receipts and gas figures below are from a separate localhost rehearsal.
+
+## Historical verification of the initial Justice release
+
+These 10 November 2026 results apply to commit `00da5bc`. Use revision-specific evidence for later changes.
 
 The optimized suite passed 892 Foundry results across 73 suites, including the grouped invariant campaigns.
 The coverage run passed 891 results with the established instrumentation exclusion for the 1,000-candidate
 stress test. JusticeApp reached 94.47% line and 60.78% branch coverage. All 63 ABI exports matched compilation.
 The reviewed Slither gate passed with the full [detector inventory](../Static-Analysis-Triage.md).
 
-JusticeApp runtime size is 17,418 bytes. The final fresh genesis rehearsal used nine synthetic citizens on
+JusticeApp runtime size was 17,418 bytes. The final fresh genesis rehearsal used nine synthetic citizens on
 localhost. All 93 transactions and 56 read-back checks passed. The largest transaction used 6,926,942 gas.
 The rehearsal verified the parked writer, completion, charter, rosters, electorate readiness and bootstrap
 retirement.

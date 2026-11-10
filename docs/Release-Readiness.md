@@ -1,28 +1,29 @@
 # Release readiness
 
-The implemented source can be submitted for an external implementation audit. Production launch still needs that
-audit, approved legal workflows, verified genesis/assets and operational approval. The separate recovery ballot
-remains deferred.
+Mainnet launch requires an independent audit, approved legal workflows, verified genesis and assets, and operational
+approval. The separate recovery ballot remains deferred.
 
 For a commit-based handoff, include every new source/test/script, freeze one commit and tree, and pass
 `bash scripts/audit-freeze-check.sh` on a clean checkout. A working-tree archive must instead identify its exact
 source inventory and archive checksum, record its base commit, and state that the candidate has not been published.
 [Auditor Handoff](Auditor-Handoff.md) defines both formats.
 
-## Current engineering evidence
+## Evidence for the submitted revision
 
-[Comprehensive Review](Comprehensive-Review.md) records the 5 November internal audit, first-election duration fix,
-final verification and new source archive. Its revision-specific evidence supersedes the figures below for the
-current candidate. The earlier reports remain historical records.
+Record the full commit, tree and recursive submodule revisions. Attach the CI run and clean-tree freeze log for
+that commit, along with coverage, Slither findings, runtime sizes, ABI parity and local rehearsal evidence. Record
+the storage and selector changes in the company and land registries and the corresponding migration requirements.
+See [Auditor Handoff](Auditor-Handoff.md).
 
-[Toolchain Upgrade](Toolchain-Upgrade.md) records the Solidity 0.8.38 build, updated dependencies and fresh
-verification of this candidate. Source hashes, bytecode and scanner identities from earlier runs do not establish
-verification of the updated build. A new audit package must identify the new source and toolchain.
+### Earlier November verification
 
-The updated build passes 795 ordinary/fuzz test instances and 24 invariant properties, with no failures or skips.
-Three deeper invariant seeds pass 1,572,864 handler calls. All 58 ABI exports and 73 compared storage layouts remain
-compatible; 220 localhost deployment/recovery transactions succeed. Current first-party coverage is 89.04% of
-reported lines and 54.27% of branches. The 464 unsuppressed scanner labels retain the reviewed limitations below.
+The 10 November published justice baseline was `00da5bce5a4ac75fb35c8adc2e1168d43ad82d17`. GitHub CI verified
+that commit. The justice genesis notes also record the synthetic rehearsal. [GitHub CI](https://github.com/Balazs091/Liberland-blockchain/actions/runs/42818112204)
+· [Justice procedures](phase-a/JUSTICE.md).
+
+The 5 November internal review and source archive cover the earlier working-tree snapshot. The compiler upgrade
+records its own runtime and verification results. [Comprehensive Review](Comprehensive-Review.md) ·
+[Toolchain Upgrade](Toolchain-Upgrade.md).
 
 ### Earlier 3 November verification
 
@@ -39,22 +40,19 @@ The separately checksummed publication snapshot preserves that earlier source an
 | Local deployment | Fresh production setup and governed Sepolia deployment/upgrade/rollback rehearsals passed; no current-source public deployment |
 | Reference/tooling tests | 34 reference-model tests; 20 repository verification-tool tests |
 
-Coverage has 197,548 recorded anchor warnings and finite branch/state coverage. Scanner labels are not confirmed
-vulnerability counts. The raw reports, source hashes, before/after comparisons and rehearsal evidence belong with
-the submitted target. [Complexity Review](Complexity-Review.md) records the measurements and limits;
-[Static Analysis Notes](Static-Analysis-Triage.md) records detector triage.
-
-The 10 November [justice profile](phase-a/JUSTICE.md) adds signed collective procedures, membership and welfare
-eligibility, and voluntary compensation. The preceding evidence describes the earlier source. The public
-activation process requires the actual charter, rosters and genesis inputs. See [Recovery Plan](Recovery-Plan.md)
-and [Recovery Decisions](Recovery-Decisions.md) for the distinct governance recovery scope.
+That coverage run recorded 197,548 anchor warnings. The detector triage records which scanner labels were
+investigated and how they were classified. [Complexity Review](Complexity-Review.md) ·
+[Static Analysis Notes](Static-Analysis-Triage.md).
 
 ## Submission contents and scope
 
-The submission must include current contracts, interfaces, tests, deployment scripts, network parameters, documentation,
-frontend ABIs and pinned dependency source, with reproducible verification evidence. Review every production path,
-not just the test-covered scenarios. Mocks and demo-only modules are included to make their separation explicit;
-they are not production assets or authorities.
+Include the contracts, interfaces, tests, deployment scripts, network parameters, docs, 63 frontend ABIs and
+pinned dependency source. Review the production paths and the boundaries that keep mock assets and synthetic
+authorities confined to test deployments.
+
+The optional justice profile adds signed collective procedures, membership and welfare eligibility, and voluntary
+compensation. Public activation requires the adopted charter, verified rosters and production genesis inputs.
+See [Justice procedures](phase-a/JUSTICE.md) and [Recovery Decisions](Recovery-Decisions.md).
 
 The source supports review of contract behavior and synthetic deployment. A production-state fork, verified real
 genesis records, intended token/proxy configurations, signer-controller attestations and operational/legal procedures
@@ -70,10 +68,11 @@ and [External Audit Scope](Audit-Scope.md).
 | Retired collateral limits | Retired health, liquidation and bad-debt calculations use the smaller of active surplus and recorded lien. Settlement requires `seizedStake + remainingLien <= priorLien`. Current pools use the documented all-active-surplus model; later unpledged stake cannot enlarge a retired book's numerical rights. |
 | Custody transitions | `handoffBacking()` and `handoffAsset(asset)` have an already-governed compatible successor, exact token receipt and no caller-selected recipient. Retired staking operations and Treasury disbursement are blocked; Treasury deposits remain recoverable through handoff. These are custody helpers, not universal state migration. |
 | Payout accounting | Commitments retain their original writer only for settlement. Paid request IDs have permanent receipts in the retained budget registry; they cannot be reserved again or released as unspent. Spent settlement requires execution. Historical queue synchronization uses the action's original vault receipt. Different IDs for one invoice still require off-chain deduplication. |
-| Election progress | Pinned-cycle finalization and next-cycle creation are separate operations. Finalization supports a 1–32 workload; next-cycle creation retains cadence and incumbent registration. Failed future scheduling does not reverse a completed result. See `EfficiencyAudit.t.sol` and Congress tests/invariants. |
+| Elections and terms | Pinned-cycle finalization and next-cycle creation are separate operations. Finalization supports a 1–32 workload. Seated Congress members retain their mandates through stake loss, welfare or temporary political restrictions. Citizenship loss and the separate zero-active-wallet rule remain recall grounds. |
 | Senate support | Support is bounded by the stable registry's seat universe. Negative powers require an occupied-seat majority, at least two direct seat votes and any higher policy minimum; President proxy substitution is not provided. |
-| Identity and civic process | Consent/nonces, current office appointments, seven-day notice, one appeal, an exact-case 3-of-5 committee, a 30-day dismissal timeout and a two-day post-upheld delay are in scope. Hashes and distinct addresses do not prove lawful evidence or independent controllers. |
-| Finance and other domains | Treasury payout routing requires distinct current Finance officers. Source-authorized decisions, land consent/versioning, electorate synchronization, interest/reserve/rounding arithmetic and sealed two-stage genesis remain in scope. |
+| Identity and civic process | Review the legacy seven-day notice and 3-of-5 civic appeals separately from the optional justice writer, charter-bound rosters, signed decisions and voluntary compensation. Check both profiles through two-stage genesis. |
+| Finance | Treasury payout routing requires distinct current Finance officers. Review source-authorized decisions, interest, reserves, rounding and custody. |
+| Land and companies | Dispute actions require a verified Land Office clerk and a registrar from a different verified identity. The company registry blocks removal of the last active director and terminal dissolution while the company holds an active title. Verify those guards after transfers, parcel changes and lease closure. |
 | Shared office administrators | One wallet or person may hold multiple offices. Per-office role checks, expiry, appointment identifiers and clerk invalidation remain independent. Holding multiple offices cannot supply both payout/civic approvals. Only the mainnet genesis script requires distinct initial admins; later cross-office controller separation is operational. |
 | Configuration and arithmetic | Timelock, migration, welfare and Congress schedule constructors reject unsupported durations. Timelock/referendum schedules reject overflowing deadlines; Senate suspension caps widened arithmetic at the action expiry. Lending rejects incompatible rate scales and rates above 200% nominal APR before checkpointing; an entirely empty debt book resets its index without repricing any active claim. |
 | Bounded reads and lifecycle records | Eligibility reads fixed-size identity facts instead of dynamic metadata. Electorate rebuild clamps workloads before addition. Pending companies cannot leave permanent filings across rejection/resubmission; approved suspended/dissolving companies retain compliance filing. Senate callers cannot spoof another repeal origin to evade the registry's tier restriction. |
@@ -113,10 +112,14 @@ Passing tests support these implementation descriptions; they do not establish t
 9. **Budget approval is not a repealable law-registry entry.** The retained Law-tier referendum path records a
    budget envelope. Ordinary law repeal does not revoke it or its queued payouts. Fiscal revocation would require
    a separately approved lifecycle; no such power is implied by the phrase "budget law".
-10. **Numerical and signer boundaries remain.** The lending-rate ceiling has a tested finite horizon, not an
-    eternal overflow guarantee for never-cleared debt. An active director of a suspended/dissolved company can
-    still authorize disposal of existing land, subject to dual consent and registrar finalization. Receivership,
-    director loss and dissolution procedures need explicit legal/operational review.
+10. **Debt horizon and director key loss.** The lending-rate ceiling was tested over a finite horizon. A director
+    can sign a sale while the company is suspended or winding down. If the director loses access to the wallet,
+    the Company Registry Office must record a replacement under a status that permits appointments. Historical
+    signerless titles need a lawful succession process before import.
+11. **Company and land cutover requires both registries.** The new registry guards reject protected writes when the
+    opposite canonical registry cannot answer. Reconcile active title counts, company directors, parcel and title
+    records, encumbrances and unresolved disputes before rebinding the registry, policy, app and authority pointers.
+    Confirm dispute officers can act after cutover and obtain fresh app-bound approvals and signatures.
 
 [Upgrade and Liveness](Upgrade-And-Liveness.md) contains the module-by-module dependency and recovery map.
 These limits must be included in audit scoping and launch-risk decisions, not treated as deployment guarantees.
@@ -177,7 +180,7 @@ Permanent-core coverage after adversarial payload/reentry tests:
 
 These percentages do not establish exhaustive state-machine coverage or prove the correctness of replacement code.
 
-## Performance and maintenance constraints
+## Earlier performance measurements
 
 Measured election calls use fixture setup in a separate transaction to expose persisted-state costs.
 
@@ -197,9 +200,8 @@ Heap insertion is logarithmic. Selection revalidation and final seat activation 
 are not reduced by the insertion workload selector. Finite measurements do not certify arbitrary population size,
 future gas schedules or keeper incentives.
 
-CongressCandidateRegistry is 23,904 runtime bytes, leaving **672 bytes** beneath the 24,576-byte limit. Treat this
-as a maintenance constraint. Additional decomposition, paginated UI reads or new cancellation workflows require
-measured requirements, explicit interfaces and their own review; they are not included features.
+That build's `CongressCandidateRegistry` measured 23,904 runtime bytes against the 24,576-byte limit. Check the
+submitted build with `forge build --sizes`.
 
 ## Requirements before mainnet authorization
 
@@ -209,8 +211,9 @@ measured requirements, explicit interfaces and their own review; they are not in
   funding verification, and verified genesis identities/stake/office/elected-role records.
 - Independent office/reviewer controllers, conflict checks, key-loss/rotation procedures, evidence retention and
   lawful notice/ruling procedures. Distinct addresses alone cannot establish these conditions.
-- A lawful operational procedure for company-owned land when directors are lost or the company is dissolved.
-  The contracts provide no general registrar takeover or universal judicial executor.
+- A lawful procedure to replace a lost director and resolve historical titles without an authorized signer.
+- A verified Land Office administrator and clerk with distinct person IDs and independent controllers before
+  opening the two-officer dispute workflow.
 - Live-wallet frontend checks, monitored keepers, rehearsed transitions, verified address manifests and final
   operational/legal sign-off. The separately recorded public Sepolia demo is not a production-state fork or mainnet
   rehearsal with real assets/controllers; the localhost production-script rehearsal remains synthetic.

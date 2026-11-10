@@ -35,6 +35,10 @@ Appoint operational, independently controlled Identity and Finance clerks throug
 before starting two-officer cases or payments. A Finance clerk may approve or route a sensitive admin proposal;
 no officer can provide both approvals. See [Governance](Governance.md) for ruling deadlines and rotation.
 
+For both deployment profiles, link the Land Office administrator to a verified identity's active wallet and appoint
+a Land Office clerk from a different verified identity with an independently controlled active wallet. Use the
+normal clerk appointment workflow before accepting or resolving disputes. See [Land Cadastre](Land-Cadastre.md#office-workflow).
+
 ## Production Congress continuity
 
 Production has seven Congress seats and all seven must be populated at genesis. The recurring Congress cycle is 90 days.
@@ -106,10 +110,9 @@ simulation output alone is not evidence of a successful deployment. Verify the b
 then use that token address as `LLM_TOKEN` for protocol genesis. Recipient control must arrange the already-existing
 deployer backing requirement; the constructor does not assume that the deployer owns the allocation.
 
-The new restriction registry is deliberately absent from the standing production manifest until its authenticated
-writer, legal procedures and rights-policy bundle are integrated. This script remains the existing protocol
-deployment path, not a certificate that the proposal's collective procedures are complete. See
-[Production assets](Production-Assets.md) and [Phase A progress](phase-a/ENGINEERING-PROGRESS.md).
+The `JUSTICE_ENABLED=true` profile wires the membership registry and its authorized writer at genesis. Use the
+Justice genesis option above when preparing that profile. See [Production assets](Production-Assets.md) and
+[Justice procedures](phase-a/JUSTICE.md).
 
 During genesis, the script temporarily approves `LLMStakingVault`, pulls each citizen's configured stake from the deployer, credits the matching person ID, and clears the approval. Deployment reverts if the token transfer is short or aggregate backing would be insufficient.
 
@@ -151,9 +154,11 @@ Before an audit handoff or production broadcast, also refresh the revision-speci
 and deployment-integration evidence in `docs/Release-Readiness.md`. Do not copy historical counts or size values
 from another commit.
 
-`bash scripts/rehearse-local-genesis.sh` exercises both stages on localhost with synthetic identities and mock
-assets. Its revision-specific result is recorded in [Release Readiness](Release-Readiness.md). A successful local
-rehearsal is not a mainnet fork test, real-token verification, production genesis approval or public deployment.
+`JUSTICE_ENABLED=false bash scripts/rehearse-local-genesis.sh` exercises the legacy civic review profile on
+localhost with synthetic identities and mock assets. For the Justice profile, the [tracked Forge integration
+test](phase-a/JUSTICE.md#reproduce-the-source-level-genesis-fixture) exercises both stages with synthetic inputs.
+Record the revision-specific results in [Release Readiness](Release-Readiness.md). Obtain separate evidence for
+the mainnet fork rehearsal, token addresses, official genesis inputs and authorization to broadcast.
 
 Simulate without broadcasting:
 
@@ -261,7 +266,12 @@ not launch placeholders; add them only as reviewed modules once their law is def
 
 Before proposing a replacement address, archive its deployed bytecode and compiler metadata, confirm it is not an independently upgradeable proxy or generic delegatecall executor, review every immutable dependency, and rehearse the migration on a fork with copied production state. A replacement app must preserve the interfaces needed during the transition or be deployed as part of an explicitly reviewed breaking migration. For a state-bearing module, prove how every required record and asset reaches the replacement before activating its canonical pointer; the kernel deliberately cannot infer or perform this migration.
 
-List every kernel pointer that must move. Many workflows have both an app pointer and registry-authority pointers. Each pointer change requires its own approved typed action; once all are ready, execute them in dependency order with `ActionTimelock.executeActions(actionIds)`. Do not activate paired pointers through separate transactions. Confirm every action is executable, targets the expected old address, shares an overlapping execution window, and has no pending Senate cancellation before submitting the batch.
+List every kernel pointer that must move. Many workflows have both an app pointer and registry-authority pointers.
+For related eligible pointers, use one `ModuleBundleUpdate` with the exact incumbent addresses and replacement
+runtime hashes. This is the atomic path for a coordinated land/company cutover after reconciling titles, company
+title counts and all dependent records. Separate queued actions passed to `ActionTimelock.executeActions` remain
+independently executable. Check the applicable governance delays and cancellation status before executing either
+path. Rehearse a rollback with records as well as addresses.
 
 Treat `ReferendumApp` replacement as a special release: it is the only current referendum-creation path. A defective approved replacement cannot be repaired without an already functioning governance origin or a new trust root. Its full create, vote, finalize, enact, veto-integration, and module-routing lifecycle must pass on a production-state fork before the address is proposed.
 

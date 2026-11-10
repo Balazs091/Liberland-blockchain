@@ -297,7 +297,9 @@ The demo script deploys and wires `LandRegistry`, `LandPartyPolicy`, `LandRegist
 The Land Registry clerk may prepare parcel drafts; the office admin/registrar finalizes live parcel/title changes.
 Titles reference a registered person, active company, or active office, and a transfer requires current seller and
 buyer EIP-712 signatures plus registrar submission. Only a current authorized signer for a registered party may
-file a dispute; the registrar then accepts or resolves it. Incorporation submissions remain public through
+file a dispute. The recorded historical deployment permits the registrar to accept or resolve alone. A fresh run
+with the current source requires an approval from a distinct verified Land Office clerk, plus registrar finalization.
+Incorporation submissions remain public through
 `CompanyRegistryApp.submitIncorporation(...)`, with approval/rejection handled by the Company Registry Office. See
 `docs/Land-Cadastre.md` before constructing demo land data or signatures.
 

@@ -217,6 +217,10 @@ second candidacy; withdrawal follows the caller's current active-person link, fi
 current active wallet, and any resulting seat is assigned to it. This separates stable ballot meaning from
 active-person authorization.
 
+A seated member keeps their mandate through stake loss, unstaking welfare or citizenship suspension. Permissionless
+`recallMember(wallet)` requires loss of citizenship. Election activation and runner-up promotion still require
+candidate eligibility.
+
 If an occupied seat's person has no active wallet, anyone may call `recallUnrepresentedSeat(seatIndex)` to vacate it
 and attempt ordinary runner-up succession. The call proves the zero-active-wallet condition on-chain and reverts
 while the person remains represented; it is not an administrative or discretionary recall power.

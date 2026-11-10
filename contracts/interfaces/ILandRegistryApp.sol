@@ -7,6 +7,19 @@ import {OfficeTypes} from "../types/OfficeTypes.sol";
 /// @title ILandRegistryApp
 /// @notice User-facing cadastral workflow interface with explicit preparation and finalization powers.
 interface ILandRegistryApp {
+    enum DisputeAction {
+        Accept,
+        Uphold,
+        Dismiss
+    }
+
+    struct DisputeApproval {
+        uint64 expiresAt;
+        bytes32 actionHash;
+        bytes32 stateHash;
+        bytes32 authorizationHash;
+    }
+
     error StaleTransferParcelVersion(bytes32 parcelId, bytes32 expectedVersionHash, bytes32 currentVersionHash);
     error InvalidLandPartyPolicy(address policyAddress);
     error InvalidLandRegistry(address registryAddress);
@@ -21,6 +34,27 @@ interface ILandRegistryApp {
     error InvalidTransferNonce(bytes32 titleId, uint256 providedNonce, uint256 expectedNonce);
     error UnauthorizedLandRegistryOfficeAction(
         address caller, bytes32 officeId, OfficeTypes.OfficeActionClass actionClass
+    );
+    error InactiveLandDisputeAuthority(address app);
+    error InvalidLandDisputeOfficer(address officer);
+    error InvalidDisputeActionHash();
+    error InvalidDisputeApprovalExpiry(uint64 expiresAt);
+    error StaleDisputeApprovalState(bytes32 disputeId, bytes32 expected, bytes32 current);
+    error MissingDisputeApproval(bytes32 disputeId, bytes32 actionHash);
+    error ExpiredDisputeApproval(bytes32 disputeId, uint64 expiresAt);
+    error StaleDisputeClerkAuthorization(bytes32 disputeId, address clerk);
+    error DistinctLandDisputeOfficersRequired(bytes32 disputeId);
+
+    event DisputeActionApproved(
+        bytes32 indexed disputeId,
+        bytes32 indexed actionHash,
+        address indexed clerk,
+        bytes32 stateHash,
+        uint64 expiresAt
+    );
+    event DisputeApprovalWithdrawn(bytes32 indexed disputeId, bytes32 indexed actionHash, address indexed clerk);
+    event DisputeApprovalUsed(
+        bytes32 indexed disputeId, bytes32 indexed actionHash, address indexed clerk, address registrar
     );
 
     /// @notice Returns the stable land registry written by this app.
@@ -127,12 +161,42 @@ interface ILandRegistryApp {
         bytes32 evidenceHash,
         bytes32 transactionId
     ) external;
-    /// @notice Accepts a filed dispute and activates the parcel lock.
-    function acceptDispute(bytes32 disputeId, bytes32 evidenceHash, bytes32 transactionId) external;
 
-    /// @notice Resolves or dismisses a filed/accepted dispute.
-    function resolveDispute(bytes32 disputeId, bytes32 resolutionHash, bool claimAccepted, bytes32 transactionId)
+    /// @notice Returns the exact action commitment a clerk must approve before registrar finalization.
+    /// @param recordHash The evidence hash for acceptance or the resolution hash for uphold/dismiss.
+    function hashDisputeAction(DisputeAction action, bytes32 disputeId, bytes32 recordHash, bytes32 transactionId)
+        external
+        pure
+        returns (bytes32 actionHash);
+
+    /// @notice Returns the current precondition commitment for a filed or accepted dispute.
+    function disputeStateHash(bytes32 disputeId) external view returns (bytes32 stateHash);
+
+    /// @notice Returns this clerk's unconsumed approval, which may have expired or become stale.
+    function getDisputeApproval(bytes32 disputeId, address clerk)
+        external
+        view
+        returns (DisputeApproval memory approval);
+
+    /// @notice A verified active Land Office clerk records or replaces approval of one exact action.
+    /// @dev Provide only the action commitment. The deadline is exclusive and at most 14 days from approval.
+    function approveDisputeAction(bytes32 disputeId, bytes32 actionHash, bytes32 expectedStateHash, uint64 expiresAt)
         external;
+
+    /// @notice A clerk can withdraw their own approval, including after leaving office.
+    function withdrawDisputeApproval(bytes32 disputeId, bytes32 expectedActionHash) external;
+
+    /// @notice A verified active registrar consumes the distinct clerk's matching approval and activates the parcel lock.
+    function acceptDispute(bytes32 disputeId, bytes32 evidenceHash, bytes32 transactionId, address clerk) external;
+
+    /// @notice A verified active registrar consumes the distinct clerk's matching approval and resolves or dismisses the dispute.
+    function resolveDispute(
+        bytes32 disputeId,
+        bytes32 resolutionHash,
+        bool claimAccepted,
+        bytes32 transactionId,
+        address clerk
+    ) external;
 
     /// @notice Registers an active encumbrance against an active title.
     function registerEncumbrance(

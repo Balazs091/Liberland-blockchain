@@ -13,6 +13,7 @@ import {IVotingPowerPolicy} from "../interfaces/IVotingPowerPolicy.sol";
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {ElectionTypes} from "../types/ElectionTypes.sol";
+import {IdentityTypes} from "../types/IdentityTypes.sol";
 
 /// @title CongressElectionApp
 /// @notice User-facing application for bounded Congress election scheduling, candidacy, signed ballot voting, and vacancies.
@@ -265,12 +266,14 @@ contract CongressElectionApp is ICongressElectionApp {
         if (!_congressCandidateRegistry.isActiveCongressMember(member)) {
             revert NotActiveCongressMember(member);
         }
-        // Anyone may remove a sitting member who has lost candidacy eligibility (lost citizenship,
-        // dropped below the bond, or entered unstaking welfare). Eligible members cannot be recalled.
-        ICongressElectionPolicy termPolicy = _cyclePolicy(
-            _congressCandidateRegistry.getCycle(_congressCandidateRegistry.getCurrentOfficeTerm().cycleId)
-        );
-        if (termPolicy.isEligibleCandidate(member)) {
+        bytes32 personId = _identityRegistry.resolveWalletToPersonId(member);
+        (, IdentityTypes.CitizenshipStatus citizenship,,) = _identityRegistry.getCitizenshipSummary(personId);
+        // Candidacy and citizen voting rules do not determine whether a seated member keeps their mandate.
+        if (
+            citizenship != IdentityTypes.CitizenshipStatus.None
+                && citizenship != IdentityTypes.CitizenshipStatus.EResident
+                && citizenship != IdentityTypes.CitizenshipStatus.Revoked
+        ) {
             revert MemberStillEligible(member);
         }
 

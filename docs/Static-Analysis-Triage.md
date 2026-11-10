@@ -3,6 +3,20 @@
 Slither output and implementation context for the submitted source. Detector severity labels are not confirmed
 vulnerability ratings or an independent security verdict. Auditors should reproduce the scan and test each assumption.
 
+## Land disputes and Congress mandate baseline
+
+Slither 0.11.6 reports 620 unsuppressed instances and 615 distinct fingerprints. The breakdown is 6 High,
+78 Medium, 354 Low and 182 Informational. All six High fingerprints are unchanged.
+
+- Two Medium `unused-return` reports come from reading one field of the fixed-size identity summary. Congress
+  recall uses citizenship status. Land dispute authorization uses verification status alongside an active wallet
+  link and current office authority. The other summary fields do not control these actions.
+- Two Low `timestamp` reports check the land approval deadline and the last module activation. An approval can
+  be issued only after that activation, expires within 14 days, and can be used only before its deadline. The
+  activation check prevents a same-block rollback from reviving an approval.
+- The Low `timestamp` report for office-held land moved to a new fingerprint after the company status read changed
+  the analyzer's local variable naming. The office administrator expiry predicate is unchanged.
+
 ## Justice profile baseline, 10 November 2026
 
 Slither 0.11.6 reports 616 unsuppressed instances and 611 distinct fingerprints. The breakdown is 6 High,

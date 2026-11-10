@@ -1,10 +1,8 @@
 # Auditor handoff
 
-Audit the implemented contracts and deployment paths against the exact submitted source revision. The
-Phase A justice profile adds a separate charter, roster, signed decision and compensation scope.
-See [Justice procedures](phase-a/JUSTICE.md) for the current implementation and private case workflow.
-[Comprehensive Review](Comprehensive-Review.md) records the 5 November candidate and verification;
-[Release Readiness](Release-Readiness.md) lists the retained controls and launch requirements.
+Audit the contracts, deployment paths and tooling at the submitted revision. Include both genesis profiles and
+the company and land registry changes in scope. See [Justice procedures](phase-a/JUSTICE.md),
+[Land Cadastre](Land-Cadastre.md) and [Release Readiness](Release-Readiness.md).
 
 ## Identify the target
 
@@ -21,16 +19,15 @@ Use `SOURCE-SHA256.txt` for source/dependency contents, `PACKAGE-SHA256.txt` for
 checksum for the outer archive. Verify those files before reproducing the checks. The source archive excludes Git
 metadata, local settings, production keys, real genesis personal data, credential caches and generated build output.
 
-The export manifest contains **63 frontend ABIs**, including the 10 November justice profile. The source uses Solidity 0.8.38 and the dependencies
-recorded in [Toolchain Upgrade](Toolchain-Upgrade.md), following the internal changes in
-[Complexity Review](Complexity-Review.md). Earlier audit archives and public Sepolia records refer to different
-source and toolchain revisions.
+The export manifest contains 63 frontend ABIs. The source uses Solidity 0.8.38 and the dependencies in
+`foundry.lock`. The 5 November archive, the 10 November published justice baseline and the historical public
+Sepolia deployment each carry their own revision-specific evidence. See [Release Readiness](Release-Readiness.md).
 
 ## Package contents
 
 | Path | Contents |
 | --- | --- |
-| `source/` | Complete contracts, interfaces, tests, scripts/configuration, docs, constitutional input, 58 ABIs and exact recursive dependency sources |
+| `source/` | Complete contracts, interfaces, tests, scripts/configuration, docs, constitutional input, 63 ABIs and exact recursive dependency sources |
 | `evidence/` | Source inventories, validation summaries, full and invariant test logs, build sizes, ABI/storage comparisons, measured gas changes, coverage/limitations, raw Slither/triage and local rehearsal receipts/manifests/runtime checks |
 | `PROVENANCE.json` | Target identity, source-inventory digest, tool/dependency versions, evidence revisions and publication status |
 | Checksum files | Source/dependency, package and archive integrity checks |
@@ -47,9 +44,9 @@ do not establish public deployment or authenticate real production controllers.
 
 1. [Audit Scope](Audit-Scope.md), [Architecture](Architecture.md), [Governance](Governance.md) and
    [Upgrade and Liveness](Upgrade-And-Liveness.md).
-2. [Comprehensive Review](Comprehensive-Review.md) for current checks, and [Release Readiness](Release-Readiness.md)
-   for retained limits; [Toolchain Upgrade](Toolchain-Upgrade.md) and [Complexity Review](Complexity-Review.md)
-   for preceding toolchain and implementation changes.
+2. [Release Readiness](Release-Readiness.md) for submission checks and launch limits. Earlier results are in
+   [Comprehensive Review](Comprehensive-Review.md), [Toolchain Upgrade](Toolchain-Upgrade.md) and
+   [Complexity Review](Complexity-Review.md).
 3. [Phase A status](phase-a/README.md), [engineering progress](phase-a/ENGINEERING-PROGRESS.md) and
    [legal decisions](phase-a/LEGAL-DECISIONS.md) for implemented/proposed boundaries.
 4. [Static Analysis Notes](Static-Analysis-Triage.md), with the full unsuppressed report in the evidence.
@@ -57,21 +54,22 @@ do not establish public deployment or authenticate real production controllers.
    [Frontend Checklist](../frontend-export/INTEGRATION-CHECKLIST.md).
 
 Review every production source and deployment path, including custody, lending, replacement and optional hooks.
-Include demo/test modules for misuse and separation risks. The membership ledger is implemented, but its official
-writer, collective legal procedures and complete rights-to-policy integration remain future work. The Sepolia
-Congress controller can record effects only for its fixed synthetic subjects.
+With `JUSTICE_ENABLED=true`, fresh mainnet genesis installs `JusticeIdentityWriter`, `JusticeApp`, the membership
+eligibility policy and the decision and compensation ledgers. Completion activates the standing writer. Review the
+legacy profile separately, along with the synthetic-only Sepolia controller and the unsigned decision-packet tool.
+Private proceedings, notice and evidence belong to the off-chain case process.
 
 ## Trust boundaries to challenge
 
 - Permanent kernel/router/timelock versus constitutionally governed replaceable policies, authorities and state pointers.
 - Stable registries versus process-pinned policies, snapshots and derived election rankings.
 - People versus wallets, term/occupancy/appointment nonces and reassigned historical addresses.
-- Civic notice/approval versus the pinned 3-of-5 review committee, conflicts, consent, expiry and app replacement.
+- Legacy civic review and its pinned 3-of-5 committee, plus justice roster authority, consent, replay and expiry.
 - Budget commitments versus office approvals, queued actions, vault receipts and original-writer reconciliation.
 - Exact-successor asset handoff versus record/process migration and permanent consumed payout IDs.
 - Lending debt/reserve arithmetic, quote execution, fixed-price economic failure, donations, policy faults, retired
   collateral bounds and debt-free/final-global-loan settlement.
-- Land consent/versioning versus company lifecycle, director availability and off-chain evidence.
+- Land consent and versions, distinct verified dispute officers, company title counts and director availability.
 - Prepared genesis versus confirmed-block completion and permanent bootstrap retirement.
 
 The separate recovery ballot remains deferred. Broken governance dependencies and Senate/review cross-lock can
@@ -81,6 +79,15 @@ Legacy `executeActions` batches have independently executable members. A `Module
 executes one indivisible plan of at most 16 eligible existing pointers. It retains delays and negative controls,
 excludes Core/Senate/review replacements, and does not copy records or custody. Verify both behaviors.
 
+For an existing company and land deployment, reconcile every active title against the per-company index, including
+expired leases until closure. Reconcile company directors, parcels, dispute and encumbrance locks and pending cases.
+Each registry rejects writes to an obsolete ledger. Final dissolution and last-director removal pause if the
+canonical land ledger and its writer disagree.
+Rebind the registry, policy, app and writer pointers as a coordinated cutover after record reconciliation. Review
+transfer nonces and collect fresh app-bound signatures and dispute approvals after cutover. The dispute app requires
+the block time to advance beyond module activation and binds each approval to the current module and clerk authority. See
+[Land Cadastre](Land-Cadastre.md).
+
 ## Reproduce the checks
 
 Use Forge 1.9.0, Solidity 0.8.38, Slither 0.11.6 and crytic-compile 0.4.2 with the pinned dependencies.
@@ -89,16 +96,26 @@ Project Python checks require Python 3.10 or later; CI verifies Python 3.15.2. W
 dependency builds from source and needs a C compiler (CI uses GCC). Install the pinned analyzer in a virtual environment.
 The deployable profile uses Osaka and optimizer 200. Keep normal code-size and transaction-gas limits.
 
-For a complete clean Git checkout of the candidate commit:
+In a fresh clone, set `AUDIT_COMMIT` to the full submitted commit SHA and run the clean-tree gate. The log and
+analyzer environment are kept outside the checkout.
 
 ```bash
+set -euo pipefail
+git checkout --detach "$AUDIT_COMMIT"
 git submodule update --init --recursive
-bash scripts/audit-freeze-check.sh
+audit_evidence_dir=$(mktemp -d)
+python3 -m venv "$audit_evidence_dir/slither"
+CC=gcc "$audit_evidence_dir/slither/bin/python" -m pip install slither-analyzer==0.11.6 crytic-compile==0.4.2
+git submodule status --recursive > "$audit_evidence_dir/submodules.txt"
+SLITHER_PYTHON="$audit_evidence_dir/slither/bin/python" \
+  bash scripts/audit-freeze-check.sh 2>&1 | tee "$audit_evidence_dir/audit-freeze.log"
 ```
 
-For an archive, first verify its package/source checksums, then run from `source/`:
+For an archive, verify its outer SHA-256 before extracting. From the extracted package root run
+`sha256sum -c PACKAGE-SHA256.txt` and `sha256sum -c SOURCE-SHA256.txt`, then run the checks from `source/`.
 
 ```bash
+set -e
 bash scripts/verify-constitution-source.sh
 python3 -m unittest discover -s scripts -p 'test_*.py'
 python3 -m unittest discover -s test/reference -p 'test_*.py'
@@ -132,10 +149,19 @@ including a single-predicate result that has no grouped `invariant_count` field.
 handler-call budget while adding seed diversity; old and new framework test totals are not directly comparable.
 Run further seeds and adversarial cases as part of the independent audit.
 
-The local rehearsal scripts create temporary source copies, use loopback-only Anvil chains and known test keys,
-and stop their nodes on exit. They exercise production genesis, governed Sepolia upgrades/rollback, or the isolated
-foundation profile. They do not load the checkout's local settings or use public RPCs. Production rehearsal uses a
-local USDC test double and synthetic genesis; a production-state fork remains separate work.
+Run the synthetic genesis and upgrade checks from the submitted source.
+
+```bash
+JUSTICE_ENABLED=false bash scripts/rehearse-local-genesis.sh
+bash scripts/rehearse-sepolia-governed.sh
+bash scripts/rehearse-sepolia-foundation.sh
+forge test --match-path test/scripts/DeployGenesis.t.sol --match-test test_DeploySeedsDeterministicGenesisBeforeSeal -vv
+```
+
+The shell scripts create disposable Anvil chains bound to loopback and use synthetic inputs. The first exercises
+legacy mainnet genesis with a USDC test double. The Forge genesis test also exercises the optional justice profile
+with synthetic rosters and a parked writer. For a justice broadcast rehearsal, supply the exact synthetic fixture
+and capture receipts, manifests and read-backs separately. Public deployment requires separate authorization.
 
 ## Findings and remaining inputs
 

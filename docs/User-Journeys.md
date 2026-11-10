@@ -55,8 +55,9 @@ Evidence: `test/apps/IdentityApp.t.sol`, `test/apps/DemoCitizenGateway.t.sol`, a
 that count; losing eligibility while counting can forfeit candidacy. Stake is not separately locked.
 - After canonical Finalized status, anyone explicitly calls `createNextElectionCycle()` when the current policy and
   certified electorate permit. Failure to create a future cycle does not undo the completed election.
-- A member may resign. Anyone may recall a member who has lost candidate eligibility, after which the next eligible
-  runner-up fills the vacancy.
+- A member may resign. Anyone may recall a member who has lost citizenship, after which the next eligible
+  runner-up can fill the vacancy. A member keeps their seat through low stake, unstaking welfare, or suspension.
+  Candidate eligibility still applies when entering the next term or taking a vacant seat.
 - If a seated person's identity has no active wallet, anyone may call
   `recallUnrepresentedSeat(seatIndex)`. It reverts while that person has an active wallet and is therefore a narrow
   permissionless representation-liveness recovery, not an administrative recall. Ordinary eligible runner-up
@@ -112,8 +113,8 @@ Evidence: `test/apps/CabinetApp.t.sol`, `test/apps/MinistryTreasury.t.sol`,
   The Finance Ministry admin cannot self-transfer that political office; Cabinet succession controls it.
 - A Land Registry clerk prepares and revises parcel drafts. Only the Land Registry admin/registrar can make a parcel
   live, revise/retire it, register a title, close an expired lease, finalize a signed transfer, perform a
-  subdivision/merge/boundary
-  adjustment, manage encumbrances, or accept/resolve a dispute.
+  subdivision/merge/boundary adjustment, or manage encumbrances. A clerk and the registrar must separately authorize
+  each dispute acceptance or resolution from their current verified identity wallets.
 - Structural parcel operations reject expired leaseholds. `EncumbranceRegistered` emits the supplied transaction ID
   so auditors and indexers can bind the compact on-chain fact to its external dossier.
 - Title holders are stable person/company/office IDs rather than wallets. A transfer requires current seller and
@@ -127,6 +128,7 @@ Evidence: `test/apps/CabinetApp.t.sol`, `test/apps/MinistryTreasury.t.sol`,
   applications from inheriting hidden pre-approval state. Director and share-ledger changes require `Active` or
   `ComplianceWarning` status. Approved companies may also file compliance records while `Suspended` or
   `Dissolving`; `Rejected` and `Dissolved` records cannot accept new filings.
+- A company with an active land title must retain at least one director and clear its titles before final dissolution.
 - Finance payouts require an enacted budget envelope, a policy-permitted request, a distinct current officer's approval, a queued typed action, the
   timelock, and the Treasury Vault's independent exact-commitment check.
 - An authorized office can cancel a proposal. If already routed, `OfficeExecutor.cancelPayout` first cancels the

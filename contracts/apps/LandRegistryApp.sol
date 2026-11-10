@@ -5,12 +5,15 @@ import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import {SignatureChecker} from "@openzeppelin/contracts/utils/cryptography/SignatureChecker.sol";
 
 import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
+import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
 import {ILandPartyPolicy} from "../interfaces/ILandPartyPolicy.sol";
 import {ILandRegistry} from "../interfaces/ILandRegistry.sol";
 import {ILandRegistryApp} from "../interfaces/ILandRegistryApp.sol";
 import {IOfficePermissionPolicy} from "../interfaces/IOfficePermissionPolicy.sol";
 import {IOfficeRegistry} from "../interfaces/IOfficeRegistry.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
+import {GovernanceTypes} from "../types/GovernanceTypes.sol";
+import {IdentityTypes} from "../types/IdentityTypes.sol";
 import {LandTypes} from "../types/LandTypes.sol";
 import {OfficeTypes} from "../types/OfficeTypes.sol";
 
@@ -22,11 +25,13 @@ contract LandRegistryApp is ILandRegistryApp, EIP712 {
     bytes32 private constant _TITLE_TRANSFER_TYPEHASH = keccak256(
         "TitleTransfer(bytes32 titleId,bytes32 expectedVersionHash,bytes32 expectedParcelVersionHash,bytes32 sellerPartyKey,bytes32 newHolderPartyKey,bytes32 anchorHash,bytes32 transactionId,uint256 nonce,uint64 deadline)"
     );
+    uint256 private constant _MAX_DISPUTE_APPROVAL_DURATION = 14 days;
 
     ILandRegistry private immutable _landRegistry;
     IOfficeRegistry private immutable _officeRegistry;
     bytes32 private immutable _landOfficeId;
     mapping(bytes32 titleId => uint256 nonce) private _titleTransferNonces;
+    mapping(bytes32 disputeId => mapping(address clerk => DisputeApproval approval)) private _disputeApprovals;
 
     constructor(
         address landRegistryAddress,
@@ -275,16 +280,98 @@ contract LandRegistryApp is ILandRegistryApp, EIP712 {
     }
 
     /// @inheritdoc ILandRegistryApp
-    function acceptDispute(bytes32 disputeId, bytes32 evidenceHash, bytes32 transactionId) external {
-        _requireLandOfficeAction(msg.sender, OfficeTypes.OfficeActionClass.ResolveLandDisputes);
+    function hashDisputeAction(DisputeAction action, bytes32 disputeId, bytes32 recordHash, bytes32 transactionId)
+        public
+        pure
+        returns (bytes32 actionHash)
+    {
+        return keccak256(abi.encode(action, disputeId, recordHash, transactionId));
+    }
+
+    /// @inheritdoc ILandRegistryApp
+    function disputeStateHash(bytes32 disputeId) public view returns (bytes32 stateHash) {
+        LandTypes.DisputeRecord memory dispute = _landRegistry.getDispute(disputeId);
+        if (dispute.disputeId == bytes32(0)) revert ILandRegistry.DisputeNotFound(disputeId);
+        if (dispute.status != LandTypes.DisputeStatus.Filed && dispute.status != LandTypes.DisputeStatus.Accepted) {
+            revert ILandRegistry.InvalidDisputeStatus(dispute.status);
+        }
+        bytes32 parcelId = dispute.parcelId;
+        bytes32 titleId = _landRegistry.activeTitleOfParcel(parcelId);
+        bytes32 titleVersion = titleId == bytes32(0) ? bytes32(0) : _landRegistry.getTitle(titleId).versionHash;
+        return keccak256(
+            abi.encode(
+                dispute,
+                _landRegistry.getParcel(parcelId).versionHash,
+                titleVersion,
+                _landRegistry.activeDisputeCountOf(parcelId)
+            )
+        );
+    }
+
+    /// @inheritdoc ILandRegistryApp
+    function getDisputeApproval(bytes32 disputeId, address clerk)
+        external
+        view
+        returns (DisputeApproval memory approval)
+    {
+        return _disputeApprovals[disputeId][clerk];
+    }
+
+    /// @inheritdoc ILandRegistryApp
+    function approveDisputeAction(bytes32 disputeId, bytes32 actionHash, bytes32 expectedStateHash, uint64 expiresAt)
+        external
+    {
+        if (_officeRegistry.roleOf(_landOfficeId, msg.sender) != OfficeTypes.OfficeRole.Clerk) {
+            revert InvalidLandDisputeOfficer(msg.sender);
+        }
+        if (actionHash == bytes32(0)) revert InvalidDisputeActionHash();
+        if (expiresAt <= block.timestamp || expiresAt > block.timestamp + _MAX_DISPUTE_APPROVAL_DURATION) {
+            revert InvalidDisputeApprovalExpiry(expiresAt);
+        }
+        bytes32 currentStateHash = disputeStateHash(disputeId);
+        if (expectedStateHash != currentStateHash) {
+            revert StaleDisputeApprovalState(disputeId, expectedStateHash, currentStateHash);
+        }
+        (IIdentityRegistry identityRegistry, uint64 activatedAt) = _disputeAuthorityContext();
+        if (block.timestamp <= activatedAt) revert InactiveLandDisputeAuthority(address(this));
+        bytes32 personId = _verifiedOfficerPerson(identityRegistry, msg.sender);
+        _disputeApprovals[disputeId][msg.sender] = DisputeApproval({
+            expiresAt: expiresAt,
+            actionHash: actionHash,
+            stateHash: currentStateHash,
+            authorizationHash: _disputeClerkAuthorization(identityRegistry, msg.sender, personId, activatedAt)
+        });
+        emit DisputeActionApproved(disputeId, actionHash, msg.sender, currentStateHash, expiresAt);
+    }
+
+    /// @inheritdoc ILandRegistryApp
+    function withdrawDisputeApproval(bytes32 disputeId, bytes32 expectedActionHash) external {
+        DisputeApproval storage approval = _disputeApprovals[disputeId][msg.sender];
+        if (approval.expiresAt == 0 || approval.actionHash != expectedActionHash) {
+            revert MissingDisputeApproval(disputeId, expectedActionHash);
+        }
+        delete _disputeApprovals[disputeId][msg.sender];
+        emit DisputeApprovalWithdrawn(disputeId, expectedActionHash, msg.sender);
+    }
+
+    /// @inheritdoc ILandRegistryApp
+    function acceptDispute(bytes32 disputeId, bytes32 evidenceHash, bytes32 transactionId, address clerk) external {
+        _consumeDisputeApproval(
+            disputeId, hashDisputeAction(DisputeAction.Accept, disputeId, evidenceHash, transactionId), clerk
+        );
         _landRegistry.acceptDispute(disputeId, evidenceHash, transactionId);
     }
 
     /// @inheritdoc ILandRegistryApp
-    function resolveDispute(bytes32 disputeId, bytes32 resolutionHash, bool claimAccepted, bytes32 transactionId)
-        external
-    {
-        _requireLandOfficeAction(msg.sender, OfficeTypes.OfficeActionClass.ResolveLandDisputes);
+    function resolveDispute(
+        bytes32 disputeId,
+        bytes32 resolutionHash,
+        bool claimAccepted,
+        bytes32 transactionId,
+        address clerk
+    ) external {
+        DisputeAction action = claimAccepted ? DisputeAction.Uphold : DisputeAction.Dismiss;
+        _consumeDisputeApproval(disputeId, hashDisputeAction(action, disputeId, resolutionHash, transactionId), clerk);
         _landRegistry.resolveDispute(disputeId, resolutionHash, claimAccepted, transactionId);
     }
 
@@ -312,6 +399,81 @@ contract LandRegistryApp is ILandRegistryApp, EIP712 {
     ) external {
         _requireLandOfficeAction(msg.sender, OfficeTypes.OfficeActionClass.FinalizeLandRecords);
         _landRegistry.releaseEncumbrance(encumbranceId, releaseAnchor, transactionId);
+    }
+
+    function _consumeDisputeApproval(bytes32 disputeId, bytes32 actionHash, address clerk) private {
+        OfficeTypes.OfficeRole role =
+            _requireLandOfficeAction(msg.sender, OfficeTypes.OfficeActionClass.ResolveLandDisputes);
+        if (role != OfficeTypes.OfficeRole.Admin) revert InvalidLandDisputeOfficer(msg.sender);
+        DisputeApproval memory approval = _disputeApprovals[disputeId][clerk];
+        if (approval.expiresAt == 0 || approval.actionHash != actionHash) {
+            revert MissingDisputeApproval(disputeId, actionHash);
+        }
+        if (block.timestamp >= approval.expiresAt) revert ExpiredDisputeApproval(disputeId, approval.expiresAt);
+        bytes32 currentStateHash = disputeStateHash(disputeId);
+        if (approval.stateHash != currentStateHash) {
+            revert StaleDisputeApprovalState(disputeId, approval.stateHash, currentStateHash);
+        }
+        (IIdentityRegistry identityRegistry, uint64 activatedAt) = _disputeAuthorityContext();
+        bytes32 clerkPersonId = _verifiedOfficerPerson(identityRegistry, clerk);
+        if (clerkPersonId == _verifiedOfficerPerson(identityRegistry, msg.sender)) {
+            revert DistinctLandDisputeOfficersRequired(disputeId);
+        }
+        bytes32 currentAuthorization = _disputeClerkAuthorization(identityRegistry, clerk, clerkPersonId, activatedAt);
+        if (approval.authorizationHash != currentAuthorization) {
+            revert StaleDisputeClerkAuthorization(disputeId, clerk);
+        }
+        delete _disputeApprovals[disputeId][clerk];
+        emit DisputeApprovalUsed(disputeId, actionHash, clerk, msg.sender);
+    }
+
+    function _disputeAuthorityContext() private view returns (IIdentityRegistry identityRegistry, uint64 activatedAt) {
+        IConstitutionKernel kernel = IConstitutionKernel(_landRegistry.kernel());
+        GovernanceTypes.ModuleRecord memory authority = kernel.getModuleRecord(KernelModuleIds.LAND_REGISTRY_AUTHORITY);
+        GovernanceTypes.ModuleRecord memory land = kernel.getModuleRecord(KernelModuleIds.LAND_REGISTRY);
+        GovernanceTypes.ModuleRecord memory office = kernel.getModuleRecord(KernelModuleIds.OFFICE_REGISTRY);
+        if (
+            authority.moduleAddress != address(this) || land.moduleAddress != address(_landRegistry)
+                || office.moduleAddress != address(_officeRegistry)
+        ) revert InactiveLandDisputeAuthority(address(this));
+
+        GovernanceTypes.ModuleRecord memory identity = kernel.getModuleRecord(KernelModuleIds.IDENTITY_REGISTRY);
+        activatedAt = authority.activatedAt;
+        if (land.activatedAt > activatedAt) activatedAt = land.activatedAt;
+        if (office.activatedAt > activatedAt) activatedAt = office.activatedAt;
+        if (identity.activatedAt > activatedAt) activatedAt = identity.activatedAt;
+        return (IIdentityRegistry(identity.moduleAddress), activatedAt);
+    }
+
+    function _verifiedOfficerPerson(IIdentityRegistry identityRegistry, address officer)
+        private
+        view
+        returns (bytes32 personId)
+    {
+        IdentityTypes.WalletLink memory link = identityRegistry.getWalletLink(officer);
+        if (link.personId == bytes32(0) || link.status != IdentityTypes.WalletLinkStatus.Active) {
+            revert InvalidLandDisputeOfficer(officer);
+        }
+        (IdentityTypes.VerificationStatus verificationStatus,,,) = identityRegistry.getCitizenshipSummary(link.personId);
+        if (verificationStatus != IdentityTypes.VerificationStatus.Verified) revert InvalidLandDisputeOfficer(officer);
+        return link.personId;
+    }
+
+    function _disputeClerkAuthorization(
+        IIdentityRegistry identityRegistry,
+        address clerk,
+        bytes32 clerkPersonId,
+        uint64 activatedAt
+    ) private view returns (bytes32 authorizationHash) {
+        return keccak256(
+            abi.encode(
+                _officeRegistry.authorizationId(_landOfficeId, clerk),
+                address(identityRegistry),
+                clerkPersonId,
+                identityRegistry.electorateRevisionOf(clerkPersonId),
+                activatedAt
+            )
+        );
     }
 
     function _requireTransferParcelVersion(LandTypes.TitleTransferRequest calldata request, bytes32 parcelId)
@@ -371,13 +533,17 @@ contract LandRegistryApp is ILandRegistryApp, EIP712 {
         return party.namespace != bytes32(0) && party.id != bytes32(0);
     }
 
-    function _requireLandOfficeAction(address caller, OfficeTypes.OfficeActionClass actionClass) private view {
+    function _requireLandOfficeAction(address caller, OfficeTypes.OfficeActionClass actionClass)
+        private
+        view
+        returns (OfficeTypes.OfficeRole officeRole)
+    {
         OfficeTypes.OfficeRecord memory officeRecord = _officeRegistry.getOfficeRecord(_landOfficeId);
         if (officeRecord.officeId == bytes32(0) || officeRecord.kind != OfficeTypes.OfficeKind.LandRegistryOffice) {
             revert InvalidLandRegistryOffice(_landOfficeId);
         }
 
-        OfficeTypes.OfficeRole officeRole = _officeRegistry.roleOf(_landOfficeId, caller);
+        officeRole = _officeRegistry.roleOf(_landOfficeId, caller);
         if (!_currentOfficePermissionPolicy().isActionAuthorized(officeRecord.kind, officeRole, actionClass)) {
             revert UnauthorizedLandRegistryOfficeAction(caller, _landOfficeId, actionClass);
         }

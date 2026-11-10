@@ -47,6 +47,8 @@ The 10 November [justice profile](phase-a/JUSTICE.md) adds a production genesis 
 stages, retirement of the legacy identity writer, exact certificate execution and roster replacement. Check
 membership and welfare changes against completed-block electorate data, and confirm that private case material
 stays outside public transactions. The synthetic Sepolia writers remain separate fixtures.
+Use the [tracked Justice genesis fixture](phase-a/JUSTICE.md#reproduce-the-source-level-genesis-fixture) to
+repeat the two-stage integration with synthetic inputs. Record production-state rehearsal evidence separately.
 
 - Solidity: pinned `0.8.38`
 - EVM target: pinned `osaka`
@@ -204,8 +206,12 @@ failure-path coverage and challenge the assumptions.
    bounded and atomic. Independently review EOA/EIP-1271 signature semantics, wallet/director/office changes between
    signing and execution, nonce/version replay resistance, lineage construction, dispute/encumbrance locks, and
    migration from any earlier land storage. Structural operations reject expired leaseholds, and encumbrance events
-   retain the caller-supplied transaction ID. Also review operational prevention/recovery for a company that loses
-   its final director or reaches terminal dissolution while still holding title.
+   retain the caller-supplied transaction ID. Dispute acceptance and resolution require a current verified clerk's
+   exact approval and a distinct verified registrar's transaction. Review approval expiry, withdrawal, office and
+   identity rotation, case/parcel revisions, and concurrent approvals. Verify company title-count conservation
+   across all title mutations. Verify that obsolete ledgers reject writes and a partial cutover blocks last-director
+   removal and dissolution until the land writer and canonical ledger agree. Reconcile records and title counts
+   independently when rehearsing a complete migration or rollback.
 
 Dedicated retirement review must cover same-ledger LLM backing handoff to the exact governed successor, Treasury
 asset handoff with historical receipts retained in the old vault, original-writer-only reconciliation of old budget

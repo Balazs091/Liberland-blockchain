@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.38;
 
-import {ILandRegistry} from "../interfaces/ILandRegistry.sol";
 import {KernelModule} from "../base/KernelModule.sol";
+import {ICompanyRegistry} from "../interfaces/ICompanyRegistry.sol";
+import {ILandRegistry} from "../interfaces/ILandRegistry.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {LandOperationIds} from "../libraries/LandOperationIds.sol";
+import {CompanyTypes} from "../types/CompanyTypes.sol";
 import {LandTypes} from "../types/LandTypes.sol";
 
 /// @title LandRegistry
@@ -30,6 +32,7 @@ contract LandRegistry is ILandRegistry, KernelModule {
     mapping(bytes32 parcelId => uint256 count) private _activeDisputeCounts;
     mapping(bytes32 parcelId => uint256 count) private _activeEncumbranceCounts;
     bytes32[] private _parcelIds;
+    mapping(bytes32 companyId => uint256 count) private _activeCompanyTitleCounts;
 
     constructor(address kernelAddress) KernelModule(kernelAddress) {}
 
@@ -66,6 +69,11 @@ contract LandRegistry is ILandRegistry, KernelModule {
     /// @inheritdoc ILandRegistry
     function activeTitleOfParcel(bytes32 parcelId) external view returns (bytes32 titleId) {
         return _activeTitleOfParcel[parcelId];
+    }
+
+    /// @inheritdoc ILandRegistry
+    function activeCompanyTitleCount(bytes32 companyId) external view returns (uint256 count) {
+        return _activeCompanyTitleCounts[companyId];
     }
 
     /// @inheritdoc ILandRegistry
@@ -195,6 +203,9 @@ contract LandRegistry is ILandRegistry, KernelModule {
             revert InvalidParcelStatus(parcelRecord.status);
         }
         _requireLineage(input.anchor.lineageHash, parcelRecord.versionHash);
+        if (input.holder.namespace == LandTypes.COMPANY_NAMESPACE) {
+            _requireRepresentedCompany(input.holder);
+        }
 
         LandTypes.TitleRecord storage titleRecord = _createTitleRecord(titleId, input, uint64(block.timestamp));
         emit TitleRegistered(titleId, input.parcelId, _partyKey(input.holder), titleRecord.registeredAt);
@@ -222,12 +233,20 @@ contract LandRegistry is ILandRegistry, KernelModule {
         _requireParcelTransferable(titleRecord.parcelId);
 
         bytes32 previousHolderPartyKey = _partyKey(titleRecord.holder);
+        bytes32 newHolderPartyKey = _partyKey(newHolder);
+        if (previousHolderPartyKey != newHolderPartyKey) {
+            if (newHolder.namespace == LandTypes.COMPANY_NAMESPACE) {
+                _requireRepresentedCompany(newHolder);
+                _activeCompanyTitleCounts[newHolder.id] += 1;
+            }
+            _removeActiveCompanyTitle(titleRecord.holder);
+        }
         titleRecord.holder = newHolder;
         titleRecord.anchor = anchor;
         uint64 currentTimestamp = uint64(block.timestamp);
         _recordTitleVersion(titleRecord, LandOperationIds.TITLE_TRANSFERRED, transactionId, currentTimestamp);
 
-        emit TitleTransferred(titleId, previousHolderPartyKey, _partyKey(newHolder), currentTimestamp);
+        emit TitleTransferred(titleId, previousHolderPartyKey, newHolderPartyKey, currentTimestamp);
     }
 
     /// @inheritdoc ILandRegistry
@@ -289,7 +308,7 @@ contract LandRegistry is ILandRegistry, KernelModule {
                 leaseExpiresAt: parentTitle.leaseExpiresAt
             });
             LandTypes.TitleRecord storage childTitle =
-                _createTitleRecordFromMemory(child.titleId, childTitleInput, currentTimestamp);
+                _createTitleRecord(child.titleId, childTitleInput, currentTimestamp);
 
             emit ParcelRegistered(child.parcelId, child.parcel.parcelNumberHash, currentTimestamp, msg.sender);
             _recordParcelVersion(childParcel, LandOperationIds.PARCEL_SUBDIVIDED, transactionId, currentTimestamp);
@@ -343,7 +362,7 @@ contract LandRegistry is ILandRegistry, KernelModule {
             leaseExpiresAt: leaseExpiresAt
         });
         LandTypes.TitleRecord storage mergedTitle =
-            _createTitleRecordFromMemory(result.titleId, mergedTitleInput, currentTimestamp);
+            _createTitleRecord(result.titleId, mergedTitleInput, currentTimestamp);
 
         emit ParcelRegistered(result.parcelId, result.parcel.parcelNumberHash, currentTimestamp, msg.sender);
         _recordParcelVersion(mergedParcel, LandOperationIds.PARCELS_MERGED, transactionId, currentTimestamp);
@@ -676,7 +695,7 @@ contract LandRegistry is ILandRegistry, KernelModule {
         _parcelIds.push(parcelId);
     }
 
-    function _createTitleRecord(bytes32 titleId, LandTypes.TitleInput calldata input, uint64 currentTimestamp)
+    function _createTitleRecord(bytes32 titleId, LandTypes.TitleInput memory input, uint64 currentTimestamp)
         private
         returns (LandTypes.TitleRecord storage titleRecord)
     {
@@ -691,23 +710,9 @@ contract LandRegistry is ILandRegistry, KernelModule {
         titleRecord.registeredAt = currentTimestamp;
         titleRecord.updatedAt = currentTimestamp;
         _activeTitleOfParcel[input.parcelId] = titleId;
-    }
-
-    function _createTitleRecordFromMemory(bytes32 titleId, LandTypes.TitleInput memory input, uint64 currentTimestamp)
-        private
-        returns (LandTypes.TitleRecord storage titleRecord)
-    {
-        titleRecord = _titles[titleId];
-        titleRecord.titleId = titleId;
-        titleRecord.parcelId = input.parcelId;
-        titleRecord.holder = input.holder;
-        titleRecord.anchor = input.anchor;
-        titleRecord.tenureType = input.tenureType;
-        titleRecord.leaseExpiresAt = input.leaseExpiresAt;
-        titleRecord.active = true;
-        titleRecord.registeredAt = currentTimestamp;
-        titleRecord.updatedAt = currentTimestamp;
-        _activeTitleOfParcel[input.parcelId] = titleId;
+        if (input.holder.namespace == LandTypes.COMPANY_NAMESPACE) {
+            _activeCompanyTitleCounts[input.holder.id] += 1;
+        }
     }
 
     function _closeTitleRecord(
@@ -716,12 +721,28 @@ contract LandRegistry is ILandRegistry, KernelModule {
         bytes32 transactionId,
         uint64 currentTimestamp
     ) private {
+        _removeActiveCompanyTitle(titleRecord.holder);
         titleRecord.active = false;
         if (_activeTitleOfParcel[titleRecord.parcelId] == titleRecord.titleId) {
             delete _activeTitleOfParcel[titleRecord.parcelId];
         }
         _recordTitleVersion(titleRecord, operationType, transactionId, currentTimestamp);
         emit TitleClosed(titleRecord.titleId, titleRecord.parcelId, currentTimestamp, msg.sender);
+    }
+
+    function _removeActiveCompanyTitle(LandTypes.PartyRef storage holder) private {
+        if (holder.namespace == LandTypes.COMPANY_NAMESPACE) {
+            _activeCompanyTitleCounts[holder.id] -= 1;
+        }
+    }
+
+    function _requireRepresentedCompany(LandTypes.PartyRef calldata holder) private view {
+        ICompanyRegistry companyRegistry = ICompanyRegistry(_kernel.getModule(KernelModuleIds.COMPANY_REGISTRY));
+        (CompanyTypes.CompanyStatus status, uint32 activeDirectorCount) =
+            companyRegistry.getCompanyRepresentation(holder.id);
+        if (activeDirectorCount == 0 || status == CompanyTypes.CompanyStatus.Dissolved) {
+            revert InvalidParty(holder);
+        }
     }
 
     function _writeParcelInput(LandTypes.ParcelRecord storage parcelRecord, LandTypes.ParcelInput calldata input)
@@ -1080,7 +1101,10 @@ contract LandRegistry is ILandRegistry, KernelModule {
     }
 
     function _requireRegistryAuthority(address caller) private view {
-        if (caller != _kernel.getModule(KernelModuleIds.LAND_REGISTRY_AUTHORITY)) {
+        if (
+            caller != _kernel.getModule(KernelModuleIds.LAND_REGISTRY_AUTHORITY)
+                || address(this) != _kernel.getModule(KernelModuleIds.LAND_REGISTRY)
+        ) {
             revert UnauthorizedLandRegistryCaller(caller);
         }
     }

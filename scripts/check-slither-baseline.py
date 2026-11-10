@@ -16,8 +16,8 @@ from pathlib import Path
 # Current manual triage: docs/Static-Analysis-Triage.md.
 EXPECTED_COUNTS = {
     "High": 6,
-    "Medium": 76,
-    "Low": 352,
+    "Medium": 78,
+    "Low": 354,
     "Informational": 182,
     "Optimization": 0,
 }

@@ -79,6 +79,40 @@ contract JusticeAppTest is Test {
         kernel.disableBootstrapAuthority();
     }
 
+    /// @notice The offline operator example matches this contract's effect encoding and both signing digests.
+    function test_OfflinePacketMatchesContractDigests() external {
+        vm.chainId(31_337);
+        address exampleApp = 0x1111111111111111111111111111111111111111;
+        vm.etch(exampleApp, address(app).code);
+        JusticeTypes.IdentityEffect memory effect = JusticeTypes.IdentityEffect({
+            wallet: 0x5555555555555555555555555555555555555555,
+            ageClass: IdentityTypes.AgeClass.Adult,
+            route: JusticeTypes.AdmissionRoute.Regular,
+            presidencyNonce: 7,
+            ministerMandateHash: 0x6666666666666666666666666666666666666666666666666666666666666666,
+            priorDecisionId: bytes32(0)
+        });
+        JusticeTypes.Decision memory decision = JusticeTypes.Decision({
+            action: JusticeTypes.Action.Admit,
+            decisionId: 0x2222222222222222222222222222222222222222222222222222222222222222,
+            personId: 0x3333333333333333333333333333333333333333333333333333333333333333,
+            effectHash: keccak256(abi.encode(effect)),
+            reasonHash: keccak256("ipfs://synthetic-public-ruling"),
+            recordHash: 0x4444444444444444444444444444444444444444444444444444444444444444,
+            noticeAt: 0,
+            deadline: 1_800_000_000,
+            stateRevision: 9_007_199_254_740_993
+        });
+        assertEq(
+            IJusticeApp(exampleApp).decisionDigest(decision),
+            0x6d600e19242bb5eb93ff6ef6f999eaebed7a0ac000c1234e2b0109e3effcd696
+        );
+        assertEq(
+            IJusticeApp(exampleApp).destinationConsentDigest(decision),
+            0x9c3f62aa098cca3d8a7828fb8d92dfde3f22f9f3732990f75b0fb855cb6f26c7
+        );
+    }
+
     function test_DisciplineRequiresBothMajoritiesAndNoticeThenAnyCallerCanExecute() external {
         JusticeTypes.MembershipEffect memory effect = JusticeTypes.MembershipEffect(0, 0, SERVED + 35 days, 1);
         JusticeTypes.Decision memory d = _decision(JusticeTypes.Action.Restrict, "order", SUBJECT, abi.encode(effect));

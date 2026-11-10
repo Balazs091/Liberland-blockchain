@@ -8,6 +8,7 @@ import {CompanyTypes} from "../types/CompanyTypes.sol";
 /// @notice Stable fact registry interface for company records, directors, filings, and official share ledgers.
 interface ICompanyRegistry is IKernelModule {
     error CompanyAlreadyRegistered(bytes32 companyId);
+    error CompanyHasActiveLandTitles(bytes32 companyId);
     error CompanyNameAlreadyRegistered(bytes32 nameHash, bytes32 companyId);
     error CompanyNotFound(bytes32 companyId);
     error FilingAlreadyRegistered(bytes32 filingId);
@@ -19,6 +20,7 @@ interface ICompanyRegistry is IKernelModule {
     error InvalidRegistrationNumber(bytes32 registrationNumberHash);
     error InvalidShareClass(bytes32 classId);
     error InvalidShareTransfer(address from, address to, uint256 amount);
+    error LandRegistryWriterMismatch(address registry, address writer);
     error RegistrationNumberAlreadyRegistered(bytes32 registrationNumberHash, bytes32 companyId);
     error ShareClassAlreadyRegistered(bytes32 companyId, bytes32 classId);
     error ShareClassNotFound(bytes32 companyId, bytes32 classId);
@@ -79,6 +81,12 @@ interface ICompanyRegistry is IKernelModule {
     );
 
     function getCompany(bytes32 companyId) external view returns (CompanyTypes.CompanyRecord memory record);
+    /// @notice Returns the status and active director count used by the land registry and party policy.
+    function getCompanyRepresentation(bytes32 companyId)
+        external
+        view
+        returns (CompanyTypes.CompanyStatus status, uint32 activeDirectorCount);
+
     function getDirector(bytes32 companyId, address director)
         external
         view

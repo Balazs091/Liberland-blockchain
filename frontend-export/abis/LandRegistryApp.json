@@ -48,6 +48,11 @@
         "name": "transactionId",
         "type": "bytes32",
         "internalType": "bytes32"
+      },
+      {
+        "name": "clerk",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [],
@@ -295,6 +300,34 @@
   },
   {
     "type": "function",
+    "name": "approveDisputeAction",
+    "inputs": [
+      {
+        "name": "disputeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "actionHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "expectedStateHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "expiresAt",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "closeExpiredLease",
     "inputs": [
       {
@@ -352,6 +385,25 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "disputeStateHash",
+    "inputs": [
+      {
+        "name": "disputeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "stateHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "view"
   },
   {
     "type": "function",
@@ -440,6 +492,86 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "getDisputeApproval",
+    "inputs": [
+      {
+        "name": "disputeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "clerk",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "approval",
+        "type": "tuple",
+        "internalType": "struct ILandRegistryApp.DisputeApproval",
+        "components": [
+          {
+            "name": "expiresAt",
+            "type": "uint64",
+            "internalType": "uint64"
+          },
+          {
+            "name": "actionHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "stateHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          },
+          {
+            "name": "authorizationHash",
+            "type": "bytes32",
+            "internalType": "bytes32"
+          }
+        ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "hashDisputeAction",
+    "inputs": [
+      {
+        "name": "action",
+        "type": "uint8",
+        "internalType": "enum ILandRegistryApp.DisputeAction"
+      },
+      {
+        "name": "disputeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "recordHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "transactionId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "actionHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "stateMutability": "pure"
   },
   {
     "type": "function",
@@ -998,6 +1130,11 @@
         "name": "transactionId",
         "type": "bytes32",
         "internalType": "bytes32"
+      },
+      {
+        "name": "clerk",
+        "type": "address",
+        "internalType": "address"
       }
     ],
     "outputs": [],
@@ -1604,10 +1741,208 @@
     "stateMutability": "nonpayable"
   },
   {
+    "type": "function",
+    "name": "withdrawDisputeApproval",
+    "inputs": [
+      {
+        "name": "disputeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "expectedActionHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "DisputeActionApproved",
+    "inputs": [
+      {
+        "name": "disputeId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "actionHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "clerk",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "stateHash",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "expiresAt",
+        "type": "uint64",
+        "indexed": false,
+        "internalType": "uint64"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "DisputeApprovalUsed",
+    "inputs": [
+      {
+        "name": "disputeId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "actionHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "clerk",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "registrar",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "DisputeApprovalWithdrawn",
+    "inputs": [
+      {
+        "name": "disputeId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "actionHash",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "clerk",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
     "type": "event",
     "name": "EIP712DomainChanged",
     "inputs": [],
     "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "DisputeNotFound",
+    "inputs": [
+      {
+        "name": "disputeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "DistinctLandDisputeOfficersRequired",
+    "inputs": [
+      {
+        "name": "disputeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "ExpiredDisputeApproval",
+    "inputs": [
+      {
+        "name": "disputeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "expiresAt",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InactiveLandDisputeAuthority",
+    "inputs": [
+      {
+        "name": "app",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidDisputeActionHash",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidDisputeApprovalExpiry",
+    "inputs": [
+      {
+        "name": "expiresAt",
+        "type": "uint64",
+        "internalType": "uint64"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidDisputeStatus",
+    "inputs": [
+      {
+        "name": "status",
+        "type": "uint8",
+        "internalType": "enum LandTypes.DisputeStatus"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "InvalidLandDisputeOfficer",
+    "inputs": [
+      {
+        "name": "officer",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
   },
   {
     "type": "error",
@@ -1758,6 +2093,59 @@
         "name": "expectedNonce",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "MissingDisputeApproval",
+    "inputs": [
+      {
+        "name": "disputeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "actionHash",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "StaleDisputeApprovalState",
+    "inputs": [
+      {
+        "name": "disputeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "expected",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "current",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "StaleDisputeClerkAuthorization",
+    "inputs": [
+      {
+        "name": "disputeId",
+        "type": "bytes32",
+        "internalType": "bytes32"
+      },
+      {
+        "name": "clerk",
+        "type": "address",
+        "internalType": "address"
       }
     ]
   },

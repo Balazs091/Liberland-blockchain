@@ -2,9 +2,11 @@
 pragma solidity 0.8.38;
 
 import {ICompanyRegistry} from "../interfaces/ICompanyRegistry.sol";
+import {IConstitutionKernel} from "../interfaces/IConstitutionKernel.sol";
 import {IIdentityRegistry} from "../interfaces/IIdentityRegistry.sol";
 import {ILandPartyPolicy} from "../interfaces/ILandPartyPolicy.sol";
 import {IOfficeRegistry} from "../interfaces/IOfficeRegistry.sol";
+import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 import {CompanyTypes} from "../types/CompanyTypes.sol";
 import {IdentityTypes} from "../types/IdentityTypes.sol";
 import {LandTypes} from "../types/LandTypes.sol";
@@ -16,12 +18,12 @@ import {OfficeTypes} from "../types/OfficeTypes.sol";
 ///      policy without rewriting title records, because titles store namespaced stable identifiers.
 contract LandPartyPolicy is ILandPartyPolicy {
     bytes32 private constant _PERSON_NAMESPACE = keccak256("party.person");
-    bytes32 private constant _COMPANY_NAMESPACE = keccak256("party.company");
     bytes32 private constant _OFFICE_NAMESPACE = keccak256("party.office");
 
     IIdentityRegistry private immutable _identityRegistry;
     ICompanyRegistry private immutable _companyRegistry;
     IOfficeRegistry private immutable _officeRegistry;
+    IConstitutionKernel private immutable _kernel;
 
     constructor(address identityRegistryAddress, address companyRegistryAddress, address officeRegistryAddress) {
         if (identityRegistryAddress == address(0) || identityRegistryAddress.code.length == 0) {
@@ -37,6 +39,7 @@ contract LandPartyPolicy is ILandPartyPolicy {
         _identityRegistry = IIdentityRegistry(identityRegistryAddress);
         _companyRegistry = ICompanyRegistry(companyRegistryAddress);
         _officeRegistry = IOfficeRegistry(officeRegistryAddress);
+        _kernel = IConstitutionKernel(_companyRegistry.kernel());
     }
 
     /// @inheritdoc ILandPartyPolicy
@@ -61,7 +64,7 @@ contract LandPartyPolicy is ILandPartyPolicy {
 
     /// @inheritdoc ILandPartyPolicy
     function companyNamespace() external pure returns (bytes32 namespace) {
-        return _COMPANY_NAMESPACE;
+        return LandTypes.COMPANY_NAMESPACE;
     }
 
     /// @inheritdoc ILandPartyPolicy
@@ -87,10 +90,11 @@ contract LandPartyPolicy is ILandPartyPolicy {
                 && verificationStatus == IdentityTypes.VerificationStatus.Verified
                 && _identityRegistry.activeWalletOf(party.id) != address(0);
         }
-        if (party.namespace == _COMPANY_NAMESPACE) {
-            CompanyTypes.CompanyRecord memory record = _companyRegistry.getCompany(party.id);
-            return (record.status == CompanyTypes.CompanyStatus.Active
-                    || record.status == CompanyTypes.CompanyStatus.ComplianceWarning) && record.activeDirectorCount != 0;
+        if (party.namespace == LandTypes.COMPANY_NAMESPACE) {
+            (CompanyTypes.CompanyStatus status, uint32 activeDirectorCount) =
+                _currentCompanyRegistry().getCompanyRepresentation(party.id);
+            return (status == CompanyTypes.CompanyStatus.Active
+                    || status == CompanyTypes.CompanyStatus.ComplianceWarning) && activeDirectorCount != 0;
         }
         if (party.namespace == _OFFICE_NAMESPACE) {
             OfficeTypes.OfficeRecord memory record = _officeRegistry.getOfficeRecord(party.id);
@@ -118,8 +122,9 @@ contract LandPartyPolicy is ILandPartyPolicy {
         if (party.namespace == _PERSON_NAMESPACE) {
             return _identityRegistry.identityExists(party.id) && _identityRegistry.activeWalletOf(party.id) == signer;
         }
-        if (party.namespace == _COMPANY_NAMESPACE) {
-            return _companyRegistry.companyExists(party.id) && _companyRegistry.getDirector(party.id, signer).active;
+        if (party.namespace == LandTypes.COMPANY_NAMESPACE) {
+            ICompanyRegistry companies = _currentCompanyRegistry();
+            return companies.companyExists(party.id) && companies.getDirector(party.id, signer).active;
         }
         if (party.namespace == _OFFICE_NAMESPACE) {
             return _officeRegistry.officeExists(party.id) && _officeRegistry.isOfficeAdminAppointment(party.id, signer);
@@ -131,8 +136,8 @@ contract LandPartyPolicy is ILandPartyPolicy {
         if (party.namespace == _PERSON_NAMESPACE) {
             return _identityRegistry.identityExists(party.id);
         }
-        if (party.namespace == _COMPANY_NAMESPACE) {
-            return _companyRegistry.companyExists(party.id);
+        if (party.namespace == LandTypes.COMPANY_NAMESPACE) {
+            return _currentCompanyRegistry().companyExists(party.id);
         }
         if (party.namespace == _OFFICE_NAMESPACE) {
             return _officeRegistry.officeExists(party.id);
@@ -142,5 +147,12 @@ contract LandPartyPolicy is ILandPartyPolicy {
 
     function _partyKey(LandTypes.PartyRef calldata party) private pure returns (bytes32 key) {
         return keccak256(abi.encode(party.namespace, party.id));
+    }
+
+    function _currentCompanyRegistry() private view returns (ICompanyRegistry) {
+        if (_kernel.getModule(KernelModuleIds.COMPANY_REGISTRY) != address(_companyRegistry)) {
+            revert InvalidCompanyRegistry(address(_companyRegistry));
+        }
+        return _companyRegistry;
     }
 }

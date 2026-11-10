@@ -4,6 +4,8 @@ pragma solidity 0.8.38;
 /// @title LandTypes
 /// @notice Shared value types for cadastral facts and typed land workflows.
 library LandTypes {
+    bytes32 internal constant COMPANY_NAMESPACE = keccak256("party.company");
+
     enum ParcelStatus {
         Undefined,
         Draft,

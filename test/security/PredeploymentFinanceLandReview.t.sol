@@ -229,6 +229,7 @@ contract PredeploymentPropertyReviewTest is Test {
     uint256 private constant SELLER_KEY = 0xA11CE;
     uint256 private constant BUYER_KEY = 0xB0B;
     address private constant ADMIN = address(0xA001);
+    address private constant LAND_CLERK = address(0xA002);
 
     ConstitutionKernel private kernel;
     IdentityRegistry private identity;
@@ -254,7 +255,9 @@ contract PredeploymentPropertyReviewTest is Test {
         partyPolicy = new LandPartyPolicy(address(identity), address(companies), address(offices));
         landApp = _newLandApp();
         companyApp = new CompanyRegistryApp(address(companies), address(offices), address(permission), COMPANY_OFFICE);
+        kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY, address(identity));
         kernel.bootstrapSetModule(KernelModuleIds.IDENTITY_REGISTRY_AUTHORITY, address(this));
+        kernel.bootstrapSetModule(KernelModuleIds.OFFICE_REGISTRY, address(offices));
         kernel.bootstrapSetModule(KernelModuleIds.OFFICE_REGISTRY_AUTHORITY, address(this));
         kernel.bootstrapSetModule(KernelModuleIds.LAND_REGISTRY, address(land));
         kernel.bootstrapSetModule(KernelModuleIds.LAND_REGISTRY_APP, address(landApp));
@@ -266,10 +269,14 @@ contract PredeploymentPropertyReviewTest is Test {
         kernel.bootstrapSetModule(KernelModuleIds.LAND_PARTY_POLICY, address(partyPolicy));
         kernel.bootstrapSetModule(KernelModuleIds.ACTION_TIMELOCK, address(this));
         offices.registerOffice(LAND_OFFICE, OfficeTypes.OfficeKind.LandRegistryOffice, "Synthetic land", ADMIN);
+        offices.setClerkStatus(LAND_OFFICE, LAND_CLERK, true);
         offices.registerOffice(COMPANY_OFFICE, OfficeTypes.OfficeKind.CompanyRegistryOffice, "Synthetic company", ADMIN);
         _register(SELLER_PERSON, seller);
         _register(BUYER_PERSON, buyer);
+        _register(keccak256("predeployment.land.admin"), ADMIN);
+        _register(keccak256("predeployment.land.clerk"), LAND_CLERK);
         kernel.disableBootstrapAuthority();
+        skip(1);
         vm.startPrank(ADMIN);
         landApp.submitParcelDraft(PARCEL, _parcelInput(keccak256("genesis")), keccak256("tx.draft"));
         LandTypes.ParcelRecord memory draft = land.getParcel(PARCEL);
@@ -324,15 +331,24 @@ contract PredeploymentPropertyReviewTest is Test {
         _fileAndAccept(first);
         _fileAndAccept(second);
         assertEq(land.activeDisputeCountOf(PARCEL), 2);
+        bytes32 firstReason = keccak256("first.reason");
+        bytes32 firstTx = keccak256("first.resolve");
+        _approveDispute(first, ILandRegistryApp.DisputeAction.Dismiss, firstReason, firstTx);
+        LandRegistryApp original = landApp;
         landApp = _newLandApp();
         kernel.governanceUpdateModule(KernelModuleIds.LAND_REGISTRY_APP, address(landApp));
         kernel.governanceUpdateModule(KernelModuleIds.LAND_REGISTRY_AUTHORITY, address(landApp));
-        vm.startPrank(ADMIN);
-        landApp.resolveDispute(first, keccak256("first.reason"), false, keccak256("first.resolve"));
+        vm.prank(ADMIN);
+        vm.expectPartialRevert(ILandRegistryApp.InactiveLandDisputeAuthority.selector);
+        original.resolveDispute(first, firstReason, false, firstTx, LAND_CLERK);
+        vm.prank(ADMIN);
+        vm.expectPartialRevert(ILandRegistryApp.MissingDisputeApproval.selector);
+        landApp.resolveDispute(first, firstReason, false, firstTx, LAND_CLERK);
+        skip(1);
+        _dismissDispute(first, firstReason, firstTx);
         assertEq(land.activeDisputeCountOf(PARCEL), 1);
         assertEq(uint8(land.getParcel(PARCEL).status), uint8(LandTypes.ParcelStatus.Disputed));
-        landApp.resolveDispute(second, keccak256("second.reason"), false, keccak256("second.resolve"));
-        vm.stopPrank();
+        _dismissDispute(second, keccak256("second.reason"), keccak256("second.resolve"));
         assertEq(land.activeDisputeCountOf(PARCEL), 0);
         assertEq(uint8(land.getParcel(PARCEL).status), uint8(LandTypes.ParcelStatus.Active));
         assertEq(land.getTitle(TITLE).holder.id, SELLER_PERSON);
@@ -541,8 +557,7 @@ contract PredeploymentPropertyReviewTest is Test {
         LandTypes.PartyRef memory claimant = _party(BUYER_PERSON);
         vm.prank(buyer);
         landApp.fileDispute(disputeId, parcelId, claimant, keccak256("api.evidence"), keccak256("api.dispute.file"));
-        vm.prank(ADMIN);
-        landApp.acceptDispute(disputeId, 0, keccak256("api.dispute.accept"));
+        _acceptDispute(disputeId, keccak256("api.dispute.accept"));
         LandTypes.ParcelRecord memory locked = land.getParcel(parcelId);
         LandTypes.RecordAnchor memory retirement = _anchor(keccak256("api.retirement"), locked.versionHash);
         vm.prank(seller);
@@ -559,8 +574,7 @@ contract PredeploymentPropertyReviewTest is Test {
         vm.expectRevert(abi.encodeWithSelector(ILandRegistry.ParcelTransferLocked.selector, parcelId));
         landApp.retireParcel(parcelId, locked.revision, retirement, keccak256("api.retirement.tx"));
         assertEq(land.getParcel(parcelId).versionHash, locked.versionHash);
-        vm.prank(ADMIN);
-        landApp.resolveDispute(disputeId, keccak256("api.resolution"), false, keccak256("api.dispute.resolve"));
+        _dismissDispute(disputeId, keccak256("api.resolution"), keccak256("api.dispute.resolve"));
         LandTypes.ParcelRecord memory unlocked = land.getParcel(parcelId);
         retirement.lineageHash = unlocked.versionHash;
         vm.prank(ADMIN);
@@ -604,8 +618,31 @@ contract PredeploymentPropertyReviewTest is Test {
         landApp.fileDispute(
             disputeId, PARCEL, claimant, keccak256("evidence"), keccak256(abi.encode(disputeId, "file"))
         );
+        _acceptDispute(disputeId, keccak256(abi.encode(disputeId, "accept")));
+    }
+
+    function _acceptDispute(bytes32 disputeId, bytes32 transactionId) private {
+        _approveDispute(disputeId, ILandRegistryApp.DisputeAction.Accept, 0, transactionId);
         vm.prank(ADMIN);
-        landApp.acceptDispute(disputeId, 0, keccak256(abi.encode(disputeId, "accept")));
+        landApp.acceptDispute(disputeId, 0, transactionId, LAND_CLERK);
+    }
+
+    function _dismissDispute(bytes32 disputeId, bytes32 reason, bytes32 transactionId) private {
+        _approveDispute(disputeId, ILandRegistryApp.DisputeAction.Dismiss, reason, transactionId);
+        vm.prank(ADMIN);
+        landApp.resolveDispute(disputeId, reason, false, transactionId, LAND_CLERK);
+    }
+
+    function _approveDispute(
+        bytes32 disputeId,
+        ILandRegistryApp.DisputeAction action,
+        bytes32 recordHash,
+        bytes32 transactionId
+    ) private {
+        bytes32 actionHash = landApp.hashDisputeAction(action, disputeId, recordHash, transactionId);
+        bytes32 stateHash = landApp.disputeStateHash(disputeId);
+        vm.prank(LAND_CLERK);
+        landApp.approveDisputeAction(disputeId, actionHash, stateHash, uint64(block.timestamp + 1 days));
     }
 
     function _transferWithFreshConsent() private {

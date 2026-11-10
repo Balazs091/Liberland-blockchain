@@ -66,6 +66,8 @@ contract LandRegistryTest is Test {
     bytes32 internal constant TITLE_TWO_ID = keccak256("title.two");
     bytes32 internal constant SELLER_PERSON_ID = keccak256("person.seller");
     bytes32 internal constant BUYER_PERSON_ID = keccak256("person.buyer");
+    bytes32 internal constant LAND_ADMIN_PERSON_ID = keccak256("person.land.admin");
+    bytes32 internal constant LAND_CLERK_PERSON_ID = keccak256("person.land.clerk");
     bytes32 internal constant COMPANY_ID = keccak256("company.owner");
     bytes32 internal constant DISPUTE_ID = keccak256("dispute.one");
     bytes32 internal constant ENCUMBRANCE_ID = keccak256("encumbrance.one");
@@ -77,6 +79,7 @@ contract LandRegistryTest is Test {
 
     address internal constant LAND_ADMIN = address(0x1A01);
     address internal constant LAND_CLERK = address(0x1A02);
+    address internal constant OTHER_CLERK = address(0x1A03);
     address internal constant OUTSIDER = address(0xBAD);
 
     ConstitutionKernel internal kernel;
@@ -124,6 +127,7 @@ contract LandRegistryTest is Test {
         kernel.bootstrapSetModule(KernelModuleIds.LAND_REGISTRY_AUTHORITY, address(landRegistryApp));
         kernel.bootstrapSetModule(KernelModuleIds.OFFICE_PERMISSION_POLICY, address(officePermissionPolicy));
         kernel.bootstrapSetModule(KernelModuleIds.LAND_PARTY_POLICY, address(landPartyPolicy));
+        kernel.bootstrapSetModule(KernelModuleIds.ACTION_TIMELOCK, address(this));
 
         officeRegistry.registerOffice(
             LAND_OFFICE_ID, OfficeTypes.OfficeKind.LandRegistryOffice, "Land Registry Office", LAND_ADMIN
@@ -131,8 +135,11 @@ contract LandRegistryTest is Test {
         officeRegistry.setClerkStatus(LAND_OFFICE_ID, LAND_CLERK, true);
         _registerPerson(SELLER_PERSON_ID, seller);
         _registerPerson(BUYER_PERSON_ID, buyer);
+        _registerPerson(LAND_ADMIN_PERSON_ID, LAND_ADMIN);
+        _registerPerson(LAND_CLERK_PERSON_ID, LAND_CLERK);
 
         kernel.disableBootstrapAuthority();
+        skip(1);
     }
 
     function test_InterfacesExposeCleanDesignSelectors() public pure {
@@ -308,18 +315,7 @@ contract LandRegistryTest is Test {
     }
 
     function test_CompanyPartyUsesAnActiveDirectorAndFutureNamespacesRemainPolicyReplaceable() public {
-        CompanyTypes.CompanyInput memory companyInput = CompanyTypes.CompanyInput({
-            registrationNumberHash: bytes32(0),
-            nameHash: keccak256("company.name"),
-            jurisdictionHash: keccak256("company.jurisdiction"),
-            registeredOfficeHash: keccak256("company.office"),
-            metadataHash: keccak256("company.metadata"),
-            articlesHash: keccak256("company.articles"),
-            uboHash: keccak256("company.ubo"),
-            registeredCapital: 1_000_000
-        });
-        companyRegistry.submitCompany(COMPANY_ID, seller, companyInput);
-        companyRegistry.approveCompany(COMPANY_ID, keccak256("LLC-LAND"));
+        _approveCompany();
 
         LandTypes.PartyRef memory companyParty =
             LandTypes.PartyRef({namespace: landPartyPolicy.companyNamespace(), id: COMPANY_ID});
@@ -355,6 +351,7 @@ contract LandRegistryTest is Test {
         LandTypes.PartyRef memory companyParty =
             LandTypes.PartyRef({namespace: landPartyPolicy.companyNamespace(), id: COMPANY_ID});
         _activateParcelWithTitle(PARCEL_ID, TITLE_ID, "parcel.safe", companyParty);
+        assertEq(landRegistry.activeCompanyTitleCount(COMPANY_ID), 1);
         LandTypes.TitleTransferRequest memory request = _transferRequest(TITLE_ID, _personParty(BUYER_PERSON_ID));
         bytes32 digest = landRegistryApp.hashTitleTransferAuthorization(request);
 
@@ -368,6 +365,7 @@ contract LandRegistryTest is Test {
         );
 
         assertEq(landRegistry.getTitle(TITLE_ID).holder.id, BUYER_PERSON_ID);
+        assertEq(landRegistry.activeCompanyTitleCount(COMPANY_ID), 0);
     }
 
     function test_CompanyTitleSupportsStrictEip1271PaddingFor65ByteSignature() public {
@@ -574,22 +572,21 @@ contract LandRegistryTest is Test {
     function test_AcceptedDisputeAndEncumbranceLockTransferUntilResolved() public {
         _activateParcelWithTitle(PARCEL_ID, TITLE_ID, "parcel.one", _personParty(SELLER_PERSON_ID));
 
-        LandTypes.PartyRef memory claimant = _personParty(BUYER_PERSON_ID);
-        vm.prank(buyer);
-        landRegistryApp.fileDispute(
-            DISPUTE_ID, PARCEL_ID, claimant, keccak256("dispute.evidence"), keccak256("tx.dispute.file")
-        );
+        _fileDispute();
         assertEq(landRegistry.activeDisputeCountOf(PARCEL_ID), 0);
 
+        bytes32 acceptTx = keccak256("tx.dispute.accept");
+        _approveDispute(LAND_CLERK, ILandRegistryApp.DisputeAction.Accept, bytes32(0), acceptTx);
         vm.prank(LAND_ADMIN);
-        landRegistryApp.acceptDispute(DISPUTE_ID, bytes32(0), keccak256("tx.dispute.accept"));
+        landRegistryApp.acceptDispute(DISPUTE_ID, bytes32(0), acceptTx, LAND_CLERK);
         assertEq(landRegistry.activeDisputeCountOf(PARCEL_ID), 1);
         assertEq(uint256(landRegistry.getParcel(PARCEL_ID).status), uint256(LandTypes.ParcelStatus.Disputed));
 
+        bytes32 rulingHash = keccak256("dispute.resolution");
+        bytes32 resolveTx = keccak256("tx.dispute.resolve");
+        _approveDispute(LAND_CLERK, ILandRegistryApp.DisputeAction.Dismiss, rulingHash, resolveTx);
         vm.prank(LAND_ADMIN);
-        landRegistryApp.resolveDispute(
-            DISPUTE_ID, keccak256("dispute.resolution"), false, keccak256("tx.dispute.resolve")
-        );
+        landRegistryApp.resolveDispute(DISPUTE_ID, rulingHash, false, resolveTx, LAND_CLERK);
         assertEq(landRegistry.activeDisputeCountOf(PARCEL_ID), 0);
 
         LandTypes.TitleRecord memory title = landRegistry.getTitle(TITLE_ID);
@@ -635,7 +632,12 @@ contract LandRegistryTest is Test {
     }
 
     function test_SubdivisionAndMergeAreAtomicBoundedAndPreserveStableHolder() public {
-        _activateParcelWithTitle(PARCEL_ID, TITLE_ID, "parent", _personParty(SELLER_PERSON_ID));
+        _approveCompany();
+        companyRegistry.setDirector(COMPANY_ID, seller, keccak256("director"), true);
+        LandTypes.PartyRef memory companyParty =
+            LandTypes.PartyRef({namespace: landPartyPolicy.companyNamespace(), id: COMPANY_ID});
+        _activateParcelWithTitle(PARCEL_ID, TITLE_ID, "parent", companyParty);
+        assertEq(landRegistry.activeCompanyTitleCount(COMPANY_ID), 1);
         LandTypes.ParcelRecord memory parent = landRegistry.getParcel(PARCEL_ID);
         LandTypes.TitleRecord memory parentTitle = landRegistry.getTitle(TITLE_ID);
 
@@ -658,8 +660,9 @@ contract LandRegistryTest is Test {
 
         assertEq(uint256(landRegistry.getParcel(PARCEL_ID).status), uint256(LandTypes.ParcelStatus.Retired));
         assertFalse(landRegistry.getTitle(TITLE_ID).active);
-        assertEq(landRegistry.getTitle(children[0].titleId).holder.id, SELLER_PERSON_ID);
-        assertEq(landRegistry.getTitle(children[1].titleId).holder.id, SELLER_PERSON_ID);
+        assertEq(landRegistry.getTitle(children[0].titleId).holder.id, COMPANY_ID);
+        assertEq(landRegistry.getTitle(children[1].titleId).holder.id, COMPANY_ID);
+        assertEq(landRegistry.activeCompanyTitleCount(COMPANY_ID), 2);
 
         bytes32[] memory sourceIds = new bytes32[](2);
         sourceIds[0] = children[0].parcelId;
@@ -689,9 +692,10 @@ contract LandRegistryTest is Test {
         landRegistryApp.mergeParcels(sourceIds, revisions, result, keccak256("tx.merge"));
 
         assertEq(uint256(landRegistry.getParcel(mergedParcelId).status), uint256(LandTypes.ParcelStatus.Active));
-        assertEq(landRegistry.getTitle(mergedTitleId).holder.id, SELLER_PERSON_ID);
+        assertEq(landRegistry.getTitle(mergedTitleId).holder.id, COMPANY_ID);
         assertEq(uint256(landRegistry.getParcel(sourceIds[0]).status), uint256(LandTypes.ParcelStatus.Retired));
         assertEq(uint256(landRegistry.getParcel(sourceIds[1]).status), uint256(LandTypes.ParcelStatus.Retired));
+        assertEq(landRegistry.activeCompanyTitleCount(COMPANY_ID), 1);
     }
 
     function test_BoundaryAdjustmentUpdatesBothParcelsOrNeither() public {
@@ -729,6 +733,24 @@ contract LandRegistryTest is Test {
         landRegistryApp.adjustBoundary(first, second, keccak256("tx.boundary"));
         assertEq(landRegistry.getParcel(PARCEL_ID).revision, firstBefore.revision + 1);
         assertEq(landRegistry.getParcel(PARCEL_TWO_ID).revision, secondBefore.revision + 1);
+    }
+
+    function _approveCompany() private {
+        companyRegistry.submitCompany(
+            COMPANY_ID,
+            seller,
+            CompanyTypes.CompanyInput({
+                registrationNumberHash: bytes32(0),
+                nameHash: keccak256("company.name"),
+                jurisdictionHash: keccak256("company.jurisdiction"),
+                registeredOfficeHash: keccak256("company.office"),
+                metadataHash: keccak256("company.metadata"),
+                articlesHash: keccak256("company.articles"),
+                uboHash: keccak256("company.ubo"),
+                registeredCapital: 1_000_000
+            })
+        );
+        companyRegistry.approveCompany(COMPANY_ID, keccak256("LLC-LAND"));
     }
 
     function _strictDirectorCompanyTitle() private returns (StrictERC1271DirectorWalletMock directorSafe) {
@@ -815,6 +837,192 @@ contract LandRegistryTest is Test {
     function _signature(uint256 privateKey, bytes32 digest) private pure returns (bytes memory signature) {
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
         return abi.encodePacked(r, s, v);
+    }
+
+    function test_DisputeAcceptanceAndResolutionRequireIndependentExactApprovals() public {
+        _openTitledDispute();
+        bytes32 acceptTx = keccak256("accept");
+        bytes32 actionHash =
+            landRegistryApp.hashDisputeAction(ILandRegistryApp.DisputeAction.Accept, DISPUTE_ID, bytes32(0), acceptTx);
+        bytes32 stateHash = landRegistryApp.disputeStateHash(DISPUTE_ID);
+
+        vm.startPrank(LAND_ADMIN);
+        vm.expectRevert(abi.encodeWithSelector(ILandRegistryApp.InvalidLandDisputeOfficer.selector, LAND_ADMIN));
+        landRegistryApp.approveDisputeAction(DISPUTE_ID, actionHash, stateHash, uint64(block.timestamp + 1 days));
+        vm.expectPartialRevert(ILandRegistryApp.MissingDisputeApproval.selector);
+        landRegistryApp.acceptDispute(DISPUTE_ID, 0, acceptTx, LAND_CLERK);
+        vm.stopPrank();
+        assertEq(landRegistry.activeDisputeCountOf(PARCEL_ID), 0);
+
+        _approveDispute(LAND_CLERK, ILandRegistryApp.DisputeAction.Accept, 0, acceptTx);
+        vm.prank(LAND_CLERK);
+        vm.expectPartialRevert(ILandRegistryApp.UnauthorizedLandRegistryOfficeAction.selector);
+        landRegistryApp.acceptDispute(DISPUTE_ID, 0, acceptTx, LAND_CLERK);
+        vm.startPrank(LAND_ADMIN);
+        vm.expectPartialRevert(ILandRegistryApp.MissingDisputeApproval.selector);
+        landRegistryApp.acceptDispute(DISPUTE_ID, keccak256("different evidence"), acceptTx, LAND_CLERK);
+        vm.expectPartialRevert(ILandRegistryApp.MissingDisputeApproval.selector);
+        landRegistryApp.acceptDispute(DISPUTE_ID, 0, keccak256("different transaction"), LAND_CLERK);
+        landRegistryApp.acceptDispute(DISPUTE_ID, 0, acceptTx, LAND_CLERK);
+        vm.expectPartialRevert(ILandRegistryApp.MissingDisputeApproval.selector);
+        landRegistryApp.acceptDispute(DISPUTE_ID, 0, acceptTx, LAND_CLERK);
+        vm.stopPrank();
+        assertEq(landRegistryApp.getDisputeApproval(DISPUTE_ID, LAND_CLERK).expiresAt, 0);
+
+        bytes32 ruling = keccak256("reason");
+        bytes32 resolveTx = keccak256("resolution");
+        vm.prank(LAND_ADMIN);
+        vm.expectPartialRevert(ILandRegistryApp.MissingDisputeApproval.selector);
+        landRegistryApp.resolveDispute(DISPUTE_ID, ruling, false, resolveTx, LAND_CLERK);
+        _approveDispute(LAND_CLERK, ILandRegistryApp.DisputeAction.Uphold, ruling, resolveTx);
+        vm.startPrank(LAND_ADMIN);
+        vm.expectPartialRevert(ILandRegistryApp.MissingDisputeApproval.selector);
+        landRegistryApp.resolveDispute(DISPUTE_ID, ruling, false, resolveTx, LAND_CLERK);
+        landRegistryApp.resolveDispute(DISPUTE_ID, ruling, true, resolveTx, LAND_CLERK);
+        vm.stopPrank();
+        assertEq(uint8(landRegistry.getDispute(DISPUTE_ID).status), uint8(LandTypes.DisputeStatus.Resolved));
+        assertEq(landRegistry.getTitle(TITLE_ID).holder.id, SELLER_PERSON_ID);
+    }
+
+    function test_DisputeApprovalExpiresAndEachClerkCanOnlyWithdrawTheirOwn() public {
+        _openTitledDispute();
+        _registerPerson(keccak256("person.other.clerk"), OTHER_CLERK);
+        officeRegistry.setClerkStatus(LAND_OFFICE_ID, OTHER_CLERK, true);
+        bytes32 transactionId = keccak256("accept");
+        bytes32 actionHash = _approveDispute(LAND_CLERK, ILandRegistryApp.DisputeAction.Accept, 0, transactionId);
+        _approveDispute(OTHER_CLERK, ILandRegistryApp.DisputeAction.Accept, 0, transactionId);
+        vm.prank(OTHER_CLERK);
+        landRegistryApp.withdrawDisputeApproval(DISPUTE_ID, actionHash);
+        assertEq(landRegistryApp.getDisputeApproval(DISPUTE_ID, OTHER_CLERK).expiresAt, 0);
+        assertEq(landRegistryApp.getDisputeApproval(DISPUTE_ID, LAND_CLERK).actionHash, actionHash);
+
+        vm.warp(landRegistryApp.getDisputeApproval(DISPUTE_ID, LAND_CLERK).expiresAt);
+        vm.prank(LAND_ADMIN);
+        vm.expectPartialRevert(ILandRegistryApp.ExpiredDisputeApproval.selector);
+        landRegistryApp.acceptDispute(DISPUTE_ID, 0, transactionId, LAND_CLERK);
+        bytes32 stateHash = landRegistryApp.disputeStateHash(DISPUTE_ID);
+        vm.prank(OTHER_CLERK);
+        vm.expectPartialRevert(ILandRegistryApp.InvalidDisputeApprovalExpiry.selector);
+        landRegistryApp.approveDisputeAction(DISPUTE_ID, actionHash, stateHash, uint64(block.timestamp + 14 days + 1));
+        _approveDispute(OTHER_CLERK, ILandRegistryApp.DisputeAction.Accept, 0, transactionId);
+        vm.prank(LAND_ADMIN);
+        landRegistryApp.acceptDispute(DISPUTE_ID, 0, transactionId, OTHER_CLERK);
+        assertEq(landRegistry.activeDisputeCountOf(PARCEL_ID), 1);
+    }
+
+    function test_DisputeApprovalCannotReviveAfterClerkRevocationOrWalletRotation() public {
+        _openTitledDispute();
+        bytes32 transactionId = keccak256("accept");
+        bytes32 actionHash = _approveDispute(LAND_CLERK, ILandRegistryApp.DisputeAction.Accept, 0, transactionId);
+        officeRegistry.setClerkStatus(LAND_OFFICE_ID, LAND_CLERK, false);
+        vm.prank(LAND_ADMIN);
+        vm.expectPartialRevert(ILandRegistryApp.StaleDisputeClerkAuthorization.selector);
+        landRegistryApp.acceptDispute(DISPUTE_ID, 0, transactionId, LAND_CLERK);
+        officeRegistry.setClerkStatus(LAND_OFFICE_ID, LAND_CLERK, true);
+        vm.prank(LAND_ADMIN);
+        vm.expectPartialRevert(ILandRegistryApp.StaleDisputeClerkAuthorization.selector);
+        landRegistryApp.acceptDispute(DISPUTE_ID, 0, transactionId, LAND_CLERK);
+
+        _approveDispute(LAND_CLERK, ILandRegistryApp.DisputeAction.Accept, 0, transactionId);
+        identityRegistry.setWalletLink(LAND_CLERK_PERSON_ID, LAND_CLERK, IdentityTypes.WalletLinkStatus.Revoked);
+        identityRegistry.setWalletLink(LAND_CLERK_PERSON_ID, LAND_CLERK, IdentityTypes.WalletLinkStatus.Active);
+        vm.prank(LAND_ADMIN);
+        vm.expectPartialRevert(ILandRegistryApp.StaleDisputeClerkAuthorization.selector);
+        landRegistryApp.acceptDispute(DISPUTE_ID, 0, transactionId, LAND_CLERK);
+        officeRegistry.setClerkStatus(LAND_OFFICE_ID, OTHER_CLERK, true);
+        bytes32 stateHash = landRegistryApp.disputeStateHash(DISPUTE_ID);
+        vm.prank(OTHER_CLERK);
+        vm.expectRevert(abi.encodeWithSelector(ILandRegistryApp.InvalidLandDisputeOfficer.selector, OTHER_CLERK));
+        landRegistryApp.approveDisputeAction(DISPUTE_ID, actionHash, stateHash, uint64(block.timestamp + 1 days));
+        _registerPerson(keccak256("person.other.clerk"), OTHER_CLERK);
+        _approveDispute(OTHER_CLERK, ILandRegistryApp.DisputeAction.Accept, 0, transactionId);
+        vm.prank(LAND_ADMIN);
+        landRegistryApp.acceptDispute(DISPUTE_ID, 0, transactionId, OTHER_CLERK);
+        assertEq(landRegistry.activeDisputeCountOf(PARCEL_ID), 1);
+    }
+
+    function test_DisputeApprovalMustMatchTheCurrentTitleAndDisputeState() public {
+        _openTitledDispute();
+        bytes32 transactionId = keccak256("accept");
+        bytes32 oldStateHash = landRegistryApp.disputeStateHash(DISPUTE_ID);
+        bytes32 actionHash = _approveDispute(LAND_CLERK, ILandRegistryApp.DisputeAction.Accept, 0, transactionId);
+        LandTypes.TitleTransferRequest memory request = _transferRequest(TITLE_ID, _personParty(BUYER_PERSON_ID));
+        (bytes memory sellerSignature, bytes memory buyerSignature) = _signTransfer(request, SELLER_KEY, BUYER_KEY);
+        vm.prank(LAND_ADMIN);
+        landRegistryApp.transferTitle(request, seller, sellerSignature, buyer, buyerSignature);
+        vm.prank(LAND_ADMIN);
+        vm.expectPartialRevert(ILandRegistryApp.StaleDisputeApprovalState.selector);
+        landRegistryApp.acceptDispute(DISPUTE_ID, 0, transactionId, LAND_CLERK);
+        vm.prank(LAND_CLERK);
+        vm.expectPartialRevert(ILandRegistryApp.StaleDisputeApprovalState.selector);
+        landRegistryApp.approveDisputeAction(DISPUTE_ID, actionHash, oldStateHash, uint64(block.timestamp + 1 days));
+
+        _registerPerson(keccak256("person.other.clerk"), OTHER_CLERK);
+        officeRegistry.setClerkStatus(LAND_OFFICE_ID, OTHER_CLERK, true);
+        bytes32 reason = keccak256("ruling");
+        bytes32 resolveTx = keccak256("resolution");
+        _approveDispute(OTHER_CLERK, ILandRegistryApp.DisputeAction.Dismiss, reason, resolveTx);
+        _approveDispute(LAND_CLERK, ILandRegistryApp.DisputeAction.Accept, 0, transactionId);
+        vm.startPrank(LAND_ADMIN);
+        landRegistryApp.acceptDispute(DISPUTE_ID, 0, transactionId, LAND_CLERK);
+        vm.expectPartialRevert(ILandRegistryApp.StaleDisputeApprovalState.selector);
+        landRegistryApp.resolveDispute(DISPUTE_ID, reason, false, resolveTx, OTHER_CLERK);
+        vm.stopPrank();
+        _approveDispute(OTHER_CLERK, ILandRegistryApp.DisputeAction.Dismiss, reason, resolveTx);
+        vm.prank(LAND_ADMIN);
+        landRegistryApp.resolveDispute(DISPUTE_ID, reason, false, resolveTx, OTHER_CLERK);
+        assertEq(landRegistry.activeDisputeCountOf(PARCEL_ID), 0);
+    }
+
+    function test_OfficePointerCutoverAndSameTimestampRollbackInvalidateDisputeApproval() public {
+        _openTitledDispute();
+        bytes32 transactionId = keccak256("accept");
+        bytes32 actionHash = _approveDispute(LAND_CLERK, ILandRegistryApp.DisputeAction.Accept, 0, transactionId);
+        OfficeRegistry successor = new OfficeRegistry(address(kernel));
+        kernel.governanceUpdateModule(KernelModuleIds.OFFICE_REGISTRY, address(successor));
+        vm.prank(LAND_ADMIN);
+        vm.expectPartialRevert(ILandRegistryApp.InactiveLandDisputeAuthority.selector);
+        landRegistryApp.acceptDispute(DISPUTE_ID, 0, transactionId, LAND_CLERK);
+
+        kernel.governanceUpdateModule(KernelModuleIds.OFFICE_REGISTRY, address(officeRegistry));
+        vm.prank(LAND_ADMIN);
+        vm.expectPartialRevert(ILandRegistryApp.StaleDisputeClerkAuthorization.selector);
+        landRegistryApp.acceptDispute(DISPUTE_ID, 0, transactionId, LAND_CLERK);
+        bytes32 stateHash = landRegistryApp.disputeStateHash(DISPUTE_ID);
+        vm.prank(LAND_CLERK);
+        vm.expectPartialRevert(ILandRegistryApp.InactiveLandDisputeAuthority.selector);
+        landRegistryApp.approveDisputeAction(DISPUTE_ID, actionHash, stateHash, uint64(block.timestamp + 1 days));
+
+        skip(1);
+        _approveDispute(LAND_CLERK, ILandRegistryApp.DisputeAction.Accept, 0, transactionId);
+        vm.prank(LAND_ADMIN);
+        landRegistryApp.acceptDispute(DISPUTE_ID, 0, transactionId, LAND_CLERK);
+        assertEq(landRegistry.activeDisputeCountOf(PARCEL_ID), 1);
+    }
+
+    function _openTitledDispute() private {
+        _activateParcelWithTitle(PARCEL_ID, TITLE_ID, "parcel.one", _personParty(SELLER_PERSON_ID));
+        _fileDispute();
+    }
+
+    function _fileDispute() private {
+        LandTypes.PartyRef memory claimant = _personParty(BUYER_PERSON_ID);
+        vm.prank(buyer);
+        landRegistryApp.fileDispute(
+            DISPUTE_ID, PARCEL_ID, claimant, keccak256("dispute.evidence"), keccak256("tx.dispute.file")
+        );
+    }
+
+    function _approveDispute(
+        address clerk,
+        ILandRegistryApp.DisputeAction action,
+        bytes32 recordHash,
+        bytes32 transactionId
+    ) private returns (bytes32 actionHash) {
+        actionHash = landRegistryApp.hashDisputeAction(action, DISPUTE_ID, recordHash, transactionId);
+        bytes32 stateHash = landRegistryApp.disputeStateHash(DISPUTE_ID);
+        vm.prank(clerk);
+        landRegistryApp.approveDisputeAction(DISPUTE_ID, actionHash, stateHash, uint64(block.timestamp + 1 days));
     }
 
     function _registerPerson(bytes32 personId, address wallet) private {

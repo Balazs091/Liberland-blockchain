@@ -139,6 +139,9 @@ interface ILandRegistry is IKernelModule {
     /// @notice Returns the active title identifier for a parcel, or zero when untitled.
     function activeTitleOfParcel(bytes32 parcelId) external view returns (bytes32 titleId);
 
+    /// @notice Returns active titles held by a company, including expired leaseholds until closed.
+    function activeCompanyTitleCount(bytes32 companyId) external view returns (uint256 count);
+
     /// @notice Returns the number of accepted unresolved disputes locking a parcel.
     function activeDisputeCountOf(bytes32 parcelId) external view returns (uint256 count);
 

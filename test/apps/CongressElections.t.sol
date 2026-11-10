@@ -19,6 +19,7 @@ import {MockModule} from "../../contracts/mocks/MockModule.sol";
 import {CandidateEligibilityPolicy} from "../../contracts/policies/CandidateEligibilityPolicy.sol";
 import {CitizenEligibilityPolicy} from "../../contracts/policies/CitizenEligibilityPolicy.sol";
 import {CongressElectionPolicy} from "../../contracts/policies/CongressElectionPolicy.sol";
+import {UnstakingPolicy} from "../../contracts/policies/UnstakingPolicy.sol";
 import {VotingPowerPolicy} from "../../contracts/policies/VotingPowerPolicy.sol";
 import {CongressCandidateRegistry} from "../../contracts/registries/CongressCandidateRegistry.sol";
 import {ElectorateRegistry} from "../../contracts/registries/ElectorateRegistry.sol";
@@ -397,7 +398,7 @@ abstract contract CongressElectionFixture is Test {
 
 /// @notice Covers Congress election scheduling, signed ballots, ranked outcomes, and runner-up replacement.
 contract CongressElectionsTest is CongressElectionFixture {
-    function test_PredeploymentApi_RecallReplacesAnIneligibleMemberAndUpdatesThePublicReadSurface() public {
+    function test_PredeploymentApi_RecallAfterCitizenshipLossUpdatesThePublicReadSurface() public {
         // A client can discover the exact current contracts before submitting the ordinary election workflow.
         assertEq(congressElectionApp.identityRegistry(), address(identityRegistry));
         assertEq(congressElectionApp.congressCandidateRegistry(), address(congressCandidateRegistry));
@@ -412,7 +413,7 @@ contract CongressElectionsTest is CongressElectionFixture {
         vm.expectRevert(abi.encodeWithSelector(ICongressElectionApp.MemberStillEligible.selector, WALLET_ONE));
         congressElectionApp.recallMember(WALLET_ONE);
         IdentityTypes.IdentityRecordInput memory changed = _defaultIdentityInput();
-        changed.citizenshipStatus = IdentityTypes.CitizenshipStatus.Suspended;
+        changed.citizenshipStatus = IdentityTypes.CitizenshipStatus.Revoked;
         _setIdentityRecord(PERSON_ONE_ID, changed);
         vm.prank(address(0xBEEF));
         (uint32 seatIndex, address replacement) = congressElectionApp.recallMember(WALLET_ONE);
@@ -424,6 +425,49 @@ contract CongressElectionsTest is CongressElectionFixture {
         _assertSeatHolder(0, cycleId, WALLET_TWO, 3, true);
         vm.expectRevert(abi.encodeWithSelector(ICongressElectionApp.NotActiveCongressMember.selector, WALLET_ONE));
         congressElectionApp.recallMember(WALLET_ONE);
+    }
+
+    function test_Recall_DoesNotVacateSeatAfterStakeFallsBelowMinimum() public {
+        uint256 cycleId = _finalizeDefaultCongressTerm();
+        uint256 stake = stakeRegistry.activeStakeOf(PERSON_ONE_ID);
+        vm.prank(address(stakeAuthority));
+        stakeRegistry.slashStake(PERSON_ONE_ID, stake);
+        assertFalse(stakeRegistry.isInWelfare(PERSON_ONE_ID));
+        assertFalse(congressElectionPolicy.isEligibleCandidate(WALLET_ONE));
+
+        _assertRecallKeepsSeat(cycleId);
+    }
+
+    function test_Recall_DoesNotVacateSeatDuringUnstakingWelfare() public {
+        uint256 cycleId = _finalizeDefaultCongressTerm();
+        UnstakingPolicy unstakingPolicy = new UnstakingPolicy(address(stakeRegistry), 30 days, 10_000);
+        kernel.bootstrapSetModule(KernelModuleIds.UNSTAKING_POLICY, address(unstakingPolicy));
+        vm.prank(address(stakeAuthority));
+        stakeRegistry.unstake(PERSON_ONE_ID);
+        assertGt(stakeRegistry.activeStakeOf(PERSON_ONE_ID), MINIMUM_CANDIDATE_STAKE);
+        assertTrue(stakeRegistry.isInWelfare(PERSON_ONE_ID));
+        assertFalse(congressElectionPolicy.isEligibleCandidate(WALLET_ONE));
+
+        _assertRecallKeepsSeat(cycleId);
+    }
+
+    function test_Recall_DoesNotVacateSeatDuringCitizenshipSuspension() public {
+        uint256 cycleId = _finalizeDefaultCongressTerm();
+        IdentityTypes.IdentityRecordInput memory changed = _defaultIdentityInput();
+        changed.citizenshipStatus = IdentityTypes.CitizenshipStatus.Suspended;
+        _setIdentityRecord(PERSON_ONE_ID, changed);
+        assertFalse(congressElectionPolicy.isEligibleCandidate(WALLET_ONE));
+
+        _assertRecallKeepsSeat(cycleId);
+    }
+
+    function _assertRecallKeepsSeat(uint256 cycleId) private {
+        vm.expectRevert(abi.encodeWithSelector(ICongressElectionApp.MemberStillEligible.selector, WALLET_ONE));
+        vm.prank(address(0xBEEF));
+        congressElectionApp.recallMember(WALLET_ONE);
+        assertTrue(congressElectionApp.isCongressMember(WALLET_ONE));
+        assertFalse(congressElectionApp.isCongressMember(WALLET_TWO));
+        _assertSeatHolder(0, cycleId, WALLET_ONE, 1, false);
     }
 
     function testFuzz_Constructor_RejectsOverflowingScheduleDuration(uint8 field, uint64 duration) public {

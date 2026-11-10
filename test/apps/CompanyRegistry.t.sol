@@ -7,11 +7,17 @@ import {CompanyRegistryApp} from "../../contracts/apps/CompanyRegistryApp.sol";
 import {ConstitutionKernel} from "../../contracts/core/ConstitutionKernel.sol";
 import {ICompanyRegistry} from "../../contracts/interfaces/ICompanyRegistry.sol";
 import {ICompanyRegistryApp} from "../../contracts/interfaces/ICompanyRegistryApp.sol";
+import {ILandPartyPolicy} from "../../contracts/interfaces/ILandPartyPolicy.sol";
+import {ILandRegistry} from "../../contracts/interfaces/ILandRegistry.sol";
 import {KernelModuleIds} from "../../contracts/libraries/KernelModuleIds.sol";
+import {LandPartyPolicy} from "../../contracts/policies/LandPartyPolicy.sol";
 import {OfficePermissionPolicy} from "../../contracts/policies/OfficePermissionPolicy.sol";
 import {CompanyRegistry} from "../../contracts/registries/CompanyRegistry.sol";
+import {IdentityRegistry} from "../../contracts/registries/IdentityRegistry.sol";
+import {LandRegistry} from "../../contracts/registries/LandRegistry.sol";
 import {OfficeRegistry} from "../../contracts/registries/OfficeRegistry.sol";
 import {CompanyTypes} from "../../contracts/types/CompanyTypes.sol";
+import {LandTypes} from "../../contracts/types/LandTypes.sol";
 import {OfficeTypes} from "../../contracts/types/OfficeTypes.sol";
 
 /// @title CompanyRegistryTest
@@ -25,6 +31,8 @@ contract CompanyRegistryTest is Test {
     bytes32 internal constant SHARE_CLASS_A = keccak256("share-class.a");
     bytes32 internal constant SHARE_CLASS_B = keccak256("share-class.b");
     bytes32 internal constant FILING_ID = keccak256("filing.one");
+    bytes32 internal constant PARCEL_ID = keccak256("company.parcel");
+    bytes32 internal constant TITLE_ID = keccak256("company.title");
 
     address internal constant COMPANY_ADMIN = address(0xC001);
     address internal constant COMPANY_CLERK = address(0xC002);
@@ -38,12 +46,15 @@ contract CompanyRegistryTest is Test {
     OfficePermissionPolicy internal officePermissionPolicy;
     CompanyRegistry internal companyRegistry;
     CompanyRegistryApp internal companyRegistryApp;
+    // This fixture writes directly to the land ledger. Expose the same binding as LandRegistryApp.
+    LandRegistry public landRegistry;
 
     function setUp() public {
         kernel = new ConstitutionKernel(address(this));
         officeRegistry = new OfficeRegistry(address(kernel));
         officePermissionPolicy = new OfficePermissionPolicy();
         companyRegistry = new CompanyRegistry(address(kernel));
+        landRegistry = new LandRegistry(address(kernel));
         companyRegistryApp = new CompanyRegistryApp(
             address(companyRegistry),
             address(officeRegistry),
@@ -56,6 +67,9 @@ contract CompanyRegistryTest is Test {
         kernel.bootstrapSetModule(KernelModuleIds.COMPANY_REGISTRY, address(companyRegistry));
         kernel.bootstrapSetModule(KernelModuleIds.COMPANY_REGISTRY_APP, address(companyRegistryApp));
         kernel.bootstrapSetModule(KernelModuleIds.COMPANY_REGISTRY_AUTHORITY, address(companyRegistryApp));
+        kernel.bootstrapSetModule(KernelModuleIds.LAND_REGISTRY, address(landRegistry));
+        kernel.bootstrapSetModule(KernelModuleIds.LAND_REGISTRY_AUTHORITY, address(this));
+        kernel.bootstrapSetModule(KernelModuleIds.ACTION_TIMELOCK, address(this));
 
         officeRegistry.registerOffice(
             COMPANY_REGISTRY_OFFICE_ID,
@@ -256,6 +270,203 @@ contract CompanyRegistryTest is Test {
         );
         companyRegistryApp.burnShares(COMPANY_TWO_ID, SHARE_CLASS_B, FOUNDER, 1, keccak256("suspended.burn"));
         vm.stopPrank();
+    }
+
+    function test_CompanyWithLandCanReplaceDirectorAndWindDownAfterTransfer() public {
+        _approveLandCompany();
+        _setDirector(DIRECTOR, true);
+        _setDirector(INVESTOR, true);
+        _activateParcel();
+        _registerTitle(_companyParty(), 0);
+        assertEq(landRegistry.activeCompanyTitleCount(COMPANY_ID), 1);
+
+        _setDirector(DIRECTOR, false);
+        vm.expectRevert(abi.encodeWithSelector(ICompanyRegistry.CompanyHasActiveLandTitles.selector, COMPANY_ID));
+        _setDirector(INVESTOR, false);
+        assertTrue(companyRegistry.getDirector(COMPANY_ID, INVESTOR).active);
+
+        _setCompanyStatus(CompanyTypes.CompanyStatus.Dissolving);
+        vm.expectRevert(abi.encodeWithSelector(ICompanyRegistry.CompanyHasActiveLandTitles.selector, COMPANY_ID));
+        _setCompanyStatus(CompanyTypes.CompanyStatus.Dissolved);
+
+        _transferTitle(_personParty());
+        assertEq(landRegistry.activeCompanyTitleCount(COMPANY_ID), 0);
+        _setCompanyStatus(CompanyTypes.CompanyStatus.Dissolved);
+
+        bytes32 titleVersion = landRegistry.getTitle(TITLE_ID).versionHash;
+        vm.expectRevert(abi.encodeWithSelector(ILandRegistry.InvalidParty.selector, _companyParty()));
+        _transferTitle(_companyParty(), titleVersion);
+    }
+
+    function test_LandRegistryCutoverPausesCompanyLifecycleAndObsoleteLandWrites() public {
+        _approveLandCompany();
+        _setDirector(DIRECTOR, true);
+        _activateParcel();
+        _registerTitle(_companyParty(), 0);
+        bytes32 titleVersion = landRegistry.getTitle(TITLE_ID).versionHash;
+
+        LandRegistry successor = new LandRegistry(address(kernel));
+        kernel.governanceUpdateModule(KernelModuleIds.LAND_REGISTRY, address(successor));
+        bytes memory mismatch = abi.encodeWithSelector(
+            ICompanyRegistry.LandRegistryWriterMismatch.selector, address(successor), address(this)
+        );
+        vm.expectRevert(mismatch);
+        _setDirector(DIRECTOR, false);
+        vm.expectRevert(mismatch);
+        _setCompanyStatus(CompanyTypes.CompanyStatus.Dissolved);
+        vm.expectRevert(abi.encodeWithSelector(ILandRegistry.UnauthorizedLandRegistryCaller.selector, address(this)));
+        _transferTitle(_personParty(), titleVersion);
+
+        kernel.governanceUpdateModule(KernelModuleIds.LAND_REGISTRY, address(landRegistry));
+        assertTrue(companyRegistry.getDirector(COMPANY_ID, DIRECTOR).active);
+        assertEq(landRegistry.activeCompanyTitleCount(COMPANY_ID), 1);
+        vm.expectRevert(abi.encodeWithSelector(ICompanyRegistry.CompanyHasActiveLandTitles.selector, COMPANY_ID));
+        _setCompanyStatus(CompanyTypes.CompanyStatus.Dissolved);
+        _transferTitle(_personParty(), titleVersion);
+        _setCompanyStatus(CompanyTypes.CompanyStatus.Dissolved);
+    }
+
+    function test_DirectLandAuthorityCannotAssignTitleToCompanyWithoutDirector() public {
+        _approveLandCompany();
+        _activateParcel();
+
+        LandTypes.TitleInput memory unrepresentedTitle = _titleInput(_companyParty(), 0);
+        vm.expectRevert(abi.encodeWithSelector(ILandRegistry.InvalidParty.selector, _companyParty()));
+        landRegistry.registerTitle(TITLE_ID, unrepresentedTitle, keccak256("title.invalid"));
+        _registerTitle(_personParty(), 0);
+
+        bytes32 titleVersion = landRegistry.getTitle(TITLE_ID).versionHash;
+        vm.expectRevert(abi.encodeWithSelector(ILandRegistry.InvalidParty.selector, _companyParty()));
+        _transferTitle(_companyParty(), titleVersion);
+        assertEq(landRegistry.activeCompanyTitleCount(COMPANY_ID), 0);
+
+        _setDirector(DIRECTOR, true);
+        _transferTitle(_companyParty());
+        _transferTitle(_companyParty());
+        assertEq(landRegistry.activeCompanyTitleCount(COMPANY_ID), 1);
+
+        _transferTitle(_personParty());
+        _setDirector(DIRECTOR, false);
+        assertEq(companyRegistry.getCompany(COMPANY_ID).activeDirectorCount, 0);
+    }
+
+    function test_ExpiredLeaseCountsUntilClosed() public {
+        _approveLandCompany();
+        _setDirector(DIRECTOR, true);
+        _activateParcel();
+        uint64 expiresAt = uint64(block.timestamp + 1 days);
+        _registerTitle(_companyParty(), expiresAt);
+
+        vm.warp(expiresAt);
+        assertEq(landRegistry.activeCompanyTitleCount(COMPANY_ID), 1);
+        vm.expectRevert(abi.encodeWithSelector(ICompanyRegistry.CompanyHasActiveLandTitles.selector, COMPANY_ID));
+        _setCompanyStatus(CompanyTypes.CompanyStatus.Dissolved);
+
+        LandTypes.TitleRecord memory title = landRegistry.getTitle(TITLE_ID);
+        landRegistry.closeTitle(PARCEL_ID, TITLE_ID, title.versionHash, _anchor(title.versionHash), keccak256("close"));
+        assertEq(landRegistry.activeCompanyTitleCount(COMPANY_ID), 0);
+        _setCompanyStatus(CompanyTypes.CompanyStatus.Dissolved);
+    }
+
+    function test_ObsoleteCompanyRegistryRejectsWritesAndCannotAuthorizeLandSigners() public {
+        _approveLandCompany();
+        _setDirector(DIRECTOR, true);
+        IdentityRegistry identityRegistry = new IdentityRegistry(address(kernel));
+        LandPartyPolicy policy =
+            new LandPartyPolicy(address(identityRegistry), address(companyRegistry), address(officeRegistry));
+        LandTypes.PartyRef memory company = _companyParty();
+        assertTrue(policy.isAuthorizedSigner(company, DIRECTOR));
+
+        CompanyRegistry successor = new CompanyRegistry(address(kernel));
+        kernel.governanceUpdateModule(KernelModuleIds.COMPANY_REGISTRY, address(successor));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ICompanyRegistry.UnauthorizedCompanyRegistryCaller.selector, address(companyRegistryApp)
+            )
+        );
+        _setDirector(DIRECTOR, false);
+        assertTrue(companyRegistry.getDirector(COMPANY_ID, DIRECTOR).active);
+        vm.expectRevert(
+            abi.encodeWithSelector(ILandPartyPolicy.InvalidCompanyRegistry.selector, address(companyRegistry))
+        );
+        policy.isAuthorizedSigner(company, DIRECTOR);
+    }
+
+    function _approveLandCompany() private {
+        vm.prank(FOUNDER);
+        companyRegistryApp.submitIncorporation(COMPANY_ID, _companyInput("company.land", bytes32(0)));
+        vm.prank(COMPANY_ADMIN);
+        companyRegistryApp.approveCompany(COMPANY_ID, REGISTRATION_NUMBER_HASH);
+    }
+
+    function _setDirector(address director, bool active) private {
+        vm.prank(COMPANY_ADMIN);
+        companyRegistryApp.setDirector(COMPANY_ID, director, keccak256("director"), active);
+    }
+
+    function _setCompanyStatus(CompanyTypes.CompanyStatus status) private {
+        vm.prank(COMPANY_ADMIN);
+        companyRegistryApp.setCompanyStatus(COMPANY_ID, status, keccak256("status.reason"));
+    }
+
+    function _activateParcel() private {
+        LandTypes.ParcelInput memory input = LandTypes.ParcelInput({
+            parcelNumberHash: keccak256("parcel.number"),
+            districtHash: keccak256("parcel.district"),
+            anchor: _anchor(keccak256("parcel.origin")),
+            spatialDataHash: keccak256("parcel.geometry"),
+            coordinateReferenceSystemHash: keccak256("EPSG:4258"),
+            spatialType: LandTypes.SpatialType.Polygon,
+            areaSquareMeters: 1_000
+        });
+        landRegistry.createParcelDraft(PARCEL_ID, input, keccak256("draft"));
+        LandTypes.ParcelRecord memory parcel = landRegistry.getParcel(PARCEL_ID);
+        landRegistry.activateParcel(PARCEL_ID, parcel.revision, _anchor(parcel.versionHash), keccak256("activate"));
+    }
+
+    function _registerTitle(LandTypes.PartyRef memory holder, uint64 leaseExpiresAt) private {
+        landRegistry.registerTitle(TITLE_ID, _titleInput(holder, leaseExpiresAt), keccak256("title.register"));
+    }
+
+    function _titleInput(LandTypes.PartyRef memory holder, uint64 leaseExpiresAt)
+        private
+        view
+        returns (LandTypes.TitleInput memory input)
+    {
+        bytes32 parcelVersion = landRegistry.getParcel(PARCEL_ID).versionHash;
+        input = LandTypes.TitleInput({
+            parcelId: PARCEL_ID,
+            holder: holder,
+            anchor: _anchor(parcelVersion),
+            tenureType: leaseExpiresAt == 0 ? LandTypes.TenureType.Freehold : LandTypes.TenureType.Leasehold,
+            leaseExpiresAt: leaseExpiresAt
+        });
+    }
+
+    function _transferTitle(LandTypes.PartyRef memory holder) private {
+        _transferTitle(holder, landRegistry.getTitle(TITLE_ID).versionHash);
+    }
+
+    function _transferTitle(LandTypes.PartyRef memory holder, bytes32 titleVersion) private {
+        landRegistry.transferTitle(TITLE_ID, titleVersion, holder, _anchor(titleVersion), keccak256("title.transfer"));
+    }
+
+    function _companyParty() private pure returns (LandTypes.PartyRef memory) {
+        return LandTypes.PartyRef({namespace: LandTypes.COMPANY_NAMESPACE, id: COMPANY_ID});
+    }
+
+    function _personParty() private pure returns (LandTypes.PartyRef memory) {
+        return LandTypes.PartyRef({namespace: keccak256("party.person"), id: keccak256("person.new.holder")});
+    }
+
+    function _anchor(bytes32 lineageHash) private pure returns (LandTypes.RecordAnchor memory) {
+        return LandTypes.RecordAnchor({
+            schemaId: keccak256("schema"),
+            contentHash: keccak256("content"),
+            sourceDocumentHash: keccak256("document"),
+            lineageHash: lineageHash,
+            schemaVersion: 1
+        });
     }
 
     function _companyInput(string memory salt, bytes32 registrationNumberHash)

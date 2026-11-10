@@ -3,6 +3,8 @@ pragma solidity 0.8.38;
 
 import {KernelModule} from "../base/KernelModule.sol";
 import {ICompanyRegistry} from "../interfaces/ICompanyRegistry.sol";
+import {ILandRegistry} from "../interfaces/ILandRegistry.sol";
+import {ILandRegistryApp} from "../interfaces/ILandRegistryApp.sol";
 import {CompanyTypes} from "../types/CompanyTypes.sol";
 import {KernelModuleIds} from "../libraries/KernelModuleIds.sol";
 
@@ -26,6 +28,16 @@ contract CompanyRegistry is ICompanyRegistry, KernelModule {
     /// @inheritdoc ICompanyRegistry
     function getCompany(bytes32 companyId) external view returns (CompanyTypes.CompanyRecord memory record) {
         return _companies[companyId];
+    }
+
+    /// @inheritdoc ICompanyRegistry
+    function getCompanyRepresentation(bytes32 companyId)
+        external
+        view
+        returns (CompanyTypes.CompanyStatus status, uint32 activeDirectorCount)
+    {
+        CompanyTypes.CompanyRecord storage companyRecord = _companies[companyId];
+        return (companyRecord.status, companyRecord.activeDirectorCount);
     }
 
     /// @inheritdoc ICompanyRegistry
@@ -181,6 +193,9 @@ contract CompanyRegistry is ICompanyRegistry, KernelModule {
         if (status == CompanyTypes.CompanyStatus.Active && companyRecord.registrationNumberHash == bytes32(0)) {
             revert InvalidRegistrationNumber(companyRecord.registrationNumberHash);
         }
+        if (status == CompanyTypes.CompanyStatus.Dissolved) {
+            _requireNoActiveLandTitles(companyId);
+        }
 
         companyRecord.status = status;
         companyRecord.updatedAt = uint64(block.timestamp);
@@ -225,6 +240,9 @@ contract CompanyRegistry is ICompanyRegistry, KernelModule {
         } else {
             if (directorRecord.director == address(0) || !directorRecord.active) {
                 revert InvalidDirector(director);
+            }
+            if (companyRecord.activeDirectorCount == 1) {
+                _requireNoActiveLandTitles(companyId);
             }
             directorRecord.active = false;
             directorRecord.removedAt = currentTimestamp;
@@ -500,8 +518,22 @@ contract CompanyRegistry is ICompanyRegistry, KernelModule {
         }
     }
 
+    function _requireNoActiveLandTitles(bytes32 companyId) private view {
+        ILandRegistry landRegistry = ILandRegistry(_kernel.getModule(KernelModuleIds.LAND_REGISTRY));
+        address landWriter = _kernel.getModule(KernelModuleIds.LAND_REGISTRY_AUTHORITY);
+        if (ILandRegistryApp(landWriter).landRegistry() != address(landRegistry)) {
+            revert LandRegistryWriterMismatch(address(landRegistry), landWriter);
+        }
+        if (landRegistry.activeCompanyTitleCount(companyId) != 0) {
+            revert CompanyHasActiveLandTitles(companyId);
+        }
+    }
+
     function _requireRegistryAuthority(address caller) private view {
-        if (caller != _kernel.getModule(KernelModuleIds.COMPANY_REGISTRY_AUTHORITY)) {
+        if (
+            caller != _kernel.getModule(KernelModuleIds.COMPANY_REGISTRY_AUTHORITY)
+                || address(this) != _kernel.getModule(KernelModuleIds.COMPANY_REGISTRY)
+        ) {
             revert UnauthorizedCompanyRegistryCaller(caller);
         }
     }

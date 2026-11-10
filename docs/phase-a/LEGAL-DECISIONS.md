@@ -130,6 +130,8 @@ A recommendation to define a table, identify a body or obtain a full text does n
 
 **Accepted:** Preserve dual-consent sales; separate adjudication from recording; finite exact remedies with version checks; independent dispute locks; service/appeal/stay controls. Filing alone cannot gain an assumed automatic lock or title-transfer power.
 
+**Interim safeguard implemented:** A verified Land Office clerk must approve each exact dispute action before a distinct verified registrar can finalize it. The current process records outcomes and applies or lifts case locks. A separate land law is still needed for adjudication and remedies.
+
 **Still needed:** Adopted land regulation, named bodies/jurisdiction, appointment rules, exact title/boundary/encumbrance remedies, consent exceptions, filing screening, lock creation/release/stay/relief rules and example judgments. Specify any proposed seven-day lock's lawful trigger and abuse controls.
 
 **Dependent completion:** Land case app, adjudication bodies and authoritative registry writer/remedy interfaces.

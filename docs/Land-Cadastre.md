@@ -25,23 +25,22 @@ Titles contain `PartyRef(namespace, id)`, never a wallet address. The initial po
 | `keccak256("party.company")` | `companyId` | `Active`/`ComplianceWarning` with director | any current active director |
 | `keccak256("party.office")` | `officeId` | active office with current administrator | current office administrator |
 
-A director or office administrator may be an EIP-1271 contract wallet such as a Safe. A person wallet migration
-changes authorization without rewriting the title. Unknown namespaces fail closed today. A future reviewed
+A director or office administrator may be an EIP-1271 contract wallet such as a Safe. A person's wallet migration
+changes authorization for their personal title without rewriting it. The Company Registry Office records changes to
+a director's registered wallet separately. Unknown namespaces fail closed today. A future reviewed
 `LandPartyPolicy` can recognize ownership groups, trusts, foreign entities, or another legal-party registry without
 changing existing title storage.
 
 Acquisition eligibility is intentionally stricter than disposition authority. A person/company/office must have a
 current signer to acquire, and a company must have at least one active director. An existing holder's authorized
-signer remains recognized if the party later becomes ineligible to acquire, so it can dispose of property. Do not
-remove a company's final director or finalize dissolution while it still holds land; a terminal signer-less company
-would require a separately reviewed receiver/successor policy before it could transfer.
+signer remains recognized if the party later becomes ineligible to acquire, so it can dispose of property.
 
-In particular, company suspension, dissolution-in-progress or terminal dissolution does not by itself revoke an
-already-active director's seller-signing permission. It does prevent the company from acquiring new land under the
-current policy. A transfer still requires that director's signature, an eligible buyer's signature and registrar
-finalization; status alone does not transfer title. This disposition rule is a legal-policy boundary, not a claim
-that every post-dissolution sale is lawful. Before production, approve the rules for director removal, liquidation
-and court-appointed receivers rather than adding a blanket status lock that could strand property.
+The Company Registry rejects removal of the last active director and final dissolution while a company holds an
+active title. The Land Registry tracks that count through registration, transfer, expiry closure, splits, and merges.
+An expired lease remains counted until the registrar closes it. During suspension or dissolution in progress, a
+current director may still sign a disposition with an eligible buyer. While the company is operating, the Company
+Registry Office can record a replacement director before removing the last one. Historical cases with no authorized
+signer still need an approved succession process before import.
 
 Company identity facts are office-mediated: a public incorporation submission is only pending; it grants no
 director or land-acquisition authority. Pending submissions cannot accumulate directors, share classes, shares or
@@ -72,22 +71,26 @@ For an imported/genesis record, `lineageHash` should commit to the source-system
 
 ## Office workflow
 
-- A Land Registry clerk may submit and update parcel drafts.
+- A Land Registry clerk may submit and update parcel drafts and approve exact dispute actions.
 - The Land Registry administrator acts as registrar and may activate/revise/retire parcels, register titles, close
-  expired leaseholds,
-  finalize transfers, perform structural parcel operations, register/release encumbrances, and accept/resolve
-  disputes.
+  expired leaseholds, finalize transfers, perform structural parcel operations and register/release encumbrances.
 - A party may file a dispute only through a signer currently authorized for that stable party.
-- A filed dispute becomes a transfer/structure lock only after the registrar accepts it. An active encumbrance also
-  locks transfer and structural operations. Release/resolution is explicit and anchored.
+- Acceptance, dismissal and resolution each require a Land Office clerk's approval and the registrar's
+  finalization. Both must be current, verified identity holders using their active wallets, with distinct person IDs.
+- A filed dispute becomes a transfer and structural lock only on acceptance. Resolution releases only that dispute's
+  lock and records the outcome. A lock persists until resolution. Active encumbrances have their own release path.
 
 The current app cannot close a live freehold/provisional/customary/communal title and recreate it for another party;
 that would bypass dual consent. A future court-order, surrender, or compensation workflow must be implemented and
 audited explicitly. An encumbrance's `validUntil` is evidence metadata and does not release the lock automatically;
 the registrar must record its release.
 
-Office inactivity and appointment expiry are enforced through the live office policy. Clerk authority is limited to
-preparation; it cannot create a live parcel or change ownership.
+The clerk approves a commitment to the action, case, evidence or ruling hash, and transaction ID. Use an
+unpredictable transaction ID and keep the underlying documents in the case file. The app also binds approval to
+the current dispute, parcel and title state. Record a fresh approval if that state changes, the clerk's mandate or
+wallet changes, a relevant module changes, or the approval is withdrawn or expires. After a module change, wait
+until a later block to approve. An approval expires at the chosen deadline, at most 14 days after it was recorded.
+Office appointment procedures must ensure that the two wallets have independent controllers.
 
 ## Title transfers
 
@@ -171,7 +174,13 @@ copy records.
 
 Fresh deployments wire `LandRegistry`, `LandPartyPolicy` and `LandRegistryApp` together. A compatible app-only
 replacement can keep stable registry facts, but app-domain signatures, pending transfer nonces and every authority
-pointer still need review. A registry-model change requires a separately built and reconciled record migration plus
-replacement of all immutable dependents; the current timelock has no generic import/copy action. Activate approved
-pointers with a reviewed action batch and assess individually executable members' intermediate states. See
+pointer still need review. The company title count and final-director safeguard require the new versions of both
+stable registries. An existing deployment needs reconciled title counts and a reviewed record migration before it
+can adopt those safeguards. Both registries reject writes after their canonical address changes. Removing the last
+director or finalizing dissolution also requires the current Land Registry writer to point to the canonical land
+ledger. This keeps an incomplete cutover from treating an empty replacement as evidence of zero titles.
+
+Replacing the Company Registry also requires a LandPartyPolicy built against the new registry. Reconcile records,
+then activate the affected registries, policy, apps and writers together through a reviewed atomic module upgrade
+plan. A matching set of addresses does not prove that the records were migrated. See
 [Upgrade and Liveness](Upgrade-And-Liveness.md); a pointer vote alone cannot migrate a cadastre.

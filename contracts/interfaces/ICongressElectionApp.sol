@@ -127,8 +127,8 @@ interface ICongressElectionApp {
     /// @return replacementCandidate The promoted runner-up, or zero if none remains.
     function resignSeat() external returns (uint32 seatIndex, address replacementCandidate);
 
-    /// @notice Removes a sitting member who has lost candidacy eligibility and fills the seat from a runner-up.
-    /// @dev Permissionless; reverts if the member is still an eligible candidate.
+    /// @notice Removes a sitting member who has lost citizenship and fills the seat from a runner-up.
+    /// @dev Permissionless. Stake, unstaking welfare and suspension do not vacate the seat.
     /// @param member The sitting Congress member to recall.
     /// @return seatIndex The vacated seat index.
     /// @return replacementCandidate The promoted runner-up, or zero if none remains.
